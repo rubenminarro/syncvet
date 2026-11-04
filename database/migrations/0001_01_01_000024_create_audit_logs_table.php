@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Auditoría (FASE 25): quién cambió qué, cuándo y desde dónde, con los
+ * Auditoría: quién cambió qué, cuándo y desde dónde, con los
  * valores antes y después. Registros inmutables que no se depuran.
  */
 return new class extends Migration
@@ -18,7 +18,7 @@ return new class extends Migration
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
             $table->string('event', 40);
-            // Tipo corto del registro auditado (p. ej. "part", "invoice", "part_supplier").
+            // Tipo corto del registro auditado (p. ej. "patient", "invoice", "patient_application").
             $table->string('auditable_type', 60)->nullable();
             $table->unsignedBigInteger('auditable_id')->nullable();
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();

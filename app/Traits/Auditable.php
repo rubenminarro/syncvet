@@ -27,7 +27,7 @@ trait Auditable
     }
 
     /**
-     * Tipo corto con el que se guarda y se filtra (p. ej. "part_supplier").
+     * Tipo corto con el que se guarda y se filtra (p. ej. "patient_application").
      */
     public function auditType(): string
     {

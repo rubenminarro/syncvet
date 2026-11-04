@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 /**
- * Registro de auditoría (FASE 25). Los modelos con el trait Auditable se
+ * Registro de auditoría. Los modelos con el trait Auditable se
  * registran solos (alta, modificación, baja, restauración); los eventos sin
  * modelo propio (login, sincronización de roles y permisos) se registran
  * explícitamente con record().

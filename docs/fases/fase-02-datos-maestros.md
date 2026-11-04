@@ -57,5 +57,5 @@ Sigue CLAUDE.md. Tests por cada regla y por rol. Corre la suite e infórmame. No
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/5-cierre.md`](../prompts/5-cierre.md)): archivos, endpoints, tests y aserciones,
+PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
 desvíos del diseño y por qué.

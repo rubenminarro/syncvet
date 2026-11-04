@@ -15,7 +15,7 @@ Fuente de verdad del estado por fase y entrega. Las fases conservan su numeraci�
 ## Antes de las fases: paquete base
 
 Esquema completo del MVP (27 migraciones), modelos, enums, excepciones, arquitectura base y el módulo de ejemplo de clientes y
-pacientes, sin tests todavía. Registro: [`decisions/registro.md`](../decisions/registro.md), sección 0.1.
+pacientes, sin tests todavía. Registro: [`decisions/registro.md`](../decisions/registro.md), sección R-001.
 
 ## Fases del MVP
 

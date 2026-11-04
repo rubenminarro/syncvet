@@ -21,7 +21,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
 * **Base de datos:** MySQL 8. Esquema del MVP completo (27 migraciones). Una base compartida por todas las clínicas, con
-  `clinic_id` en las tablas de negocio (D1, registro 0.2). Se aplica en la FASE 0: hasta entonces el esquema no tiene la columna.
+  `clinic_id` en las tablas de negocio (D1, registros R-002 y R-004). Se aplica en la FASE 0: hasta entonces el esquema no tiene la columna.
 * **Plan:** 11 fases (`docs/roadmap/README.md`); ninguna empezó.
 * **Módulos con API:** clientes, pacientes y especies (ejemplo de referencia de la arquitectura).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
@@ -64,13 +64,17 @@ empezar una sesión.
   `string(20)`, no columnas `ENUM` de MySQL. Comparar enums con enums.
 * Errores de negocio: excepción de dominio (`ClientException`, `PatientException`…) con `error_code` y `422` (o `409` en
   conflictos). Nunca `500` ni trazas.
-* Mensajes al usuario en español; código, clases, tablas, columnas y `error_code` en inglés.
+* Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
+  `error_code` en inglés. Los mensajes del paquete base todavía usan tú: pasan a voseo en la FASE 1.
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
-  strings (`App\Support\Decimal::round`), nunca `float`.
+  strings (`App\Support\Decimal::round`), nunca `float`. Los importes en guaraníes (PYG) se redondean a **0 decimales**
+  al calcular; la columna sigue en `decimal(14,2)` para admitir otra moneda.
 * Claves foráneas `restrictOnDelete()` salvo hijos que viven con el padre (`cascadeOnDelete()`).
-* Operaciones sobre varios registros en `DB::transaction`; concurrencia con `lockForUpdate`.
+* Operaciones sobre varios registros en `DB::transaction`; concurrencia con `lockForUpdate`. **Orden de bloqueo** (para no
+  generar *deadlocks*, siempre en este sentido): agenda → turno; consulta → ítem → `product_stocks` → `product_lots`;
+  timbrado → factura; factura → pago; caja → pago; documento → serie de códigos (la serie, siempre última).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -80,6 +84,11 @@ empezar una sesión.
 * **Clínica:** todo modelo de negocio usa `BelongsToClinic`. Nunca filtrar por `clinic_id` a mano ni saltear el scope sin un
   motivo registrado. Toda regla `unique` o `exists` filtra por la clínica actual. Jobs y comandos fijan la clínica con
   `CurrentClinic::run()`. Sin clínica en contexto, la consulta falla (fallo cerrado).
+* **Catálogos compartidos** (`species`, `breeds`): `clinic_id` nulo para los globales. Su scope muestra "globales + los de mi
+  clínica", también con fallo cerrado. Solo se crean y editan los de la propia clínica; los globales salen del seeder.
+* **Usuarios:** `User` no tiene el scope de clínica, porque el login y Sanctum lo buscan antes de conocerla. Toda consulta de
+  usuarios fuera del login filtra por `clinic_id` de forma explícita, y el *route binding* de un usuario de otra clínica
+  responde 404.
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`.
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
 * Usuario que crea, emite o anula: columnas `created_by`, `issued_by`, `cancelled_by` + `cancelled_at` y
@@ -183,4 +192,3 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 1 | Clientes y pacientes sin tests de PHPUnit |
 | 2 | Modelos generados desde el esquema: revisar relaciones y casts al usarlos |
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
-| 4 | Sin límite de intentos en el login |

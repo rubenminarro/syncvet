@@ -10,7 +10,7 @@ Ejecuta /retomar. Después, antes de empezar la FASE NN, analiza lo hecho hasta 
 3. Ejecuta /validar-docs y compara lo documentado con el código: rutas, permisos del seeder, migraciones, enums.
 4. Verifica que la fase anterior cumpla su criterio de cierre (está en su archivo de fase) y que su sección del registro de decisiones exista.
 
-En la FASE 00 todavía no hay proyecto Laravel ni tests: en lugar de los pasos 2 y 4, verifica que el paquete base esté completo (migraciones, app/, docs/, .claude/skills) y que el registro 0.1 exista.
+En la FASE 00 todavía no hay proyecto Laravel ni tests: en lugar de los pasos 2 y 4, verifica que el paquete base esté completo (migraciones, app/, docs/, .claude/skills) y que el registro R-001 exista.
 
 Entrégame un informe con: checkpoint validado, estado de la suite, discrepancias, deuda que afecta a la FASE NN, decisiones pendientes para la FASE NN y si se puede empezar. No propongas código todavía.
 ```

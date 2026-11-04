@@ -16,7 +16,6 @@ Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en 
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
 | `routes/api.php` | Rutas de clientes, pacientes y especies |
 | `database/seeders` | `RolesAndPermissionsSeeder` (119 permisos, 3 roles) y `SpeciesSeeder` |
-| `database/schema-mysql.sql` | SQL de MySQL que generan las migraciones (referencia) |
 
 ## Tablas por módulo
 

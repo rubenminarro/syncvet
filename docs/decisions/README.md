@@ -1,13 +1,14 @@
 # Decisiones
 
-Todas las decisiones están en [`registro.md`](registro.md), una sección numerada `N.M` por entrega o decisión (N = fase; 0 = antes
-de las fases). Cada sección dice qué se decidió, quién lo decidió y cuándo, y qué no cambió.
+Todas las decisiones están en [`registro.md`](registro.md), una sección numerada `R-NNN` por entrega o decisión, en orden
+correlativo y sin relación con la numeración de las entregas. Cada sección dice qué se decidió, quién lo decidió y cuándo, y qué no
+cambió.
 
 ## Decisiones tomadas
 
 | # | Decisión | Registro |
 |---|---|---|
-| D1 | Una base compartida con `clinic_id` | [0.2](registro.md) |
+| D1 | Una base compartida con `clinic_id` | [R-002](registro.md), ajustada en [R-004](registro.md) |
 
 ## Decisiones pendientes
 

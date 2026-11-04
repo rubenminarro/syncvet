@@ -99,7 +99,6 @@ class DocumentSequenceService
         $table = $series->table();
         $message = $e->getMessage();
 
-        // SQLite: "UNIQUE constraint failed: budgets.code"; MySQL: "... for key 'budgets_code_unique'".
         return str_contains($message, "{$table}.code") || str_contains($message, "{$table}_code_unique");
     }
 }

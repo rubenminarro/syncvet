@@ -1,5 +1,9 @@
 # SYNCVET — FASE 0: ANÁLISIS FUNCIONAL Y PLANIFICACIÓN
 
+> **Material histórico** ([registro R-004](../decisions/registro.md)). Es el prompt del trabajo de documentación previo al paquete
+> base, no el de la FASE 0 actual ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md)). Donde contradiga a
+> [`CLAUDE.md`](../../CLAUDE.md) o a la decisión D1, mandan estos.
+
 ## Contexto
 
 SyncVet es un nuevo software profesional de gestión integral para veterinarias, clínicas y hospitales veterinarios.

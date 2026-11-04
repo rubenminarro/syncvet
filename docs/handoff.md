@@ -12,10 +12,11 @@ Si este documento contradice al código, manda el código.
 | Dato | Valor |
 |---|---|
 | Actualizado | 2026-11-04 |
-| Backend | Paquete base, todavía sin repositorio Git |
+| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Paquete base en la rama `feature/fase-00-paquete-base`, todavía sin proyecto Laravel (lo crea la entrega 0.1) |
+| Último commit | `85f3cfe` Agrega el paquete base de SyncVet (Fase 0), en `origin/feature/fase-00-paquete-base`. `origin/main` está en `3eee538` |
 | Frontend | Sin empezar |
-| Última entrega de código | Paquete base: esquema del MVP, arquitectura y módulo de ejemplo (registro 0.1) |
-| Tests del backend | Ninguno todavía. Verificación fuera de PHPUnit en el registro 0.1 |
+| Última entrega de código | Paquete base: esquema del MVP, arquitectura y módulo de ejemplo (registro R-001) |
+| Tests del backend | Ninguno todavía. Verificación fuera de PHPUnit en el registro R-001 |
 | Último checkpoint validado | Ninguno: el primero lo deja la FASE 0 |
 
 El estado actual siempre se confirma con `git log origin/main` y `php artisan test`.
@@ -31,8 +32,9 @@ fases ([`roadmap/README.md`](roadmap/README.md)); ninguna empezó.
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | FASE 0: análisis, diseño y puesta en marcha ([`fases/fase-00-puesta-en-marcha.md`](fases/fase-00-puesta-en-marcha.md)), incluida la entrega 0.2 que aplica D1 | Ninguno: D1 decidida (registro 0.2) |
-| 2 | FASE 1: clientes y pacientes | FASE 0 cerrada |
+| 1 | FASE 0, entrega 0.1: proyecto Laravel 13 sobre el paquete base ([`fases/fase-00-puesta-en-marcha.md`](fases/fase-00-puesta-en-marcha.md)). Diseño aprobado (R-005) | Ninguno |
+| 2 | FASE 0, entregas 0.2 a 0.5 (D1, autenticación, `clinic:create`, acceso por rol y MySQL) | Cierre de la entrega anterior |
+| 3 | FASE 1: clientes y pacientes | FASE 0 cerrada |
 
 Ninguna entrega empieza sin autorización del usuario.
 
@@ -42,7 +44,8 @@ Ninguna entrega empieza sin autorización del usuario.
 |---|---|
 | Arquitectura | Controller → Form Request → Service → Model → Resource → ApiResponse (`CLAUDE.md` §4) |
 | Estados | `string(20)` en la base y Enum en PHP; nunca columnas `ENUM` de MySQL |
-| Dinero | `decimal(14,2)` con BCMath |
+| Dinero | `decimal(14,2)` con BCMath; importes en PYG redondeados a 0 decimales (R-004) |
 | Zona horaria | `America/Asuncion` en la base; la API envía UTC |
-| Separación por clínica | Una base compartida con `clinic_id`, scope global y fallo cerrado (D1, registro 0.2). Se aplica en la FASE 0 |
+| Separación por clínica | Una base compartida con `clinic_id`, scope global y fallo cerrado (D1, registros R-002 y R-004). Se aplica en la FASE 0 |
+| Autenticación | Login con email; tokens de 12 horas; 5 intentos por minuto por email e IP; clínicas creadas con `clinic:create` (R-004) |
 | Facturación | SIFEN (Paraguay), en las FASES 8 y 9 |

@@ -45,7 +45,7 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 |---|---|
 | No inventar | Ningún estado, fase, decisión, fecha ni resultado que no esté respaldado por el código, los tests o el usuario |
 | Sin certeza sobre un dato | Usar `PENDIENTE DE VERIFICACIÓN`, o preguntar |
-| Numeración | Mantener las fases. La sección nueva toma el número siguiente al último `N.M` de `docs/decisions/registro.md` (N = fase) |
+| Numeración | Mantener las fases. La sección nueva toma el número siguiente al último `R-NNN` de `docs/decisions/registro.md` (correlativo, no es el número de la entrega) |
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |
 | Historial | `docs/decisions/registro.md` solo crece: no se corrigen secciones viejas |

@@ -60,7 +60,7 @@ docs/
 | Al… | Actualizar |
 |---|---|
 | Terminar una entrega | [`handoff.md`](handoff.md) (punto de continuidad), [`modules/README.md`](modules/README.md), [`roadmap/README.md`](roadmap/README.md) y la sección Resultado de su fase |
-| Tomar una decisión | Una sección nueva `N.M` en [`decisions/registro.md`](decisions/registro.md) |
+| Tomar una decisión | Una sección nueva `R-NNN` en [`decisions/registro.md`](decisions/registro.md) |
 | Responder una pregunta de negocio | La tabla de preguntas de su fase, y el registro de decisiones |
 | Detectar una deuda o discrepancia | [`roadmap/deuda-tecnica.md`](roadmap/deuda-tecnica.md) y `CLAUDE.md`, sección 7 |
 | Cambiar la API | [`testing/guia-postman.md`](testing/guia-postman.md) |

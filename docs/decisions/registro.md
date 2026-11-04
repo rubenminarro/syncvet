@@ -1,8 +1,9 @@
 # Registro de decisiones
 
-Una sección por entrega o decisión, numerada `N.M` (N = fase). Solo crece: las secciones viejas no se corrigen.
+Una sección por entrega o decisión, numerada `R-NNN` en orden correlativo (R-001, R-002…). La numeración es propia del
+registro y no coincide con la de las entregas de cada fase (0.1, 0.2…). Solo crece: las secciones viejas no se corrigen.
 
-# 0.1 Paquete base: esquema del MVP y arquitectura (2026-11-04)
+# R-001 Paquete base: esquema del MVP y arquitectura (2026-11-04)
 
 Antes de la FASE 0. Esquema completo del MVP y arquitectura base, armados fuera del repositorio y verificados con el código de
 Laravel 13 (sin PHPUnit).
@@ -19,7 +20,7 @@ Laravel 13 (sin PHPUnit).
 | Verificación | Migraciones arriba y abajo en SQLite con claves foráneas; 221 sentencias MySQL sin nombres de más de 64 caracteres; prueba de los Services de clientes y pacientes; permisos de controllers y roles contra el seeder |
 | Pendiente | D1 a D7 ([`README.md`](README.md)); tests de PHPUnit (FASE 0 y 1) |
 
-# 0.2 D1: una base compartida con `clinic_id` (2026-11-04)
+# R-002 D1: una base compartida con `clinic_id` (2026-11-04)
 
 Decisión del usuario del 2026-11-04, sobre la recomendación del plan. Se implementa en la FASE 0, entrega 0.2
 ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md)).
@@ -38,7 +39,7 @@ Decisión del usuario del 2026-11-04, sobre la recomendación del plan. Se imple
 | Tests | `tests/Feature/Tenancy`: cada protección tiene un test que falla al quitarla (scope, creación, validación, rutas con un id de otra clínica → 404) |
 | Sin cambiar | Arquitectura, contrato de la API, permisos y reglas de negocio |
 
-# 0.3 Trabajo previo (Bloque 0.1) (2026-11-04)
+# R-003 Trabajo previo (Bloque 0.1) (2026-11-04)
 
 Registro de lo que quedó del trabajo de documentación anterior al paquete base: una "Fase 0" de solo documentación, por
 bloques del 0.1 al 0.6 y con aprobación explícita del usuario. Esa numeración no es la de la FASE 0 de
@@ -54,3 +55,49 @@ bloques del 0.1 al 0.6 y con aprobación explícita del usuario. Esa numeración
 | Criterio de evidencia | En ese trabajo se distinguía lo verificado, lo publicitado (web o anuncio), lo referido y lo inferido, sin presentar interpretaciones normativas como hechos |
 | Material que sí está en el repositorio | [`docs/prompts/prompt-fase0-syncvet.md`](../prompts/prompt-fase0-syncvet.md), [`docs/references/competitors.md`](../references/competitors.md) y tres anuncios en `docs/references/ads/` |
 | Pendiente | Reconstruir DP-0.1-04, DP-0.1-05 y el §7 desde otra copia (por ejemplo, la conversación de revisión con ChatGPT) y registrarlos en una sección nueva |
+
+# R-004 Respuestas de la FASE 0 y correcciones de la documentación (2026-11-04)
+
+Decisiones del usuario del 2026-11-04, después del análisis previo a la FASE 0. Las respuestas de negocio están también en la
+tabla de preguntas de [`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md).
+
+| Tema | Decisión |
+|---|---|
+| Login (P2) | Con email, único en todo el sistema |
+| Tokens (P3) | Vencen a las 12 horas (una jornada). El logout revoca el token actual |
+| Usuarios y clínicas (P4) | Un usuario pertenece a una sola clínica en el MVP. Sin *teams* de Spatie |
+| Alta de clínicas (P5) | La hace el administrador de la plataforma con `php artisan clinic:create`, que llama a `ClinicService::create` y crea el primer usuario administrador de la clínica. Sin registro público ni rol de plataforma en el MVP |
+| DP-0.1-04 y DP-0.1-05 (R-003) | No se pudieron recuperar. D1 (R-002) prevalece; si aparecen, se revisan en una sección nueva |
+| Límite de intentos en el login | Se adelanta a la entrega del `AuthController`: 5 intentos por minuto por email e IP. Cierra la deuda #4 |
+| Idioma de la interfaz | Mensajes al usuario en español con voseo, como pedía `prompt-fase0-syncvet.md`. Los mensajes existentes se pasan a voseo en la FASE 1 |
+| Guaraníes | Las columnas de dinero siguen en `decimal(14,2)` para admitir otra moneda, pero los importes en PYG se redondean a 0 decimales al calcular |
+| D1: filas por defecto | Cambia R-002 ("las filas por defecto salen de las migraciones"): la sucursal y el depósito por defecto se quitan de la migración 000005 y los crea `ClinicService::create` |
+| D1: catálogos `species` y `breeds` | Scope propio "globales + los de mi clínica" (`clinic_id` nulo o igual al actual), también con fallo cerrado. Solo se crean y editan los de la propia clínica |
+| Entrega 0.1 | El paquete base ya está en la raíz del repositorio. Laravel 13 se crea en una carpeta temporal y se trae solo lo que el paquete no tiene; ante un choque gana el archivo del paquete. De `install:api` y de Spatie se publica solo la configuración, no sus migraciones (ya existen 000003 y 000004) |
+| Material histórico | `docs/prompts/prompt-fase0-syncvet.md` queda como material histórico; donde contradiga a `CLAUDE.md` o a D1, mandan estos |
+| Registro | Las secciones pasan de `N.M` a `R-NNN` (0.1 → R-001, 0.2 → R-002, 0.3 → R-003) para no chocar con las entregas, que siguen siendo 0.1, 0.2… |
+| Prompts | `4-revision.md` → `5-revision.md` y `5-cierre.md` → `7-cierre.md`, para que coincidan con el número del paso |
+| Remoto | Repositorio `https://github.com/rubenminarro/syncvet`, con `main`, `docs/fase0-paso1` y `feature/fase-00-paquete-base` subidas |
+| Sin cambiar | Arquitectura, contrato de la API, permisos y reglas de negocio vigentes |
+
+# R-005 Aprobación del diseño de la FASE 0 (2026-11-04)
+
+Decisión del usuario del 2026-11-04. Aprueba el diseño de
+[`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md) y responde sus preguntas.
+
+| Tema | Decisión |
+|---|---|
+| Entregas | Se reagrupan de siete a cinco: 0.1 proyecto, Sanctum, Spatie y tests; 0.2 D1; 0.3 autenticación; 0.4 `clinic:create`; 0.5 acceso por rol y MySQL |
+| RUC de la clínica | Único en todo el sistema y con validación del dígito verificador (módulo 11) |
+| Límite de intentos | Solo cuentan los login fallidos; un login correcto limpia el contador |
+| Contraseña del primer administrador | `clinic:create` la pide oculta y con confirmación; sin interacción, la genera y la muestra una sola vez |
+| Microchip y matrícula del veterinario | Únicos por clínica: la misma mascota puede atenderse en dos clínicas, y un único global revelaría datos de otra clínica |
+| Usuarios inactivos | Se decide en la FASE 2 |
+| Sesiones | Varias por usuario: cada login crea su token. `sanctum:prune-expired` diario limpia los vencidos |
+| `DemoSeeder` | Solo en `local` y `testing`, idempotente y nunca en producción |
+| `database/schema-mysql.sql` | Se quita; la verificación en MySQL de la entrega 0.5 lo reemplaza |
+| Usuarios y clínica | `User` sin scope de clínica. Toda consulta de usuarios fuera del login filtra por `clinic_id` de forma explícita; el *route binding* de un usuario de otra clínica responde 404, con su test en la 0.2 (`CLAUDE.md` §3) |
+| `ClinicContextMissingException` | Responde el 500 genérico, y queda en el log con la ruta o el job que la causó |
+| Orden de bloqueo | agenda → turno; consulta → ítem → `product_stocks` → `product_lots`; timbrado → factura; factura → pago; caja → pago; documento → serie de códigos, siempre última (`CLAUDE.md` §3) |
+| Restos de otro proyecto | Se quitan la "FASE 25" de `AuditLogger` y de la migración de `audit_logs`, y los ejemplos "part" y "part_supplier" |
+| Sin cambiar | Contrato de la API, permisos y reglas de negocio vigentes |

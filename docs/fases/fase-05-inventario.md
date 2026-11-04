@@ -56,5 +56,5 @@ Sigue CLAUDE.md. Incluye un test que compare kardex contra saldo. Corre la suite
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/5-cierre.md`](../prompts/5-cierre.md)): archivos, endpoints, tests y aserciones,
+PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
 desvíos del diseño y por qué.
