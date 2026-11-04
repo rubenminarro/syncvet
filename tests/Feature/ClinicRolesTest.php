@@ -93,4 +93,39 @@ class ClinicRolesTest extends TestCase
 
         $this->assertNotEmpty($used, 'No se encontraron permisos en los Controllers.');
     }
+
+    /**
+     * Rutas de la API que no exigen un permiso de Spatie, con su motivo. Toda ruta
+     * nueva sin `permission:` hace fallar el test hasta que se agregue aquí.
+     *
+     * @var array<string, string> nombre de la ruta (o "MÉTODO uri" si no tiene) => motivo
+     */
+    private const ROUTES_WITHOUT_PERMISSION = [];
+
+    public function test_every_api_route_requires_a_permission(): void
+    {
+        $checked = 0;
+
+        foreach (app('router')->getRoutes() as $route) {
+            if (! str_starts_with($route->uri(), 'api/') && $route->uri() !== 'api') {
+                continue;
+            }
+
+            $key = $route->getName() ?? implode('|', $route->methods()).' '.$route->uri();
+
+            if (array_key_exists($key, self::ROUTES_WITHOUT_PERMISSION)) {
+                continue;
+            }
+
+            $permissions = array_filter(
+                $route->gatherMiddleware(),
+                fn ($middleware) => is_string($middleware) && str_starts_with($middleware, 'permission:'),
+            );
+
+            $this->assertNotEmpty($permissions, "La ruta {$key} ({$route->getActionName()}) no exige ningún permission:.");
+            $checked++;
+        }
+
+        $this->assertGreaterThan(0, $checked, 'No se encontraron rutas de la API.');
+    }
 }

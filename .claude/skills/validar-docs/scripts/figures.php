@@ -36,7 +36,8 @@ function classifyFigure(string $line, int $offset, int $length, bool $inFence = 
         return ['type' => 'historical'];
     }
 
-    if (preg_match('/\b(ejemplo|p\. ?ej\.?|supongamos)\b/iu', $clause)) {
+    // "por ejemplo" o "ejemplo:" marcan un ejemplo; "el módulo de ejemplo" es un nombre y no excluye la cifra.
+    if (preg_match('/\b(por ejemplo|ejemplo:|p\. ?ej\.?|supongamos)/iu', $clause)) {
         return ['type' => 'example'];
     }
 

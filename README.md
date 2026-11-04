@@ -37,12 +37,14 @@ Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en 
 Con el código de Laravel 13:
 
 * Las 27 migraciones suben y bajan en SQLite con claves foráneas activas.
-* Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64).
+* Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
+  `schema-mysql.sql` del paquete base, quitado en el registro R-005: la verificación en MySQL de la entrega 0.5 la reemplaza.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
 * Los 119 permisos de los Controllers y de los roles existen en el seeder.
 
-No se probaron los Form Requests ni las rutas HTTP: hay que correrlos con PHPUnit en el proyecto real.
+La suite de PHPUnit (`php artisan test`, desde la entrega 0.1) cubre los roles y permisos del seeder y de las rutas, y las
+respuestas de error en JSON. Los Form Requests y las rutas de clientes y pacientes todavía no tienen tests (deuda técnica #1).
 
 ## Instalación
 

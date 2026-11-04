@@ -16,6 +16,8 @@ use Symfony\Component\HttpKernel\Exception\UnsupportedMediaTypeHttpException;
 use Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -202,7 +204,45 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (Throwable $e, Request $request) 
+        // Una respuesta ya armada (abort(response(...))) se devuelve tal cual.
+        $exceptions->render(function (HttpResponseException $e, Request $request) {
+            return $e->getResponse();
+        });
+
+        // Resto de los errores HTTP (abort(403), una AuthorizationException, abort(409)…): conservan su
+        // código en lugar de caer en el 500 de abajo. Los tipos con renderer propio ya respondieron arriba.
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
+            if ($request->expectsJson()) {
+                $status = $e->getStatusCode();
+
+                [$message, $errorCode] = match ($status) {
+                    400 => ['Solicitud incorrecta.', 'BAD_REQUEST'],
+                    401 => ['No autenticado.', 'UNAUTHENTICATED'],
+                    403 => ['No tienes permisos para realizar esta acción.', 'FORBIDDEN'],
+                    404 => ['Recurso no encontrado.', 'RESOURCE_NOT_FOUND'],
+                    405 => ['Método HTTP no permitido.', 'METHOD_NOT_ALLOWED'],
+                    406 => ['Formato de respuesta no aceptable.', 'NOT_ACCEPTABLE'],
+                    409 => ['La solicitud entra en conflicto con el estado actual del recurso.', 'CONFLICT'],
+                    415 => ['Tipo de contenido no soportado.', 'UNSUPPORTED_MEDIA_TYPE'],
+                    429 => ['Demasiadas solicitudes.', 'TOO_MANY_REQUESTS'],
+                    503 => ['Servicio no disponible.', 'SERVICE_UNAVAILABLE'],
+                    default => $status >= 500
+                        ? ['Error interno del servidor.', 'INTERNAL_SERVER_ERROR']
+                        : ['No se pudo procesar la solicitud.', 'HTTP_ERROR'],
+                };
+
+                return response()->json([
+                    'success' => false,
+                    'status' => $status,
+                    'message' => $message,
+                    'data' => null,
+                    'errors' => null,
+                    'error_code' => $errorCode,
+                ], $status, $e->getHeaders());
+            }
+        });
+
+        $exceptions->render(function (Throwable $e, Request $request)
         {
             if ($request->expectsJson()) {
                 return response()->json([

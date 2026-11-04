@@ -26,7 +26,7 @@ function check(string $name, bool $condition, string $detail = ''): void
 
 function typeOf(string $line): array
 {
-    preg_match('/\b\d+ (tests|rutas|controllers|services)\b/u', $line, $match, PREG_OFFSET_CAPTURE);
+    preg_match('/\b\d+ (tests|rutas|controllers|services|migraciones|permisos)\b/u', $line, $match, PREG_OFFSET_CAPTURE);
 
     return classifyFigure($line, $match[0][1], strlen($match[0][0]));
 }
@@ -50,6 +50,8 @@ foreach ([
     ['delta', 'Se agregaron 3 tests nuevos.'],
     ['example', 'Por ejemplo, 45 services.'],
     ['example', 'Se escribe `45 services` en la tabla.'],
+    ['example', 'Ejemplo: 45 services.'],
+    ['current', 'Esquema completo (27 migraciones) y el módulo de ejemplo de clientes.'],
 ] as [$expected, $line]) {
     $actual = typeOf($line)['type'];
     check("$expected: $line", $actual === $expected, "obtuvo $actual");
@@ -158,6 +160,16 @@ remove($root);
 $root = fixture(['docs/project/a.md' => "| Frontend y backend | 45 services |\n"]);
 [$output] = run($root);
 check('una marca en otra celda no excluye la cifra', str_contains($output, 'a.md:1: dice 45 services'), $output);
+remove($root);
+
+echo "\nCaso 4: migraciones\n";
+$root = fixture(['README.md' => "| `database/migrations` | 3 migraciones |\n", 'CLAUDE.md' => "`Seeder` (2 migraciones) y `Login` (9 tests)\n"]);
+mkdir("$root/database/migrations", 0777, true);
+touch("$root/database/migrations/a.php");
+touch("$root/database/migrations/b.php");
+[$output, $code] = run($root, '--detalle');
+check('detecta 3 frente a 2', str_contains($output, 'README.md:1: dice 3 migraciones; el código tiene 2'), $output);
+check('compara una cifra que no es de tests junto a una clase', str_contains($output, 'Cifras comparadas: 3.') && ! str_contains($output, 'excluida'), $output);
 remove($root);
 
 printf("\n%d correctas, %d fallidas.\n", $passed, $failures);

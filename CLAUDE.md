@@ -137,6 +137,24 @@ Controller (HasMiddleware) → Form Request → Service → Model/Eloquent → A
 
 Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 
+`error_code` genéricos (`bootstrap/app.php`; los de negocio salen de cada excepción de dominio):
+
+| HTTP | `error_code` | Cuándo |
+|---|---|---|
+| 400 | `BAD_REQUEST` | Solicitud mal formada |
+| 401 | `UNAUTHENTICATED` | Sin token, o vencido o revocado |
+| 403 | `FORBIDDEN` | Falta el permiso de Spatie, o la autorización (`Gate`, `abort(403)`) la niega |
+| 404 | `RESOURCE_NOT_FOUND` | Ruta o modelo inexistente |
+| 405 | `METHOD_NOT_ALLOWED` | Método HTTP no admitido en la ruta |
+| 406 | `NOT_ACCEPTABLE` | Formato de respuesta no aceptable |
+| 409 | `CONFLICT` | `abort(409)` u otro conflicto HTTP sin excepción de dominio |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | Tipo de contenido no soportado |
+| 422 | `VALIDATION_ERROR` | Falla un Form Request (`errors` trae los campos) |
+| 429 | `TOO_MANY_REQUESTS` | Límite de pedidos (conserva `Retry-After`) |
+| 503 | `SERVICE_UNAVAILABLE` | Servicio no disponible |
+| Otro 4xx | `HTTP_ERROR` | Error HTTP sin código propio; conserva su estado |
+| 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
+
 ---
 
 ## 5. Roles

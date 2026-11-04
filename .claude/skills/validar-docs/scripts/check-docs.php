@@ -167,7 +167,25 @@ $actual = [
     'rutas' => is_array($routes) ? count($routes) : null,
     'controllers' => count(glob('app/Http/Controllers/Api/*.php')),
     'services' => count(glob('app/Services/*.php')),
+    'migraciones' => count(glob('database/migrations/*.php')),
+    'permisos' => permissionCount(),
 ];
+
+/**
+ * Permisos de RolesAndPermissionsSeeder::PERMISSIONS (solo se lee la constante: no arranca Laravel).
+ */
+function permissionCount(): ?int
+{
+    if (! is_file('vendor/autoload.php')) {
+        return null;
+    }
+
+    require_once 'vendor/autoload.php';
+
+    $class = 'Database\\Seeders\\RolesAndPermissionsSeeder';
+
+    return class_exists($class) && defined("$class::PERMISSIONS") ? count($class::PERMISSIONS) : null;
+}
 
 $compared = 0;
 $excluded = [];
@@ -181,7 +199,7 @@ foreach (live() as $file) {
             continue;
         }
 
-        preg_match_all('/\b(\d+) (tests|rutas|controllers|services)\b/u', $line, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        preg_match_all('/\b(\d+) (tests|rutas|controllers|services|migraciones|permisos)\b/u', $line, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
 
         foreach ($matches as $match) {
             [$text, $offset] = $match[0];
@@ -189,6 +207,11 @@ foreach (live() as $file) {
             $kind = $match[2][0];
             $where = $file . ':' . ($number + 1);
             $figure = classifyFigure($line, $offset, strlen($text), $inFence);
+
+            // "`RolesAndPermissionsSeeder` (119 permisos)": solo una cifra de tests se refiere a la clase citada.
+            if ($figure['type'] === 'class' && $kind !== 'tests') {
+                $figure = ['type' => 'current'];
+            }
 
             if ($figure['type'] === 'current') {
                 $compared++;
@@ -225,7 +248,11 @@ foreach (files('docs/modules', '/\.md$/') as $file) {
 
 // Resultado
 printf("Documentos: %d. Enlaces internos: %d. Alcanzables desde el índice: %d.\n", count($docs), $total, count($seen));
-printf("Código: %d tests, %s rutas, %d controllers, %d services.\n", $actual['tests'], $actual['rutas'] ?? 'sin dato de', $actual['controllers'], $actual['services']);
+printf(
+    "Código: %d tests, %s rutas, %d controllers, %d services, %d migraciones, %s permisos.\n",
+    $actual['tests'], $actual['rutas'] ?? 'sin dato de', $actual['controllers'], $actual['services'],
+    $actual['migraciones'], $actual['permisos'] ?? 'sin dato de',
+);
 printf("Cifras comparadas: %d. Excluidas por una marca explícita: %d.\n\n", $compared, count($excluded));
 
 if (in_array('--detalle', $argv, true)) {

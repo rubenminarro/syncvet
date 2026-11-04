@@ -23,7 +23,7 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- SQLite en archivo (lo crea tests/bootstrap.php): se migra y se siembra una vez por ejecución. -->
+        <!-- SQLite en archivo, relativo a la raíz (tests/bootstrap.php lo vuelve absoluto y lo crea): se migra y se siembra una vez por ejecución. -->
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value="database/testing.sqlite"/>
         <env name="DB_URL" value=""/>
