@@ -22,7 +22,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
 * **Base de datos:** MySQL 8. Esquema del MVP completo (27 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio (D1, registros R-002 y R-004). Se aplica en la FASE 0: hasta entonces el esquema no tiene la columna.
-* **Plan:** 11 fases (`docs/roadmap/README.md`); ninguna empezó.
+* **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está en desarrollo, con la entrega 0.1 completada (R-006).
 * **Módulos con API:** clientes, pacientes y especies (ejemplo de referencia de la arquitectura).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
   caja, facturación SIFEN y pagos.

@@ -1,6 +1,6 @@
 # FASE 0 — Puesta en marcha
 
-Etapa: Base. Estado: **PENDIENTE** (diseño aprobado el 2026-11-04, R-005). El estado vigente de cada fase está en
+Etapa: Base. Estado: **EN DESARROLLO**: entrega 0.1 cerrada (R-006); diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -15,7 +15,7 @@ Cada entrega recorre los pasos 4 a 7 y deja la suite en verde.
 
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
-| 0.1 | Proyecto Laravel 13 sobre el paquete base, Sanctum y Spatie (solo configuración), `phpunit.xml` y base de tests, `ClinicRolesTest` | 0.1, 0.3, 0.5 y parte de 0.6 | PENDIENTE |
+| 0.1 | Proyecto Laravel 13 sobre el paquete base, Sanctum y Spatie (solo configuración), `phpunit.xml` y base de tests, `ClinicRolesTest` | 0.1, 0.3, 0.5 y parte de 0.6 | COMPLETADO (R-006) |
 | 0.2 | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, `ClinicService::create` y tests de aislamiento | 0.2 | PENDIENTE |
 | 0.3 | Autenticación: login, logout y `me`; tokens de 12 horas; límite de intentos; auditoría | 0.4 y parte de 0.6 | PENDIENTE |
 | 0.4 | Comando `clinic:create` y datos de demostración | Nueva (P5) | PENDIENTE |
@@ -280,5 +280,57 @@ migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, test
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
-desvíos del diseño y por qué.
+Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entregas 0.2 a 0.5: PENDIENTE.
+
+### Entrega 0.1
+
+Commits `11b82b3` (implementación) y `2b50149` (correcciones de la revisión), en `feature/fase-00-paquete-base`. Validada por el
+usuario el 2026-11-04: suite, `migrate:fresh --seed` y `GET /up`. Decisiones en [R-006](../decisions/registro.md).
+
+**Archivos.**
+
+| Origen | Archivos |
+|---|---|
+| Esqueleto de Laravel 13.40 (sin pisar el paquete) | `artisan`, `composer.json`, `composer.lock`, `.env.example`, `.gitignore`, `.gitattributes`, `.editorconfig`, `public/`, `storage/`, `resources/views/welcome.blade.php`, `bootstrap/providers.php`, `bootstrap/cache/`, `config/*` salvo `validation.php`, `routes/web.php`, `routes/console.php`, `app/Http/Controllers/Controller.php`, `database/.gitignore` |
+| Paquetes | `laravel/sanctum` 4.3 y `spatie/laravel-permission` 8.3; solo `config/sanctum.php` y `config/permission.php` |
+| Ajustados | `config/app.php` (`America/Asuncion`, `es`), `config/auth.php` (guard `api` con `sanctum`), `config/sanctum.php` (`SANCTUM_EXPIRATION`, 720), `config/permission.php` (sin *teams*), `.env.example`, `composer.json` (nombre del proyecto y `setup` con `--seed`), `DatabaseSeeder`, `UserFactory` |
+| Tests | `phpunit.xml`, `tests/bootstrap.php`, `tests/TestCase.php`, `tests/Feature/ClinicRolesTest.php`, `tests/Feature/HealthTest.php`, `tests/Feature/ErrorResponseTest.php` |
+| Del paquete, cambiado en la revisión | `bootstrap/app.php`: renderer de los errores HTTP sin renderer propio y de `HttpResponseException` |
+| Documentación | `README.md`, `CLAUDE.md` §4 (lista de `error_code`), `docs/development/setup.md`, `docs/development/testing.md`, scripts de `/validar-docs` |
+
+**Endpoints.** Ninguno nuevo. `GET /up` (*health check* de Laravel) responde 200.
+
+**Tests.** 18 tests y 58 aserciones en verde (`php artisan test`), también corriendo PHPUnit desde `tests/`.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `ClinicRolesTest` | 8 | 36 | Permisos sin repetir y sembrados con guard `api`; los tres roles; el administrador con todos; cada permiso de `clinicRoles()` y de cada Controller existe en `PERMISSIONS`; cada ruta de `/api` exige un `permission:` |
+| `HealthTest` | 3 | 5 | `GET /up` 200; ruta inexistente → JSON 404 `RESOURCE_NOT_FOUND`; sin token → JSON 401 `UNAUTHENTICATED` |
+| `ErrorResponseTest` | 7 | 17 | Autorización denegada y `abort(403)` → 403 `FORBIDDEN`; `abort(409)` → `CONFLICT`; otro 4xx conserva su estado (`HTTP_ERROR`); 429 conserva `Retry-After`; `HttpResponseException` sale tal cual; un error inesperado → 500 sin detalle |
+
+En la revisión se rompió a propósito, de a una, cada protección: permiso de un rol o de un Controller que no existe, permiso
+repetido, sin renderer de 404 o de 401, sin `EnsureJsonResponse`, ruta sin permiso, sin los renderers nuevos. En todos los casos falla
+el test que la protege.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo |
+|---|---|
+| Del esqueleto no se trajeron `package.json`, Vite, `resources/css`, `resources/js` ni `AGENTS.md` | El frontend vive en otro repositorio |
+| `tests/bootstrap.php`, no previsto | Crea la base SQLite si falta y vuelve absoluta su ruta, para que los tests no dependan de la carpeta desde la que se corren |
+| `HealthTest` agrega el 401 en JSON | Protege el contrato `UNAUTHENTICATED` sin token |
+| `ErrorResponseTest`, `test_every_api_route_requires_a_permission` y el cambio de `bootstrap/app.php` | Correcciones de la revisión, decididas por el usuario (R-006) |
+| `composer setup` con `--seed` | Sin la siembra la instalación quedaba sin roles ni permisos |
+
+**Hallazgos de la revisión y su corrección** (commit `2b50149`).
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Los errores HTTP sin renderer propio (`abort(403)`, una autorización denegada, `abort(409)`) y la `HttpResponseException` caían en el catch-all de `bootstrap/app.php` y respondían 500. No se producía todavía: ningún Form Request deniega | Renderer genérico antes del catch-all, con los `error_code` nuevos `CONFLICT` y `HTTP_ERROR`; la `HttpResponseException` sale tal cual. `ErrorResponseTest` |
+| 2 | `DB_DATABASE` relativo en `phpunit.xml`: PHPUnit fallaba si no se corría desde la raíz | `tests/bootstrap.php` vuelve absoluta la ruta |
+| 3 | `composer setup` migraba sin sembrar | `migrate --seed --force` |
+| 4 | Una ruta sin `permission:` no hacía fallar ningún test | `test_every_api_route_requires_a_permission`, con la lista de excepciones `ROUTES_WITHOUT_PERMISSION` (vacía) |
+| 5 | `README.md` desactualizado, y `/validar-docs` no comparaba permisos ni migraciones y excluía por error dos cifras | `README.md` corregido; el script compara `permisos` y `migraciones` y clasifica bien las dos cifras (33 pruebas propias en verde) |
+
+**Para la entrega 0.3:** `login`, `logout` y `me` no llevan permiso; hay que agregarlas a `ROUTES_WITHOUT_PERMISSION` en
+`ClinicRolesTest`, con su motivo.

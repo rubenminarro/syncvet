@@ -49,7 +49,7 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |
 | Historial | `docs/decisions/registro.md` solo crece: no se corrigen secciones viejas |
-| `CLAUDE.md` | Solo si cambió una regla, y solo esa regla |
+| `CLAUDE.md` | La sección 1 (**Estado actual**) se actualiza en cada cierre, con el estado de la fase y de la entrega. El resto, solo si cambió una regla, y solo esa regla |
 | Roadmap | Solo cambia el estado de lo entregado. Sin fases nuevas sin aprobación |
 
 ## 5. Verificar

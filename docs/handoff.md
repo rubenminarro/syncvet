@@ -12,19 +12,19 @@ Si este documento contradice al código, manda el código.
 | Dato | Valor |
 |---|---|
 | Actualizado | 2026-11-04 |
-| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Paquete base en la rama `feature/fase-00-paquete-base`, todavía sin proyecto Laravel (lo crea la entrega 0.1) |
-| Último commit | `85f3cfe` Agrega el paquete base de SyncVet (Fase 0), en `origin/feature/fase-00-paquete-base`. `origin/main` está en `3eee538` |
+| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base, en la rama `feature/fase-00-paquete-base` (sin merge a `main`) |
+| Último commit de código | `2b50149` Corrige los hallazgos de la revisión de la entrega 0.1 (FASE 0), en `origin/feature/fase-00-paquete-base`. `origin/main` está en `3eee538` |
 | Frontend | Sin empezar |
-| Última entrega de código | Paquete base: esquema del MVP, arquitectura y módulo de ejemplo (registro R-001) |
-| Tests del backend | Ninguno todavía. Verificación fuera de PHPUnit en el registro R-001 |
-| Último checkpoint validado | Ninguno: el primero lo deja la FASE 0 |
+| Última entrega de código | FASE 0, entrega 0.1: proyecto Laravel 13, Sanctum y Spatie, base de tests (registro R-006) |
+| Tests del backend | Corrida de `php artisan test` hasta el 2026-11-04: 18 tests y 58 aserciones en verde (`ClinicRolesTest`, `HealthTest`, `ErrorResponseTest`) |
+| Último checkpoint validado | Entrega 0.1 en `2b50149`: suite en verde; el usuario validó `migrate:fresh --seed` y `GET /up` el 2026-11-04 ([resultado](fases/fase-00-puesta-en-marcha.md#entrega-01)) |
 
 El estado actual siempre se confirma con `git log origin/main` y `php artisan test`.
 
 ## Estado del proyecto
 
 SyncVet es la API de gestión de una clínica veterinaria (Paraguay), con el frontend en otro repositorio. El plan del MVP tiene 11
-fases ([`roadmap/README.md`](roadmap/README.md)); ninguna empezó.
+fases ([`roadmap/README.md`](roadmap/README.md)); la FASE 0 está en desarrollo, con la entrega 0.1 cerrada.
 
 **El sistema no está listo para producción.**
 
@@ -32,8 +32,8 @@ fases ([`roadmap/README.md`](roadmap/README.md)); ninguna empezó.
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | FASE 0, entrega 0.1: proyecto Laravel 13 sobre el paquete base ([`fases/fase-00-puesta-en-marcha.md`](fases/fase-00-puesta-en-marcha.md)). Diseño aprobado (R-005) | Ninguno |
-| 2 | FASE 0, entregas 0.2 a 0.5 (D1, autenticación, `clinic:create`, acceso por rol y MySQL) | Cierre de la entrega anterior |
+| 1 | FASE 0, entrega 0.2: separación por clínica (D1) ([`fases/fase-00-puesta-en-marcha.md`](fases/fase-00-puesta-en-marcha.md)). Diseño aprobado (R-005) | Ninguno |
+| 2 | FASE 0, entregas 0.3 a 0.5 (autenticación, `clinic:create`, acceso por rol y MySQL). En la 0.3, agregar `login`, `logout` y `me` a `ROUTES_WITHOUT_PERMISSION` de `ClinicRolesTest` | Cierre de la entrega anterior |
 | 3 | FASE 1: clientes y pacientes | FASE 0 cerrada |
 
 Ninguna entrega empieza sin autorización del usuario.
