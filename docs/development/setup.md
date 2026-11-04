@@ -3,16 +3,16 @@
 Requisitos: PHP 8.3+ con `bcmath`, `pdo_mysql`, `pdo_sqlite`, `intl`; Composer; MySQL 8.
 
 ```bash
-git clone <repositorio> syncvet-backend
-cd syncvet-backend
+git clone https://github.com/rubenminarro/syncvet.git syncvet
+cd syncvet
 composer install
 cp .env.example .env
 php artisan key:generate
-# .env: APP_TIMEZONE=America/Asuncion, DB_CONNECTION=mysql, DB_DATABASE=syncvet (crear la base en utf8mb4)
-php artisan migrate
-php artisan db:seed --class=RolesAndPermissionsSeeder
-php artisan db:seed --class=SpeciesSeeder
+# Crear la base en utf8mb4 (ver README.md) y revisar DB_* en .env
+php artisan migrate --seed
 php artisan test
 ```
 
-Antes de la FASE 0 el repositorio no existe: el paquete base se copia sobre un proyecto Laravel 13 nuevo (`README.md` de la raíz).
+El detalle de las variables de entorno está en el [`README.md`](../../README.md) de la raíz.
+
+En Laragon, `mysql.exe` no está en el `PATH`: está en `C:\laragon\bin\mysql\<versión>\bin\`.

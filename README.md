@@ -46,27 +46,32 @@ No se probaron los Form Requests ni las rutas HTTP: hay que correrlos con PHPUni
 
 ## Instalación
 
-```bash
-composer create-project laravel/laravel syncvet-backend
-cd syncvet-backend
-php artisan install:api
-composer require spatie/laravel-permission
-```
-
-1. Copiar `app/`, `bootstrap/app.php`, `config/validation.php`, `database/`, `routes/api.php` y `CLAUDE.md` sobre el
-   proyecto (reemplazan los de Laravel).
-2. En `.env`: `APP_TIMEZONE=America/Asuncion`, `DB_CONNECTION=mysql`, `DB_DATABASE=syncvet`.
-3. Migrar y sembrar:
+Proyecto Laravel 13 con Sanctum 4 y spatie/laravel-permission 8 (entrega 0.1 de la FASE 0). Requisitos: PHP 8.3+ con `bcmath`,
+`intl`, `pdo_mysql` y `pdo_sqlite`; Composer; MySQL 8.
 
 ```bash
-php artisan migrate
-php artisan db:seed --class=RolesAndPermissionsSeeder
-php artisan db:seed --class=SpeciesSeeder
+git clone https://github.com/rubenminarro/syncvet.git
+cd syncvet
+composer install
+cp .env.example .env
+php artisan key:generate
 ```
+
+1. Crear la base en MySQL: `CREATE DATABASE syncvet CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
+2. Revisar en `.env` los datos de conexión (`DB_*`). La zona horaria (`America/Asuncion`) y el idioma (`es`) ya están en
+   `config/app.php`; los tokens duran `SANCTUM_EXPIRATION` minutos (720).
+3. Migrar y sembrar roles, permisos y especies: `php artisan migrate --seed`.
+4. Correr los tests: `php artisan test` (SQLite en `database/testing.sqlite`, no toca MySQL).
+
+## Variables de entorno propias
+
+| Variable | Valor por defecto | Para qué |
+|---|---|---|
+| `EMAIL_DNS_CHECK` | `true` | Validar que el dominio del email exista. `phpunit.xml` lo desactiva |
+| `SANCTUM_EXPIRATION` | `720` | Minutos de vida de un token de la API (registro R-004) |
 
 ## Pendiente
 
-* Login, logout y `me` (`AuthController`).
-* Tests de Feature por módulo (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Access`).
-* Decidir cómo se separan los datos de cada clínica (ver `CLAUDE.md`, sección 1).
+* Separación por clínica (D1), autenticación, `clinic:create` y acceso por rol: entregas 0.2 a 0.5 de la FASE 0.
+* Tests de Feature de clientes y pacientes (FASE 1).
 * Verificar los códigos SIFEN de `PaymentMethod::sifenCode()` y `invoice_items.unit_of_measure` contra el Manual Técnico.
