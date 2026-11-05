@@ -8,6 +8,7 @@ use App\Models\Clinic;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\CurrentClinic;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,9 +25,10 @@ class ClinicService
      * @param array{name: string, legal_name: string, ruc: string, ruc_dv: string, timezone?: string} $data
      * @param array{email: string, first_name: string, last_name: string, password: string} $admin
      */
-    public function create(array $data, array $admin): Clinic
+    public function create(array $data, #[\SensitiveParameter] array $admin): Clinic
     {
         $this->ensureValidRuc($data['ruc'], $data['ruc_dv']);
+        $this->ensureAdminEmailIsAscii($admin['email']);
 
         return DB::transaction(function () use ($data, $admin) {
             // Si dos altas simultáneas pasan estas verificaciones, los índices únicos de
@@ -113,6 +115,21 @@ class ClinicService
     {
         if (Clinic::where('ruc', $ruc)->exists()) {
             throw new ClinicException('Ya hay una clínica con ese RUC.', 422, 'CLINIC_RUC_TAKEN');
+        }
+    }
+
+    /**
+     * El email es el login: solo ASCII, como en LoginRequest. La collation de MySQL
+     * iguala "ā" y "a": con acentos, dos emails distintos serían el mismo login.
+     */
+    private function ensureAdminEmailIsAscii(string $email): void
+    {
+        if (! Str::isAscii($email)) {
+            throw new ClinicException(
+                'El email del administrador no puede tener acentos ni caracteres especiales.',
+                422,
+                'CLINIC_ADMIN_EMAIL_INVALID'
+            );
         }
     }
 

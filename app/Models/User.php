@@ -45,7 +45,17 @@ class User extends Authenticatable
 
     protected $hidden = [
         'password',
+        'remember_token',
     ];
+
+    /**
+     * Un usuario eliminado pierde sus sesiones: si después se restaura, sus tokens
+     * viejos no vuelven a valer.
+     */
+    protected static function booted(): void
+    {
+        static::deleted(fn (User $user) => $user->tokens()->delete());
+    }
 
     protected function casts(): array
     {

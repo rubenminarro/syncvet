@@ -47,6 +47,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
+        // Los errores de negocio (AppException y sus subclases) son respuestas esperadas, no
+        // fallas: no van al log. Así un login fallido no deja nada ahí. ClinicContextMissingException
+        // no es una AppException y sí se reporta, porque es un bug.
+        $exceptions->dontReport(AppException::class);
+
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([

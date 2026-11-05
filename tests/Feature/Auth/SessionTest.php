@@ -2,13 +2,16 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\AuditEvent;
 use App\Enums\ClinicStatus;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\InteractsWithAuth;
 use Tests\TestCase;
 
 /**
- * Tokens: vencen a las 12 horas, el logout revoca solo el actual, y sin token o
- * con la clínica suspendida no se entra.
+ * Tokens: vencen a las 12 horas, el logout revoca solo el actual (también con la
+ * clínica suspendida), sin token o con la clínica suspendida no se opera, y un
+ * usuario eliminado pierde sus tokens.
  */
 class SessionTest extends TestCase
 {
@@ -55,6 +58,44 @@ class SessionTest extends TestCase
         $clinic->update(['status' => ClinicStatus::SUSPENDED]);
 
         $this->assertErrorCode($this->getWithToken($token, '/api/me'), 403, 'CLINIC_NOT_AVAILABLE');
-        $this->assertErrorCode($this->postWithToken($token, '/api/logout'), 403, 'CLINIC_NOT_AVAILABLE');
+    }
+
+    /**
+     * El logout no lleva SetCurrentClinic: con la clínica suspendida el usuario igual
+     * revoca su token, y queda auditado en su clínica.
+     */
+    public function test_logout_works_with_a_suspended_clinic(): void
+    {
+        $clinic = $this->createClinic();
+        $user = $this->userWithRole($clinic, 'recepcionista');
+        $token = $this->tokenFor($user);
+
+        $clinic->update(['status' => ClinicStatus::SUSPENDED]);
+
+        $this->postWithToken($token, '/api/logout')->assertOk()->assertJsonPath('message', 'Sesión cerrada.');
+        $this->assertSame(0, $user->tokens()->count());
+
+        $log = DB::table('audit_logs')->where('event', AuditEvent::LOGOUT->value)->sole();
+        $this->assertSame([$user->id, $clinic->id], [$log->user_id, $log->clinic_id]);
+
+        $clinic->update(['status' => ClinicStatus::ACTIVE]);
+        $this->assertErrorCode($this->getWithToken($token, '/api/me'), 401, 'UNAUTHENTICATED');
+    }
+
+    public function test_deleting_a_user_deletes_its_tokens_and_restoring_it_does_not_revive_them(): void
+    {
+        $user = $this->userWithRole($this->createClinic(), 'recepcionista');
+        $first = $this->tokenFor($user);
+        $this->tokenFor($user);
+        $other = $this->tokenFor($this->userWithRole($user->clinic, 'recepcionista'));
+
+        $user->delete();
+
+        $this->assertSame(0, $user->tokens()->count());
+        $this->assertSame(1, DB::table('personal_access_tokens')->count());
+        $this->getWithToken($other, '/api/me')->assertOk();
+
+        $user->restore();
+        $this->assertErrorCode($this->getWithToken($first, '/api/me'), 401, 'UNAUTHENTICATED');
     }
 }

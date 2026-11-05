@@ -6,11 +6,15 @@
  * que se corren (un IDE, `cd tests`), y se crea si no existe. RefreshDatabase la
  * migra y la siembra una vez por ejecución (migrate:fresh), así que no hace falta
  * borrarla.
+ *
+ * Solo con la conexión sqlite. Con otra (DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql),
+ * DB_DATABASE es el nombre de una base: no se toca ni se crea ningún archivo.
  */
 $root = dirname(__DIR__);
+$connection = $_ENV['DB_CONNECTION'] ?? (getenv('DB_CONNECTION') ?: 'sqlite');
 $database = $_ENV['DB_DATABASE'] ?? (getenv('DB_DATABASE') ?: 'database/testing.sqlite');
 
-if ($database !== ':memory:') {
+if ($connection === 'sqlite' && $database !== ':memory:') {
     if (! preg_match('#^([a-zA-Z]:)?[\\\\/]#', $database)) {
         $database = $root.'/'.$database;
     }

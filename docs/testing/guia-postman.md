@@ -42,7 +42,8 @@ $s->create(['name' => 'Clínica B', 'legal_name' => 'Clínica B S.A.', 'ruc' => 
 | 10 | `POST /api/login` sin `password` | `{"email":"admin-a@example.com"}` | 422 `VALIDATION_ERROR`, `errors.password` = "Ingresá tu contraseña." |
 | 11 | El 8 cinco veces (el 9b dejó el contador en cero) | | 422 cada vez |
 | 12 | `POST /api/login` con la contraseña correcta | igual al 1 | 429 `AUTH_TOO_MANY_ATTEMPTS`, "Demasiados intentos. Probá de nuevo en N segundos.", encabezado `Retry-After` |
-| 13 | Igual al 1 con `admin-b@example.com` | | 200: el bloqueo es por email e IP |
+| 12b | `POST /api/login` con una variante Unicode del email | `{"email":"ādmin-a@example.com","password":"secreta-123"}` | 422 `VALIDATION_ERROR`, `errors.email` = "Ingresá un email sin acentos ni caracteres especiales." |
+| 13 | Igual al 1 con `admin-b@example.com` | | 200: el bloqueo es por usuario e IP |
 | 14 | Esperar un minuto y repetir el 1 | | 200; un login correcto deja el contador en cero |
 
 **Separación entre clínicas** (pendiente de la entrega 0.2). Con `{{token}}` de la clínica A (repetir el 1) y `{{token_b}}` de la
@@ -57,6 +58,8 @@ clínica B (login con `admin-b@example.com`):
 | 19 | `POST /api/clients` con `{{token}}` | El mismo cuerpo del 15 | 201: documento y email son únicos por clínica |
 | 20 | En tinker: `App\Models\Clinic::where('name', 'Clínica B')->update(['status' => 'suspended'])`. Después, `GET /api/me` con `{{token_b}}` | | 403 `CLINIC_NOT_AVAILABLE` |
 | 21 | `POST /api/login` con `admin-b@example.com` | | 403 `CLINIC_NOT_AVAILABLE`; no se crea el token. Queda `LOGIN_FAILED` con el motivo "clínica suspendida" y no cuenta como intento fallido |
+| 22 | `POST /api/login` con `admin-b@example.com` y una contraseña incorrecta | | 422 `INVALID_CREDENTIALS`: sin la contraseña correcta no se revela la suspensión |
+| 23 | `POST /api/logout` con `{{token_b}}` | | 200: con la clínica suspendida el usuario igual cierra su sesión |
 
 ## FASE 1 — Clientes y pacientes
 

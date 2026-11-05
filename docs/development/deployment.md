@@ -10,3 +10,6 @@ Lo que ya se sabe que hace falta:
 | Scheduler | `php artisan schedule:run` cada minuto (recordatorios, avisos de vencimiento) |
 | Archivos privados | Fotos, adjuntos, PDF, XML de SIFEN y el certificado `.p12`, fuera de `public` |
 | Zona horaria | `APP_TIMEZONE=America/Asuncion` |
+| PHP: `zend.exception_ignore_args=On` | Obligatorio en producción (es el valor de `php.ini-production`). Con `Off`, las trazas del log muestran los argumentos de cada llamada. La contraseña del login ya va con `#[\SensitiveParameter]` y los errores de negocio no se reportan, pero esta opción cubre cualquier otro dato que llegue a una traza |
+| Proxies de confianza | `TRUSTED_PROXIES` (`config/trustedproxy.php`), vacía por defecto: no se confía en ningún proxy y se ignora `X-Forwarded-For`. Detrás de un balanceador o proxy inverso, poner su IP o rango (`10.0.0.1` o `10.0.0.0/8,192.168.1.10`); `*` solo si la aplicación no es accesible sin pasar por el proxy. Sin esto, detrás de un proxy todos los usuarios comparten su IP: el límite de intentos del login queda solo por usuario (5 fallidos bloquean a esa persona en todas partes) y la auditoría registra la IP del proxy |
+| Log | `storage/logs` no debe tener contraseñas ni tokens. Los errores de negocio (`AppException`) no se escriben; `ClinicContextMissingException` sí, porque es un bug |

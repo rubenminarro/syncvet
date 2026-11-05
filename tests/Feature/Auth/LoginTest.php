@@ -121,4 +121,61 @@ class LoginTest extends TestCase
 
         $this->postJson('/api/login', [])->assertJsonPath('errors.email.0', 'Ingresá tu email.');
     }
+
+    /**
+     * Con la clínica suspendida y la contraseña incorrecta, el mismo error que
+     * cualquier credencial incorrecta: la suspensión solo se informa a quien ya
+     * probó tener la contraseña.
+     */
+    public function test_wrong_password_in_a_suspended_clinic_does_not_reveal_the_suspension(): void
+    {
+        $user = $this->userWithRole($this->createClinic(['status' => ClinicStatus::SUSPENDED]), 'recepcionista');
+
+        $response = $this->login($user->email, 'otra-clave');
+
+        $this->assertErrorCode($response, 422, 'INVALID_CREDENTIALS');
+        $response->assertJsonPath('message', 'El email o la contraseña no son correctos.');
+        $this->assertStringNotContainsString('clínica', $response->getContent());
+        $this->assertSame(0, DB::table('personal_access_tokens')->count());
+    }
+
+    public function test_a_password_that_is_not_a_string_is_a_validation_error(): void
+    {
+        $user = $this->userWithRole($this->createClinic(), 'recepcionista');
+
+        $response = $this->postJson('/api/login', ['email' => $user->email, 'password' => ['password']]);
+
+        $this->assertErrorCode($response, 422, 'VALIDATION_ERROR');
+        $response->assertJsonPath('errors.password.0', 'Ingresá una contraseña válida.');
+    }
+
+    public function test_an_email_longer_than_255_characters_is_a_validation_error(): void
+    {
+        $email = str_repeat('a', 64) . '@' . str_repeat('b', 63) . '.' . str_repeat('c', 63) . '.' . str_repeat('d', 59) . '.com';
+        $this->assertSame(256, strlen($email));
+
+        $response = $this->postJson('/api/login', ['email' => $email, 'password' => 'password']);
+
+        $this->assertErrorCode($response, 422, 'VALIDATION_ERROR');
+        // La regla email también lo rechaza (RFC: 254); max:255 da el mensaje claro.
+        $this->assertContains('El email no puede tener más de 255 caracteres.', $response->json('errors.email'));
+    }
+
+    /**
+     * Solo ASCII: la collation de MySQL iguala "ā" y "a", así que con acentos un email
+     * distinto sería el mismo login.
+     */
+    public function test_an_email_with_non_ascii_characters_is_a_validation_error(): void
+    {
+        $this->userWithRole($this->createClinic(), 'recepcionista', ['email' => 'ana@example.com']);
+
+        foreach (['ānā@example.com', 'ăna@example.com', 'ａna@example.com', 'ana@exämple.com'] as $email) {
+            $response = $this->login($email);
+
+            $this->assertErrorCode($response, 422, 'VALIDATION_ERROR');
+            $response->assertJsonPath('errors.email.0', 'Ingresá un email sin acentos ni caracteres especiales.');
+        }
+
+        $this->assertSame(0, DB::table('personal_access_tokens')->count());
+    }
 }

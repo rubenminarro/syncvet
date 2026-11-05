@@ -28,7 +28,9 @@ class AuthController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('auth:sanctum', except: ['login']),
-            new Middleware('clinic', except: ['login']),
+            // logout sin SetCurrentClinic: con la clínica suspendida el usuario igual puede
+            // revocar su token (AuthService::logout).
+            new Middleware('clinic', except: ['login', 'logout']),
         ];
     }
 

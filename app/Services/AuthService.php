@@ -10,7 +10,6 @@ use App\Support\CurrentClinic;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 
 /**
  * Login y logout con tokens de Sanctum (FASE 0, entrega 0.3, registro R-004).
@@ -18,12 +17,13 @@ use Illuminate\Support\Str;
  * - El mismo error para un email desconocido, un usuario eliminado y una
  *   contraseña incorrecta, y el mismo trabajo: siempre se verifica un hash.
  * - El email se busca en minúsculas (User lo guarda así).
- * - Límite: 5 intentos FALLIDOS por minuto por email (en minúsculas) e IP. Un
- *   login correcto limpia el contador.
+ * - Límite: 5 intentos FALLIDOS por minuto por usuario e IP (por email en
+ *   minúsculas si el email no existe). Un login correcto limpia el contador.
  * - Cada login crea un token que vence a las 12 horas (sanctum.expiration); un
  *   usuario puede tener varios vigentes. El logout revoca solo el actual.
  * - Clínica suspendida: 403 CLINIC_NOT_AVAILABLE, no se crea el token y queda
  *   LOGIN_FAILED con el motivo; no cuenta como intento fallido.
+ * - La contraseña lleva #[\SensitiveParameter]: no aparece en las trazas.
  */
 class AuthService
 {
@@ -37,7 +37,15 @@ class AuthService
      */
     public const REASON_CLINIC_SUSPENDED = 'clínica suspendida';
 
-    private static ?string $dummyHash = null;
+    /**
+     * Hash de relleno: se verifica cuando no hay usuario, para que el tiempo de
+     * respuesta no revele qué emails tienen cuenta. Es un bcrypt de un texto
+     * aleatorio descartado, con el costo de producción (BCRYPT_ROUNDS=12 en
+     * .env.example). Precalculado: calcularlo en el pedido costaría un bcrypt más
+     * la primera vez en cada proceso. Si cambia el costo de producción, regenerarlo
+     * (lo exige LoginCredentialsTest).
+     */
+    public const DUMMY_HASH = '$2y$12$bmb7tTevNIQhrrtxW.fPJuYN71slLaVAEFUpdtc.ZsQA9CarOWF8u';
 
     public function __construct(
         protected AuditLogger $audit
@@ -47,12 +55,21 @@ class AuthService
     /**
      * @return array{token: string, expires_at: Carbon, user: User}
      */
-    public function login(string $email, string $password, string $ip): array
+    public function login(string $email, #[\SensitiveParameter] string $password, string $ip): array
     {
         $email = User::normalizeEmail($email);
-        $key = $this->throttleKey($email, $ip);
 
-        if (RateLimiter::tooManyAttempts($key, self::MAX_ATTEMPTS)) {
+        // SoftDeletes: un usuario eliminado no aparece y se comporta como un email desconocido.
+        $user = User::where('email', $email)->first();
+
+        $key = $this->throttleKey($user, $email, $ip);
+
+        // El intento se cuenta ANTES de verificar la contraseña y en una sola operación:
+        // así una ráfaga de pedidos simultáneos no pasa toda junta la verificación del
+        // límite. Si el login sale bien, el contador se limpia.
+        $attempts = RateLimiter::hit($key, self::DECAY_SECONDS);
+
+        if ($attempts > self::MAX_ATTEMPTS) {
             $seconds = RateLimiter::availableIn($key);
 
             throw new AuthException(
@@ -64,15 +81,10 @@ class AuthService
             );
         }
 
-        // SoftDeletes: un usuario eliminado no aparece y se comporta como un email desconocido.
-        $user = User::where('email', $email)->first();
-
-        // Siempre se verifica una contraseña, aunque el usuario no exista: así el tiempo
-        // de respuesta no revela qué emails tienen cuenta.
-        $passwordMatches = Hash::check($password, $user?->password ?? $this->dummyHash());
+        // Siempre se verifica una contraseña, aunque el usuario no exista.
+        $passwordMatches = Hash::check($password, $user?->password ?? self::DUMMY_HASH);
 
         if ($user === null || ! $passwordMatches) {
-            RateLimiter::hit($key, self::DECAY_SECONDS);
             $this->audit->record(AuditEvent::LOGIN_FAILED, null, null, ['email' => $email], $user);
 
             throw new AuthException('El email o la contraseña no son correctos.', 422, 'INVALID_CREDENTIALS');
@@ -80,6 +92,7 @@ class AuthService
 
         // Credenciales correctas: queda auditado, pero no cuenta como intento fallido.
         if (! $user->clinic->isActive()) {
+            RateLimiter::decrement($key, self::DECAY_SECONDS);
             $this->audit->record(AuditEvent::LOGIN_FAILED, null, null, ['email' => $email, 'reason' => self::REASON_CLINIC_SUSPENDED], $user);
 
             throw new ClinicException('La clínica no está disponible.', 403, 'CLINIC_NOT_AVAILABLE');
@@ -102,7 +115,9 @@ class AuthService
     }
 
     /**
-     * Revoca solo el token con el que se hizo el pedido.
+     * Revoca solo el token con el que se hizo el pedido. Funciona también con la
+     * clínica suspendida (la ruta no lleva SetCurrentClinic): el usuario siempre
+     * puede cerrar su sesión.
      */
     public function logout(User $user): void
     {
@@ -121,16 +136,15 @@ class AuthService
     }
 
     /**
-     * Hash de relleno para verificar cuando no hay usuario, con el costo configurado
-     * (el mismo que el de las contraseñas reales). Se calcula una vez por proceso.
+     * Por usuario cuando el email existe: así ninguna variante del email que la base
+     * considere igual (mayúsculas, la collation de MySQL) abre un contador nuevo. Por
+     * email normalizado cuando no existe. Los prefijos distintos evitan que un email
+     * choque con un id.
      */
-    private function dummyHash(): string
+    private function throttleKey(?User $user, string $email, string $ip): string
     {
-        return self::$dummyHash ??= Hash::make(Str::random(40));
-    }
-
-    private function throttleKey(string $email, string $ip): string
-    {
-        return 'login:' . mb_strtolower($email) . '|' . $ip;
+        return $user !== null
+            ? "login:user:{$user->getKey()}|{$ip}"
+            : "login:email:{$email}|{$ip}";
     }
 }

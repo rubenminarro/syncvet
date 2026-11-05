@@ -184,15 +184,28 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
 
 **Reglas** (R-004).
 
-* Login con email y contraseña. El mismo mensaje para un email desconocido y para una contraseña incorrecta.
-* Un usuario eliminado (`SoftDeletes`) no puede entrar: se comporta como un email desconocido.
-* Credenciales correctas con la clínica suspendida → 403 `CLINIC_NOT_AVAILABLE`; no se crea el token.
+* Login con email y contraseña. El mismo mensaje para un email desconocido y para una contraseña incorrecta. Sin usuario se verifica
+  un hash de relleno precalculado con el costo de producción (`AuthService::DUMMY_HASH`), para que el tiempo no revele qué emails existen.
+* El email solo admite ASCII, en el login (`ascii`) y al crear usuarios (`CLINIC_ADMIN_EMAIL_INVALID`, 422, en `ClinicService`): la
+  collation de MySQL iguala `ā` y `a`, y con acentos un email distinto sería el mismo login (revisión de la 0.3).
+* Un usuario eliminado (`SoftDeletes`) no puede entrar: se comporta como un email desconocido. Al eliminarlo se borran sus tokens, así
+  que restaurarlo no revive sesiones viejas (revisión de la 0.3).
+* Credenciales correctas con la clínica suspendida → 403 `CLINIC_NOT_AVAILABLE`; no se crea el token. Con la contraseña incorrecta, el
+  422 `INVALID_CREDENTIALS` de siempre: la suspensión no se revela.
 * Cada login crea un token nuevo que vence a las 12 horas (`expires_at`, más `sanctum.expiration = 720` como respaldo). Puede haber
   varios tokens vigentes por usuario.
 * Un token vencido o revocado → 401 `UNAUTHENTICATED` (contrato existente).
-* El logout revoca solo el token actual.
-* Límite: 5 intentos fallidos por minuto por la clave `email|ip` (email en minúsculas). El sexto → 429 `AUTH_TOO_MANY_ATTEMPTS`,
-  con `Retry-After`. Un login correcto limpia el contador.
+* El logout revoca solo el token actual. Funciona también con la clínica suspendida (sin `SetCurrentClinic`): el usuario siempre puede
+  cerrar su sesión (revisión de la 0.3).
+* Límite: 5 intentos fallidos por minuto por usuario e IP (`login:user:<id>|ip`), o por email en minúsculas e IP si el email no existe
+  (`login:email:<email>|ip`); los emails inexistentes también cuentan. La clave por usuario evita que una variante del email que la base
+  considere igual abra un contador nuevo (revisión de la 0.3). El intento se cuenta **antes** de verificar la contraseña, en una sola
+  operación, para que una ráfaga simultánea no pase junta; un login correcto limpia el contador y uno con la clínica suspendida lo
+  descuenta. El sexto → 429 `AUTH_TOO_MANY_ATTEMPTS`, con `Retry-After`.
+* La IP es la del cliente solo detrás de un proxy de `TRUSTED_PROXIES` (vacía por defecto: ninguno). Ver
+  [`deployment.md`](../development/deployment.md).
+* La contraseña no llega al log: los errores de negocio (`AppException` y sus subclases) no se reportan (`dontReport`), y los
+  parámetros de contraseña llevan `#[\SensitiveParameter]` (revisión de la 0.3).
 * Auditoría: `LOGIN` y `LOGOUT` con el usuario y su clínica; `LOGIN_FAILED` con el email en `new_values` y el usuario si existe. Los
   enums ya existen en `AuditEvent`.
 * Tarea programada diaria: `sanctum:prune-expired --hours=24`, en `routes/console.php`.
@@ -201,8 +214,8 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
 
 | Método | Ruta | Middleware | Request | Respuesta | Errores |
 |---|---|---|---|---|---|
-| `POST` | `/api/login` | Público | `LoginRequest`: `email` (requerido, email, máx. 255), `password` (requerido, string) | 200 `data`: `token`, `token_type` (`Bearer`), `expires_at` (UTC `Z`), `user` (`MeResource`) | 422 `VALIDATION_ERROR`; 422 `INVALID_CREDENTIALS`; 403 `CLINIC_NOT_AVAILABLE`; 429 `AUTH_TOO_MANY_ATTEMPTS` |
-| `POST` | `/api/logout` | `auth:sanctum`, `SetCurrentClinic` | — | 200 `data: null` | 401 `UNAUTHENTICATED` |
+| `POST` | `/api/login` | Público | `LoginRequest`: `email` (requerido, ASCII, email, máx. 255), `password` (requerido, string) | 200 `data`: `token`, `token_type` (`Bearer`), `expires_at` (UTC `Z`), `user` (`MeResource`) | 422 `VALIDATION_ERROR`; 422 `INVALID_CREDENTIALS`; 403 `CLINIC_NOT_AVAILABLE`; 429 `AUTH_TOO_MANY_ATTEMPTS` |
+| `POST` | `/api/logout` | `auth:sanctum` (sin `SetCurrentClinic`: funciona con la clínica suspendida) | — | 200 `data: null` | 401 `UNAUTHENTICATED` |
 | `GET` | `/api/me` | `auth:sanctum`, `SetCurrentClinic` | — | 200 `MeResource` | 401 `UNAUTHENTICATED`; 403 `CLINIC_NOT_AVAILABLE` |
 
 `MeResource`: `id`, `first_name`, `last_name`, `name`, `email`, `clinic` (`id`, `name`), `current_branch` (`id`, `code`, `name`) o
@@ -210,7 +223,7 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
 
 | Pieza | Detalle |
 |---|---|
-| `AuthController` | `HasMiddleware`: `auth:sanctum` y `SetCurrentClinic` salvo en `login`. Llama a `AuthService` |
+| `AuthController` | `HasMiddleware`: `auth:sanctum` salvo en `login`; `SetCurrentClinic` salvo en `login` y `logout`. Llama a `AuthService` |
 | `AuthService` | `login(email, password, ip): array`, `logout(User)`. Contador con `RateLimiter` |
 | `App\Exceptions\AuthException` | `INVALID_CREDENTIALS` (422), `AUTH_TOO_MANY_ATTEMPTS` (429, con `Retry-After` en la respuesta) |
 | Mensajes (voseo) | "El email o la contraseña no son correctos.", "Demasiados intentos. Probá de nuevo en N segundos.", "La clínica no está disponible." |
@@ -219,7 +232,10 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
 con el mismo mensaje; usuario eliminado no entra; clínica suspendida no entra y no crea token; sexto intento fallido → 429 y otro
 email desde la misma IP no está bloqueado; login correcto limpia el contador; token vencido (avanzando el reloj 12 h) → 401; logout
 revoca solo el token actual; `me` devuelve permisos ordenados y la ficha de veterinario o `null`; auditoría de `LOGIN`,
-`LOGIN_FAILED` y `LOGOUT` con `clinic_id`.
+`LOGIN_FAILED` y `LOGOUT` con `clinic_id`. Agregados en la revisión: la contraseña no llega al log; variantes Unicode del email y
+emails inexistentes llegan al 429; el intento cuenta antes de verificar la contraseña; clave incorrecta en una clínica suspendida →
+422; logout con la clínica suspendida; tokens borrados al eliminar el usuario; hash de relleno con el costo de producción; validación
+de `password` (array), del email (más de 255, no ASCII) y `$hidden`; proxies de confianza (`tests/Feature/TrustedProxiesTest`).
 
 ### 0.4 Alta de clínicas (`clinic:create`)
 
