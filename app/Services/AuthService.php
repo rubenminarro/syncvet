@@ -47,6 +47,13 @@ class AuthService
      */
     public const DUMMY_HASH = '$2y$12$bmb7tTevNIQhrrtxW.fPJuYN71slLaVAEFUpdtc.ZsQA9CarOWF8u';
 
+    /**
+     * Hash de relleno calculado con un costo distinto del de DUMMY_HASH, por costo.
+     *
+     * @var array<int, string>
+     */
+    private static array $dummyHashes = [];
+
     public function __construct(
         protected AuditLogger $audit
     ) {
@@ -82,7 +89,7 @@ class AuthService
         }
 
         // Siempre se verifica una contraseña, aunque el usuario no exista.
-        $passwordMatches = Hash::check($password, $user?->password ?? self::DUMMY_HASH);
+        $passwordMatches = Hash::check($password, $user?->password ?? self::dummyHash());
 
         if ($user === null || ! $passwordMatches) {
             $this->audit->record(AuditEvent::LOGIN_FAILED, null, null, ['email' => $email], $user);
@@ -146,5 +153,22 @@ class AuthService
         return $user !== null
             ? "login:user:{$user->getKey()}|{$ip}"
             : "login:email:{$email}|{$ip}";
+    }
+
+    /**
+     * El hash de relleno con el costo configurado (BCRYPT_ROUNDS), el mismo con el que
+     * se guardan las contraseñas: así tarda lo mismo que verificar la de un usuario.
+     * Con el costo de producción es DUMMY_HASH, sin calcular nada. Con otro (los tests
+     * usan 4), se calcula una vez por proceso con un texto aleatorio descartado.
+     */
+    public static function dummyHash(): string
+    {
+        $cost = (int) config('hashing.bcrypt.rounds');
+
+        if ($cost === password_get_info(self::DUMMY_HASH)['options']['cost']) {
+            return self::DUMMY_HASH;
+        }
+
+        return self::$dummyHashes[$cost] ??= Hash::make(bin2hex(random_bytes(32)));
     }
 }

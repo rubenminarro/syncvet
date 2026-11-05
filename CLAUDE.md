@@ -100,8 +100,10 @@ empezar una sesión.
   mayúsculas, minúsculas, números y símbolos, y no filtrada (Have I Been Pwned). Toda función propia que reciba una contraseña
   lleva `#[\SensitiveParameter]`; la aplicación oculta los argumentos de las trazas (R-010). Los tests no salen a la red: Have I
   Been Pwned se simula en `TestCase`.
-* **Datos de ejemplo:** documentos ficticios. RUC `999999xx` con su dígito verificador y cédulas `99xxxxxx` (R-011); RUC
-  reales, solo en `tests/Unit/RucCheckDigitTest`.
+* **Datos de ejemplo:** documentos ficticios. RUC `999999xx` con su dígito verificador y cédulas `99xxxxxx` (R-011); la
+  `ClinicFactory`, RUC de 9 dígitos, que hoy no se emiten (R-013). Nunca un número de 7 dígitos (el rango de las cédulas
+  reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
+  guía de Postman; los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`.
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
 * Usuario que crea, emite o anula: columnas `created_by`, `issued_by`, `cancelled_by` + `cancelled_at` y
@@ -226,3 +228,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 7 | Cédulas de ejemplo en los tests de `tests/Feature/Tenancy` fuera del rango ficticio |
+| 8 | `scopeBindings()` sin test: hoy no hay rutas con dos parámetros anidados; se agrega con la primera |

@@ -212,3 +212,25 @@ en el [resultado de la entrega](../fases/fase-00-puesta-en-marcha.md#entrega-04)
 | `CLAUDE.md` | §1 con el estado de la FASE 0 y los comandos; §3 con las reglas de contraseñas (R-009 y R-010) y de datos de ejemplo (R-011); §7 con la deuda 7 | Implementación |
 
 **Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles.
+
+# R-013 Revisión de la entrega 0.5 de la FASE 0 (2026-11-05)
+
+Correcciones de la revisión de la entrega 0.5 (acceso por rol y verificación en MySQL), antes de su cierre. Cada protección nueva
+se quitó de a una y hace fallar su test.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas por método y URI | `InteractsWithApiRoutes` identifica cada ruta por sus métodos y su URI (`GET\|HEAD api/clients`), no por su nombre: una ruta sin permiso con el nombre de otra se pisaba con ella y pasaba toda la suite. `ROUTES_WITHOUT_PERMISSION` también usa método y URI. `ClinicRolesTest` exige que cada ruta de la API tenga un nombre propio | Usuario |
+| Rutas sin permiso | Las de `ROUTES_WITHOUT_PERMISSION` responden 401 sin token, salvo las de `PUBLIC_ROUTES` (el login), que no lo piden | Usuario |
+| Todos los métodos | La matriz de `RoleAccessTest` pide cada método de cada ruta (`PUT` y `PATCH`, y cualquier ruta con varios); `HEAD` no, porque Laravel lo agrega como el mismo `GET` | Usuario |
+| Foto de los roles | `tests/Fixtures/clinic-roles.json` cubre al administrador (los 119 permisos) y se compara con los roles sembrados en la base. Roles y permisos van en orden alfabético y sin repetidos, y el test lo exige | Usuario |
+| Documentos de ejemplo | `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos (con o sin comillas, puntos, espacios o dígito verificador) en `tests/` (con `tests/Fixtures`), `database/factories`, `database/seeders` y la guía de Postman. Ficticios: 9 dígitos; 8 que empiezan con 99; con dígito verificador, el correcto. Siete dígitos, nunca. Lo demás solo con una lista permitida por archivo y con motivo (los RUC reales de `RucCheckDigitTest`). La versión anterior solo veía `'ruc' => '...'` y `'document_number' => '...'`: no detectaba 7 de las 8 formas que encontró la revisión | Usuario |
+| RUC de la `ClinicFactory` | De 9 dígitos (`100000000` a `999999999`) con su dígito verificador: hoy no se emiten RUC de 9 dígitos, y no chocan con los RUC `999999xx` de los tests ni con las cédulas `99xxxxxx`. Reemplaza el rango de 8 dígitos de R-010 (`90000000` a `99899999`), que contradecía R-011. `tests/Feature/Database/ClinicFactoryTest` revisa lo que genera | Usuario |
+| `scopeBindings()` | Sin test: hoy ninguna ruta tiene dos parámetros anidados y quitarlo no cambia nada. Deuda 8, hasta la primera ruta así | Usuario |
+| Hash de relleno del login | `AuthService::dummyHash()` usa el costo configurado (`BCRYPT_ROUNDS`), el de las contraseñas de los usuarios: con el de producción es el precalculado `DUMMY_HASH`, sin calcular nada; con otro (los tests usan 4), se calcula una vez por proceso. Antes, cada login con un email desconocido o un usuario eliminado verificaba un bcrypt de costo 12 también en los tests | Usuario |
+| Velocidad de `RoleAccessTest` | Los roles y usuarios de prueba se crean antes de los pedidos, con los permisos asociados por id en un solo insert, y la caché de Spatie se vacía una vez, no después de cada pedido. La cobertura no cambió: las mutaciones de la entrega se repitieron y siguen fallando | Usuario |
+| `sleep()` | No hay ninguno en `app/` ni en `tests/`: los tests de tiempo ya usan `travel` | Revisión |
+| Tiempos | Antes: SQLite 33,1 s (236 casos) y MySQL 75,8 s. Después: SQLite 26,5 s y MySQL 51,7 s (242 casos). El primer test de la ejecución paga la migración inicial (unos 3 s en SQLite y de 20 a 34 s en MySQL); no se usa `schema:dump` porque las migraciones dejarían de probarse en MySQL | Implementación |
+
+**Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles; la
+regla del login (un hash verificado siempre, con el costo de las contraseñas).

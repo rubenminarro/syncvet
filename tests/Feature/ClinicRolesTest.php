@@ -23,7 +23,8 @@ class ClinicRolesTest extends TestCase
     use InteractsWithApiRoutes;
 
     /**
-     * Permisos de cada rol de la clínica, ordenados: se actualiza a mano y a propósito.
+     * Permisos de cada rol (el administrador y los de la clínica), en orden alfabético:
+     * se actualiza a mano y a propósito.
      */
     private const ROLES_SNAPSHOT = __DIR__ . '/../Fixtures/clinic-roles.json';
 
@@ -69,18 +70,19 @@ class ClinicRolesTest extends TestCase
     }
 
     /**
-     * Foto de los roles de la clínica (tests/Fixtures/clinic-roles.json). La matriz de
+     * Foto de los roles sembrados (tests/Fixtures/clinic-roles.json): el administrador
+     * con todos los permisos y los roles de la clínica. La matriz de
      * tests/Feature/Access sale de clinicRoles(): sin esta foto, un permiso agregado o
      * quitado por error en un rol cambiaría lo esperado y ningún test fallaría. Un
-     * cambio a propósito se hace en los dos lugares.
+     * cambio a propósito se hace en los dos lugares. Se compara con los roles de la
+     * base, que es lo que usa la API.
      */
-    public function test_clinic_roles_match_the_snapshot(): void
+    public function test_roles_match_the_snapshot(): void
     {
         $snapshot = json_decode(file_get_contents(self::ROLES_SNAPSHOT), true, flags: JSON_THROW_ON_ERROR);
-        $current = array_map(
-            fn (array $role) => array_values(array_unique($role['permissions'])),
-            RolesAndPermissionsSeeder::clinicRoles(),
-        );
+        $current = Role::where('guard_name', 'api')->with('permissions')->get()
+            ->mapWithKeys(fn (Role $role) => [$role->name => $role->permissions->pluck('name')->sort()->values()->all()])
+            ->all();
 
         $differences = [];
 
@@ -109,8 +111,32 @@ class ClinicRolesTest extends TestCase
         $this->assertSame(
             [],
             $differences,
-            'clinicRoles() no coincide con tests/Fixtures/clinic-roles.json. Si el cambio es a propósito, actualizar la foto.',
+            'Los roles no coinciden con tests/Fixtures/clinic-roles.json. Si el cambio es a propósito, actualizar la foto.',
         );
+    }
+
+    /**
+     * La foto está ordenada (roles y permisos, alfabéticamente) y sin repetidos: un
+     * cambio se ve como una línea agregada o quitada en su lugar, no como un bloque
+     * reescrito, y no se puede tapar uno con otro repetido.
+     */
+    public function test_the_roles_snapshot_is_sorted_and_without_duplicates(): void
+    {
+        $snapshot = json_decode(file_get_contents(self::ROLES_SNAPSHOT), true, flags: JSON_THROW_ON_ERROR);
+
+        $roles = array_keys($snapshot);
+        $sortedRoles = $roles;
+        sort($sortedRoles, SORT_STRING);
+        $this->assertSame($sortedRoles, $roles, 'Los roles de la foto deben estar en orden alfabético.');
+
+        foreach ($snapshot as $role => $permissions) {
+            $sorted = array_values(array_unique($permissions));
+            sort($sorted, SORT_STRING);
+
+            $this->assertSame($sorted, $permissions, "Los permisos de {$role} en la foto deben estar en orden alfabético y sin repetidos.");
+        }
+
+        $this->assertSame(['administrador', 'recepcionista', 'veterinario'], $roles);
     }
 
     public static function clinicRoles(): array
@@ -170,25 +196,50 @@ class ClinicRolesTest extends TestCase
     public function test_each_route_requires_the_permission_of_its_name(): void
     {
         $routes = $this->apiRoutesWithPermission();
+        $names = [];
 
         foreach ($routes as $route) {
+            $this->assertNotNull($route['name'], "La ruta {$route['key']} ({$route['action']}) no tiene nombre.");
+            $names[] = $route['name'];
+
             $this->assertSame(
-                [$this->expectedPermission($route['key'])],
+                [$this->expectedPermission($route['name'])],
                 $route['permissions'],
-                "La ruta {$route['key']} ({$route['action']}) debe exigir {$this->expectedPermission($route['key'])}; si es a propósito, agregarla con su motivo en ROUTES_WITH_ANOTHER_PERMISSION.",
+                "La ruta {$route['key']} ({$route['action']}) debe exigir {$this->expectedPermission($route['name'])}; si es a propósito, agregarla con su motivo en ROUTES_WITH_ANOTHER_PERMISSION.",
             );
         }
 
-        foreach (self::ROUTES_WITH_ANOTHER_PERMISSION as $key => $exception) {
-            $this->assertArrayHasKey($key, $routes, "{$key} figura en ROUTES_WITH_ANOTHER_PERMISSION pero no es una ruta con permiso.");
-            $this->assertNotSame('', trim($exception['reason']), "{$key} no tiene motivo.");
+        foreach (self::ROUTES_WITH_ANOTHER_PERMISSION as $name => $exception) {
+            $this->assertContains($name, $names, "{$name} figura en ROUTES_WITH_ANOTHER_PERMISSION pero no es una ruta con permiso.");
+            $this->assertNotSame('', trim($exception['reason']), "{$name} no tiene motivo.");
         }
 
         $this->assertNotEmpty($routes);
     }
 
     /**
+     * Cada ruta de la API tiene un nombre propio. Laravel acepta dos rutas con el
+     * mismo nombre (route() lleva a la última), y la regla del nombre les pediría a
+     * las dos el mismo permiso: una ruta copiada sin cambiarle el nombre quedaría
+     * con el permiso de otra acción.
+     */
+    public function test_every_api_route_has_its_own_name(): void
+    {
+        $byName = [];
+
+        foreach ($this->apiRoutes() as $route) {
+            $this->assertNotNull($route['name'], "La ruta {$route['key']} ({$route['action']}) no tiene nombre.");
+            $byName[$route['name']][] = $route['key'];
+        }
+
+        $repeated = array_filter($byName, fn (array $keys) => count($keys) > 1);
+
+        $this->assertSame([], $repeated, 'Rutas de la API con el mismo nombre: darle a cada una el suyo.');
+    }
+
+    /**
      * Cada excepción es una ruta que existe, tiene motivo y de verdad no pide permiso.
+     * Las públicas son excepciones.
      */
     public function test_routes_without_permission_exist_and_have_a_reason(): void
     {
@@ -198,6 +249,10 @@ class ClinicRolesTest extends TestCase
             $this->assertArrayHasKey($key, $routes, "{$key} figura sin permiso pero no es una ruta de la API.");
             $this->assertNotSame('', trim($reason), "{$key} no tiene motivo.");
             $this->assertSame([], $routes[$key]['permissions'], "{$key} figura sin permiso pero exige uno.");
+        }
+
+        foreach (self::PUBLIC_ROUTES as $key) {
+            $this->assertArrayHasKey($key, self::ROUTES_WITHOUT_PERMISSION, "{$key} figura como pública pero no en ROUTES_WITHOUT_PERMISSION.");
         }
     }
 }

@@ -2,15 +2,14 @@
 
 namespace Tests\Feature\Access;
 
-use App\Models\Client;
 use App\Models\Clinic;
-use App\Models\Patient;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Concerns\InteractsWithApiRoutes;
@@ -20,8 +19,9 @@ use Tests\TestCase;
 /**
  * Acceso por rol a cada ruta de la API (FASE 0, entrega 0.5). La matriz se arma
  * con la lista real de rutas (el `permission:` de cada Controller) y con
- * RolesAndPermissionsSeeder::clinicRoles(): una ruta, un permiso o un rol nuevos
- * quedan cubiertos sin tocar este test.
+ * RolesAndPermissionsSeeder::clinicRoles(): una ruta, un método, un permiso o un
+ * rol nuevos quedan cubiertos sin tocar este test. Cada método de una ruta se pide
+ * por separado (PUT y PATCH, y cualquier ruta con varios); HEAD es el mismo GET.
  *
  * - Permitida: la respuesta no es 401, 403, 404 ni 405, ni un error 5xx (un 422
  *   de validación o un 409 de negocio cuentan: el permiso ya pasó).
@@ -29,10 +29,12 @@ use Tests\TestCase;
  *
  * Se prueba con roles propios: el administrador pasa todo por Gate::before y
  * ocultaría un permiso mal puesto. Las rutas de ROUTES_WITHOUT_PERMISSION
- * (login, logout y me) quedan fuera, con su motivo.
+ * (login, logout y me) quedan fuera de la matriz: se prueban aparte.
  *
  * Cada pedido corre dentro de una transacción que se revierte: un DELETE permitido
- * no deja sin datos a la ruta siguiente.
+ * no deja sin datos al pedido siguiente. Los roles y usuarios de prueba se crean
+ * antes, fuera de esas transacciones, para no reconstruir la caché de permisos de
+ * Spatie en cada pedido.
  */
 class RoleAccessTest extends TestCase
 {
@@ -116,20 +118,36 @@ class RoleAccessTest extends TestCase
      */
     public function test_each_route_requires_exactly_its_own_permission(): void
     {
+        $routes = $this->apiRoutesWithPermission();
+        $users = [];
+
+        // Un usuario por conjunto de permisos, creados todos antes de los pedidos.
+        foreach ($routes as $route) {
+            $this->assertNotEmpty($route['permissions'], "La ruta {$route['key']} no exige ningún permission:.");
+            $list = $this->list($route);
+
+            $users["solo {$list}"] ??= $this->userWithPermissions($route['permissions']);
+            $users["sin {$list}"] ??= $this->userWithPermissions(
+                array_values(array_diff(RolesAndPermissionsSeeder::PERMISSIONS, $route['permissions'])),
+            );
+        }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
         $failures = [];
 
-        foreach ($this->apiRoutesWithPermission() as $route) {
-            $this->assertNotEmpty($route['permissions'], "La ruta {$route['key']} no exige ningún permission:.");
+        foreach ($routes as $route) {
+            $list = $this->list($route);
 
-            $only = $this->requestWithPermissions($route, $route['permissions']);
-            if (! $this->isAllowed($only)) {
-                $failures[] = "{$route['key']}: con solo {$this->list($route)} respondió {$only->status()}";
-            }
+            foreach ($route['methods'] as $method) {
+                $only = $this->send($users["solo {$list}"], $route, $method);
+                if (! $this->isAllowed($only)) {
+                    $failures[] = "{$method} {$route['uri']}: con solo {$list} respondió {$only->status()}";
+                }
 
-            $others = array_values(array_diff(RolesAndPermissionsSeeder::PERMISSIONS, $route['permissions']));
-            $without = $this->requestWithPermissions($route, $others);
-            if (! $this->isForbidden($without)) {
-                $failures[] = "{$route['key']}: con todos los permisos menos {$this->list($route)} respondió {$without->status()}";
+                $without = $this->send($users["sin {$list}"], $route, $method);
+                if (! $this->isForbidden($without)) {
+                    $failures[] = "{$method} {$route['uri']}: con todos los permisos menos {$list} respondió {$without->status()}";
+                }
             }
         }
 
@@ -137,45 +155,59 @@ class RoleAccessTest extends TestCase
     }
 
     /**
-     * Sin token, cada ruta protegida responde 401 (antes de mirar el permiso).
+     * Sin token, toda ruta responde 401 (antes de mirar el permiso), salvo las
+     * públicas (PUBLIC_ROUTES: el login), que no lo piden.
      */
-    public function test_without_a_token_every_route_answers_401(): void
+    public function test_without_a_token_every_route_but_the_public_ones_answers_401(): void
     {
         $failures = [];
+        $checked = 0;
 
-        foreach ($this->apiRoutesWithPermission() as $route) {
-            $response = $this->send(null, $route);
+        foreach ($this->apiRoutes() as $key => $route) {
+            $public = in_array($key, self::PUBLIC_ROUTES, true);
 
-            if ($response->status() !== 401 || $response->json('error_code') !== 'UNAUTHENTICATED') {
-                $failures[] = "{$route['key']}: respondió {$response->status()}";
+            foreach ($route['methods'] as $method) {
+                $checked++;
+                $response = $this->send(null, $route, $method);
+                $unauthenticated = $response->status() === 401 && $response->json('error_code') === 'UNAUTHENTICATED';
+
+                if ($public === $unauthenticated) {
+                    $failures[] = "{$method} {$route['uri']}: respondió {$response->status()}" . ($public ? ' (es pública)' : '');
+                }
             }
         }
 
         $this->assertSame([], $failures);
+        $this->assertGreaterThan(count(self::ROUTES_WITHOUT_PERMISSION), $checked);
     }
 
     /**
      * Las rutas sin permiso que piden token (logout y me) las usa cualquier usuario
-     * autenticado, también sin rol. Login es público.
+     * autenticado, también sin rol.
      */
     public function test_routes_without_permission_are_open_to_any_authenticated_user(): void
     {
-        $user = User::factory()->for($this->clinic)->create();
         $routes = $this->apiRoutes();
+        $private = array_diff(array_keys(self::ROUTES_WITHOUT_PERMISSION), self::PUBLIC_ROUTES);
+        $this->assertNotEmpty($private);
 
-        foreach (['auth.me', 'auth.logout'] as $key) {
-            $this->assertArrayHasKey($key, self::ROUTES_WITHOUT_PERMISSION);
-            $response = $this->send($user, $routes[$key]);
-            $this->assertSame(200, $response->status(), "{$key} respondió {$response->status()}");
+        foreach ($private as $key) {
+            foreach ($routes[$key]['methods'] as $method) {
+                $user = User::factory()->for($this->clinic)->create();
+                $response = $this->send($user, $routes[$key], $method);
+
+                $this->assertSame(200, $response->status(), "{$method} {$routes[$key]['uri']} respondió {$response->status()}");
+            }
         }
     }
 
     /**
-     * Pide cada ruta protegida con el usuario y compara con lo esperado. Junta todas
-     * las diferencias antes de fallar, para ver la matriz completa.
+     * Pide cada método de cada ruta protegida con el usuario y compara con lo
+     * esperado. Junta todas las diferencias antes de fallar, para ver la matriz
+     * completa.
      *
      * @param callable(array): bool $expectedAllowed
-     * @return array{0: int, 1: int} rutas permitidas y prohibidas
+     * @return array{0: int, 1: int} pedidos permitidos y prohibidos
      */
     private function assertAccess(User $user, callable $expectedAllowed): array
     {
@@ -184,17 +216,19 @@ class RoleAccessTest extends TestCase
 
         foreach ($this->apiRoutesWithPermission() as $route) {
             $this->assertNotEmpty($route['permissions'], "La ruta {$route['key']} no exige ningún permission:.");
-
             $allowed = $expectedAllowed($route);
-            $counts[$allowed ? 0 : 1]++;
-            $response = $this->send($user, $route);
 
-            if ($allowed && ! $this->isAllowed($response)) {
-                $failures[] = "{$route['key']} ({$this->list($route)}): debía pasar y respondió {$response->status()}";
-            }
+            foreach ($route['methods'] as $method) {
+                $counts[$allowed ? 0 : 1]++;
+                $response = $this->send($user, $route, $method);
 
-            if (! $allowed && ! $this->isForbidden($response)) {
-                $failures[] = "{$route['key']} ({$this->list($route)}): debía responder 403 y respondió {$response->status()}";
+                if ($allowed && ! $this->isAllowed($response)) {
+                    $failures[] = "{$method} {$route['uri']} ({$this->list($route)}): debía pasar y respondió {$response->status()}";
+                }
+
+                if (! $allowed && ! $this->isForbidden($response)) {
+                    $failures[] = "{$method} {$route['uri']} ({$this->list($route)}): debía responder 403 y respondió {$response->status()}";
+                }
             }
         }
 
@@ -204,54 +238,49 @@ class RoleAccessTest extends TestCase
     }
 
     /**
-     * Rol propio con esos permisos, creado y revertido junto con el pedido.
+     * Usuario con un rol propio que tiene exactamente esos permisos. Se asocian por
+     * id en un solo insert: givePermissionTo los busca de a uno y vacía la caché de
+     * Spatie en cada llamada. Quien lo use vacía la caché una vez, al terminar.
      *
      * @param list<string> $permissions
      */
-    private function requestWithPermissions(array $route, array $permissions): TestResponse
+    private function userWithPermissions(array $permissions): User
     {
-        return $this->inRolledBackTransaction(function () use ($route, $permissions) {
-            $role = Role::create(['name' => 'acceso-prueba', 'guard_name' => 'api']);
-            $role->givePermissionTo($permissions);
-            $user = $this->userWithRole($this->clinic, 'acceso-prueba');
+        static $sequence = 0;
+        $sequence++;
 
-            return $this->request($user, $route);
-        });
-    }
+        $ids = Permission::where('guard_name', 'api')->whereIn('name', $permissions)->pluck('id');
+        $this->assertCount(count($permissions), $ids, 'Algún permiso de la ruta no existe.');
 
-    private function send(?User $user, array $route): TestResponse
-    {
-        return $this->inRolledBackTransaction(fn () => $this->request($user, $route));
-    }
+        $role = Role::create(['name' => "acceso-prueba-{$sequence}", 'guard_name' => 'api']);
+        $role->permissions()->attach($ids);
 
-    private function request(?User $user, array $route): TestResponse
-    {
-        $this->app['auth']->forgetGuards();
+        $user = User::factory()->for($this->clinic)->create();
+        $user->roles()->attach($role->id);
 
-        if ($user !== null) {
-            Sanctum::actingAs($user);
-        }
-
-        return $this->json($route['method'], $this->uri($route), []);
+        return $user;
     }
 
     /**
-     * Revierte lo que haga el pedido (un DELETE, un rol y un usuario de prueba). La
-     * caché de permisos de Spatie no se entera del rollback: se limpia. También el
-     * usuario autenticado: si quedara el del pedido anterior (ya revertido), la
-     * auditoría del alta siguiente lo usaría como autor y MySQL rechazaría la clave
-     * foránea.
+     * Pide la ruta dentro de una transacción que se revierte: deshace lo que haga el
+     * pedido (un DELETE, un alta). Los pedidos no tocan roles ni permisos, así que
+     * la caché de Spatie sigue valiendo. El usuario autenticado se olvida antes y
+     * después: si quedara el del pedido anterior, la auditoría del alta siguiente lo
+     * usaría como autor.
      */
-    private function inRolledBackTransaction(callable $callback): TestResponse
+    private function send(?User $user, array $route, string $method): TestResponse
     {
         $this->app['auth']->forgetGuards();
         DB::beginTransaction();
 
         try {
-            return $callback();
+            if ($user !== null) {
+                Sanctum::actingAs($user);
+            }
+
+            return $this->json($method, $this->uri($route), []);
         } finally {
             DB::rollBack();
-            app(PermissionRegistrar::class)->forgetCachedPermissions();
             $this->app['auth']->forgetGuards();
         }
     }

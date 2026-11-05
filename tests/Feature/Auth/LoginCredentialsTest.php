@@ -125,7 +125,39 @@ class LoginCredentialsTest extends TestCase
         Hash::swap($mock);
 
         $this->assertErrorCode($this->login('nadie@example.com', 'otra-clave'), 422, 'INVALID_CREDENTIALS');
-        $this->assertSame([AuthService::DUMMY_HASH], $hashes);
+        $this->assertSame([AuthService::dummyHash()], $hashes);
+    }
+
+    /**
+     * El hash de relleno tiene el costo configurado, el de las contraseñas de los
+     * usuarios (en los tests, BCRYPT_ROUNDS=4): con el de producción, cada login con
+     * un email desconocido tardaría un bcrypt de costo 12 en la suite. Se calcula una
+     * vez y no coincide con ninguna contraseña.
+     */
+    public function test_the_dummy_hash_uses_the_configured_cost(): void
+    {
+        $cost = (int) config('hashing.bcrypt.rounds');
+        $this->assertNotSame(password_get_info(AuthService::DUMMY_HASH)['options']['cost'], $cost, 'Los tests deben usar un costo menor que el de producción.');
+
+        $hash = AuthService::dummyHash();
+        $info = password_get_info($hash);
+
+        $this->assertSame('bcrypt', $info['algoName']);
+        $this->assertSame($cost, $info['options']['cost']);
+        $this->assertSame(password_get_info(User::factory()->make()->password)['options']['cost'], $info['options']['cost']);
+        $this->assertSame($hash, AuthService::dummyHash(), 'Se calcula una sola vez por proceso.');
+        $this->assertFalse(Hash::check('password', $hash));
+    }
+
+    /**
+     * Con el costo de producción se usa el precalculado: el pedido no calcula ningún
+     * bcrypt de más.
+     */
+    public function test_with_the_production_cost_the_dummy_hash_is_the_precalculated_one(): void
+    {
+        config(['hashing.bcrypt.rounds' => password_get_info(AuthService::DUMMY_HASH)['options']['cost']]);
+
+        $this->assertSame(AuthService::DUMMY_HASH, AuthService::dummyHash());
     }
 
     public function test_password_and_remember_token_are_hidden_when_the_user_is_serialized(): void
