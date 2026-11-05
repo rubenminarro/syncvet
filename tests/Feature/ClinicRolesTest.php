@@ -100,7 +100,11 @@ class ClinicRolesTest extends TestCase
      *
      * @var array<string, string> nombre de la ruta (o "MÉTODO uri" si no tiene) => motivo
      */
-    private const ROUTES_WITHOUT_PERMISSION = [];
+    private const ROUTES_WITHOUT_PERMISSION = [
+        'auth.login' => 'Público: es la forma de obtener un token',
+        'auth.logout' => 'Cualquier usuario autenticado cierra su propia sesión',
+        'auth.me' => 'Cualquier usuario autenticado ve sus propios datos',
+    ];
 
     public function test_every_api_route_requires_a_permission(): void
     {

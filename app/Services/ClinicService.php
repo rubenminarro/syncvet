@@ -32,7 +32,9 @@ class ClinicService
             // Si dos altas simultáneas pasan estas verificaciones, los índices únicos de
             // clinics.ruc y users.email frenan a la segunda y la transacción se revierte.
             $this->ensureRucIsFree($data['ruc']);
-            $this->ensureAdminEmailIsFree($admin['email']);
+            // El email se guarda en minúsculas (User): la verificación también, para que
+            // "Ana@x.com" y "ana@x.com" sean el mismo login.
+            $this->ensureAdminEmailIsFree(User::normalizeEmail($admin['email']));
 
             $clinic = Clinic::create($data);
 

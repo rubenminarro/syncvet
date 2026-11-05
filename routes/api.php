@@ -1,12 +1,17 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\SpeciesController;
 use Illuminate\Support\Facades\Route;
 
-// Pendiente: login (público), logout y me.
+// Autenticación. login es público; logout y me exigen token y fijan la clínica
+// (middleware de AuthController). Sin permiso de Spatie: cualquier usuario autenticado.
+Route::post('login', [AuthController::class, 'login'])->name('auth.login');
+Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
+Route::get('me', [AuthController::class, 'me'])->name('auth.me');
 
 // 'clinic' (SetCurrentClinic) fija la clínica del usuario antes del route model binding.
 Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function () {

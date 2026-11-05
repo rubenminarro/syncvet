@@ -82,7 +82,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'data' => null,
                     'errors' => $e->getErrors(),
                     'error_code' => $e->getErrorCode(),
-                ], $e->getStatus());
+                ], $e->getStatus(), $e->getHeaders());
             }
         });
 

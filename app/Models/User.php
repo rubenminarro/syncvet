@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\CurrentClinic;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -51,6 +52,21 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * El email es el login: se guarda siempre en minúsculas, venga de donde venga
+     * (factory, ClinicService, el ABM de usuarios). El login también lo busca en
+     * minúsculas, así no depende de la collation de la base (SQLite distingue).
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (?string $value) => $value === null ? null : self::normalizeEmail($value));
+    }
+
+    public static function normalizeEmail(string $email): string
+    {
+        return mb_strtolower($email);
     }
 
     public function clinic(): BelongsTo
