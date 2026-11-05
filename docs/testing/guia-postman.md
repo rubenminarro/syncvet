@@ -33,9 +33,10 @@ sus emails es de un usuario de otra clínica, falla sin tocar nada (R-010).
 | Clínica B | | `recepcionista` | `recepcion-b@example.com` | |
 | Clínica B | | `veterinario` | `vet-b@example.com` | Ficha `VET-000001`, matrícula `MV-2001` |
 
-Cada clínica tiene su sucursal `SUC-01` y su depósito `DEP-01`. Clientes: en la A, Laura Martínez (`5100001`, con Firulais y
-Mishi), Carlos Duarte (`5100002`, con Rocky) y Granja San Jorge S.R.L. (`80024680-2`, con la yegua Lucero); en la B, Patricia
-Ortiz (`5200001`, con Luna) y Jorge Villalba (`5200002`, con Toby y Kira). Los pacientes de cada clínica numeran desde
+Cada clínica tiene su sucursal `SUC-01` y su depósito `DEP-01`. Clientes: en la A, Laura Martínez (`99100001`, con Firulais y
+Mishi), Carlos Duarte (`99100002`, con Rocky) y Granja San Jorge S.R.L. (`99999903-6`, con la yegua Lucero); en la B, Patricia
+Ortiz (`99200001`, con Luna) y Jorge Villalba (`99200002`, con Toby y Kira). Todos los documentos son ficticios (R-011): RUC
+`999999xx` con su dígito verificador y cédulas `99xxxxxx`. Los pacientes de cada clínica numeran desde
 `PAC-000001`.
 
 **Sesión.**

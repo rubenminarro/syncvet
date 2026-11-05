@@ -7,6 +7,7 @@ use App\Support\PwnedPasswordsVerifier;
 use App\Support\UserPassword;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Artisan;
@@ -19,7 +20,8 @@ use Tests\TestCase;
 /**
  * uncompromised() con el verificador propio (R-010): 3 segundos de espera y, si Have
  * I Been Pwned no responde, la contraseña se acepta con un aviso en el log, sin traza
- * y sin la contraseña.
+ * y sin la contraseña. El aviso lleva el código de cURL o el estado HTTP, y la consola
+ * avisa que la contraseña no se verificó (R-011).
  */
 class PwnedPasswordsVerifierTest extends TestCase
 {
@@ -32,6 +34,12 @@ class PwnedPasswordsVerifierTest extends TestCase
         '--admin-first-name' => 'María',
         '--admin-last-name' => 'Benítez',
     ];
+
+    /**
+     * Comienzo de UserPassword::LEAK_CHECK_SKIPPED_WARNING: la consola puede partir el
+     * mensaje completo en varias líneas.
+     */
+    private const CONSOLE_WARNING = 'No se pudo verificar si la contraseña aparece en filtraciones';
 
     /** @var list<MessageLogged> */
     private array $logged = [];
@@ -97,23 +105,94 @@ class PwnedPasswordsVerifierTest extends TestCase
      * aviso sin excepción ni contraseña.
      */
     #[DataProvider('unavailable')]
-    public function test_when_the_service_does_not_answer_the_password_is_accepted_with_a_warning(bool|int $unavailable): void
+    public function test_when_the_service_does_not_answer_the_password_is_accepted_with_a_warning(bool|int $unavailable, array $context): void
     {
         $this->pwnedPasswordsUnavailable = $unavailable;
         $password = $this->password();
 
         $this->assertNull(UserPassword::error($password));
+        $this->assertTrue(UserPassword::leakCheckSkipped());
 
         $this->assertCount(1, $this->logged);
         $this->assertSame('warning', $this->logged[0]->level);
         $this->assertSame(PwnedPasswordsVerifier::UNAVAILABLE_MESSAGE, $this->logged[0]->message);
-        $this->assertArrayNotHasKey('exception', $this->logged[0]->context);
+        // Solo la clase y el código de cURL, o el estado HTTP (R-011): ni la excepción ni su mensaje.
+        $this->assertSame($context, $this->logged[0]->context);
         $this->assertPasswordNotLogged($password);
+
+        // La siguiente verificación, con el servicio de vuelta, ya no cuenta como salteada.
+        $this->pwnedPasswordsUnavailable = false;
+        $this->assertNull(UserPassword::error($this->password()));
+        $this->assertFalse(UserPassword::leakCheckSkipped());
     }
 
     public static function unavailable(): array
     {
-        return ['sin respuesta' => [true], 'error 503' => [503], 'error 429' => [429]];
+        return [
+            'sin respuesta' => [true, ['reason' => ConnectionException::class, 'curl_error' => 28]],
+            'error 503' => [503, ['status' => 503]],
+            'error 429' => [429, ['status' => 429]],
+        ];
+    }
+
+    public function test_with_the_service_up_the_check_is_not_skipped(): void
+    {
+        $this->assertNull(UserPassword::error($this->password()));
+        $this->assertFalse(UserPassword::leakCheckSkipped());
+    }
+
+    /**
+     * Con interacción, la consola avisa que la contraseña no se verificó (R-011); con
+     * el servicio funcionando, no.
+     */
+    #[DataProvider('serviceStates')]
+    public function test_clinic_create_with_interaction_warns_when_the_password_was_not_checked(bool $down): void
+    {
+        $this->pwnedPasswordsUnavailable = $down;
+        $password = $this->password();
+
+        $command = $this->artisan('clinic:create', self::OPTIONS)
+            ->expectsQuestion('Contraseña del administrador', $password)
+            ->expectsQuestion('Repetí la contraseña', $password);
+
+        $down
+            ? $command->expectsOutputToContain(self::CONSOLE_WARNING)
+            : $command->doesntExpectOutputToContain(self::CONSOLE_WARNING);
+
+        $command->assertExitCode(0);
+    }
+
+    /**
+     * Sin interacción la contraseña es generada y no se consulta: no hay aviso.
+     */
+    public function test_clinic_create_without_interaction_does_not_warn(): void
+    {
+        $this->pwnedPasswordsUnavailable = true;
+
+        $this->artisan('clinic:create', [...self::OPTIONS, '--no-interaction' => true])
+            ->doesntExpectOutputToContain(self::CONSOLE_WARNING)
+            ->assertExitCode(0);
+    }
+
+    #[DataProvider('serviceStates')]
+    public function test_the_demo_seeder_warns_when_the_password_was_not_checked(bool $down): void
+    {
+        $this->pwnedPasswordsUnavailable = $down;
+        config(['demo.password' => $this->password()]);
+
+        $command = $this->artisan('db:seed', ['--class' => DemoSeeder::class]);
+
+        $down
+            ? $command->expectsOutputToContain(self::CONSOLE_WARNING)
+            : $command->doesntExpectOutputToContain(self::CONSOLE_WARNING);
+
+        $command->assertExitCode(0)->run();
+        $this->assertSame(6, User::count());
+    }
+
+    public static function serviceStates(): array
+    {
+        return ['servicio caído' => [true], 'servicio funcionando' => [false]];
     }
 
     public function test_clinic_create_with_interaction_does_not_log_the_password_when_the_service_is_down(): void
@@ -187,5 +266,8 @@ class PwnedPasswordsVerifierTest extends TestCase
         $this->assertStringNotContainsString($password, $text);
         $this->assertStringNotContainsString(substr($password, 0, 12), $text);
         $this->assertStringNotContainsString(strtoupper(sha1($password)), $text);
+        // Ni la URL ni el prefijo del hash, que trae el mensaje de la ConnectionException (R-011).
+        $this->assertStringNotContainsString('pwnedpasswords', $text);
+        $this->assertStringNotContainsString(substr(strtoupper(sha1($password)), 0, 5), $text);
     }
 }

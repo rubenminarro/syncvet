@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -46,6 +47,11 @@ final class UserPassword
     }
 
     /**
+     * Aviso de consola cuando la contraseña se aceptó sin consultar Have I Been Pwned.
+     */
+    public const LEAK_CHECK_SKIPPED_WARNING = 'No se pudo verificar si la contraseña aparece en filtraciones (Have I Been Pwned no respondió): se aceptó sin esa verificación.';
+
+    /**
      * El primer error de la contraseña, o null si cumple la regla.
      */
     public static function error(#[\SensitiveParameter] mixed $password): ?string
@@ -53,6 +59,19 @@ final class UserPassword
         $validator = Validator::make(['password' => $password], ['password' => self::rules()], self::messages());
 
         return $validator->fails() ? $validator->errors()->first('password') : null;
+    }
+
+    /**
+     * Después de un error() que devolvió null: si la contraseña se aceptó sin consultar
+     * Have I Been Pwned porque no respondió (R-011). uncompromised() es la última regla:
+     * solo se consulta cuando las demás pasan, así que la última consulta es de esa
+     * contraseña.
+     */
+    public static function leakCheckSkipped(): bool
+    {
+        $verifier = app(UncompromisedVerifier::class);
+
+        return $verifier instanceof PwnedPasswordsVerifier && $verifier->lastCheckWasSkipped();
     }
 
     /**

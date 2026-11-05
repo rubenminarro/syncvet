@@ -29,6 +29,8 @@ use function Laravel\Prompts\text;
  * - Un dato inválido o un error de negocio (RUC o email repetido) termina con
  *   código 1 y el mensaje, sin traza y sin crear nada. El RUC y el email se
  *   verifican antes de pedir la contraseña.
+ * - Si Have I Been Pwned no responde, la contraseña escrita se acepta y la consola
+ *   lo avisa (R-011).
  */
 class ClinicCreateCommand extends Command
 {
@@ -82,6 +84,11 @@ class ClinicCreateCommand extends Command
 
         $generated = ! $this->input->isInteractive();
         $password = $generated ? UserPassword::generate() : $this->askPassword();
+
+        // Solo la escrita se consulta en Have I Been Pwned: la generada es aleatoria.
+        if (UserPassword::leakCheckSkipped()) {
+            $this->components->warn(UserPassword::LEAK_CHECK_SKIPPED_WARNING);
+        }
 
         try {
             $clinic = $clinics->create(

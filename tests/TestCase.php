@@ -59,7 +59,8 @@ abstract class TestCase extends BaseTestCase
         Http::fake([
             'api.pwnedpasswords.com/range/*' => function (Request $request) {
                 if ($this->pwnedPasswordsUnavailable === true) {
-                    throw new ConnectionException('cURL error 28: Operation timed out');
+                    // Como el mensaje real de Laravel: termina con la URL y el prefijo del hash.
+                    throw new ConnectionException("cURL error 28: Operation timed out after 3001 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for {$request->url()}");
                 }
 
                 if (is_int($this->pwnedPasswordsUnavailable)) {

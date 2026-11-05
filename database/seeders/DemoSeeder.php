@@ -38,8 +38,10 @@ use RuntimeException;
  * - Solo toca lo suyo (R-010): cada clínica de demostración lleva la marca MARKER en
  *   system_settings. Una clínica con el mismo RUC sin la marca, o un email de
  *   usuario que ya es de otra clínica, lo hacen fallar en lugar de adoptarlos.
- * - RUC ficticios (99999901 y 99999902, con su dígito verificador): no son de
- *   empresas reales.
+ * - Documentos ficticios (R-011): los RUC de las clínicas y de los clientes empresa
+ *   empiezan con 999999 y llevan su dígito verificador; las cédulas de los clientes
+ *   persona, con 99. No son de empresas ni de personas reales.
+ * - Si Have I Been Pwned no responde, DEMO_PASSWORD se acepta y la consola lo avisa.
  * - Por los Services: ClinicService, ClientService y PatientService. Los usuarios
  *   recepcionista y veterinario, y la ficha del veterinario, con los modelos: el
  *   ABM de usuarios y de veterinarios es de la FASE 2.
@@ -60,7 +62,8 @@ class DemoSeeder extends Seeder
 
     /**
      * El RUC va sin el dígito verificador: lo calcula ClinicService::rucCheckDigit.
-     * Son ficticios: no usar RUC de empresas reales.
+     * Documentos ficticios: RUC 999999…, cédulas 99… (no usar los de empresas ni
+     * personas reales).
      */
     public const CLINICS = [
         [
@@ -74,14 +77,14 @@ class DemoSeeder extends Seeder
             ],
             'license' => 'MV-1001',
             'clients' => [
-                ['kind' => 'person', 'document_number' => '5100001', 'first_name' => 'Laura', 'last_name' => 'Martínez', 'phone' => '+595981100001', 'email' => 'laura.martinez@example.com', 'city' => 'Asunción', 'patients' => [
+                ['kind' => 'person', 'document_number' => '99100001', 'first_name' => 'Laura', 'last_name' => 'Martínez', 'phone' => '+595981100001', 'email' => 'laura.martinez@example.com', 'city' => 'Asunción', 'patients' => [
                     ['name' => 'Firulais', 'species' => 'Canino', 'breed' => 'Mestizo', 'sex' => 'male'],
                     ['name' => 'Mishi', 'species' => 'Felino', 'breed' => 'Siamés', 'sex' => 'female'],
                 ]],
-                ['kind' => 'person', 'document_number' => '5100002', 'first_name' => 'Carlos', 'last_name' => 'Duarte', 'phone' => '+595981100002', 'email' => 'carlos.duarte@example.com', 'city' => 'Luque', 'patients' => [
+                ['kind' => 'person', 'document_number' => '99100002', 'first_name' => 'Carlos', 'last_name' => 'Duarte', 'phone' => '+595981100002', 'email' => 'carlos.duarte@example.com', 'city' => 'Luque', 'patients' => [
                     ['name' => 'Rocky', 'species' => 'Canino', 'breed' => 'Labrador Retriever', 'sex' => 'male'],
                 ]],
-                ['kind' => 'company', 'document_number' => '80024680-2', 'business_name' => 'Granja San Jorge S.R.L.', 'phone' => '+595211100003', 'email' => 'contacto@granjasanjorge.example.com', 'city' => 'San Lorenzo', 'patients' => [
+                ['kind' => 'company', 'document_number' => '99999903-6', 'business_name' => 'Granja San Jorge S.R.L.', 'phone' => '+595211100003', 'email' => 'contacto@granjasanjorge.example.com', 'city' => 'San Lorenzo', 'patients' => [
                     ['name' => 'Lucero', 'species' => 'Equino', 'breed' => 'Criollo', 'sex' => 'female'],
                 ]],
             ],
@@ -97,10 +100,10 @@ class DemoSeeder extends Seeder
             ],
             'license' => 'MV-2001',
             'clients' => [
-                ['kind' => 'person', 'document_number' => '5200001', 'first_name' => 'Patricia', 'last_name' => 'Ortiz', 'phone' => '+595982200001', 'email' => 'patricia.ortiz@example.com', 'city' => 'Encarnación', 'patients' => [
+                ['kind' => 'person', 'document_number' => '99200001', 'first_name' => 'Patricia', 'last_name' => 'Ortiz', 'phone' => '+595982200001', 'email' => 'patricia.ortiz@example.com', 'city' => 'Encarnación', 'patients' => [
                     ['name' => 'Luna', 'species' => 'Felino', 'breed' => 'Persa', 'sex' => 'female'],
                 ]],
-                ['kind' => 'person', 'document_number' => '5200002', 'first_name' => 'Jorge', 'last_name' => 'Villalba', 'phone' => '+595982200002', 'email' => 'jorge.villalba@example.com', 'city' => 'Ciudad del Este', 'patients' => [
+                ['kind' => 'person', 'document_number' => '99200002', 'first_name' => 'Jorge', 'last_name' => 'Villalba', 'phone' => '+595982200002', 'email' => 'jorge.villalba@example.com', 'city' => 'Ciudad del Este', 'patients' => [
                     ['name' => 'Toby', 'species' => 'Canino', 'breed' => 'Beagle', 'sex' => 'male'],
                     ['name' => 'Kira', 'species' => 'Canino', 'breed' => 'Pastor Alemán', 'sex' => 'female'],
                 ]],
@@ -115,6 +118,10 @@ class DemoSeeder extends Seeder
         DocumentSequenceService $sequences
     ): void {
         $password = $this->password();
+
+        if (UserPassword::leakCheckSkipped()) {
+            $this->command?->warn(UserPassword::LEAK_CHECK_SKIPPED_WARNING);
+        }
 
         // Roles, permisos y especies: los necesita y son idempotentes.
         $this->call([RolesAndPermissionsSeeder::class, SpeciesSeeder::class]);

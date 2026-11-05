@@ -332,27 +332,41 @@ class DemoSeederTest extends TestCase
     }
 
     /**
-     * Las clínicas de demostración llevan la marca y RUC ficticios con dígito válido;
-     * los clientes empresa, un RUC con su dígito correcto.
+     * Las clínicas de demostración llevan la marca. Todos los documentos son ficticios
+     * (R-011): los RUC de las clínicas y de los clientes empresa son 999999xx con su
+     * dígito verificador; las cédulas de los clientes persona, 99xxxxxx.
      */
-    public function test_demo_clinics_are_marked_and_use_fictitious_rucs(): void
+    public function test_demo_clinics_are_marked_and_use_fictitious_documents(): void
     {
         $this->runSeeder();
+        $companies = 0;
+        $people = 0;
 
         foreach (DemoSeeder::CLINICS as $data) {
             $clinic = Clinic::where('ruc', $data['ruc'])->sole();
 
-            $this->assertStringStartsWith('999999', $clinic->ruc, 'RUC ficticio');
+            $this->assertMatchesRegularExpression('/^999999\d{2}$/', $clinic->ruc, 'RUC ficticio');
             $this->assertSame((string) ClinicService::rucCheckDigit($clinic->ruc), $clinic->ruc_dv);
             $this->assertSame('1', DB::table('system_settings')->where(['clinic_id' => $clinic->id, 'key' => DemoSeeder::MARKER])->value('value'));
 
             foreach ($data['clients'] as $client) {
+                $document = $client['document_number'];
+
                 if ($client['kind'] === 'company') {
-                    [$ruc, $dv] = explode('-', $client['document_number']);
-                    $this->assertSame(ClinicService::rucCheckDigit($ruc), (int) $dv, $client['document_number']);
+                    $companies++;
+                    $this->assertMatchesRegularExpression('/^999999\d{2}-\d$/', $document, 'RUC ficticio de empresa');
+                    [$ruc, $dv] = explode('-', $document);
+                    $this->assertSame(ClinicService::rucCheckDigit($ruc), (int) $dv, $document);
+                } else {
+                    $people++;
+                    $this->assertMatchesRegularExpression('/^99\d{6}$/', $document, 'Cédula ficticia');
                 }
             }
         }
+
+        // Que el test no pase en vacío si cambian los datos.
+        $this->assertGreaterThan(0, $companies);
+        $this->assertGreaterThan(0, $people);
 
         // Correrlo otra vez reconoce sus clínicas por la marca.
         $this->runSeeder();

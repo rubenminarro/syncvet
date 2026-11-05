@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Log;
  * - Espera como mucho TIMEOUT_SECONDS.
  * - Si el servicio no responde o responde con error, acepta la contraseña (como
  *   Laravel) y registra solo un aviso: sin traza, sin la contraseña y sin el hash.
+ *   El aviso lleva el estado HTTP o el código de error de cURL (R-011), nunca el
+ *   mensaje de la excepción, que termina con la URL y el prefijo del hash.
+ * - lastCheckWasSkipped() dice si la última verificación no se pudo hacer, para
+ *   avisarlo en la consola (UserPassword::leakCheckSkipped). Es un singleton: el
+ *   ValidationServiceProvider lo registra así.
  */
 final class PwnedPasswordsVerifier implements UncompromisedVerifier
 {
@@ -25,6 +30,8 @@ final class PwnedPasswordsVerifier implements UncompromisedVerifier
     public const URL = 'https://api.pwnedpasswords.com/range/';
 
     public const UNAVAILABLE_MESSAGE = 'Have I Been Pwned no respondió: la contraseña se aceptó sin verificar si aparece en filtraciones.';
+
+    private bool $skipped = false;
 
     public function __construct(private readonly HttpFactory $http)
     {
@@ -35,6 +42,7 @@ final class PwnedPasswordsVerifier implements UncompromisedVerifier
      */
     public function verify(#[\SensitiveParameter] $data): bool
     {
+        $this->skipped = false;
         $value = (string) $data['value'];
 
         // Como Laravel: una contraseña vacía no se da por segura.
@@ -52,7 +60,7 @@ final class PwnedPasswordsVerifier implements UncompromisedVerifier
                 ->timeout(self::TIMEOUT_SECONDS)
                 ->get(self::URL . $prefix);
         } catch (Exception $e) {
-            return $this->unavailable(['reason' => $e::class]);
+            return $this->unavailable(['reason' => $e::class, ...self::curlError($e)]);
         }
 
         if (! $response->successful()) {
@@ -71,12 +79,35 @@ final class PwnedPasswordsVerifier implements UncompromisedVerifier
     }
 
     /**
+     * Si la última verificación no se pudo hacer (el servicio no respondió) y la
+     * contraseña se aceptó sin ella.
+     */
+    public function lastCheckWasSkipped(): bool
+    {
+        return $this->skipped;
+    }
+
+    /**
      * @param array<string, int|string> $context Solo datos que no identifican la contraseña.
      */
     private function unavailable(array $context): bool
     {
+        $this->skipped = true;
         Log::warning(self::UNAVAILABLE_MESSAGE, $context);
 
         return true;
+    }
+
+    /**
+     * Solo el número del error de cURL ("cURL error 77: … for https://…/range/ABCDE"):
+     * el resto del mensaje lleva la URL con el prefijo del hash.
+     *
+     * @return array{curl_error?: int}
+     */
+    private static function curlError(Exception $e): array
+    {
+        return preg_match('/\bcURL error (\d+)/', $e->getMessage(), $match) === 1
+            ? ['curl_error' => (int) $match[1]]
+            : [];
     }
 }
