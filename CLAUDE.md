@@ -23,9 +23,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Base de datos:** MySQL 8. Esquema del MVP completo (28 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
-  0.4 (R-012) y 0.5 (R-013 y R-014). Sigue la FASE 1 (clientes y pacientes), sin empezar.
+  0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entrega 1.1
+  cerrada (traducciones, voseo y `PUT`/`PATCH`, R-017); sigue la 1.2 (clientes).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
-  (`tests/Feature/Access`).
+  (`tests/Feature/Access`) y los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`).
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes y especies (ejemplo
   de referencia de la arquitectura).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
@@ -237,3 +238,7 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 8 | `scopeBindings()` sin test: hoy no hay rutas con dos parámetros anidados; se agrega con la primera |
+| 9 | `VoseoTest` con lista cerrada: no detecta formas fuera de ella ni mensajes en inglés (entrega 1.2) |
+| 10 | El test de marcadores no detecta `:values` por `:value` ni marcadores inventados (entrega 1.2) |
+| 11 | Sin test del nombre en español de los campos que solo valida un Controller (entrega 1.2) |
+| 12 | `VoseoTest` rechazaría textos correctos en tercera persona (entrega 1.2) |

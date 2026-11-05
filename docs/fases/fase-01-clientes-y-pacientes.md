@@ -1,6 +1,7 @@
 # FASE 1 — Clientes y pacientes
 
-Etapa: Base. Estado: **PENDIENTE**, con el diseño aprobado el 2026-11-05 (R-016). El estado vigente de cada fase está en
+Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y la entrega 1.1 cerrada (R-017). El estado
+vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -15,7 +16,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
-| 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | PENDIENTE |
+| 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | COMPLETADO (R-017) |
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | PENDIENTE |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | PENDIENTE |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | PENDIENTE |
@@ -302,5 +303,60 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
-desvíos del diseño y por qué.
+Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
+aserciones, desvíos del diseño y por qué. Cerrada: 1.1. Pendientes: 1.2 a 1.5.
+
+### Entrega 1.1
+
+Commit `0675c5b` (implementación), en `feature/fase-01-01-traducciones`, sobre el diseño de `docs/fase-01-diseno` (`c6cd327`).
+Validada por el usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-017](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `lang/es/validation.php` (las claves del framework en español y el nombre de cada campo en `attributes`), `tests/Unit/VoseoTest.php`, `tests/Feature/Localization/ValidationTranslationsTest.php`, `tests/Feature/Localization/VoseoMessagesTest.php`, `tests/Feature/HttpVerbsTest.php` |
+| Cambiados | `bootstrap/app.php` (403 `FORBIDDEN` en voseo, en los dos lugares), `app/Services/PatientService.php` (`PATIENT_IN_USE`), `app/Http/Requests/ClientMessages.php` (`first_name.prohibited` y `last_name.prohibited`), `app/Http/Controllers/Api/ClientController.php` (el filtro `kind` usa el mensaje de `ClientMessages`) |
+| Tests cambiados | `ErrorResponseTest` (texto del 403; el de `abort(403)` ahora también comprueba el mensaje) |
+| Documentación | `CLAUDE.md` §3 (mensajes con `VoseoTest` y `ValidationTranslationsTest`; `PUT` con semántica parcial), y en el cierre §1, este documento, el registro (R-017) y los documentos de estado |
+
+**Endpoints.** Ninguno nuevo. Cambia solo el texto de `message` o de `errors` en el 403 genérico, `PATIENT_IN_USE`, la empresa con
+nombre o apellido y el filtro `kind` del listado de clientes, y las reglas sin mensaje propio responden en español en lugar de la
+clave cruda. No cambian `error_code`, códigos HTTP, rutas ni permisos. La guía de Postman no citaba ninguno de esos textos: no cambió.
+
+**Tests.** Suite (corrida del 2026-11-05 sobre `0675c5b`): 220 métodos de test, 260 casos con los *data providers*; en SQLite, 5043
+aserciones con 2 omitidos (solo de MySQL); contra MySQL 8.4.3 (`syncvet_test_mysql`, corrida en el cierre), 5059 aserciones sin
+omitidos. Los de esta entrega: 16 métodos y 18 casos nuevos, 1133 aserciones más en las dos bases. La tabla cuenta casos de las
+clases nuevas o cambiadas.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `ValidationTranslationsTest` | 8 | 1082 | `lang/es/validation.php` tiene exactamente las claves del framework (también las anidadas), ninguna en inglés igual a la original y con los marcadores del original; la aplicación carga las líneas en español; cada regla de cada Form Request (texto u objeto) tiene mensaje propio o traducción, y una regla objeto desconocida hace fallar el test; cada campo de cada Form Request tiene nombre en español; pedidos inválidos a cada endpoint con validación nunca responden una clave `validation.*` |
+| `VoseoTest` | 2 | 8 | Los textos de `app/`, `bootstrap/app.php` y `lang/es` no contienen formas de tú ni de usted de una lista cerrada, buscadas como palabra entera |
+| `VoseoMessagesTest` | 4 | 9 | El 403 por falta de permiso, la empresa con nombre o apellido, el filtro `kind` y `PATIENT_IN_USE` responden el texto en voseo |
+| `HttpVerbsTest` | 4 | 34 | `PUT` y `PATCH` parciales, con el rol `recepcionista`, no cambian los campos no enviados de clientes y pacientes |
+| `ErrorResponseTest` | 7 | 17 | Lo de la 0.1, con el texto del 403 en voseo |
+
+**Protecciones quitadas de a una** (revisión). La implementación no dejó registro de las suyas. La revisión hizo 10 mutaciones:
+cuatro hacen fallar un test (`PUT` que borra los campos no enviados, `:attribute` mal escrito, un campo sin nombre en español y un
+mensaje nuevo en usted de la lista) y seis sobreviven (hallazgos 1 a 3).
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| `VoseoMessagesTest`, no previsto | Prueba de punta a punta cada mensaje que pasó a voseo; el diseño solo preveía actualizar `ErrorResponseTest` | Implementación, validada por el usuario |
+| `attributes` también nombra `include_deceased`, el filtro del listado de pacientes | Los filtros se validan en los Controllers y sus mensajes también usan el nombre del campo (`kind` y `species_id` ya estaban por los Requests) | Implementación, validada por el usuario |
+| `ValidationTranslationsTest` también exige que no sobren claves y clasifica `In` y `NotIn` | Una clave de más o una regla objeto sin clasificar ocultarían un mensaje sin traducir | Implementación, validada por el usuario |
+| El filtro `kind` lee el mensaje de `ClientMessages` en lugar de copiar el texto | Que los dos mensajes no vuelvan a divergir | Implementación, validada por el usuario |
+
+**Hallazgos de la revisión.** Ninguno es un error de la entrega: no hay mensajes en inglés, en tú ni en usted, ni claves crudas, y
+no cambió ningún `error_code` ni código HTTP. Son huecos de los tests. Sin corregir en la entrega: el usuario la validó sin pedir cambios y los registró como deudas 9 a 12, a resolver en la 1.2.
+
+| # | Gravedad | Hallazgo | Estado |
+|---|---|---|---|
+| 1 | Media | `VoseoTest` usa una lista cerrada: no detecta formas fuera de ella (`completa`, `usa`, `indique`, `usted`…), y ningún test detecta un mensaje propio en inglés | Deuda 9 |
+| 2 | Media | El test de marcadores solo busca el del original como texto: `:values` en lugar de `:value` pasa (mostraría "5s") y un marcador inventado de más también | Deuda 10 |
+| 3 | Baja | Los nombres de los campos que solo se validan en un Controller (hoy, `include_deceased`) no se prueban: sin él, el mensaje diría "include deceased" | Deuda 11 |
+| 4 | Baja | `VoseoTest` rechazaría textos correctos en tercera persona (`registra`, `revisa`, `verifica`, `intenta`, `vuelve`) | Deuda 12 |
+| 5 | Baja | `CLAUDE.md` §1 y el handoff seguían sin la 1.1 | Corregido en este cierre |
