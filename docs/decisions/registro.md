@@ -234,3 +234,24 @@ se quitó de a una y hace fallar su test.
 
 **Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles; la
 regla del login (un hash verificado siempre, con el costo de las contraseñas).
+
+# R-014 Entrega 0.5 y cierre de la FASE 0 (2026-11-05)
+
+Cierre de la entrega 0.5 (acceso por rol y verificación en MySQL), con las correcciones de su revisión (R-013), y de la FASE 0
+completa. Commits `8fe50cc` y `f87dbdd`, en `feature/fase-00-05-acceso`. El detalle está en el
+[resultado de la entrega](../fases/fase-00-puesta-en-marcha.md#entrega-05) y en el
+[cierre de la fase](../fases/fase-00-puesta-en-marcha.md#cierre-de-la-fase-0).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | Suite en verde sobre `f87dbdd` en SQLite (242 casos, 3910 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 3926 aserciones); el usuario la corrió en su máquina | Usuario, el 2026-11-05 |
+| FASE 0 | COMPLETADO: las cinco entregas cerradas y el criterio de cierre de la fase cumplido, punto por punto en el cierre de la fase. Sin merge a `main` | Usuario |
+| Permiso de cada ruta | Regla de `CLAUDE.md` §3: el permiso de cada ruta es su nombre (`recurso.acción`; en las anidadas, los dos últimos tramos), cada ruta tiene un nombre propio, y las excepciones van con su motivo. La exige `ClinicRolesTest` desde la 0.5 | Usuario |
+| Suite en MySQL | Regla de `CLAUDE.md` §3: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) en la revisión, antes de cada cierre y siempre que se toquen migraciones, búsquedas de texto, concurrencia o autenticación. Reemplaza "probar cada migración nueva también en MySQL" | Usuario |
+| Deuda 7 | Resuelta en la 0.5, antes de la FASE 1 prevista: cédulas ficticias en los tests y `FictitiousDocumentsTest` sobre toda secuencia de 7 a 9 dígitos | Usuario |
+| Deudas abiertas | 1, 2, 3, 5, 6 y 8 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)) | Implementación |
+| Siguiente | FASE 1, clientes y pacientes: empieza por el análisis y el diseño (pasos 1 y 2), con autorización del usuario | Usuario |
+| `CLAUDE.md` | §1 con el estado de la FASE 0 y los tests; §3 con las dos reglas nuevas (además de la de datos de ejemplo de R-013); §7 sin la deuda 7 y con la 8 | Implementación |
+
+**Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles; las
+reglas de negocio de clientes y pacientes.

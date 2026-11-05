@@ -1,6 +1,6 @@
 # FASE 0 — Puesta en marcha
 
-Etapa: Base. Estado: **EN DESARROLLO**: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008) y 0.4 (R-012) cerradas; diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
+Etapa: Base. Estado: **COMPLETADO** el 2026-11-05 (R-014): entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008), 0.4 (R-012) y 0.5 (R-013 y R-014) cerradas; diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -19,7 +19,7 @@ Cada entrega recorre los pasos 4 a 7 y deja la suite en verde.
 | 0.2 | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, `ClinicService::create` y tests de aislamiento | 0.2 | COMPLETADO (R-007) |
 | 0.3 | Autenticación: login, logout y `me`; tokens de 12 horas; límite de intentos; auditoría | 0.4 y parte de 0.6 | COMPLETADO (R-008) |
 | 0.4 | Comando `clinic:create` y datos de demostración | Nueva (P5) | COMPLETADO (R-012) |
-| 0.5 | Acceso por rol (`tests/Feature/Access`) y verificación final en MySQL | Parte de 0.6 y 0.7 | PENDIENTE |
+| 0.5 | Acceso por rol (`tests/Feature/Access`) y verificación final en MySQL | Parte de 0.6 y 0.7 | COMPLETADO (R-013, R-014) |
 
 ## Preguntas de negocio
 
@@ -298,7 +298,8 @@ migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, test
 
 ## Resultado
 
-Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entrega 0.5: PENDIENTE.
+Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Las cinco entregas están cerradas; el
+[cierre de la fase](#cierre-de-la-fase-0) resume el conjunto.
 
 ### Entrega 0.1
 
@@ -620,3 +621,119 @@ recreando la base (`migrate:fresh --seed` y el seeder).
 cédulas de ejemplo fuera del rango ficticio.
 
 **Para la entrega 0.5:** acceso por rol (`tests/Feature/Access`) y verificación final en MySQL, según el diseño de este documento.
+
+### Entrega 0.5
+
+Commits `8fe50cc` (implementación) y `f87dbdd` (correcciones de la revisión), en `feature/fase-00-05-acceso`. Validada por el
+usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-013](../decisions/registro.md) (revisión) y
+[R-014](../decisions/registro.md) (cierre de la entrega y de la fase).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `tests/Concerns/InteractsWithApiRoutes.php` (rutas reales de la API y su permiso), `tests/Feature/Access/RoleAccessTest.php`, `tests/Feature/Database/SchemaNamesTest.php`, `tests/Feature/Database/ClinicFactoryTest.php`, `tests/Unit/FictitiousDocumentsTest.php`, `tests/Fixtures/clinic-roles.json` (foto de los roles) |
+| Cambiados | `app/Services/AuthService.php` (`dummyHash()`: el hash de relleno con el costo configurado), `database/factories/ClinicFactory.php` (RUC de 9 dígitos) |
+| Tests cambiados | `ClinicRolesTest` (usa `InteractsWithApiRoutes`; regla del nombre, nombres únicos, foto de los roles), `LoginCredentialsTest` (costo del hash de relleno), y cédulas ficticias en `InteractsWithClinics`, `ClinicAssignmentTest` y `ValidationScopeTest` (deuda 7) |
+| Documentación | Este documento, `CLAUDE.md` (§1, §3 y §7), [`deuda-tecnica.md`](../roadmap/deuda-tecnica.md) (deuda 7 resuelta, deuda 8), el registro (R-013 y R-014) y los documentos de estado |
+
+**Endpoints.** Ninguno nuevo; los 119 permisos y los tres roles no cambian. La guía de Postman ya tenía login, `me` y logout desde
+la 0.3 (pieza del diseño de la 0.5): no cambió.
+
+**Tests.** Suite (corrida del 2026-11-05 sobre `f87dbdd`): 204 métodos de test, 242 casos con los *data providers*; en SQLite, 3910
+aserciones con 2 omitidos (la collation de MySQL y los nombres de claves foráneas, que SQLite no guarda); contra MySQL 8.4.3
+(`syncvet_test_mysql`), 3926 aserciones sin omitidos. Los de esta entrega: 19 métodos y 20 casos nuevos, 702 aserciones más en
+SQLite y 704 en MySQL. La tabla cuenta casos de las clases nuevas o cambiadas.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `RoleAccessTest` | 7 | 180 | Matriz con las rutas reales, cada método por separado: `recepcionista` y `veterinario` llegan exactamente a las rutas de sus permisos (permitida: ni 401, 403, 404, 405 ni 5xx; prohibida: 403 `FORBIDDEN`); sin rol, 403 en todo; el administrador pasa solo por `Gate::before` (con el rol sin permisos); cada ruta pasa con su permiso solo y da 403 con todos los demás; sin token, 401 salvo el login; `logout` y `me`, para cualquier usuario autenticado |
+| `ClinicRolesTest` | 13 | 96 | Además de lo de la 0.1: el permiso de cada ruta es su nombre; cada ruta tiene un nombre propio; las rutas sin permiso existen, tienen motivo y no piden permiso; los roles sembrados coinciden con la foto (también el administrador), ordenada y sin repetidos |
+| `FictitiousDocumentsTest` | 3 | 52 | Toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la guía de Postman está en un rango ficticio o en la lista permitida con motivo; detecta las 10 formas de escribir un documento real; distingue teléfonos, fechas y códigos |
+| `ClinicFactoryTest` | 1 | 401 | La factory genera RUC de 9 dígitos, únicos y con su dígito verificador (200 clínicas) |
+| `SchemaNamesTest` | 2 | 2 (4 en MySQL) | Nombres de índices de hasta 64 caracteres en las dos bases; claves foráneas, solo en MySQL |
+| `LoginCredentialsTest` | 12 | 34 | Además de lo de la 0.3: el hash de relleno usa el costo configurado y, con el de producción, es el precalculado |
+
+**Verificación en MySQL** (`syncvet_test_mysql`, MySQL 8.4.3): `migrate:fresh --seed`, rollback completo y `migrate --seed` otra
+vez, en la implementación y de nuevo en la revisión (después del rollback solo queda la tabla `migrations`). Índices de hasta 56
+caracteres y claves foráneas de hasta 49; `SchemaNamesTest` lo comprueba en cada corrida. Reemplaza a `database/schema-mysql.sql`
+(R-005).
+
+**Protecciones quitadas de a una.** La implementación quitó 14 (quitar solo `auth:sanctum` es equivalente: `SetCurrentClinic`
+también responde 401). La revisión quitó 10: siete hacían fallar un test, una era equivalente (`scopeBindings()`, deuda 8) y dos
+sobrevivían (hallazgos 1 y 2). Las correcciones se probaron con 16 mutaciones nuevas y repitiendo 4 de la revisión sobre el
+`RoleAccessTest` optimizado: todas hacen fallar un test. Una ruta que acepta dos permisos (`clients.show|clients.index`) no la
+detecta la matriz, que lee el permiso del Controller, sino la regla del nombre de `ClinicRolesTest`.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| La matriz sale de la lista real de rutas y de `clinicRoles()`, no de una lista fija; permitida es "ni 401, 403, 404, 405 ni 5xx", no solo "no 403" | Una ruta, un método o un rol nuevos quedan cubiertos sin tocar el test, y un error no cuenta como permitido | Implementación, validada por el usuario |
+| Regla del nombre (el permiso de cada ruta es su nombre) y foto de los roles, no previstas | La matriz lee el permiso del propio Controller: sin la regla, un permiso equivocado pero existente pasaba; sin la foto, un permiso cambiado en un rol cambiaba lo esperado | Implementación, validada por el usuario; la regla pasa a `CLAUDE.md` §3 (R-014) |
+| `SchemaNamesTest` automatiza la consulta a `information_schema` | Un nombre largo pasaba la suite en SQLite y fallaba recién al migrar en MySQL | Implementación, validada por el usuario |
+| La deuda 7 se resuelve en esta entrega, no en la FASE 1 | Las cédulas reales en los tests eran un cambio chico y el test nuevo lo exige | Implementación; ampliado en la revisión (R-013) |
+| `AuthService` cambia en una entrega de tests | El hash de relleno costaba un bcrypt de costo 12 en cada login con un email desconocido de la suite; en producción no cambia nada | Usuario (R-013) |
+
+**Hallazgos de la revisión y su corrección** (commit `f87dbdd`, R-013).
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Las rutas se guardaban por su nombre: una ruta sin permiso con el nombre de otra se pisaba con ella y pasaba toda la suite (`species-purge`) | Rutas por método y URI; cada ruta con un nombre propio. `ClinicRolesTest` |
+| 2 | `FictitiousDocumentsTest` solo veía `'ruc' => '...'` y `'document_number' => '...'`: no detectaba 7 de las 8 formas de la revisión | Revisa toda secuencia de 7 a 9 dígitos, también en los fixtures y la guía de Postman, con una lista permitida por archivo y con motivo |
+| 3 | La `ClinicFactory` generaba RUC de `90000000` a `99899999`, contra R-011, y el test no lo veía porque el valor se calcula | RUC de 9 dígitos con su dígito verificador. `ClinicFactoryTest` |
+| 4 | Nada comprobaba que las rutas sin permiso pidieran token | 401 sin token en todas, salvo las de `PUBLIC_ROUTES` (el login). `RoleAccessTest` |
+| 5 | La matriz probaba un solo método por ruta (`PATCH` en las `PUT\|PATCH`) | Cada método por separado. `RoleAccessTest` |
+| 6 | La foto de los roles no cubría al administrador ni comprobaba el orden | Cubre los tres roles, se compara con la base y exige orden alfabético sin repetidos. `ClinicRolesTest` |
+| 7 | `scopeBindings()` no tiene test (quitarlo no cambia nada hoy) | Deuda 8, hasta la primera ruta con dos parámetros anidados |
+
+**Tiempos de la suite** (medidos con el registro JUnit de PHPUnit).
+
+| Base | Antes de la revisión (`8fe50cc`, 236 casos) | Después (`f87dbdd`, 242 casos) |
+|---|---|---|
+| SQLite | 33,1 s | 26,5 s |
+| MySQL | 75,8 s | 51,7 s |
+
+Lo que bajó: el hash de relleno con el costo de `BCRYPT_ROUNDS` (`LoginThrottleTest::test_failed_attempts_with_an_unknown_email_also_count` pasó de 1,36 s a
+0,09 s) y `RoleAccessTest`, de 10 s a 5 s en SQLite, porque crea sus roles antes de los pedidos y no vacía la caché de
+Spatie en cada uno. No había `sleep()`: los tests de tiempo ya usaban `travel`. Lo que queda: el primer test paga la migración
+inicial (unos 3 s en SQLite y de 20 a 34 s en MySQL); no se usa `schema:dump` porque las migraciones dejarían de probarse en MySQL.
+
+**Deuda que queda.** Deuda 8 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): `scopeBindings()` sin test.
+
+## Cierre de la FASE 0
+
+Completada el 2026-11-05 (R-014). El proyecto corre sobre Laravel 13 con clínicas separadas en una base compartida (D1),
+autenticación con tokens de 12 horas y límite de intentos, alta de clínicas por comando, datos de demostración, regla de
+contraseñas y el acceso por rol de cada ruta probado contra la lista real de rutas. Sin merge a `main`: las ramas de las entregas
+se encadenan (`feature/fase-00-paquete-base` → `feature/fase-00-02-clinicas` → `feature/fase-00-03-auth` →
+`feature/fase-00-04-clinic-create` → `feature/fase-00-05-acceso`).
+
+| Entrega | Contenido | Commits | Suite al cerrar |
+|---|---|---|---|
+| [0.1](#entrega-01) | Proyecto, Sanctum, Spatie, `phpunit.xml`, `ClinicRolesTest` | `11b82b3`, `2b50149` | 18 tests, 58 aserciones |
+| [0.2](#entrega-02) | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, tests de aislamiento | `fb52b73`, `cf8f862` | 90 casos (75 métodos), 290 aserciones en SQLite y MySQL |
+| [0.3](#entrega-03) | Login, logout y `me`; límite de intentos; auditoría | `2114244`, `3da07f2`, `727546e` | 149 casos (132 métodos); 689 aserciones en SQLite y 703 en MySQL |
+| [0.4](#entrega-04) | `clinic:create`, `DemoSeeder` y regla de contraseñas | `35d5089`, `d135459`, `e7047b2` | 222 casos (185 métodos); 3208 aserciones en SQLite y 3222 en MySQL |
+| [0.5](#entrega-05) | Acceso por rol y verificación en MySQL | `8fe50cc`, `f87dbdd` | 242 casos (204 métodos); 3910 aserciones en SQLite y 3926 en MySQL |
+
+**Suite final** (2026-11-05, `f87dbdd`): 204 métodos de test y 242 casos en verde. SQLite: 3910 aserciones, 2 omitidos (solo de
+MySQL). MySQL 8.4.3 (`syncvet_test_mysql`): 3926 aserciones, sin omitidos.
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| `migrate:fresh --seed` corre en MySQL y en SQLite | En SQLite, en cada corrida de la suite (`RefreshDatabase` con `$seed`); en MySQL, a mano en las entregas 0.2 y 0.5, con rollback completo |
+| Los tests de aislamiento pasan y cada uno falla al quitar su protección | `tests/Feature/Tenancy` (0.2); mutaciones de cada entrega y de sus revisiones |
+| Login con cada rol | `DemoSeederTest` (cada usuario de demostración inicia sesión) y la prueba manual con Postman de la 0.4 (R-012) |
+| `ClinicRolesTest` verifica los permisos de los roles y de los controllers | Desde la 0.1; en la 0.5, con la regla del nombre, la foto de los roles y la matriz de `RoleAccessTest` |
+| `clinic:create` deja una clínica operativa | `ClinicCreateCommandTest` (el administrador creado inicia sesión) y la validación manual de la 0.4 |
+| Suite en verde | La suite final, en las dos bases |
+
+**Deudas abiertas al cerrar** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): 1 (clientes y pacientes sin tests funcionales),
+2 (modelos generados desde el esquema), 3 (códigos SIFEN sin verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en
+ráfagas con la caché `database`) y 8 (`scopeBindings()` sin test). Resueltas en la fase: 4 y 7.
+
+**Para la FASE 1** (clientes y pacientes): [`fase-01-clientes-y-pacientes.md`](fase-01-clientes-y-pacientes.md), con el diseño pendiente. Lleva la
+deuda 1 y el pendiente de la 0.2 (cubrir `insert()` y `upsert()` en el ABM de especies y razas, [resultado de la 0.2](#entrega-02)).

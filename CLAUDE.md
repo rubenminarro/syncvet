@@ -22,8 +22,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
 * **Base de datos:** MySQL 8. Esquema del MVP completo (28 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
-* **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está en desarrollo, con las entregas 0.1 (R-006), 0.2 (R-007),
-  0.3 (R-008) y 0.4 (R-012) completadas; sigue la 0.5.
+* **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
+  0.4 (R-012) y 0.5 (R-013 y R-014). Sigue la FASE 1 (clientes y pacientes), sin empezar.
+* **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
+  (`tests/Feature/Access`).
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes y especies (ejemplo
   de referencia de la arquitectura).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
@@ -112,14 +114,18 @@ empezar una sesión.
 ### Permisos
 
 * Cada Controller implementa `HasMiddleware` con `permission:<recurso>.<acción>` por método.
-* El permiso debe existir exactamente en `RolesAndPermissionsSeeder::PERMISSIONS`. El rol `administrador` pasa todo por
+* El permiso de cada ruta es su nombre, `recurso.acción` (en las anidadas, los dos últimos tramos: `clients.patients.store` →
+  `patients.store`). Cada ruta de la API tiene un nombre propio. Una excepción va con su motivo en
+  `ROUTES_WITH_ANOTHER_PERMISSION`, y una ruta sin permiso, en `ROUTES_WITHOUT_PERMISSION` (`tests/Concerns/InteractsWithApiRoutes`).* El permiso debe existir exactamente en `RolesAndPermissionsSeeder::PERMISSIONS`. El rol `administrador` pasa todo por
   `Gate::before`: probar siempre con un rol propio.
 * Roles de la clínica en `RolesAndPermissionsSeeder::clinicRoles()`: `recepcionista` y `veterinario`.
 
 ### Entorno
 
 * Zona horaria `America/Asuncion`; la API envía las fechas con hora en UTC (`Z`).
-* Tests con SQLite; probar cada migración nueva también en MySQL.
+* Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) en la revisión, antes de cada
+  cierre y siempre que se toquen migraciones, búsquedas de texto, concurrencia o autenticación
+  (`DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`).
 
 ---
 
@@ -227,5 +233,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
-| 7 | Cédulas de ejemplo en los tests de `tests/Feature/Tenancy` fuera del rango ficticio |
 | 8 | `scopeBindings()` sin test: hoy no hay rutas con dos parámetros anidados; se agrega con la primera |

@@ -12,19 +12,19 @@ Si este documento contradice al código, manda el código.
 | Dato | Valor |
 |---|---|
 | Actualizado | 2026-11-05 |
-| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base, en la rama `feature/fase-00-04-clinic-create`, que sigue a `feature/fase-00-03-auth`, `feature/fase-00-02-clinicas` y `feature/fase-00-paquete-base` (sin merge a `main`) |
-| Último commit de código | `e7047b2` Corrige los hallazgos de la segunda revisión de la entrega 0.4 (R-011), en `origin/feature/fase-00-04-clinic-create`. `origin/main` está en `3eee538` |
+| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base, en la rama `feature/fase-00-05-acceso`, que sigue a `feature/fase-00-04-clinic-create`, `feature/fase-00-03-auth`, `feature/fase-00-02-clinicas` y `feature/fase-00-paquete-base` (sin merge a `main`) |
+| Último commit de código | `f87dbdd` Corrige los hallazgos de la revisión de la entrega 0.5 (R-013), en `origin/feature/fase-00-05-acceso`. `origin/main` está en `3eee538` |
 | Frontend | Sin empezar |
-| Última entrega de código | FASE 0, entrega 0.4: `clinic:create` y `DemoSeeder` (registro R-012) |
-| Tests del backend | Corrida de `php artisan test` del 2026-11-05 sobre `e7047b2`: 185 métodos de test (222 casos con los *data providers*) en verde; 3208 aserciones en SQLite (1 omitido: el de la collation de MySQL) y 3222 contra MySQL 8.4.3 (`syncvet_test_mysql`). `tests/Feature` (entrega 0.1), `tests/Feature/Tenancy` (0.2), `tests/Feature/Auth` con `TrustedProxiesTest` (0.3), y `tests/Feature/Console`, `Seeders`, `Security` y `tests/Unit` (0.4). Los tests no escriben en `storage/logs` (`LOG_CHANNEL=null`) |
-| Último checkpoint validado | Entrega 0.4 en `e7047b2`: suite en verde en SQLite y MySQL; el usuario la validó el 2026-11-05 a mano (`DemoSeeder`, `clinic:create` y Postman, que completa la prueba pendiente de la 0.3) ([resultado](fases/fase-00-puesta-en-marcha.md#entrega-04)) |
+| Última entrega de código | FASE 0, entrega 0.5: acceso por rol y verificación en MySQL (registros R-013 y R-014). Con ella se cierra la FASE 0 |
+| Tests del backend | Corrida de `php artisan test` del 2026-11-05 sobre `f87dbdd`: 204 métodos de test (242 casos con los *data providers*) en verde; 3910 aserciones en SQLite (2 omitidos, solo de MySQL) y 3926 contra MySQL 8.4.3 (`syncvet_test_mysql`). `tests/Feature` (entrega 0.1), `tests/Feature/Tenancy` (0.2), `tests/Feature/Auth` con `TrustedProxiesTest` (0.3), `tests/Feature/Console`, `Seeders`, `Security` y `tests/Unit` (0.4), y `tests/Feature/Access` y `Database` (0.5). Unos 27 s en SQLite y 52 s en MySQL. Cuándo correr cada base: `CLAUDE.md` §3, Entorno |
+| Último checkpoint validado | Entrega 0.5 y FASE 0 en `f87dbdd`: suite en verde en SQLite y MySQL; el usuario la validó el 2026-11-05 ([resultado de la 0.5](fases/fase-00-puesta-en-marcha.md#entrega-05) y [cierre de la fase](fases/fase-00-puesta-en-marcha.md#cierre-de-la-fase-0)) |
 
 El estado actual siempre se confirma con `git log origin/main` y `php artisan test`.
 
 ## Estado del proyecto
 
 SyncVet es la API de gestión de una clínica veterinaria (Paraguay), con el frontend en otro repositorio. El plan del MVP tiene 11
-fases ([`roadmap/README.md`](roadmap/README.md)); la FASE 0 está en desarrollo, con las entregas 0.1 a 0.4 cerradas.
+fases ([`roadmap/README.md`](roadmap/README.md)); la FASE 0 está completada (R-014) y sigue la FASE 1.
 
 **El sistema no está listo para producción.**
 
@@ -32,8 +32,7 @@ fases ([`roadmap/README.md`](roadmap/README.md)); la FASE 0 está en desarrollo,
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | FASE 0, entrega 0.5: acceso por rol (`tests/Feature/Access`) y verificación final en MySQL ([`fases/fase-00-puesta-en-marcha.md`](fases/fase-00-puesta-en-marcha.md)). Diseño aprobado (R-005) | Autorización del usuario |
-| 2 | FASE 1: clientes y pacientes. En el ABM de especies y razas, cubrir `insert()` y `upsert()` ([resultado de la 0.2](fases/fase-00-puesta-en-marcha.md#entrega-02)); cédulas de ejemplo ficticias en los tests (deuda 7) | FASE 0 cerrada |
+| 1 | FASE 1: clientes y pacientes ([`fases/fase-01-clientes-y-pacientes.md`](fases/fase-01-clientes-y-pacientes.md)): tests funcionales (deuda 1) y, en el ABM de especies y razas, cubrir `insert()` y `upsert()` ([resultado de la 0.2](fases/fase-00-puesta-en-marcha.md#entrega-02)). Empieza por el análisis y el diseño (pasos 1 y 2 de [`prompts/README.md`](prompts/README.md)); el diseño y las preguntas de negocio están pendientes | Autorización del usuario |
 
 Ninguna entrega empieza sin autorización del usuario.
 
@@ -47,5 +46,5 @@ Ninguna entrega empieza sin autorización del usuario.
 | Zona horaria | `America/Asuncion` en la base; la API envía UTC |
 | Separación por clínica | Una base compartida con `clinic_id`, scope global y fallo cerrado (D1, registros R-002 y R-004). Implementada en la entrega 0.2 (R-007); reglas en `CLAUDE.md` §3 |
 | Autenticación | Login con email (en minúsculas y solo ASCII); tokens de 12 horas; 5 intentos fallidos por minuto por usuario e IP, o por email si no existe (R-004, R-008); clínicas creadas con `clinic:create` (R-004). En producción, caché en Redis para el límite (deuda 6) |
-| Contraseñas | 12 caracteres con mayúsculas, minúsculas, números y símbolos, y no filtrada (Have I Been Pwned); `App\Support\UserPassword` (R-009). Ninguna contraseña llega a una traza ni al log (R-010). Datos de ejemplo con documentos ficticios (R-011). En Laragon, `curl.cainfo` correcto ([`development/setup.md`](development/setup.md)) |
+| Contraseñas | 12 caracteres con mayúsculas, minúsculas, números y símbolos, y no filtrada (Have I Been Pwned); `App\Support\UserPassword` (R-009). Ninguna contraseña llega a una traza ni al log (R-010). Datos de ejemplo con documentos ficticios (R-011, R-013). En Laragon, `curl.cainfo` correcto ([`development/setup.md`](development/setup.md)) |
 | Facturación | SIFEN (Paraguay), en las FASES 8 y 9 |
