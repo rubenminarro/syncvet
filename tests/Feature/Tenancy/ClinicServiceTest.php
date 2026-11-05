@@ -25,8 +25,8 @@ class ClinicServiceTest extends TestCase
 {
     use InteractsWithClinics;
 
-    // RUC de la ANDE: 80009735-1.
-    private const DATA = ['name' => 'Veterinaria Central', 'legal_name' => 'Veterinaria Central S.A.', 'ruc' => '80009735', 'ruc_dv' => '1'];
+    // RUC ficticio (R-010): los reales solo están en RucCheckDigitTest.
+    private const DATA = ['name' => 'Veterinaria Central', 'legal_name' => 'Veterinaria Central S.A.', 'ruc' => '99999910', 'ruc_dv' => '9'];
 
     private const ADMIN = ['email' => 'admin@central.com.py', 'first_name' => 'María', 'last_name' => 'Benítez', 'password' => 'secreta-123'];
 
@@ -65,7 +65,7 @@ class ClinicServiceTest extends TestCase
     {
         app(ClinicService::class)->create(self::DATA, self::ADMIN);
         app(ClinicService::class)->create(
-            ['name' => 'Otra', 'legal_name' => 'Otra S.A.', 'ruc' => '1234567', 'ruc_dv' => (string) ClinicService::rucCheckDigit('1234567')],
+            ['name' => 'Otra', 'legal_name' => 'Otra S.A.', 'ruc' => '99999911', 'ruc_dv' => (string) ClinicService::rucCheckDigit('99999911')],
             [...self::ADMIN, 'email' => 'admin@otra.com.py'],
         );
 
@@ -92,9 +92,9 @@ class ClinicServiceTest extends TestCase
     public static function invalidRucs(): array
     {
         return [
-            'dígito verificador incorrecto' => ['80009735', '2'],
-            'RUC con letras' => ['8000973A', '1'],
-            'dígito verificador vacío' => ['80009735', ''],
+            'dígito verificador incorrecto' => ['99999910', '8'],
+            'RUC con letras' => ['9999991A', '1'],
+            'dígito verificador vacío' => ['99999910', ''],
         ];
     }
 

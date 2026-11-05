@@ -4,6 +4,7 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Spatie\Permission\PermissionRegistrar;
@@ -29,6 +30,12 @@ abstract class TestCase extends BaseTestCase
      */
     protected array $compromisedPasswords = [];
 
+    /**
+     * Have I Been Pwned caído: true lanza ConnectionException (sin respuesta); un
+     * número responde con ese estado HTTP.
+     */
+    protected bool|int $pwnedPasswordsUnavailable = false;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -51,6 +58,14 @@ abstract class TestCase extends BaseTestCase
 
         Http::fake([
             'api.pwnedpasswords.com/range/*' => function (Request $request) {
+                if ($this->pwnedPasswordsUnavailable === true) {
+                    throw new ConnectionException('cURL error 28: Operation timed out');
+                }
+
+                if (is_int($this->pwnedPasswordsUnavailable)) {
+                    return Http::response('', $this->pwnedPasswordsUnavailable);
+                }
+
                 $prefix = strtoupper(substr($request->url(), -5));
                 $lines = [];
 

@@ -77,6 +77,19 @@ class ClinicService
     }
 
     /**
+     * Las verificaciones de create() que no necesitan la contraseña: RUC válido y libre,
+     * email ASCII y libre. clinic:create las hace antes de pedir la contraseña.
+     * create() las repite: entre una llamada y otra puede entrar otra alta.
+     */
+    public function ensureCanCreate(string $ruc, string $dv, string $adminEmail): void
+    {
+        $this->ensureValidRuc($ruc, $dv);
+        $this->ensureAdminEmailIsAscii($adminEmail);
+        $this->ensureRucIsFree($ruc);
+        $this->ensureAdminEmailIsFree(User::normalizeEmail($adminEmail));
+    }
+
+    /**
      * Dígito verificador del RUC paraguayo (módulo 11, algoritmo de la SET).
      */
     public static function rucCheckDigit(string $ruc): int

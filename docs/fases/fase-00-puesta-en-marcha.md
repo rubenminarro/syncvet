@@ -242,12 +242,14 @@ de `password` (array), del email (más de 255, no ASCII) y `$hidden`; proxies de
 | Pieza | Detalle |
 |---|---|
 | Comando | `php artisan clinic:create`. Pide de forma interactiva (Laravel Prompts), o por opciones: `--name`, `--legal-name`, `--ruc`, `--ruc-dv`, `--admin-email`, `--admin-first-name`, `--admin-last-name`. Contraseña: interactiva, oculta y con confirmación; sin interacción, se genera y se muestra una sola vez |
-| Lógica | Valida los datos, llama a `ClinicService::create` y muestra la clínica, la sucursal, el depósito y el email del administrador. Un error de validación termina con código 1 y el mensaje, sin traza |
+| Lógica | Valida los datos, verifica el RUC y el email antes de pedir la contraseña (R-010), llama a `ClinicService::create` y muestra la clínica, la sucursal, el depósito y el email del administrador. Un error de validación termina con código 1 y el mensaje, sin traza |
 | Auditoría | El alta queda en `audit_logs` con `clinic_id` de la clínica nueva y `user_id` nulo (no hay usuario autenticado) |
-| `DemoSeeder` | Solo en `local` y `testing`, idempotente (correrlo dos veces no duplica nada) y nunca en producción (en otro entorno termina sin hacer nada): una clínica de demostración con un usuario por rol (`administrador`, `recepcionista`, `veterinario` con su ficha) para Postman |
+| `DemoSeeder` | Solo en `local` y `testing`, idempotente (correrlo dos veces no duplica nada) y nunca en producción: en otro entorno **falla** con una excepción (R-010). Dos clínicas de demostración (A y B, para probar la separación de datos; R-010), cada una con un usuario por rol (`administrador`, `recepcionista`, `veterinario` con su ficha), clientes y pacientes, para Postman. RUC ficticios y la marca `demo_data` en `system_settings`: una clínica con su RUC sin la marca, o un email que ya es de otra clínica, lo hacen fallar |
+| Contraseñas | Regla de R-009 con el verificador propio de Have I Been Pwned (3 segundos; sin respuesta, se acepta con un aviso sin traza) y sin argumentos en las trazas (`zend.exception_ignore_args`), R-010 |
 
 **Tests** (`tests/Feature/Console/ClinicCreateCommandTest`): crea todo con opciones; email repetido falla sin crear la clínica;
-RUC inválido falla; el administrador creado puede hacer login.
+RUC inválido falla; el administrador creado puede hacer login. La revisión de la entrega (R-010) suma `tests/Feature/Seeders`,
+`tests/Feature/Security` y `tests/Unit`.
 
 ### 0.5 Acceso por rol y verificación en MySQL
 

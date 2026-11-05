@@ -44,13 +44,13 @@ class LoginCredentialsTest extends TestCase
         $service = app(ClinicService::class);
         $admin = ['email' => 'Admin@Central.com.py', 'first_name' => 'María', 'last_name' => 'Benítez', 'password' => 'secreta-123'];
 
-        $clinic = $service->create(['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '80009735', 'ruc_dv' => '1'], $admin);
+        $clinic = $service->create(['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '99999910', 'ruc_dv' => '9'], $admin);
 
         $this->assertSame('admin@central.com.py', DB::table('users')->where('clinic_id', $clinic->id)->value('email'));
 
         try {
             $service->create(
-                ['name' => 'Otra', 'legal_name' => 'Otra S.A.', 'ruc' => '80012345', 'ruc_dv' => '0'],
+                ['name' => 'Otra', 'legal_name' => 'Otra S.A.', 'ruc' => '99999911', 'ruc_dv' => '7'],
                 [...$admin, 'email' => 'ADMIN@central.com.py']
             );
             $this->fail('Se aceptó el mismo email con otras mayúsculas.');
@@ -141,7 +141,7 @@ class LoginCredentialsTest extends TestCase
     {
         try {
             app(ClinicService::class)->create(
-                ['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '80009735', 'ruc_dv' => '1'],
+                ['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '99999910', 'ruc_dv' => '9'],
                 ['email' => 'ānā@central.com.py', 'first_name' => 'Ana', 'last_name' => 'Benítez', 'password' => 'secreta-123']
             );
             $this->fail('Se aceptó un email con caracteres que no son ASCII.');
@@ -150,6 +150,6 @@ class LoginCredentialsTest extends TestCase
             $this->assertSame(422, $e->getStatus());
         }
 
-        $this->assertSame(0, DB::table('clinics')->where('ruc', '80009735')->count());
+        $this->assertSame(0, DB::table('clinics')->where('ruc', '99999910')->count());
     }
 }

@@ -27,7 +27,8 @@ use function Laravel\Prompts\text;
  *   contraseña, que muestra una sola vez. La contraseña nunca es una opción: no
  *   queda en el historial de la consola.
  * - Un dato inválido o un error de negocio (RUC o email repetido) termina con
- *   código 1 y el mensaje, sin traza y sin crear nada.
+ *   código 1 y el mensaje, sin traza y sin crear nada. El RUC y el email se
+ *   verifican antes de pedir la contraseña.
  */
 class ClinicCreateCommand extends Command
 {
@@ -65,6 +66,16 @@ class ClinicCreateCommand extends Command
             foreach ($errors as $error) {
                 $this->components->error($error);
             }
+
+            return self::FAILURE;
+        }
+
+        // RUC y email antes de la contraseña: un dato de negocio inválido no hace
+        // escribirla para nada. create() los vuelve a verificar en su transacción.
+        try {
+            $clinics->ensureCanCreate($values['ruc'], $values['ruc-dv'], $values['admin-email']);
+        } catch (ClinicException $e) {
+            $this->components->error("{$e->getMessage()} ({$e->getErrorCode()})");
 
             return self::FAILURE;
         }

@@ -21,19 +21,20 @@ php artisan db:seed --class=DemoSeeder
 ```
 
 Es idempotente: correrlo otra vez no duplica nada ni cambia las contraseñas. Para usar otra `DEMO_PASSWORD`, repetir los dos
-comandos.
+comandos. Solo usa sus clínicas (marcadas como de demostración, con RUC ficticios): si ya hay otra clínica con su RUC, o uno de
+sus emails es de un usuario de otra clínica, falla sin tocar nada (R-010).
 
 | Clínica | RUC | Rol | Email | Además |
 |---|---|---|---|---|
-| Clínica A | 80009735-1 | `administrador` | `admin-a@example.com` | |
+| Clínica A | 99999901-0 | `administrador` | `admin-a@example.com` | |
 | Clínica A | | `recepcionista` | `recepcion-a@example.com` | |
 | Clínica A | | `veterinario` | `vet-a@example.com` | Ficha `VET-000001`, matrícula `MV-1001` |
-| Clínica B | 80012345-0 | `administrador` | `admin-b@example.com` | |
+| Clínica B | 99999902-8 | `administrador` | `admin-b@example.com` | |
 | Clínica B | | `recepcionista` | `recepcion-b@example.com` | |
 | Clínica B | | `veterinario` | `vet-b@example.com` | Ficha `VET-000001`, matrícula `MV-2001` |
 
 Cada clínica tiene su sucursal `SUC-01` y su depósito `DEP-01`. Clientes: en la A, Laura Martínez (`5100001`, con Firulais y
-Mishi), Carlos Duarte (`5100002`, con Rocky) y Granja San Jorge S.R.L. (`80024680-1`, con la yegua Lucero); en la B, Patricia
+Mishi), Carlos Duarte (`5100002`, con Rocky) y Granja San Jorge S.R.L. (`80024680-2`, con la yegua Lucero); en la B, Patricia
 Ortiz (`5200001`, con Luna) y Jorge Villalba (`5200002`, con Toby y Kira). Los pacientes de cada clínica numeran desde
 `PAC-000001`.
 
@@ -87,7 +88,7 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 | # | Request | Body | Esperado |
 |---|---|---|---|
 | 1 | `POST /api/clients` | `{"document_number":"1234567","first_name":"Ana","last_name":"Gómez","email":"ana@ejemplo.com.py","phone":"+595981000000"}` | 201, `data.display_name` = "Ana Gómez" |
-| 2 | `POST /api/clients` | `{"kind":"company","document_number":"80012345-6","business_name":"Haras del Sur SA","email":"haras@ejemplo.com.py","phone":"+595981000001"}` | 201 |
+| 2 | `POST /api/clients` | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@ejemplo.com.py","phone":"+595981000001"}` | 201 |
 | 3 | `POST /api/clients` con `first_name` en una empresa | | 422 `VALIDATION_ERROR` |
 | 4 | `GET /api/species` | | 200, especies con sus razas |
 | 5 | `POST /api/clients/{id}/patients` | `{"name":"Toby","species_id":1,"birth_date":"2023-01-10"}` | 201, `data.code` = `PAC-000001` |

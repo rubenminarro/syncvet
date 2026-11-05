@@ -5,7 +5,12 @@ namespace Tests\Feature\Seeders;
 use App\Enums\AuditEvent;
 use App\Models\Clinic;
 use App\Models\User;
+use App\Services\ClinicService;
 use Database\Seeders\DatabaseSeeder;
+use Dotenv\Repository\Adapter\ArrayAdapter;
+use Dotenv\Repository\RepositoryBuilder;
+use Illuminate\Support\Env;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Database\Seeders\DemoSeeder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Spatie\Permission\Models\Role;
@@ -230,6 +235,144 @@ class DemoSeederTest extends TestCase
         $this->assertSame(0, Clinic::count());
     }
 
+    /**
+     * Exactamente local y testing (R-010): cualquier otro entorno, aunque parezca de
+     * desarrollo, se rechaza.
+     */
+    public function test_it_runs_only_in_local_and_testing(): void
+    {
+        $this->assertSame(['local', 'testing'], DemoSeeder::ENVIRONMENTS);
+
+        foreach (['production', 'staging', 'demo', 'development', 'dev', 'qa', 'preprod', 'Local', 'local-demo'] as $environment) {
+            $this->app->detectEnvironment(fn () => $environment);
+
+            try {
+                $this->runSeeder();
+                $this->fail("El DemoSeeder corrió en {$environment}.");
+            } catch (RuntimeException $e) {
+                $this->assertStringContainsString('solo corre en los entornos local y testing', $e->getMessage(), $environment);
+            }
+        }
+
+        $this->assertSame(0, Clinic::count());
+    }
+
+    /**
+     * config/demo.php no tiene una contraseña por defecto: sin DEMO_PASSWORD en el
+     * entorno, el valor es nulo (y el seeder se niega).
+     */
+    public function test_demo_password_has_no_default_in_the_config(): void
+    {
+        $property = new \ReflectionProperty(Env::class, 'repository');
+        $original = $property->getValue();
+        $property->setValue(null, RepositoryBuilder::createWithNoAdapters()->addAdapter(ArrayAdapter::class)->immutable()->make());
+
+        try {
+            $config = require config_path('demo.php');
+        } finally {
+            $property->setValue(null, $original);
+        }
+
+        $this->assertNull($config['password']);
+    }
+
+    /**
+     * Un email del seeder que ya es de un usuario de otra clínica: falla con un
+     * mensaje claro y la clínica de demostración no queda a medias (R-010).
+     */
+    #[DataProvider('emailsOfAnotherClinic')]
+    public function test_it_fails_when_a_demo_email_belongs_to_another_clinic(string $email, bool $deleted, int $failing): void
+    {
+        $other = $this->otherClinicWithUser($email, $deleted);
+
+        try {
+            $this->runSeeder();
+            $this->fail('El DemoSeeder usó un email de otra clínica.');
+        } catch (RuntimeException $e) {
+            $this->assertSame("El email {$email} ya es de un usuario de otra clínica: el DemoSeeder no lo usa ni lo modifica.", $e->getMessage());
+        }
+
+        // La clínica que falla no queda (ni a medias); el usuario de la otra, intacto y sin ficha.
+        $this->assertFalse(Clinic::where('ruc', DemoSeeder::CLINICS[$failing]['ruc'])->exists());
+        $user = User::withTrashed()->where('email', $email)->sole();
+        $this->assertSame(0, DB::table('veterinarians')->where('user_id', $user->id)->count());
+        $this->assertSame([$other->id, ['administrador']], [$user->clinic_id, $user->getRoleNames()->all()]);
+    }
+
+    public static function emailsOfAnotherClinic(): array
+    {
+        return [
+            'veterinario' => ['vet-a@example.com', false, 0],
+            'veterinario eliminado' => ['vet-a@example.com', true, 0],
+            'recepcionista de la B' => ['recepcion-b@example.com', false, 1],
+            'administrador' => ['admin-a@example.com', false, 0],
+            'administrador eliminado' => ['admin-a@example.com', true, 0],
+        ];
+    }
+
+    /**
+     * Una clínica con el RUC de una de demostración pero sin la marca: el seeder no la
+     * adopta ni le agrega nada.
+     */
+    public function test_it_fails_on_a_clinic_with_a_demo_ruc_that_is_not_demo(): void
+    {
+        $ruc = DemoSeeder::CLINICS[0]['ruc'];
+        $real = $this->createClinic(['ruc' => $ruc, 'ruc_dv' => (string) ClinicService::rucCheckDigit($ruc)]);
+
+        try {
+            $this->runSeeder();
+            $this->fail('El DemoSeeder adoptó una clínica que no es de demostración.');
+        } catch (RuntimeException $e) {
+            $this->assertSame("Ya hay una clínica con el RUC {$ruc} que no es de demostración: el DemoSeeder no la usa ni la modifica.", $e->getMessage());
+        }
+
+        $this->assertSame(0, DB::table('users')->where('clinic_id', $real->id)->count());
+        $this->assertSame(0, DB::table('clients')->where('clinic_id', $real->id)->count());
+        $this->assertSame(0, DB::table('system_settings')->where('clinic_id', $real->id)->count());
+    }
+
+    /**
+     * Las clínicas de demostración llevan la marca y RUC ficticios con dígito válido;
+     * los clientes empresa, un RUC con su dígito correcto.
+     */
+    public function test_demo_clinics_are_marked_and_use_fictitious_rucs(): void
+    {
+        $this->runSeeder();
+
+        foreach (DemoSeeder::CLINICS as $data) {
+            $clinic = Clinic::where('ruc', $data['ruc'])->sole();
+
+            $this->assertStringStartsWith('999999', $clinic->ruc, 'RUC ficticio');
+            $this->assertSame((string) ClinicService::rucCheckDigit($clinic->ruc), $clinic->ruc_dv);
+            $this->assertSame('1', DB::table('system_settings')->where(['clinic_id' => $clinic->id, 'key' => DemoSeeder::MARKER])->value('value'));
+
+            foreach ($data['clients'] as $client) {
+                if ($client['kind'] === 'company') {
+                    [$ruc, $dv] = explode('-', $client['document_number']);
+                    $this->assertSame(ClinicService::rucCheckDigit($ruc), (int) $dv, $client['document_number']);
+                }
+            }
+        }
+
+        // Correrlo otra vez reconoce sus clínicas por la marca.
+        $this->runSeeder();
+        $this->assertSame(2, Clinic::count());
+    }
+
+    private function otherClinicWithUser(string $email, bool $deleted): Clinic
+    {
+        $clinic = app(ClinicService::class)->create(
+            ['name' => 'Otra', 'legal_name' => 'Otra S.A.', 'ruc' => '99999911', 'ruc_dv' => '7'],
+            ['email' => $email, 'first_name' => 'Otra', 'last_name' => 'Persona', 'password' => 'Otra#Clave2026']
+        );
+
+        if ($deleted) {
+            User::where('email', $email)->sole()->delete();
+        }
+
+        return $clinic;
+    }
+
     private function runSeeder(): void
     {
         $this->app->make(DemoSeeder::class)->setContainer($this->app)->__invoke();
@@ -251,7 +394,7 @@ class DemoSeederTest extends TestCase
 
     private function clearDemoData(): void
     {
-        foreach (['patients', 'clients', 'veterinarians', 'document_sequences', 'model_has_roles', 'branch_user', 'audit_logs'] as $table) {
+        foreach (['patients', 'clients', 'veterinarians', 'document_sequences', 'system_settings', 'model_has_roles', 'branch_user', 'audit_logs'] as $table) {
             DB::table($table)->delete();
         }
 

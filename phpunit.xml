@@ -18,6 +18,8 @@
         </include>
     </source>
     <php>
+        <!-- Como el php.ini de desarrollo: la aplicación debe ocultar los argumentos de las trazas por su cuenta (R-010). -->
+        <ini name="zend.exception_ignore_args" value="0"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

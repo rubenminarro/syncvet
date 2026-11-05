@@ -29,12 +29,12 @@ class ClinicCreateCommandTest extends TestCase
 {
     use InteractsWithAuth;
 
-    // RUC de la ANDE: 80009735-1.
+    // RUC ficticio (R-010): los reales solo están en RucCheckDigitTest.
     private const OPTIONS = [
         '--name' => 'Veterinaria Central',
         '--legal-name' => 'Veterinaria Central S.A.',
-        '--ruc' => '80009735',
-        '--ruc-dv' => '1',
+        '--ruc' => '99999910',
+        '--ruc-dv' => '9',
         '--admin-email' => 'Admin@Central.com.py',
         '--admin-first-name' => 'María',
         '--admin-last-name' => 'Benítez',
@@ -48,8 +48,8 @@ class ClinicCreateCommandTest extends TestCase
 
         $this->assertSame(0, $code, $output);
 
-        $clinic = Clinic::where('ruc', '80009735')->sole();
-        $this->assertSame(['Veterinaria Central', 'Veterinaria Central S.A.', '1'], [$clinic->name, $clinic->legal_name, $clinic->ruc_dv]);
+        $clinic = Clinic::where('ruc', '99999910')->sole();
+        $this->assertSame(['Veterinaria Central', 'Veterinaria Central S.A.', '9'], [$clinic->name, $clinic->legal_name, $clinic->ruc_dv]);
         $this->assertSame(1, DB::table('branches')->where(['clinic_id' => $clinic->id, 'code' => 'SUC-01', 'establishment' => '001', 'is_default' => true])->count());
         $this->assertSame(1, DB::table('warehouses')->where(['clinic_id' => $clinic->id, 'code' => 'DEP-01', 'is_default' => true])->count());
 
@@ -63,7 +63,7 @@ class ClinicCreateCommandTest extends TestCase
         $this->assertTrue(Hash::check($password, $admin->password));
         $this->assertSame(1, substr_count($output, $password), 'La contraseña generada debe mostrarse una sola vez.');
 
-        foreach (['SUC-01', 'DEP-01', 'admin@central.com.py', '80009735-1'] as $shown) {
+        foreach (['SUC-01', 'DEP-01', 'admin@central.com.py', '99999910-9'] as $shown) {
             $this->assertStringContainsString($shown, $output);
         }
     }
@@ -81,7 +81,7 @@ class ClinicCreateCommandTest extends TestCase
     public function test_the_creation_is_audited_in_the_new_clinic_without_user(): void
     {
         $this->runWithoutInteraction();
-        $clinic = Clinic::where('ruc', '80009735')->sole();
+        $clinic = Clinic::where('ruc', '99999910')->sole();
 
         $log = DB::table('audit_logs')->where(['event' => AuditEvent::CREATED->value, 'auditable_type' => 'clinic'])->sole();
         $this->assertSame([$clinic->id, null], [$log->clinic_id, $log->user_id]);
@@ -92,8 +92,8 @@ class ClinicCreateCommandTest extends TestCase
         $this->artisan('clinic:create')
             ->expectsQuestion('Nombre de la clínica', 'Veterinaria Central')
             ->expectsQuestion('Razón social', 'Veterinaria Central S.A.')
-            ->expectsQuestion('RUC, sin el dígito verificador', '80009735')
-            ->expectsQuestion('Dígito verificador del RUC', '1')
+            ->expectsQuestion('RUC, sin el dígito verificador', '99999910')
+            ->expectsQuestion('Dígito verificador del RUC', '9')
             ->expectsQuestion('Email del administrador', 'admin@central.com.py')
             ->expectsQuestion('Nombre del administrador', 'María')
             ->expectsQuestion('Apellido del administrador', 'Benítez')
@@ -164,9 +164,39 @@ class ClinicCreateCommandTest extends TestCase
         $this->assertNothingCreated();
     }
 
+    /**
+     * Con interacción, el RUC y el email se verifican antes de pedir la contraseña: si
+     * fallan, la contraseña no se pide (el test fallaría con una pregunta no esperada).
+     */
+    #[DataProvider('invalidBeforePassword')]
+    public function test_with_interaction_ruc_and_email_are_checked_before_asking_the_password(array $options, string $errorCode, bool $withOtherClinic): void
+    {
+        if ($withOtherClinic) {
+            $other = $this->createClinic(['ruc' => '99999910', 'ruc_dv' => '9']);
+            $this->userIn($other, [])->forceFill(['email' => 'admin@central.com.py'])->save();
+        }
+
+        $clinics = Clinic::count();
+
+        $this->artisan('clinic:create', [...self::OPTIONS, ...$options])
+            ->expectsOutputToContain($errorCode)
+            ->assertExitCode(1);
+
+        $this->assertSame($clinics, Clinic::count());
+    }
+
+    public static function invalidBeforePassword(): array
+    {
+        return [
+            'dígito verificador incorrecto' => [['--ruc-dv' => '8'], 'CLINIC_RUC_INVALID', false],
+            'RUC de otra clínica' => [['--admin-email' => 'nueva@central.com.py'], 'CLINIC_RUC_TAKEN', true],
+            'email de otro usuario' => [['--ruc' => '99999911', '--ruc-dv' => '7', '--admin-email' => 'ADMIN@central.com.py'], 'CLINIC_ADMIN_EMAIL_TAKEN', true],
+        ];
+    }
+
     public function test_a_wrong_ruc_check_digit_fails_without_creating_anything(): void
     {
-        [$code, $output] = $this->runWithoutInteraction(['--ruc-dv' => '2']);
+        [$code, $output] = $this->runWithoutInteraction(['--ruc-dv' => '8']);
 
         $this->assertSame(1, $code);
         $this->assertStringContainsString('CLINIC_RUC_INVALID', $output);
@@ -175,7 +205,7 @@ class ClinicCreateCommandTest extends TestCase
 
     public function test_a_ruc_already_in_use_fails_without_creating_another_clinic(): void
     {
-        $this->createClinic(['ruc' => '80009735', 'ruc_dv' => '1']);
+        $this->createClinic(['ruc' => '99999910', 'ruc_dv' => '9']);
 
         [$code, $output] = $this->runWithoutInteraction();
 
@@ -193,7 +223,7 @@ class ClinicCreateCommandTest extends TestCase
 
         $this->assertSame(1, $code);
         $this->assertStringContainsString('CLINIC_ADMIN_EMAIL_TAKEN', $output);
-        $this->assertSame(0, Clinic::where('ruc', '80009735')->count());
+        $this->assertSame(0, Clinic::where('ruc', '99999910')->count());
     }
 
     public function test_an_email_with_non_ascii_characters_is_rejected(): void
@@ -264,7 +294,7 @@ class ClinicCreateCommandTest extends TestCase
             // Falla inesperada con la contraseña ya escrita: el error se reporta al log.
             Role::where('name', 'administrador')->delete();
             try {
-                $this->artisan('clinic:create', [...$this->optionsWithout(), '--ruc' => '80012345', '--ruc-dv' => '0', '--admin-email' => 'otra@central.com.py'])
+                $this->artisan('clinic:create', [...$this->optionsWithout(), '--ruc' => '99999911', '--ruc-dv' => '7', '--admin-email' => 'otra@central.com.py'])
                     ->expectsQuestion('Contraseña del administrador', self::PASSWORD)
                     ->expectsQuestion('Repetí la contraseña', self::PASSWORD)
                     ->run();

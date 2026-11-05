@@ -95,7 +95,7 @@ class AuthLoggingTest extends TestCase
     {
         try {
             app(ClinicService::class)->create(
-                ['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '80009735', 'ruc_dv' => '2'],
+                ['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '99999910', 'ruc_dv' => '8'],
                 ['email' => 'ana@central.com.py', 'first_name' => 'Ana', 'last_name' => 'Benítez', 'password' => self::PASSWORD]
             );
             $this->fail('El alta debía fallar por el RUC.');

@@ -21,7 +21,8 @@ class ClinicFactory extends Factory
      */
     public function definition(): array
     {
-        $ruc = (string) fake()->unique()->numberBetween(1000000, 99999999);
+        // RUC ficticios (R-010): fuera de los de sociedades (80…) y de los del DemoSeeder (999999…).
+        $ruc = (string) fake()->unique()->numberBetween(90000000, 99899999);
         $name = 'Veterinaria ' . fake()->lastName();
 
         return [

@@ -35,6 +35,11 @@ use RuntimeException;
  * - Idempotente: lo que ya existe (la clínica por su RUC, el usuario por su email,
  *   el cliente por su documento y el paciente por su dueño y su nombre) no se
  *   vuelve a crear ni se modifica.
+ * - Solo toca lo suyo (R-010): cada clínica de demostración lleva la marca MARKER en
+ *   system_settings. Una clínica con el mismo RUC sin la marca, o un email de
+ *   usuario que ya es de otra clínica, lo hacen fallar en lugar de adoptarlos.
+ * - RUC ficticios (99999901 y 99999902, con su dígito verificador): no son de
+ *   empresas reales.
  * - Por los Services: ClinicService, ClientService y PatientService. Los usuarios
  *   recepcionista y veterinario, y la ficha del veterinario, con los modelos: el
  *   ABM de usuarios y de veterinarios es de la FASE 2.
@@ -44,13 +49,24 @@ use RuntimeException;
 class DemoSeeder extends Seeder
 {
     /**
+     * Clave de system_settings que marca una clínica de demostración.
+     */
+    public const MARKER = 'demo_data';
+
+    /**
+     * Entornos en los que corre. Ninguno más: crea usuarios con una contraseña conocida.
+     */
+    public const ENVIRONMENTS = ['local', 'testing'];
+
+    /**
      * El RUC va sin el dígito verificador: lo calcula ClinicService::rucCheckDigit.
+     * Son ficticios: no usar RUC de empresas reales.
      */
     public const CLINICS = [
         [
             'name' => 'Clínica A',
             'legal_name' => 'Clínica Veterinaria A S.A.',
-            'ruc' => '80009735',
+            'ruc' => '99999901',
             'users' => [
                 'administrador' => ['admin-a@example.com', 'Ana', 'Gómez'],
                 'recepcionista' => ['recepcion-a@example.com', 'Rosa', 'Benítez'],
@@ -65,7 +81,7 @@ class DemoSeeder extends Seeder
                 ['kind' => 'person', 'document_number' => '5100002', 'first_name' => 'Carlos', 'last_name' => 'Duarte', 'phone' => '+595981100002', 'email' => 'carlos.duarte@example.com', 'city' => 'Luque', 'patients' => [
                     ['name' => 'Rocky', 'species' => 'Canino', 'breed' => 'Labrador Retriever', 'sex' => 'male'],
                 ]],
-                ['kind' => 'company', 'document_number' => '80024680-1', 'business_name' => 'Granja San Jorge S.R.L.', 'phone' => '+595211100003', 'email' => 'contacto@granjasanjorge.example.com', 'city' => 'San Lorenzo', 'patients' => [
+                ['kind' => 'company', 'document_number' => '80024680-2', 'business_name' => 'Granja San Jorge S.R.L.', 'phone' => '+595211100003', 'email' => 'contacto@granjasanjorge.example.com', 'city' => 'San Lorenzo', 'patients' => [
                     ['name' => 'Lucero', 'species' => 'Equino', 'breed' => 'Criollo', 'sex' => 'female'],
                 ]],
             ],
@@ -73,7 +89,7 @@ class DemoSeeder extends Seeder
         [
             'name' => 'Clínica B',
             'legal_name' => 'Clínica Veterinaria B S.A.',
-            'ruc' => '80012345',
+            'ruc' => '99999902',
             'users' => [
                 'administrador' => ['admin-b@example.com', 'Beto', 'Ruiz'],
                 'recepcionista' => ['recepcion-b@example.com', 'Mirta', 'Giménez'],
@@ -131,7 +147,7 @@ class DemoSeeder extends Seeder
      */
     private function password(): string
     {
-        if (! app()->environment(['local', 'testing'])) {
+        if (! app()->environment(self::ENVIRONMENTS)) {
             throw new RuntimeException(
                 'El DemoSeeder solo corre en los entornos local y testing: crea usuarios con una contraseña conocida.'
             );
@@ -155,12 +171,19 @@ class DemoSeeder extends Seeder
         $existing = Clinic::where('ruc', $data['ruc'])->first();
 
         if ($existing !== null) {
+            if (! $this->isDemo($existing)) {
+                throw new RuntimeException(
+                    "Ya hay una clínica con el RUC {$data['ruc']} que no es de demostración: el DemoSeeder no la usa ni la modifica."
+                );
+            }
+
             return $existing;
         }
 
         [$email, $firstName, $lastName] = $data['users']['administrador'];
+        $this->ensureEmailIsNotFromAnotherClinic($email, null);
 
-        return $clinics->create(
+        $clinic = $clinics->create(
             [
                 'name' => $data['name'],
                 'legal_name' => $data['legal_name'],
@@ -169,6 +192,42 @@ class DemoSeeder extends Seeder
             ],
             ['email' => $email, 'first_name' => $firstName, 'last_name' => $lastName, 'password' => $password]
         );
+
+        // Sin modelo de system_settings todavía: query builder con clinic_id explícito
+        // (R-010), dentro de la transacción de la clínica.
+        DB::table('system_settings')->insert([
+            'clinic_id' => $clinic->id,
+            'key' => self::MARKER,
+            'value' => '1',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $clinic;
+    }
+
+    private function isDemo(Clinic $clinic): bool
+    {
+        return DB::table('system_settings')
+            ->where('clinic_id', $clinic->id)
+            ->where('key', self::MARKER)
+            ->exists();
+    }
+
+    /**
+     * El email es único en todo el sistema (User no tiene scope de clínica): si ya es
+     * de un usuario de otra clínica, también eliminado, el seeder falla en lugar de
+     * usarlo. $clinicId nulo: la clínica todavía no existe, así que cualquiera es otra.
+     */
+    private function ensureEmailIsNotFromAnotherClinic(string $email, ?int $clinicId): void
+    {
+        $owner = User::withTrashed()->where('email', User::normalizeEmail($email))->first();
+
+        if ($owner !== null && ($clinicId === null || (int) $owner->clinic_id !== $clinicId)) {
+            throw new RuntimeException(
+                "El email {$email} ya es de un usuario de otra clínica: el DemoSeeder no lo usa ni lo modifica."
+            );
+        }
     }
 
     /**
@@ -180,9 +239,9 @@ class DemoSeeder extends Seeder
     {
         [$email, $firstName, $lastName] = $person;
 
-        // Consulta global a propósito: el email es único en todo el sistema (User no
-        // tiene scope de clínica).
-        $existing = User::withTrashed()->where('email', User::normalizeEmail($email))->first();
+        $this->ensureEmailIsNotFromAnotherClinic($email, CurrentClinic::id());
+
+        $existing = User::withTrashed()->inClinic()->where('email', User::normalizeEmail($email))->first();
 
         if ($existing !== null) {
             return $existing;
