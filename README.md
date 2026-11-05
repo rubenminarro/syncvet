@@ -64,7 +64,13 @@ php artisan key:generate
 2. Revisar en `.env` los datos de conexión (`DB_*`). La zona horaria (`America/Asuncion`) y el idioma (`es`) ya están en
    `config/app.php`; los tokens duran `SANCTUM_EXPIRATION` minutos (720).
 3. Migrar y sembrar roles, permisos y especies: `php artisan migrate --seed`.
-4. Correr los tests: `php artisan test` (SQLite en `database/testing.sqlite`, no toca MySQL).
+4. Crear una clínica con su sucursal, su depósito y su primer administrador: `php artisan clinic:create` (pide los datos y la
+   contraseña; con `--no-interaction` y todas las opciones, genera la contraseña y la muestra una sola vez). Ver
+   `php artisan clinic:create --help`.
+5. Solo en desarrollo, datos de demostración: definir `DEMO_PASSWORD` en `.env` y correr `php artisan db:seed --class=DemoSeeder`
+   (dos clínicas con un usuario por rol, clientes y pacientes; los usuarios están en
+   [`docs/testing/guia-postman.md`](docs/testing/guia-postman.md)). Se niega fuera de `local` y `testing`.
+6. Correr los tests: `php artisan test` (SQLite en `database/testing.sqlite`, no toca MySQL).
 
 ## Variables de entorno propias
 
@@ -72,6 +78,8 @@ php artisan key:generate
 |---|---|---|
 | `EMAIL_DNS_CHECK` | `true` | Validar que el dominio del email exista. `phpunit.xml` lo desactiva |
 | `SANCTUM_EXPIRATION` | `720` | Minutos de vida de un token de la API (registro R-004) |
+| `TRUSTED_PROXIES` | vacía | Proxies de confianza para `X-Forwarded-For` ([`deployment.md`](docs/development/deployment.md)) |
+| `DEMO_PASSWORD` | vacía | Contraseña de los usuarios del `DemoSeeder` (al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos; no puede aparecer en filtraciones conocidas). Sin ella, el seeder no corre |
 
 ## Pendiente
 

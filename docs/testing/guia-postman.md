@@ -5,27 +5,46 @@ Las respuestas siguen el contrato de `CLAUDE.md` §4.
 
 ## FASE 0 — Autenticación
 
-Entrega 0.3. Variables de la colección: `{{base_url}}` (por ejemplo, `http://syncvet.test`), `{{token}}` y `{{token_b}}`.
+Entregas 0.3 y 0.4. Variables de la colección: `{{base_url}}` (por ejemplo, `http://syncvet.test`), `{{demo_password}}` (el
+valor de `DEMO_PASSWORD`), `{{token}}` y `{{token_b}}`.
 
-> **Validación manual pendiente:** por decisión del usuario, esta sección se recorre con Postman junto con la entrega 0.4,
-> cuando exista el `DemoSeeder`. Hasta entonces la respaldan los tests de `tests/Feature/Auth` y `tests/Feature/Tenancy`.
+> **Validación manual pendiente:** por decisión del usuario, esta sección se recorre con Postman con los datos del `DemoSeeder`
+> (entrega 0.4). Hasta entonces la respaldan los tests de `tests/Feature/Auth`, `tests/Feature/Tenancy` y
+> `tests/Feature/Seeders`.
 
-**Datos.** Dos clínicas, cada una con su administrador. Hasta el `DemoSeeder` de la entrega 0.4, se crean con `php artisan tinker`:
+**Datos.** Los crea el `DemoSeeder`, solo en `local` (y en los tests). En `.env`, definir `DEMO_PASSWORD` (al menos 12 caracteres,
+con mayúsculas, minúsculas, números y símbolos): es la contraseña de todos los usuarios de demostración. Después:
 
-```php
-$s = app(App\Services\ClinicService::class);
-$s->create(['name' => 'Clínica A', 'legal_name' => 'Clínica A S.A.', 'ruc' => '80009735', 'ruc_dv' => '1'],
-    ['email' => 'admin-a@example.com', 'first_name' => 'Ana', 'last_name' => 'Gómez', 'password' => 'secreta-123']);
-$s->create(['name' => 'Clínica B', 'legal_name' => 'Clínica B S.A.', 'ruc' => '80012345', 'ruc_dv' => '0'],
-    ['email' => 'admin-b@example.com', 'first_name' => 'Beto', 'last_name' => 'Ruiz', 'password' => 'secreta-123']);
+```bash
+php artisan migrate:fresh --seed
+php artisan db:seed --class=DemoSeeder
 ```
+
+Es idempotente: correrlo otra vez no duplica nada ni cambia las contraseñas. Para usar otra `DEMO_PASSWORD`, repetir los dos
+comandos.
+
+| Clínica | RUC | Rol | Email | Además |
+|---|---|---|---|---|
+| Clínica A | 80009735-1 | `administrador` | `admin-a@example.com` | |
+| Clínica A | | `recepcionista` | `recepcion-a@example.com` | |
+| Clínica A | | `veterinario` | `vet-a@example.com` | Ficha `VET-000001`, matrícula `MV-1001` |
+| Clínica B | 80012345-0 | `administrador` | `admin-b@example.com` | |
+| Clínica B | | `recepcionista` | `recepcion-b@example.com` | |
+| Clínica B | | `veterinario` | `vet-b@example.com` | Ficha `VET-000001`, matrícula `MV-2001` |
+
+Cada clínica tiene su sucursal `SUC-01` y su depósito `DEP-01`. Clientes: en la A, Laura Martínez (`5100001`, con Firulais y
+Mishi), Carlos Duarte (`5100002`, con Rocky) y Granja San Jorge S.R.L. (`80024680-1`, con la yegua Lucero); en la B, Patricia
+Ortiz (`5200001`, con Luna) y Jorge Villalba (`5200002`, con Toby y Kira). Los pacientes de cada clínica numeran desde
+`PAC-000001`.
 
 **Sesión.**
 
 | # | Request | Body | Esperado |
 |---|---|---|---|
-| 1 | `POST /api/login` | `{"email":"admin-a@example.com","password":"secreta-123"}` | 200; `data.token_type` = `Bearer`; `data.expires_at` 12 horas después, en UTC (`Z`); `data.user.clinic.name` = "Clínica A". Guardar `data.token` en `{{token}}` |
+| 1 | `POST /api/login` | `{"email":"admin-a@example.com","password":"{{demo_password}}"}` | 200; `data.token_type` = `Bearer`; `data.expires_at` 12 horas después, en UTC (`Z`); `data.user.clinic.name` = "Clínica A". Guardar `data.token` en `{{token}}` |
 | 2 | `GET /api/me` con `{{token}}` | | 200: usuario, `clinic`, `current_branch` (`SUC-01`), `roles` = `["administrador"]`, `permissions` ordenados (los 119), `veterinarian` = `null` |
+| 2b | `POST /api/login` con `recepcion-a@example.com` y `GET /api/me` con su token | | 200: `roles` = `["recepcionista"]`, solo los permisos de ese rol, `veterinarian` = `null` |
+| 2c | `POST /api/login` con `vet-a@example.com` y `GET /api/me` con su token | | 200: `roles` = `["veterinario"]`, `veterinarian.code` = `VET-000001` |
 | 3 | `POST /api/login` otra vez (mismo usuario) | igual al 1 | 200 con otro token: las dos sesiones quedan vigentes. Guardarlo en `{{token_b}}` |
 | 4 | `POST /api/logout` con `{{token}}` | | 200, `data` = `null` |
 | 5 | `GET /api/me` con `{{token}}` | | 401 `UNAUTHENTICATED` (revocado) |
@@ -38,11 +57,11 @@ $s->create(['name' => 'Clínica B', 'legal_name' => 'Clínica B S.A.', 'ruc' => 
 |---|---|---|---|
 | 8 | `POST /api/login` con contraseña incorrecta | `{"email":"admin-a@example.com","password":"otra"}` | 422 `INVALID_CREDENTIALS`, "El email o la contraseña no son correctos." |
 | 9 | `POST /api/login` con un email que no existe | `{"email":"nadie@example.com","password":"otra"}` | 422 `INVALID_CREDENTIALS`, el mismo mensaje que el 8 |
-| 9b | `POST /api/login` con el email en mayúsculas | `{"email":"ADMIN-A@Example.com","password":"secreta-123"}` | 200: el email se guarda y se busca en minúsculas |
+| 9b | `POST /api/login` con el email en mayúsculas | `{"email":"ADMIN-A@Example.com","password":"{{demo_password}}"}` | 200: el email se guarda y se busca en minúsculas |
 | 10 | `POST /api/login` sin `password` | `{"email":"admin-a@example.com"}` | 422 `VALIDATION_ERROR`, `errors.password` = "Ingresá tu contraseña." |
 | 11 | El 8 cinco veces (el 9b dejó el contador en cero) | | 422 cada vez |
 | 12 | `POST /api/login` con la contraseña correcta | igual al 1 | 429 `AUTH_TOO_MANY_ATTEMPTS`, "Demasiados intentos. Probá de nuevo en N segundos.", encabezado `Retry-After` |
-| 12b | `POST /api/login` con una variante Unicode del email | `{"email":"ādmin-a@example.com","password":"secreta-123"}` | 422 `VALIDATION_ERROR`, `errors.email` = "Ingresá un email sin acentos ni caracteres especiales." |
+| 12b | `POST /api/login` con una variante Unicode del email | `{"email":"ādmin-a@example.com","password":"{{demo_password}}"}` | 422 `VALIDATION_ERROR`, `errors.email` = "Ingresá un email sin acentos ni caracteres especiales." |
 | 13 | Igual al 1 con `admin-b@example.com` | | 200: el bloqueo es por usuario e IP |
 | 14 | Esperar un minuto y repetir el 1 | | 200; un login correcto deja el contador en cero |
 

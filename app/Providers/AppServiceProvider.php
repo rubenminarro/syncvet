@@ -6,6 +6,7 @@ use App\Support\CurrentClinic;
 use App\Support\ExecutionOrigin;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,13 @@ class AppServiceProvider extends ServiceProvider
     {
         // Job en curso, para el log de ClinicContextMissingException (R-005).
         ExecutionOrigin::listen();
+
+        // Contraseña de los usuarios (R-009): al menos 12 caracteres, con mayúsculas,
+        // minúsculas, números y símbolos, y que no aparezca en filtraciones conocidas
+        // (Have I Been Pwned, por k-anonimato: solo viajan 5 caracteres del SHA-1). Si
+        // el servicio no responde, Laravel la acepta. La usan clinic:create y el
+        // DemoSeeder; en la FASE 2, el ABM de usuarios.
+        Password::defaults(fn () => Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised());
 
         // El administrador pasa todos los permisos. Un nombre de permiso mal escrito
         // no se nota con él: probar siempre con un rol propio.
