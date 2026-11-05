@@ -19,7 +19,7 @@ class ValidationScopeTest extends TestCase
     public function test_client_document_and_email_are_unique_per_clinic_on_create(): void
     {
         $own = $this->createClinic();
-        $this->clientIn($this->createClinic(), ['document_number' => '4567890', 'email' => 'juan@example.com']);
+        $this->clientIn($this->createClinic(), ['document_number' => '99400001', 'email' => 'juan@example.com']);
         $this->actingIn($own, self::PERMISSIONS);
 
         // Libres en esta clínica, aunque otra los use.
@@ -35,12 +35,12 @@ class ValidationScopeTest extends TestCase
     public function test_client_document_and_email_are_unique_per_clinic_on_update(): void
     {
         $own = $this->createClinic();
-        $this->clientIn($this->createClinic(), ['document_number' => '4567890', 'email' => 'juan@example.com']);
-        $taken = $this->clientIn($own, ['document_number' => '7777777', 'email' => 'tomado@example.com']);
+        $this->clientIn($this->createClinic(), ['document_number' => '99400001', 'email' => 'juan@example.com']);
+        $taken = $this->clientIn($own, ['document_number' => '99400003', 'email' => 'tomado@example.com']);
         $client = $this->clientIn($own);
         $this->actingIn($own, self::PERMISSIONS);
 
-        $this->patchJson("/api/clients/{$client->id}", ['document_number' => '4567890', 'email' => 'juan@example.com'])
+        $this->patchJson("/api/clients/{$client->id}", ['document_number' => '99400001', 'email' => 'juan@example.com'])
             ->assertOk();
 
         $response = $this->patchJson("/api/clients/{$client->id}", [

@@ -61,7 +61,7 @@ class ClinicAssignmentTest extends TestCase
 
         try {
             CurrentClinic::run($own, function () use ($other) {
-                $client = new Client(['document_number' => '1234567', 'first_name' => 'Ana', 'last_name' => 'Ruiz', 'email' => 'ana@example.com', 'phone' => '981123456']);
+                $client = new Client(['document_number' => '99400002', 'first_name' => 'Ana', 'last_name' => 'Ruiz', 'email' => 'ana@example.com', 'phone' => '981123456']);
                 $client->clinic_id = $other->id;
                 $client->save();
             });
@@ -76,7 +76,7 @@ class ClinicAssignmentTest extends TestCase
     {
         $this->expectException(ClinicContextMissingException::class);
 
-        Client::create(['document_number' => '1234567', 'first_name' => 'Ana', 'last_name' => 'Ruiz', 'email' => 'ana@example.com', 'phone' => '981123456']);
+        Client::create(['document_number' => '99400002', 'first_name' => 'Ana', 'last_name' => 'Ruiz', 'email' => 'ana@example.com', 'phone' => '981123456']);
     }
 
     public function test_audit_log_takes_the_clinic_from_context(): void
