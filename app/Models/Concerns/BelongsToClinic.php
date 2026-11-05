@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Modelo de negocio de una clínica (D1). Las consultas ven solo la clínica en
- * contexto (ClinicScope) y el alta toma esa clínica. clinic_id no va en
- * $fillable: nunca sale del cuerpo del pedido.
+ * contexto (ClinicScope), el alta toma esa clínica y clinic_id no cambia al
+ * editar. clinic_id no va en $fillable: nunca sale del cuerpo del pedido.
  */
 trait BelongsToClinic
 {
@@ -23,6 +23,9 @@ trait BelongsToClinic
         static::creating(function (Model $model): void {
             $model->setAttribute('clinic_id', self::clinicIdForCreation($model));
         });
+
+        // La clínica de un registro no cambia.
+        static::updating(fn (Model $model) => ClinicIdGuard::ensureUnchanged($model));
     }
 
     /**

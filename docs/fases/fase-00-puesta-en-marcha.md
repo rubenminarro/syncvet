@@ -149,14 +149,14 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
 | `App\Enums\ClinicStatus` | `ACTIVE = 'active'`, `SUSPENDED = 'suspended'`, con `label()` y `values()` |
 | `App\Models\Clinic` | Sin scope (es el contexto). `Auditable`. Relaciones `users()`, `branches()` |
 | `App\Support\CurrentClinic` | Registrado como `scoped`. `set(Clinic)`, `get(): Clinic`, `id(): int` (lanza `ClinicContextMissingException` si no hay), `has(): bool`, `run(Clinic, Closure)` (fija, ejecuta y restaura el anterior, también si hay excepción) |
-| `App\Exceptions\ClinicContextMissingException` | `LogicException`: es un error de programación, no de negocio. Responde el 500 genérico (`INTERNAL_SERVER_ERROR`) sin traza. Queda en el log con su origen: método y ruta del pedido, o la clase del job o del comando (R-005). Es la única excepción al "nunca 500", porque llegar ahí significa un bug |
+| `App\Exceptions\ClinicContextMissingException` | `LogicException`: es un error de programación, no de negocio. Responde el 500 genérico (`INTERNAL_SERVER_ERROR`) sin traza. Queda en el log con su origen: método y ruta del pedido, la clase del job o el nombre del comando, que sale del evento `CommandStarting` para que `Artisan::call` informe el comando real (R-005). Es la única excepción al "nunca 500", porque llegar ahí significa un bug |
 | `App\Models\Scopes\ClinicScope` | `where(<tabla>.clinic_id, CurrentClinic::id())`; sin clínica, la excepción anterior |
 | `App\Models\Scopes\SharedCatalogScope` | Para `Species` y `Breed`: `whereNull(clinic_id)->orWhere(clinic_id, id)` agrupado; sin clínica, la misma excepción (R-004) |
-| `App\Models\Concerns\BelongsToClinic` | Agrega `ClinicScope`, define `clinic()`, y al crear fija `clinic_id = CurrentClinic::id()`. Si el modelo ya trae otro `clinic_id`, lanza `ClinicContextMissingException` (nunca se crea en otra clínica). `clinic_id` no es `fillable` |
-| `App\Models\Concerns\SharedCatalog` | Igual que el anterior con `SharedCatalogScope`. Editar o eliminar un registro global lanza `CatalogException` `CATALOG_GLOBAL_NOT_EDITABLE` (403); el ABM es de la FASE 1. El seeder crea los globales sin scope (motivo registrado: no hay clínica) |
+| `App\Models\Concerns\BelongsToClinic` | Agrega `ClinicScope`, define `clinic()`, y al crear fija `clinic_id = CurrentClinic::id()`. Si el modelo ya trae otro `clinic_id`, lanza `ClinicContextMissingException` (nunca se crea en otra clínica). Al editar, cambiar `clinic_id` lanza la misma excepción (`ClinicIdGuard`): un registro no pasa a otra clínica. `clinic_id` no es `fillable` |
+| `App\Models\Concerns\SharedCatalog` | Igual que el anterior con `SharedCatalogScope`. Editar o eliminar un registro global lanza `CatalogException` `CATALOG_GLOBAL_NOT_EDITABLE` (403); el ABM es de la FASE 1. Cambiar `clinic_id` al editar (también pasar uno propio a global) lanza `ClinicContextMissingException`. Las escrituras masivas (`update`, `delete`, `forceDelete`, `increment`…) pasan por `SharedCatalogBuilder`: solo alcanzan los registros de la clínica en contexto y no aceptan `clinic_id`. El seeder crea los globales sin scope (motivo registrado: no hay clínica) y solo busca entre los globales |
 | Modelos | Los 29 modelos de negocio restantes con `BelongsToClinic`; `Species` y `Breed` con `SharedCatalog`. Revisar relaciones y casts al tocarlos (deuda #2) |
 | `User` | `clinic_id` y `clinic()`, **sin** `ClinicScope`. Motivo registrado: el login y Sanctum buscan al usuario antes de conocer su clínica, y el scope fallaría. Toda consulta de usuarios fuera del login y de Sanctum filtra por `clinic_id` de forma explícita, y el *route binding* de `{user}` resuelve solo dentro de la clínica actual (`resolveRouteBinding`): un usuario de otra clínica responde 404 (R-005) |
-| `AuditLog` | `ClinicScope` para leer (FASE 2). `AuditLogger::record` completa `clinic_id` explícitamente: la clínica en contexto, si no la del usuario, si no nulo |
+| `AuditLog` | `ClinicScope` para leer (FASE 2). `AuditLogger::record` completa `clinic_id` explícitamente: la del registro auditado (su `clinic_id`, o la propia clínica si se audita una `Clinic`), si no la clínica en contexto, si no la del usuario, si no nulo |
 | Middleware `SetCurrentClinic` | En el grupo de `auth:sanctum`. Fija la clínica del usuario. Clínica suspendida → 403 `CLINIC_NOT_AVAILABLE` (`ClinicException`). Debe correr **antes** que `SubstituteBindings` (`prependToPriorityList`), para que el *route model binding* ya tenga el scope: un id de otra clínica da 404 |
 | Form Requests | `Rule::unique(...)->where('clinic_id', CurrentClinic::id())` y lo mismo en `exists`. Especies y razas en `StorePatientRequest`: `exists` con "nulo o la clínica actual". Archivos: `StoreClientRequest`, `UpdateClientRequest`, `StorePatientRequest`, `UpdatePatientRequest`, `ChangePatientOwnerRequest` |
 | `DocumentSequenceService` | Usa el query builder, al que no llegan los scopes: filtra `clinic_id` explícitamente (motivo registrado) en la secuencia y en la verificación del código. Una clínica nueva empieza su serie en 1 (hoy arranca en `max(id) + 1`, global). `isCodeViolation` reconoce el nombre del índice compuesto (`<tabla>_clinic_id_code_unique`) |
@@ -172,13 +172,13 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
 | `ClinicScopeTest` | El listado de clientes y pacientes solo muestra los de la clínica; contar con el modelo da solo los propios |
 | `RouteBindingTest` | `GET`, `PATCH` y `DELETE` con un id de otra clínica → 404 `RESOURCE_NOT_FOUND`; `clients/{ajeno}/patients` → 404 |
 | `UserIsolationTest` | El *route binding* de un usuario de otra clínica responde 404 (con una ruta de prueba hasta que exista el ABM de usuarios de la FASE 2); el login sigue encontrando al usuario sin clínica en contexto |
-| `ClinicAssignmentTest` | El alta toma la clínica del contexto aunque el cuerpo traiga `clinic_id`; crear con otro `clinic_id` falla |
+| `ClinicAssignmentTest` | El alta toma la clínica del contexto aunque el cuerpo traiga `clinic_id`; crear con otro `clinic_id` falla; cambiar `clinic_id` al editar falla; la auditoría usa la clínica del registro auditado y, en un comando sin usuario, la del contexto |
 | `ValidationScopeTest` | El mismo `document_number`, `email` y `microchip` se aceptan en dos clínicas y se rechazan dentro de la misma; `exists` no acepta un cliente de otra clínica en `change-owner` |
-| `SharedCatalogTest` | Una clínica ve las especies globales y las suyas, no las de otra; no puede editar una global (`CATALOG_GLOBAL_NOT_EDITABLE`) |
+| `SharedCatalogTest` | Una clínica ve las especies globales y las suyas, no las de otra; no puede editar una global (`CATALOG_GLOBAL_NOT_EDITABLE`); `update` y `delete` masivos no tocan globales ni ajenos y no cambian `clinic_id`; una especie propia no pasa a global; `SpeciesSeeder` solo busca y crea globales |
 | `DocumentSequenceTest` | Cada clínica numera `PAC-` desde 1, de forma independiente |
-| `FailClosedTest` | Consultar un modelo con scope sin clínica lanza `ClinicContextMissingException`; un job sin `CurrentClinic::run` falla; `run` restaura la clínica anterior; el log registra la ruta o el job que lo causó |
+| `FailClosedTest` | Consultar un modelo con scope sin clínica lanza `ClinicContextMissingException`; un job o un comando sin `CurrentClinic::run` falla; `run` y `SetCurrentClinic` restauran la clínica anterior (también si el pedido falla); el log registra la ruta, el job o el comando que lo causó |
 | `SuspendedClinicTest` | Con la clínica suspendida, un pedido autenticado responde 403 `CLINIC_NOT_AVAILABLE` |
-| `ClinicServiceTest` | `create` deja clínica, `SUC-01`, `DEP-01` y administrador; si algo falla no queda nada (transacción) |
+| `ClinicServiceTest` | `create` deja clínica, `SUC-01`, `DEP-01` y administrador; si algo falla no queda nada (transacción); el alta queda en la auditoría de la clínica nueva aunque se llame desde el contexto de otra |
 
 ### 0.3 Autenticación
 
@@ -334,3 +334,42 @@ el test que la protege.
 
 **Para la entrega 0.3:** `login`, `logout` y `me` no llevan permiso; hay que agregarlas a `ROUTES_WITHOUT_PERMISSION` en
 `ClinicRolesTest`, con su motivo.
+
+### Entrega 0.2
+
+En revisión, en `feature/fase-00-02-clinicas`: commit `fb52b73` (implementación) y las correcciones de la revisión. El resto de
+esta sección (archivos, tests por clase, desvíos) se completa en el cierre.
+
+**Hallazgos de la revisión y su corrección.** Ninguno se producía por la API existente; todos se reprodujeron con un test.
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Un `update()` o `delete()` masivo sobre `Species` o `Breed` alcanzaba a los globales: el scope los incluye y las escrituras masivas no disparan los eventos del modelo | `SharedCatalogBuilder` limita `update`, `delete`, `forceDelete`, `touch`, `increment` y `decrement` a la clínica en contexto, y rechaza `clinic_id`. `SharedCatalogTest` |
+| 2 | `AuditLogger` prefería la clínica en contexto: `ClinicService::create` llamado desde otra clínica dejaba el alta en la auditoría de esa otra | Primero la clínica del registro auditado (su `clinic_id`, o la propia `Clinic`), después el contexto, después el usuario. `ClinicServiceTest`, `ClinicAssignmentTest` |
+| 3 | `clinic_id` se podía cambiar al editar (con `forceFill`): un cliente pasaba a otra clínica, o una especie propia a global | `ClinicIdGuard` en el `updating` de `BelongsToClinic` y de `SharedCatalog`. `ClinicAssignmentTest`, `SharedCatalogTest` |
+| 4 | Con `Artisan::call`, el log informaba el `argv` del proceso que llamaba, no el comando | `ExecutionOrigin` sigue `CommandStarting` y `CommandFinished`. `FailClosedTest` |
+| 5 | Tres protecciones sin test (E, G y H de la tabla siguiente) | Tests nuevos en `SharedCatalogTest`, `FailClosedTest` y `ClinicAssignmentTest` |
+| 6 | Sin claves foráneas compuestas (`clinic_id` + `id`) | Deuda #5 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)) |
+
+**Protecciones quitadas de a una en la revisión.** Además de las 44 de la implementación.
+
+| Protección quitada | Resultado |
+|---|---|
+| A. `SharedCatalog`: el error al crear con otro `clinic_id` | Ningún test falla. Mutación equivalente: la línea siguiente (`setAttribute('clinic_id', CurrentClinic::id())`) pisa el valor recibido, así que el registro igual queda en la clínica en contexto; sin la verificación solo se pierde el aviso. Se mantiene para que el error sea visible, como en `BelongsToClinic`, donde sí tiene test |
+| B. `SharedCatalogScope` sin agrupar el `OR` (`whereNull(...)->orWhere(...)` suelto) | Ningún test falla. Mutación equivalente: Eloquent agrupa en un paréntesis propio las condiciones que agrega cada *global scope* cuando la consulta ya tiene otras (`Builder::applyScopes`), así que el `OR` nunca escapa del filtro. El agrupado explícito queda para no depender de ese detalle |
+| C. `AuditLogger`: la clínica de la `Clinic` auditada | Falla `ClinicServiceTest` |
+| D. `ClinicScope` con `clinic_id` sin el nombre de la tabla | Ningún test falla. Equivalente hoy: ninguna consulta une dos tablas con `clinic_id`. Con un *join* así el error sería de SQL (columna ambigua) y el pedido fallaría: nunca devolvería datos de otra clínica. Se mantiene `qualifyColumn` para que esos *joins* funcionen cuando existan |
+| E. `SpeciesSeeder` sin `whereNull('clinic_id')` al buscar | Falla `SharedCatalogTest::test_seeder_only_touches_global_records` (nuevo) |
+| F. `ExecutionOrigin` sin quitar el job terminado | Falla `FailClosedTest` |
+| G. `SetCurrentClinic` fija la clínica sin restaurarla | Falla `FailClosedTest::test_request_restores_the_clinic_context_when_it_ends` (nuevo) |
+| H. `AuditLogger` sin la clínica en contexto | Falla `ClinicAssignmentTest::test_audit_log_takes_the_clinic_from_context_in_a_command` (nuevo) |
+
+Cada corrección nueva también se quitó de a una: el filtro de `update`, `delete` y `forceDelete` del builder, el rechazo de
+`clinic_id`, el registro del builder, las dos ramas nuevas de `AuditLogger`, `ClinicIdGuard` en `BelongsToClinic` y los dos
+eventos de comando. En todos los casos falla su test. `ClinicIdGuard` en `SharedCatalog` está cubierto dos veces: guardar el
+modelo termina en `SharedCatalogBuilder::update`, que también rechaza `clinic_id`. Al quitar las dos capas, fallan los tres
+tests de inmutabilidad de `SharedCatalogTest`.
+
+**Verificación.** Suite: 90 tests y 290 aserciones en verde, en SQLite y contra MySQL 8.4.3 (`syncvet_test_mysql`). En
+`syncvet_test_mysql`: `migrate:fresh --seed`, rollback completo y `migrate --seed` otra vez; nombres de índices y claves de hasta
+56 caracteres.

@@ -53,18 +53,27 @@ class AuditLogger
     }
 
     /**
-     * Clínica del registro (D1): la del contexto; si no hay, la de la clínica auditada
-     * (su alta, que ocurre antes de fijarla) o la del usuario; si no, nula (login
-     * fallido con un email desconocido).
+     * Clínica del registro (D1), en este orden:
+     *
+     * 1. La del registro auditado: su clinic_id, o la propia clínica si se audita
+     *    una Clinic. Así el alta de una clínica nunca queda en la auditoría de otra,
+     *    aunque se llame desde el contexto de esa otra.
+     * 2. La clínica en contexto (un pedido, o un job o comando con CurrentClinic::run).
+     * 3. La del usuario.
+     * 4. Nula: login fallido con un email desconocido.
      */
     private function clinicId(?Model $auditable, ?User $user): ?int
     {
-        if (CurrentClinic::has()) {
-            return CurrentClinic::id();
-        }
-
         if ($auditable instanceof Clinic) {
             return $auditable->getKey();
+        }
+
+        if ($auditable?->getAttribute('clinic_id') !== null) {
+            return (int) $auditable->getAttribute('clinic_id');
+        }
+
+        if (CurrentClinic::has()) {
+            return CurrentClinic::id();
         }
 
         return $user?->clinic_id;

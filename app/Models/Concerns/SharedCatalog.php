@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\Exceptions\CatalogException;
 use App\Exceptions\ClinicContextMissingException;
+use App\Models\Builders\SharedCatalogBuilder;
 use App\Models\Clinic;
 use App\Models\Scopes\SharedCatalogScope;
 use App\Support\CurrentClinic;
@@ -13,9 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Catálogo compartido (especies y razas, registro R-004): clinic_id nulo para los
  * globales. Las consultas ven los globales y los de la clínica en contexto
- * (SharedCatalogScope). El alta toma la clínica en contexto, y un global no se
- * edita ni se elimina. Los globales los crea SpeciesSeeder, sin modelo (no hay
- * clínica en contexto). clinic_id no va en $fillable.
+ * (SharedCatalogScope). El alta toma la clínica en contexto; un global no se
+ * edita ni se elimina, y clinic_id no cambia al editar. Las escrituras masivas
+ * solo alcanzan a los registros de la clínica (SharedCatalogBuilder). Los
+ * globales los crea SpeciesSeeder, sin modelo (no hay clínica en contexto).
+ * clinic_id no va en $fillable.
  */
 trait SharedCatalog
 {
@@ -36,8 +39,20 @@ trait SharedCatalog
             $model->setAttribute('clinic_id', $clinicId);
         });
 
-        static::updating(fn (Model $model) => self::ensureNotGlobal($model));
+        static::updating(function (Model $model): void {
+            self::ensureNotGlobal($model);
+            ClinicIdGuard::ensureUnchanged($model);
+        });
+
         static::deleting(fn (Model $model) => self::ensureNotGlobal($model));
+    }
+
+    /**
+     * Las escrituras masivas (update, delete…) solo alcanzan a los registros propios.
+     */
+    public function newEloquentBuilder($query): SharedCatalogBuilder
+    {
+        return new SharedCatalogBuilder($query);
     }
 
     public function isGlobal(): bool

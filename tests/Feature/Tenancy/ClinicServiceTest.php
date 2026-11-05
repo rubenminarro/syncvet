@@ -131,4 +131,28 @@ class ClinicServiceTest extends TestCase
             $this->assertSame(422, $e->getStatus());
         }
     }
+
+    /**
+     * El alta de una clínica queda en SU auditoría, aunque create() se llame desde
+     * el contexto de otra clínica (AuditLogger prefiere la clínica del registro).
+     */
+    public function test_creation_audit_belongs_to_the_new_clinic_even_inside_another_context(): void
+    {
+        $other = $this->createClinic();
+        $otherLogs = DB::table('audit_logs')->where('clinic_id', $other->id)->count();
+
+        $clinic = CurrentClinic::run($other, fn () => app(ClinicService::class)->create(self::DATA, self::ADMIN));
+
+        $this->assertSame(
+            [$clinic->id],
+            DB::table('audit_logs')->where('auditable_type', 'clinic')->where('auditable_id', $clinic->id)
+                ->where('event', AuditEvent::CREATED->value)->pluck('clinic_id')->all(),
+            'El alta de la clínica quedó en la auditoría de otra clínica.'
+        );
+        $this->assertSame(
+            $otherLogs,
+            DB::table('audit_logs')->where('clinic_id', $other->id)->count(),
+            'La auditoría de la otra clínica recibió registros del alta.'
+        );
+    }
 }

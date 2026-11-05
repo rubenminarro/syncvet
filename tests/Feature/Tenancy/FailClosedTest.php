@@ -11,6 +11,9 @@ use App\Models\Species;
 use App\Models\User;
 use App\Services\DocumentSequenceService;
 use App\Support\CurrentClinic;
+use App\Support\ExecutionOrigin;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -95,6 +98,59 @@ class FailClosedTest extends TestCase
         });
 
         $this->assertFalse(CurrentClinic::has());
+    }
+
+    /**
+     * Con Artisan::call, argv es el del proceso que llama: el origen sale del evento
+     * CommandStarting, y deja de informarse cuando el comando termina (aunque falle).
+     */
+    public function test_command_without_run_fails_and_reports_the_command(): void
+    {
+        $this->clientIn($this->createClinic());
+        Artisan::command('testing:count-clients', fn () => Client::count());
+
+        // Fuera de los tests, Laravel convierte los eventos de Symfony en
+        // CommandStarting/CommandFinished; en los tests no. Se activa como en
+        // producción y se descarta el Artisan que ya creó la siembra, sin eventos.
+        $kernel = $this->app->make(ConsoleKernel::class);
+        $kernel->rerouteSymfonyCommandEvents();
+        $kernel->setArtisan(null);
+
+        try {
+            Artisan::call('testing:count-clients');
+            $this->fail('Un comando sin CurrentClinic::run consultó sin clínica.');
+        } catch (ClinicContextMissingException $e) {
+            $this->assertSame(['origin' => 'console', 'command' => 'testing:count-clients'], $e->context());
+        }
+
+        $this->assertNotSame('testing:count-clients', ExecutionOrigin::describe()['command'] ?? null);
+    }
+
+    /**
+     * SetCurrentClinic fija la clínica solo durante el pedido: al terminar, bien o
+     * con error, el contexto vuelve al anterior (nada queda fijado para el código
+     * que corre después, como un job sync o el pedido siguiente del mismo proceso).
+     */
+    public function test_request_restores_the_clinic_context_when_it_ends(): void
+    {
+        Route::middleware(['api', 'auth:sanctum', 'clinic'])->group(function () {
+            Route::get('/api/testing/clinic-ok', fn () => response()->json(['clinic_id' => CurrentClinic::id()]));
+            Route::get('/api/testing/clinic-error', fn () => throw new RuntimeException('falla'));
+        });
+        $clinic = $this->createClinic();
+        $this->actingIn($clinic);
+
+        $this->getJson('/api/testing/clinic-ok')->assertOk()->assertJson(['clinic_id' => $clinic->id]);
+        $this->assertFalse(CurrentClinic::has(), 'El pedido dejó la clínica fijada.');
+
+        $this->assertErrorCode($this->getJson('/api/testing/clinic-error'), 500, 'INTERNAL_SERVER_ERROR');
+        $this->assertFalse(CurrentClinic::has(), 'El pedido con error dejó la clínica fijada.');
+
+        $previous = $this->createClinic();
+        CurrentClinic::run($previous, function () use ($previous) {
+            $this->getJson('/api/testing/clinic-ok')->assertOk();
+            $this->assertSame($previous->id, CurrentClinic::id(), 'El pedido no restauró la clínica anterior.');
+        });
     }
 
     public function test_request_without_clinic_responds_500_and_logs_the_route(): void

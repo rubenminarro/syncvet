@@ -83,9 +83,11 @@ empezar una sesión.
   Un dato maestro ya usado no se elimina (`409 …_IN_USE`).
 * **Clínica:** todo modelo de negocio usa `BelongsToClinic`. Nunca filtrar por `clinic_id` a mano ni saltear el scope sin un
   motivo registrado. Toda regla `unique` o `exists` filtra por la clínica actual. Jobs y comandos fijan la clínica con
-  `CurrentClinic::run()`. Sin clínica en contexto, la consulta falla (fallo cerrado).
+  `CurrentClinic::run()`. Sin clínica en contexto, la consulta falla (fallo cerrado). `clinic_id` es inmutable: cambiarlo al
+  editar lanza `ClinicContextMissingException`.
 * **Catálogos compartidos** (`species`, `breeds`): `clinic_id` nulo para los globales. Su scope muestra "globales + los de mi
-  clínica", también con fallo cerrado. Solo se crean y editan los de la propia clínica; los globales salen del seeder.
+  clínica", también con fallo cerrado. Solo se crean y editan los de la propia clínica, también en las escrituras masivas
+  (`SharedCatalogBuilder`); los globales salen del seeder.
 * **Usuarios:** `User` no tiene el scope de clínica, porque el login y Sanctum lo buscan antes de conocerla. Toda consulta de
   usuarios fuera del login filtra por `clinic_id` de forma explícita, y el *route binding* de un usuario de otra clínica
   responde 404.
@@ -210,3 +212,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 1 | Clientes y pacientes sin tests de PHPUnit |
 | 2 | Modelos generados desde el esquema: revisar relaciones y casts al usarlos |
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
+| 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
