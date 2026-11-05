@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\InvoiceCondition;
 use App\Enums\InvoicePaymentStatus;
 use App\Enums\InvoiceStatus;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Invoice extends Model
 {
-    use Auditable;
+    use BelongsToClinic, Auditable;
 
     protected $fillable = [
         'branch_id',

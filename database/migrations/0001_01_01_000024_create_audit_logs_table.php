@@ -17,6 +17,8 @@ return new class extends Migration
     {
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
+            // Nulo: evento sin clínica (login fallido con un email desconocido).
+            $table->foreignId('clinic_id')->nullable()->constrained('clinics')->restrictOnDelete();
             $table->string('event', 40);
             // Tipo corto del registro auditado (p. ej. "patient", "invoice", "patient_application").
             $table->string('auditable_type', 60)->nullable();
@@ -30,8 +32,8 @@ return new class extends Migration
 
             $table->index(['auditable_type', 'auditable_id']);
             $table->index(['user_id', 'created_at']);
-            $table->index(['event', 'created_at']);
-            $table->index('created_at');
+            $table->index(['clinic_id', 'event', 'created_at']);
+            $table->index(['clinic_id', 'created_at']);
         });
     }
 

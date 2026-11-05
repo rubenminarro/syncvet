@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\TaxRate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class InvoiceItem extends Model
 {
+    use BelongsToClinic;
+
     protected $fillable = [
         'invoice_id',
         'source_type',

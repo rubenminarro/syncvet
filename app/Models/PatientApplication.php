@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\PatientApplicationType;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PatientApplication extends Model
 {
-    use Auditable;
+    use BelongsToClinic, Auditable;
 
     protected $fillable = [
         'patient_id',

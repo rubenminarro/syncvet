@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ClientNotificationStatus;
 use App\Enums\NotificationChannel;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ClientNotification extends Model
 {
+    use BelongsToClinic;
+
     protected $fillable = [
         'client_id',
         'type',

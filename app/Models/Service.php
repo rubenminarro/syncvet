@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ServiceCategory;
 use App\Enums\ServiceStatus;
 use App\Enums\TaxRate;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
 {
-    use Auditable, SoftDeletes;
+    use BelongsToClinic, Auditable, SoftDeletes;
 
     protected $fillable = [
         'code',

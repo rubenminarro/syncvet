@@ -32,7 +32,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\App\Http\Middleware\EnsureJsonResponse::class);
 
 
+        // La clínica se fija antes del route model binding: un id de otra clínica da 404 (D1).
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            prepend: \App\Http\Middleware\SetCurrentClinic::class,
+        );
+
         $middleware->alias([
+            'clinic' => \App\Http\Middleware\SetCurrentClinic::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,

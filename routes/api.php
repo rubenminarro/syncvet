@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Route;
 
 // Pendiente: login (público), logout y me.
 
-Route::middleware('auth:sanctum')->scopeBindings()->group(function () {
+// 'clinic' (SetCurrentClinic) fija la clínica del usuario antes del route model binding.
+Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function () {
 
     // Clientes (tutores)
     Route::apiResource('clients', ClientController::class);

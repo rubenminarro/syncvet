@@ -18,7 +18,8 @@ return new class extends Migration
     {
         Schema::create('patients', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('code', 20);
             $table->foreignId('client_id')->constrained('clients')->restrictOnDelete();
             $table->string('name', 100);
             $table->foreignId('species_id')->constrained('species')->restrictOnDelete();
@@ -29,7 +30,7 @@ return new class extends Migration
             $table->boolean('birth_date_estimated')->default(false);
             $table->string('color', 80)->nullable();
             $table->decimal('weight_kg', 6, 2)->nullable();
-            $table->string('microchip', 30)->nullable()->unique();
+            $table->string('microchip', 30)->nullable();
             $table->string('photo_path')->nullable();
             $table->text('allergies')->nullable();
             $table->text('notes')->nullable();
@@ -39,8 +40,10 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
 
+            $table->unique(['clinic_id', 'code']);
+            $table->unique(['clinic_id', 'microchip']);
             $table->index(['client_id', 'name']);
-            $table->index('name');
+            $table->index(['clinic_id', 'name']);
         });
     }
 

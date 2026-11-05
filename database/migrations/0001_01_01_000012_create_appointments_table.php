@@ -20,6 +20,7 @@ return new class extends Migration
     {
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             $table->foreignId('schedule_id')->constrained('schedules')->restrictOnDelete();
             $table->foreignId('client_id')->nullable()->constrained('clients')->restrictOnDelete();
@@ -30,7 +31,8 @@ return new class extends Migration
             $table->dateTime('ends_at');
             $table->string('status', 20)->default(AppointmentStatus::PENDING_CONFIRMATION->value);
             $table->string('source', 20)->default(AppointmentSource::RECEPTION->value);
-            // Agrupa los turnos generados por una misma regla de recurrencia.
+            // Agrupa los turnos generados por una misma regla de recurrencia. Índice
+            // propio, sin clinic_id: un UUID ya identifica una sola serie de una clínica.
             $table->uuid('series_id')->nullable()->index();
             $table->string('reason', 255)->nullable();
             $table->text('notes')->nullable();
@@ -45,7 +47,7 @@ return new class extends Migration
             $table->index(['schedule_id', 'starts_at', 'ends_at']);
             $table->index(['branch_id', 'starts_at']);
             $table->index(['patient_id', 'starts_at']);
-            $table->index('status');
+            $table->index(['clinic_id', 'status']);
         });
     }
 

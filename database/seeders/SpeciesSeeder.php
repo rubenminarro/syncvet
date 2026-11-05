@@ -2,12 +2,15 @@
 
 namespace Database\Seeders;
 
-use App\Models\Breed;
-use App\Models\Species;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Especies y razas frecuentes. Idempotente.
+ * Especies y razas frecuentes del catálogo global (clinic_id nulo). Idempotente.
+ *
+ * Usa el query builder y no los modelos, a propósito: Species y Breed tienen el
+ * scope de catálogo compartido, que exige una clínica en contexto, y el alta por
+ * modelo siempre toma la clínica actual. La siembra no tiene clínica (R-004).
  */
 class SpeciesSeeder extends Seeder
 {
@@ -26,11 +29,27 @@ class SpeciesSeeder extends Seeder
     public function run(): void
     {
         foreach (self::CATALOG as $speciesName => $breeds) {
-            $species = Species::firstOrCreate(['name' => $speciesName]);
+            $speciesId = $this->globalId('species', ['name' => $speciesName]);
 
             foreach ($breeds as $breedName) {
-                Breed::firstOrCreate(['species_id' => $species->id, 'name' => $breedName]);
+                $this->globalId('breeds', ['species_id' => $speciesId, 'name' => $breedName]);
             }
         }
+    }
+
+    /**
+     * Id del registro global con esos valores; si no existe, lo crea.
+     */
+    private function globalId(string $table, array $values): int
+    {
+        $id = DB::table($table)->whereNull('clinic_id')->where($values)->value('id');
+
+        return $id ?? DB::table($table)->insertGetId([
+            ...$values,
+            'clinic_id' => null,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

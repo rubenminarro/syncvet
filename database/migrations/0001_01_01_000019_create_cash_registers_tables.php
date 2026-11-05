@@ -18,6 +18,7 @@ return new class extends Migration
     {
         Schema::create('cash_registers', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             $table->foreignId('user_id')->constrained('users')->restrictOnDelete();
             $table->string('status', 20)->default(CashRegisterStatus::OPEN->value);
@@ -37,6 +38,7 @@ return new class extends Migration
         // Ingresos y egresos manuales (retiros, gastos menores).
         Schema::create('cash_movements', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('cash_register_id')->constrained('cash_registers')->restrictOnDelete();
             $table->string('type', 20);
             $table->decimal('amount', 14, 2);

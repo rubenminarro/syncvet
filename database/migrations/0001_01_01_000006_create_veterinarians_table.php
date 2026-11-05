@@ -19,15 +19,19 @@ return new class extends Migration
     {
         Schema::create('veterinarians', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('user_id')->unique()->constrained('users')->restrictOnDelete();
-            $table->string('code', 20)->unique();
-            $table->string('license_number', 30)->nullable()->unique();
+            $table->string('code', 20);
+            $table->string('license_number', 30)->nullable();
             $table->string('specialty', 100)->nullable();
             $table->decimal('commission_percentage', 5, 2)->default(0);
             $table->string('status', 20)->default(VeterinarianStatus::ACTIVE->value);
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['clinic_id', 'code']);
+            $table->unique(['clinic_id', 'license_number']);
         });
     }
 

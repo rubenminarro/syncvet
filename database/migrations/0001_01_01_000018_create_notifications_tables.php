@@ -30,6 +30,7 @@ return new class extends Migration
         // Lo que hay que avisar y cuándo (próxima vacuna, control, turno).
         Schema::create('reminders', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('client_id')->constrained('clients')->restrictOnDelete();
             $table->foreignId('patient_id')->nullable()->constrained('patients')->restrictOnDelete();
             $table->string('type', 30);
@@ -43,12 +44,13 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamps();
 
-            $table->index(['status', 'notify_at']);
+            $table->index(['clinic_id', 'status', 'notify_at']);
             $table->index(['patient_id', 'due_date']);
         });
 
         Schema::create('client_notifications', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('client_id')->constrained('clients')->restrictOnDelete();
             $table->string('type', 30);
             $table->string('channel', 20);
@@ -60,20 +62,23 @@ return new class extends Migration
             $table->string('template', 100)->nullable();
             $table->json('variables')->nullable();
             $table->string('status', 20)->default(ClientNotificationStatus::PENDING->value);
+            // Índice sin clinic_id: el webhook del proveedor busca el aviso por este id
+            // antes de conocer la clínica.
             $table->string('external_id', 100)->nullable()->index();
             // Motivo de la omisión o del fallo del envío.
             $table->text('error')->nullable();
             $table->unsignedTinyInteger('attempts')->default(0);
             $table->timestamp('sent_at')->nullable();
             // Evita repetir un aviso automático (null en los avisos que pueden repetirse).
-            $table->string('dedupe_key', 150)->nullable()->unique();
+            $table->string('dedupe_key', 150)->nullable();
             $table->foreignId('resent_from_id')->nullable()->constrained('client_notifications')->restrictOnDelete();
             // Usuario que reenvió el aviso (null en los automáticos).
             $table->foreignId('created_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamps();
 
+            $table->unique(['clinic_id', 'dedupe_key']);
             $table->index(['client_id', 'created_at']);
-            $table->index(['type', 'status']);
+            $table->index(['clinic_id', 'type', 'status']);
         });
     }
 

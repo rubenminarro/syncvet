@@ -22,6 +22,7 @@ return new class extends Migration
     {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             $table->foreignId('client_id')->constrained('clients')->restrictOnDelete();
             $table->foreignId('consultation_id')->nullable()->constrained('consultations')->restrictOnDelete();
@@ -29,7 +30,7 @@ return new class extends Migration
             // Numeración: se asigna al emitir.
             $table->foreignId('invoice_stamp_id')->nullable()->constrained('invoice_stamps')->restrictOnDelete();
             $table->string('stamp_number', 8)->nullable();
-            $table->string('number', 15)->nullable()->unique();
+            $table->string('number', 15)->nullable();
             // Datos del cliente copiados (editables en borrador).
             $table->string('customer_name', 150);
             $table->string('customer_tax_id', 30)->nullable();
@@ -68,13 +69,16 @@ return new class extends Migration
             $table->text('cancellation_reason')->nullable();
             $table->timestamps();
 
+            // El CDC de SIFEN sigue único en todo el sistema (R-002).
+            $table->unique(['clinic_id', 'number']);
             $table->index(['client_id', 'payment_status']);
-            $table->index(['sifen_status', 'sifen_sent_at']);
-            $table->index('issue_date');
+            $table->index(['clinic_id', 'sifen_status', 'sifen_sent_at']);
+            $table->index(['clinic_id', 'issue_date']);
         });
 
         Schema::create('invoice_items', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('invoice_id')->constrained('invoices')->cascadeOnDelete();
             // Origen de la línea: ítem de consulta, servicio o producto vendido sin consulta.
             $table->morphs('source');

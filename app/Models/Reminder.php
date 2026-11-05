@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ReminderStatus;
 use App\Enums\ReminderType;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Reminder extends Model
 {
+    use BelongsToClinic;
+
     protected $fillable = [
         'client_id',
         'patient_id',

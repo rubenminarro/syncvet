@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\ClientKind;
+use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,7 +35,7 @@ class UpdateClientRequest extends FormRequest
             ],
             'document_number' => [
                 'sometimes', 'string', 'min:5', 'max:20',
-                Rule::unique('clients', 'document_number')->ignore($client),
+                Rule::unique('clients', 'document_number')->where('clinic_id', CurrentClinic::id())->ignore($client),
                 'regex:/^[a-zA-Z0-9-]+$/',
             ],
             'first_name' => [
@@ -53,7 +54,7 @@ class UpdateClientRequest extends FormRequest
                 'sometimes',
                 config('validation.email_dns') ? 'email:rfc,dns' : 'email:rfc',
                 'max:50', 'lowercase',
-                Rule::unique('clients', 'email')->ignore($client),
+                Rule::unique('clients', 'email')->where('clinic_id', CurrentClinic::id())->ignore($client),
             ],
             'phone' => ['sometimes', 'regex:/^\+?[1-9]\d{7,14}$/'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255', 'regex:/^[\pL\pN\s.,#\-\/°º&()\']+$/u'],

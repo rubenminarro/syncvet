@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\CashRegisterStatus;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CashRegister extends Model
 {
-    use Auditable;
+    use BelongsToClinic, Auditable;
 
     protected $fillable = [
         'branch_id',

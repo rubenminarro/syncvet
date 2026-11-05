@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\DocumentTemplateType;
 use App\Enums\PatientDocumentStatus;
 use App\Traits\Auditable;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PatientDocument extends Model
 {
-    use Auditable;
+    use BelongsToClinic, Auditable;
 
     protected $fillable = [
         'branch_id',

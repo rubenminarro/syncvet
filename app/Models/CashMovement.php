@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\CashMovementType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CashMovement extends Model
 {
+    use BelongsToClinic;
+
     protected $fillable = [
         'cash_register_id',
         'type',

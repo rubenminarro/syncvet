@@ -21,9 +21,10 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
-            $table->string('barcode', 50)->nullable()->index();
-            $table->string('name', 200)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('code', 20);
+            $table->string('barcode', 50)->nullable();
+            $table->string('name', 200);
             $table->string('type', 20)->default(ProductType::SUPPLY->value);
             $table->string('unit', 20)->default('unit');
             $table->decimal('sale_price', 14, 2)->default(0);
@@ -36,11 +37,15 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
 
-            $table->index(['type', 'status']);
+            $table->unique(['clinic_id', 'code']);
+            $table->unique(['clinic_id', 'name']);
+            $table->index(['clinic_id', 'type', 'status']);
+            $table->index(['clinic_id', 'barcode']);
         });
 
         Schema::create('product_stocks', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained('warehouses')->restrictOnDelete();
             $table->decimal('quantity_on_hand', 12, 3)->default(0);
@@ -53,6 +58,7 @@ return new class extends Migration
 
         Schema::create('product_lots', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained('warehouses')->restrictOnDelete();
             $table->string('lot_number', 50);
@@ -61,7 +67,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['product_id', 'warehouse_id', 'lot_number']);
-            $table->index('expires_at');
+            $table->index(['clinic_id', 'expires_at']);
         });
     }
 

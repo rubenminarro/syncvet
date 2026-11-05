@@ -17,6 +17,7 @@ return new class extends Migration
     {
         Schema::create('invoice_stamps', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             // iTiDE de SIFEN: 1 factura, 5 nota de crédito, 6 nota de débito.
             $table->unsignedTinyInteger('document_type')->default(1);
@@ -31,8 +32,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(
-                ['stamp_number', 'establishment', 'expedition_point', 'document_type'],
-                'inv_stamps_number_est_exp_type_unique'
+                ['clinic_id', 'stamp_number', 'establishment', 'expedition_point', 'document_type'],
+                'inv_stamps_clinic_number_est_exp_type_unique'
             );
         });
     }

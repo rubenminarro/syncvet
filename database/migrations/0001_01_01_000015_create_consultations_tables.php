@@ -21,7 +21,8 @@ return new class extends Migration
     {
         Schema::create('consultations', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('code', 20);
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             $table->foreignId('patient_id')->constrained('patients')->restrictOnDelete();
             // Dueño al momento de la consulta (el paciente puede cambiar de dueño).
@@ -51,14 +52,16 @@ return new class extends Migration
             $table->text('cancellation_reason')->nullable();
             $table->timestamps();
 
+            $table->unique(['clinic_id', 'code']);
             $table->index(['patient_id', 'consulted_at']);
             $table->index(['branch_id', 'consulted_at']);
             $table->index(['veterinarian_id', 'consulted_at']);
-            $table->index('status');
+            $table->index(['clinic_id', 'status']);
         });
 
         Schema::create('consultation_attachments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('consultation_id')->constrained('consultations')->cascadeOnDelete();
             $table->string('path');
             $table->string('original_name', 255)->nullable();
@@ -70,6 +73,7 @@ return new class extends Migration
 
         Schema::create('consultation_items', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('consultation_id')->constrained('consultations')->cascadeOnDelete();
             $table->string('type', 20);
             $table->foreignId('service_id')->nullable()->constrained('services')->restrictOnDelete();

@@ -14,9 +14,12 @@ return new class extends Migration
     {
         Schema::create('system_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('key', 100)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('key', 100);
             $table->text('value')->nullable();
             $table->timestamps();
+
+            $table->unique(['clinic_id', 'key']);
         });
     }
 

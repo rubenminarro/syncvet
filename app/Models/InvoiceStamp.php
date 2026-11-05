@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InvoiceStamp extends Model
 {
-    use Auditable;
+    use BelongsToClinic, Auditable;
 
     protected $fillable = [
         'branch_id',

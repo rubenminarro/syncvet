@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\VeterinarianStatus;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Veterinarian extends Model
 {
-    use Auditable, SoftDeletes;
+    use BelongsToClinic, Auditable, SoftDeletes;
 
     protected $fillable = [
         'user_id',

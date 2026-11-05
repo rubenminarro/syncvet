@@ -17,6 +17,7 @@ return new class extends Migration
     {
         Schema::create('inventory_movements', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('product_id')->constrained('products')->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained('warehouses')->restrictOnDelete();
             $table->foreignId('product_lot_id')->nullable()->constrained('product_lots')->restrictOnDelete();
@@ -34,7 +35,7 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['product_id', 'created_at']);
-            $table->index('type');
+            $table->index(['clinic_id', 'type']);
         });
     }
 

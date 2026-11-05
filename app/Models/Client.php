@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ClientKind;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Client extends Model
 {
-    use Auditable, SoftDeletes;
+    use BelongsToClinic, Auditable, SoftDeletes;
 
     protected $fillable = [
         'kind',

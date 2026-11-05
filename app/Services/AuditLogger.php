@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Enums\AuditEvent;
 use App\Models\AuditLog;
+use App\Models\Clinic;
 use App\Models\User;
+use App\Support\CurrentClinic;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -34,18 +36,38 @@ class AuditLogger
         ?User $user = null
     ): AuditLog {
         $request = app()->bound('request') ? request() : null;
+        $user ??= auth()->user();
 
         return AuditLog::create([
+            'clinic_id' => $this->clinicId($auditable, $user),
             'event' => $event,
             'auditable_type' => $auditable ? $this->type($auditable) : null,
             'auditable_id' => $auditable?->getKey(),
-            'user_id' => ($user ?? auth()->user())?->getKey(),
+            'user_id' => $user?->getKey(),
             'old_values' => $old,
             'new_values' => $new,
             'ip_address' => $request?->ip(),
             'user_agent' => $request?->userAgent() ? Str::limit($request->userAgent(), 252) : null,
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * Clínica del registro (D1): la del contexto; si no hay, la de la clínica auditada
+     * (su alta, que ocurre antes de fijarla) o la del usuario; si no, nula (login
+     * fallido con un email desconocido).
+     */
+    private function clinicId(?Model $auditable, ?User $user): ?int
+    {
+        if (CurrentClinic::has()) {
+            return CurrentClinic::id();
+        }
+
+        if ($auditable instanceof Clinic) {
+            return $auditable->getKey();
+        }
+
+        return $user?->clinic_id;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\PatientSex;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Patient extends Model
 {
-    use Auditable, SoftDeletes;
+    use BelongsToClinic, Auditable, SoftDeletes;
 
     protected $fillable = [
         'code',

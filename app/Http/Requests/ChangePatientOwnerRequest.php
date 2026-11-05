@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class ChangePatientOwnerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
+            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->where('clinic_id', CurrentClinic::id())->whereNull('deleted_at')],
         ];
     }
 

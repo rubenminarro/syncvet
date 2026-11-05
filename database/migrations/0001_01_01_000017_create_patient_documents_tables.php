@@ -19,6 +19,7 @@ return new class extends Migration
     {
         Schema::create('document_templates', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->string('type', 30);
             $table->string('name', 150);
             // HTML con variables, renderizado a PDF (resources/views/pdf).
@@ -26,11 +27,12 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->unique(['type', 'name']);
+            $table->unique(['clinic_id', 'type', 'name']);
         });
 
         Schema::create('patient_documents', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             $table->foreignId('patient_id')->constrained('patients')->restrictOnDelete();
             $table->foreignId('consultation_id')->nullable()->constrained('consultations')->restrictOnDelete();

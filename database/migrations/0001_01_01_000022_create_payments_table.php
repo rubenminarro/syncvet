@@ -18,11 +18,12 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('invoice_id')->constrained('invoices')->restrictOnDelete();
             $table->foreignId('cash_register_id')->nullable()->constrained('cash_registers')->restrictOnDelete();
             // Recibo numerado: solo en pagos de facturas a crédito.
-            $table->unsignedInteger('receipt_sequence')->nullable()->unique();
-            $table->string('receipt_number', 15)->nullable()->unique();
+            $table->unsignedInteger('receipt_sequence')->nullable();
+            $table->string('receipt_number', 15)->nullable();
             $table->date('payment_date');
             $table->decimal('amount', 14, 2);
             $table->decimal('cash_change', 14, 2)->default(0);
@@ -37,8 +38,10 @@ return new class extends Migration
             $table->text('cancellation_reason')->nullable();
             $table->timestamps();
 
+            $table->unique(['clinic_id', 'receipt_sequence']);
+            $table->unique(['clinic_id', 'receipt_number']);
             $table->index(['invoice_id', 'status']);
-            $table->index(['payment_date', 'method']);
+            $table->index(['clinic_id', 'payment_date', 'method']);
             $table->index(['cash_register_id', 'method']);
         });
     }

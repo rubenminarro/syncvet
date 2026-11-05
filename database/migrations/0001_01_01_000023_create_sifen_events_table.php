@@ -18,6 +18,7 @@ return new class extends Migration
     {
         Schema::create('sifen_events', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('invoice_id')->nullable()->constrained('invoices')->restrictOnDelete();
             $table->string('type', 30);
             $table->string('reason', 500);

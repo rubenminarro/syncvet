@@ -17,6 +17,7 @@ return new class extends Migration
     {
         Schema::create('patient_applications', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('patient_id')->constrained('patients')->restrictOnDelete();
             $table->foreignId('consultation_id')->nullable()->constrained('consultations')->restrictOnDelete();
             $table->foreignId('consultation_item_id')->nullable()->constrained('consultation_items')->nullOnDelete();
@@ -36,7 +37,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['patient_id', 'type', 'applied_at']);
-            $table->index('next_dose_due_at');
+            $table->index(['clinic_id', 'next_dose_due_at']);
         });
     }
 

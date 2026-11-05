@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Clinic;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -25,6 +26,7 @@ class UserFactory extends Factory
         $lastName = fake()->lastName();
 
         return [
+            'clinic_id' => Clinic::factory(),
             'first_name' => $firstName,
             'last_name' => $lastName,
             'name' => "{$firstName} {$lastName}",

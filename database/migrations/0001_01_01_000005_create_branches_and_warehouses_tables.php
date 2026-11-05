@@ -1,7 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\DB;
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -19,27 +17,22 @@ return new class extends Migration
     {
         Schema::create('branches', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('code', 20);
             $table->string('name', 100);
             $table->string('address', 255)->nullable();
             $table->string('phone', 30)->nullable();
             // Código de establecimiento SIFEN (dEst), ej. "001".
-            $table->string('establishment', 3)->unique();
+            $table->string('establishment', 3);
             $table->boolean('is_default')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
+
+            $table->unique(['clinic_id', 'code']);
+            $table->unique(['clinic_id', 'establishment']);
         });
 
-        // La clínica necesita una sucursal por defecto para operar.
-        $branchId = DB::table('branches')->insertGetId([
-            'code' => 'SUC-01',
-            'name' => 'Casa central',
-            'establishment' => '001',
-            'is_default' => true,
-            'is_active' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // La sucursal y el depósito por defecto de cada clínica los crea ClinicService::create (R-004).
 
         Schema::create('branch_user', function (Blueprint $table) {
             $table->foreignId('branch_id')->constrained('branches')->cascadeOnDelete();
@@ -54,24 +47,16 @@ return new class extends Migration
 
         Schema::create('warehouses', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
-            $table->string('code', 20)->unique();
+            $table->string('code', 20);
             $table->string('name', 100);
             $table->boolean('is_default')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-        });
 
-        // El inventario necesita un depósito por defecto para operar.
-        DB::table('warehouses')->insert([
-            'branch_id' => $branchId,
-            'code' => 'DEP-01',
-            'name' => 'Principal',
-            'is_default' => true,
-            'is_active' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+            $table->unique(['clinic_id', 'code']);
+        });
     }
 
     /**

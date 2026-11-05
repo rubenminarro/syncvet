@@ -17,6 +17,7 @@ return new class extends Migration
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->restrictOnDelete();
             $table->string('name', 100);
             $table->foreignId('veterinarian_id')->nullable()->constrained('veterinarians')->restrictOnDelete();
@@ -30,6 +31,7 @@ return new class extends Migration
 
         Schema::create('schedule_hours', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
             // ISO: 1 = lunes ... 7 = domingo.
             $table->unsignedTinyInteger('weekday');
@@ -41,6 +43,7 @@ return new class extends Migration
 
         Schema::create('schedule_blocks', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
             $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
             $table->dateTime('starts_at');
             $table->dateTime('ends_at');

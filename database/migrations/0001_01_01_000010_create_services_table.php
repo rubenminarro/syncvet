@@ -20,8 +20,9 @@ return new class extends Migration
     {
         Schema::create('services', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
-            $table->string('name', 150)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('code', 20);
+            $table->string('name', 150);
             $table->string('category', 30)->default(ServiceCategory::CONSULTATION->value);
             $table->text('description')->nullable();
             $table->unsignedSmallInteger('duration_minutes')->default(30);
@@ -31,7 +32,9 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
 
-            $table->index(['category', 'status']);
+            $table->unique(['clinic_id', 'code']);
+            $table->unique(['clinic_id', 'name']);
+            $table->index(['clinic_id', 'category', 'status']);
         });
     }
 

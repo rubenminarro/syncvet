@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\SharedCatalog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Especie: global (clinic_id nulo) o propia de una clínica (SharedCatalog).
+ */
 class Species extends Model
 {
+    use SharedCatalog;
+
     protected $table = 'species';
 
     protected $fillable = [

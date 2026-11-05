@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\DocumentTemplateType;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 
 class DocumentTemplate extends Model
 {
-    use Auditable;
+    use BelongsToClinic, Auditable;
 
     protected $fillable = [
         'type',

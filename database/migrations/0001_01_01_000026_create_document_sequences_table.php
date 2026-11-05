@@ -15,9 +15,12 @@ return new class extends Migration
     {
         Schema::create('document_sequences', function (Blueprint $table) {
             $table->id();
-            $table->string('key', 50)->unique();
+            $table->foreignId('clinic_id')->constrained('clinics')->restrictOnDelete();
+            $table->string('key', 50);
             $table->unsignedBigInteger('next_value');
             $table->timestamps();
+
+            $table->unique(['clinic_id', 'key']);
         });
     }
 

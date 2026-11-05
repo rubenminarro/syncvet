@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use App\Enums\InventoryMovementType;
 use App\Exceptions\InventoryException;
 use Illuminate\Database\Eloquent\Model;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class InventoryMovement extends Model
 {
+    use BelongsToClinic;
+
     public $timestamps = false;
 
     protected $fillable = [

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToClinic;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScheduleBlock extends Model
 {
+    use BelongsToClinic;
+
     protected $fillable = [
         'schedule_id',
         'starts_at',
