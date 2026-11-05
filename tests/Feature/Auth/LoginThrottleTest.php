@@ -12,8 +12,9 @@ use Tests\Concerns\InteractsWithAuth;
 use Tests\TestCase;
 
 /**
- * Límite del login: 5 intentos fallidos por minuto por email (en minúsculas) e
- * IP. El sexto responde 429 con Retry-After; un login correcto limpia el contador.
+ * Límite del login: 5 intentos fallidos por minuto por usuario e IP (por email en
+ * minúsculas si el email no existe). El sexto responde 429 con Retry-After; un
+ * login correcto limpia el contador.
  */
 class LoginThrottleTest extends TestCase
 {

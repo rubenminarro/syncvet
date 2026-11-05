@@ -91,7 +91,8 @@ empezar una sesión.
   (`SharedCatalogBuilder`); los globales salen del seeder.
 * **Usuarios:** `User` no tiene el scope de clínica, porque el login y Sanctum lo buscan antes de conocerla. Toda consulta de
   usuarios fuera del login filtra por `clinic_id` de forma explícita, y el *route binding* de un usuario de otra clínica
-  responde 404.
+  responde 404. Los usuarios se eliminan siempre modelo por modelo (`$user->delete()`), nunca con un borrado masivo
+  (`User::where(...)->delete()`): el borrado masivo no dispara el evento `deleted` y sus tokens seguirían vigentes.
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`.
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
 * Usuario que crea, emite o anula: columnas `created_by`, `issued_by`, `cancelled_by` + `cancelled_at` y
@@ -214,3 +215,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 2 | Modelos generados desde el esquema: revisar relaciones y casts al usarlos |
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
+| 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |

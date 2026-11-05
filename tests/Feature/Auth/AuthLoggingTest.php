@@ -7,6 +7,7 @@ use App\Exceptions\AuthException;
 use App\Exceptions\ClinicContextMissingException;
 use App\Exceptions\ClinicException;
 use App\Services\AuthService;
+use App\Services\ClinicService;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Event;
@@ -81,6 +82,32 @@ class AuthLoggingTest extends TestCase
                 $this->assertStringContainsString('AuthService->login(', (string) $e, 'La traza debe mostrar la llamada.');
                 $this->assertStringNotContainsString(substr(self::PASSWORD, 0, 10), (string) $e);
             }
+        }
+    }
+
+    /**
+     * ClinicService::create recibe la contraseña del administrador dentro de un array.
+     * getTraceAsString() muestra "Array", pero getTrace() conserva el array completo
+     * (lo que usaría un reporte de errores externo): con #[\SensitiveParameter] la
+     * traza guarda un SensitiveParameterValue en su lugar.
+     */
+    public function test_the_admin_password_is_not_in_the_clinic_service_trace(): void
+    {
+        try {
+            app(ClinicService::class)->create(
+                ['name' => 'Central', 'legal_name' => 'Central S.A.', 'ruc' => '80009735', 'ruc_dv' => '2'],
+                ['email' => 'ana@central.com.py', 'first_name' => 'Ana', 'last_name' => 'Benítez', 'password' => self::PASSWORD]
+            );
+            $this->fail('El alta debía fallar por el RUC.');
+        } catch (ClinicException $e) {
+            $this->assertSame('CLINIC_RUC_INVALID', $e->getErrorCode());
+
+            $frame = collect($e->getTrace())->first(
+                fn (array $frame) => ($frame['class'] ?? null) === ClinicService::class && $frame['function'] === 'create'
+            );
+            $this->assertNotNull($frame, 'La traza debe mostrar la llamada.');
+            $this->assertInstanceOf(\SensitiveParameterValue::class, $frame['args'][1]);
+            $this->assertStringNotContainsString(self::PASSWORD, print_r($frame['args'], true));
         }
     }
 

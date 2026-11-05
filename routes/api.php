@@ -7,8 +7,9 @@ use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\SpeciesController;
 use Illuminate\Support\Facades\Route;
 
-// Autenticación. login es público; logout y me exigen token y fijan la clínica
-// (middleware de AuthController). Sin permiso de Spatie: cualquier usuario autenticado.
+// Autenticación. login es público; logout y me exigen token (middleware de AuthController).
+// me fija la clínica; logout no, para que el usuario cierre su sesión aunque la clínica esté
+// suspendida. Sin permiso de Spatie: cualquier usuario autenticado.
 Route::post('login', [AuthController::class, 'login'])->name('auth.login');
 Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
 Route::get('me', [AuthController::class, 'me'])->name('auth.me');
