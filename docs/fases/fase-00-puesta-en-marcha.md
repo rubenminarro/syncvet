@@ -1,6 +1,6 @@
 # FASE 0 — Puesta en marcha
 
-Etapa: Base. Estado: **EN DESARROLLO**: entregas 0.1 (R-006), 0.2 (R-007) y 0.3 (R-008) cerradas; diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
+Etapa: Base. Estado: **EN DESARROLLO**: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008) y 0.4 (R-012) cerradas; diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -18,7 +18,7 @@ Cada entrega recorre los pasos 4 a 7 y deja la suite en verde.
 | 0.1 | Proyecto Laravel 13 sobre el paquete base, Sanctum y Spatie (solo configuración), `phpunit.xml` y base de tests, `ClinicRolesTest` | 0.1, 0.3, 0.5 y parte de 0.6 | COMPLETADO (R-006) |
 | 0.2 | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, `ClinicService::create` y tests de aislamiento | 0.2 | COMPLETADO (R-007) |
 | 0.3 | Autenticación: login, logout y `me`; tokens de 12 horas; límite de intentos; auditoría | 0.4 y parte de 0.6 | COMPLETADO (R-008) |
-| 0.4 | Comando `clinic:create` y datos de demostración | Nueva (P5) | PENDIENTE |
+| 0.4 | Comando `clinic:create` y datos de demostración | Nueva (P5) | COMPLETADO (R-012) |
 | 0.5 | Acceso por rol (`tests/Feature/Access`) y verificación final en MySQL | Parte de 0.6 y 0.7 | PENDIENTE |
 
 ## Preguntas de negocio
@@ -298,7 +298,7 @@ migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, test
 
 ## Resultado
 
-Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entregas 0.4 y 0.5: PENDIENTE.
+Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entrega 0.5: PENDIENTE.
 
 ### Entrega 0.1
 
@@ -446,7 +446,8 @@ el ABM de especies y razas.
 
 Commits `2114244` (implementación), `3da07f2` (correcciones de la primera revisión, de seguridad) y `727546e` (correcciones de la
 segunda revisión), en `feature/fase-00-03-auth`. Validada por el usuario el 2026-11-05: suite en verde. La prueba manual con Postman
-([`guia-postman.md`](../testing/guia-postman.md)) queda, por decisión del usuario, para la entrega 0.4, cuando exista el `DemoSeeder`.
+([`guia-postman.md`](../testing/guia-postman.md)) quedó, por decisión del usuario, para la entrega 0.4, cuando existiera el `DemoSeeder`:
+**hecha el 2026-11-05**, con el alcance que detalla el [resultado de la 0.4](#entrega-04) (R-012).
 Decisiones en [R-008](../decisions/registro.md).
 
 **Archivos.**
@@ -497,7 +498,7 @@ fallar los dos tests de la segunda capa (variantes Unicode), sino su propio test
 | Los errores de negocio (`AppException` y subclases) no se reportan al log, en toda la API | La traza de un login fallido llevaba la contraseña al log | Usuario, el 2026-11-05, a propuesta de la primera revisión |
 | Al eliminar un usuario se borran sus tokens; `remember_token` oculto | Restaurarlo no revive sesiones viejas | Usuario, el 2026-11-05, a propuesta de la primera revisión |
 | `config/trustedproxy.php` con `TRUSTED_PROXIES`, vacía por defecto | La IP del límite y de la auditoría no puede venir de un `X-Forwarded-For` del cliente | Usuario, el 2026-11-05, a propuesta de la primera revisión |
-| Validación manual con Postman en la 0.4 | Hace falta el `DemoSeeder` | Usuario |
+| Validación manual con Postman en la 0.4 (hecha el 2026-11-05, R-012) | Hace falta el `DemoSeeder` | Usuario |
 
 **Hallazgos de la primera revisión (de seguridad) y su corrección** (commit `3da07f2`). Las correcciones las decidió el usuario el
 2026-11-05, a propuesta de la revisión.
@@ -531,4 +532,91 @@ pocas claves más por minuto e IP). Se resuelve con Redis en producción en la F
 Laravel, al desplegar hay que verificar que pasen exactamente 5 y, si no, envolver el `hit` en `Cache::lock`.
 
 **Para la entrega 0.4:** recorrer con Postman la sección de la FASE 0 de [`guia-postman.md`](../testing/guia-postman.md) con los
-usuarios del `DemoSeeder`.
+usuarios del `DemoSeeder`. Hecho en la 0.4 ([resultado](#entrega-04)).
+
+### Entrega 0.4
+
+Commits `35d5089` (implementación), `d135459` (correcciones de la primera revisión) y `e7047b2` (correcciones de la segunda
+revisión), en `feature/fase-00-04-clinic-create`. Validada por el usuario el 2026-11-05: suite en verde en SQLite y en
+`syncvet_test_mysql`, y validación manual completa sobre la base `syncvet`. Decisiones en [R-009](../decisions/registro.md) (regla
+de contraseñas), [R-010](../decisions/registro.md) y [R-011](../decisions/registro.md) (revisiones) y
+[R-012](../decisions/registro.md) (cierre).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `app/Console/Commands/ClinicCreateCommand.php`, `app/Support/UserPassword.php`, `app/Support/PwnedPasswordsVerifier.php`, `config/demo.php`, `database/seeders/DemoSeeder.php` |
+| Cambiados | `app/Providers/AppServiceProvider.php` (`Password::defaults()`, `zend.exception_ignore_args`, verificador propio), `app/Services/ClinicService.php` (`ensureCanCreate`), `database/factories/ClinicFactory.php` (RUC ficticios), `.env.example` (`DEMO_PASSWORD`), `phpunit.xml` (`zend.exception_ignore_args=0` y `LOG_CHANNEL=null`) |
+| Tests | Nuevos: `tests/Feature/Console/ClinicCreateCommandTest.php`, `tests/Feature/Seeders/DemoSeederTest.php`, las tres clases de `tests/Feature/Security`, `tests/Unit/RucCheckDigitTest.php` y `tests/Unit/UserPasswordGenerateTest.php`. Cambiados: `tests/TestCase.php` (Have I Been Pwned simulado, también caído), y RUC ficticios en `AuthLoggingTest`, `LoginCredentialsTest` y `ClinicServiceTest` |
+| Documentación | Este documento, [`guia-postman.md`](../testing/guia-postman.md) (datos del `DemoSeeder`), [`deployment.md`](../development/deployment.md), [`setup.md`](../development/setup.md), `README.md` (`DEMO_PASSWORD`), `CLAUDE.md` (§1, §3 y §7) y los documentos de estado |
+
+**Comando y datos.** `php artisan clinic:create`, sin rutas nuevas en la API (el seeder sigue con 119 permisos), y el `DemoSeeder`,
+con dos clínicas, seis usuarios, cinco clientes y siete pacientes ([`guia-postman.md`](../testing/guia-postman.md)).
+
+**Tests.** Suite (corrida del 2026-11-05 sobre `e7047b2`): 185 métodos de test, 222 casos con los *data providers*; en SQLite, 3208
+aserciones con 1 omitido (el de la collation de MySQL); contra MySQL 8.4.3 (`syncvet_test_mysql`), 3222 aserciones sin omitidos. Los
+de esta entrega: 53 métodos y 73 casos, 2519 aserciones en las dos bases. La tabla cuenta casos.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `ClinicCreateCommandTest` | 21 | 152 | Alta completa con y sin interacción (contraseña oculta con confirmación, o generada y mostrada una vez); el administrador puede hacer login; el alta se audita en la clínica nueva sin usuario; RUC inválido o repetido, email repetido o no ASCII y datos faltantes terminan con código 1 sin crear nada; el RUC y el email se verifican antes de pedir la contraseña; una falla a mitad de camino no deja nada; la contraseña no llega a la auditoría ni al log |
+| `DemoSeederTest` | 21 | 136 | Dos clínicas con un usuario por rol, la ficha del veterinario, clientes y pacientes; idempotente; solo en `local` y `testing`; sin `DEMO_PASSWORD`, o con una que no cumple la regla, se niega; `DEMO_PASSWORD` sin valor por defecto; no adopta una clínica sin la marca `demo_data` ni un email de otra clínica (también eliminado); documentos ficticios; `DatabaseSeeder` no crea datos de demostración |
+| `PwnedPasswordsVerifierTest` | 15 | 96 | Verificador propio: 3 segundos, solo el prefijo del hash, umbral; sin respuesta o con error HTTP acepta con un aviso con el código de cURL o el estado, sin la contraseña, la URL ni el hash; la consola de `clinic:create` y del `DemoSeeder` avisa cuando no se pudo verificar |
+| `RucCheckDigitTest` | 9 | 10 | Dígito verificador contra RUC publicados por la DNIT (restos 0 y 1) y con más de 10 dígitos |
+| `SensitiveParametersTest` | 3 | 9 | `#[\SensitiveParameter]` en `UserPassword::error`, `DemoSeeder::clinic` y `DemoSeeder::user` |
+| `ExceptionArgumentsTest` | 2 | 15 | La aplicación enciende `zend.exception_ignore_args` aunque el `php.ini` lo tenga apagado: las trazas no llevan argumentos |
+| `UserPasswordGenerateTest` | 2 | 2101 | La contraseña generada tiene 20 caracteres, uno de cada juego y ninguno ambiguo (300 repeticiones) |
+
+**Protecciones quitadas de a una.** La implementación quitó 35. La primera revisión agregó tests para las que sobrevivían; la segunda
+repitió 28 sobre las correcciones de la primera y quitó 11 de las suyas. Todas hacen fallar su test por la aserción esperada. La
+segunda revisión también verificó de punta a punta, en SQLite y en MySQL, con `zend.exception_ignore_args=Off` en el `php.ini` y
+Have I Been Pwned colgado, que ninguna contraseña llega al log por `clinic:create`, el `DemoSeeder` ni el login (incluidas fallas 500
+forzadas), y con un control negativo que, sin las protecciones, la contraseña sí llega.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| Regla de contraseñas (12 caracteres, mayúsculas, minúsculas, números, símbolos y Have I Been Pwned), no prevista | No había ninguna; la reutiliza el ABM de usuarios de la FASE 2 | Usuario (R-009) |
+| El `DemoSeeder` **falla** fuera de `local` y `testing`, en vez de terminar sin hacer nada | Un `db:seed` en el entorno equivocado no pasa inadvertido | Usuario (R-010) |
+| El `DemoSeeder` crea dos clínicas, no una | La guía de Postman prueba la separación entre clínicas | Usuario (R-010) |
+| Verificador propio de Have I Been Pwned y `zend.exception_ignore_args` desde la aplicación | El de Laravel dejaba la contraseña en el log cuando el servicio no respondía | Usuario (R-010) |
+| La marca `demo_data` en `system_settings`, sin modelo ni migración | El seeder solo toca sus clínicas | Usuario (la regla); implementación (la marca), R-010 |
+
+**Hallazgos de la primera revisión y su corrección** (commit `d135459`).
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Si Have I Been Pwned no respondía, Laravel reportaba la excepción con su traza y la contraseña llegaba al log como argumento (entera hasta 15 caracteres) | `zend.exception_ignore_args=1` al arrancar y `PwnedPasswordsVerifier` (3 segundos; sin respuesta, un aviso sin traza). `ExceptionArgumentsTest`, `PwnedPasswordsVerifierTest` |
+| 2 | El `DemoSeeder` podía adoptar una clínica real con el mismo RUC (usaba el de la ANDE) | RUC ficticios y la marca `demo_data`; una clínica sin la marca lo hace fallar. `DemoSeederTest` |
+| 3 | El `DemoSeeder` podía crear la ficha de veterinario de una clínica para un usuario de otra | Falla ante un email de otra clínica, también eliminado. `DemoSeederTest` |
+| 4 | `clinic:create` pedía la contraseña antes de verificar el RUC y el email | `ClinicService::ensureCanCreate`. `ClinicCreateCommandTest` |
+| 5 | RUC reales en los tests y dígito mal calculado en Granja San Jorge | RUC ficticios; los reales, solo en `RucCheckDigitTest` |
+| 6 | Protecciones sin test (`#[\SensitiveParameter]`, `DEMO_PASSWORD` sin valor por defecto, dígito verificador, contraseña generada, entornos) | `SensitiveParametersTest`, `RucCheckDigitTest`, `UserPasswordGenerateTest` y tests en `DemoSeederTest` |
+
+**Hallazgos de la segunda revisión y su corrección** (commit `e7047b2`).
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | En la computadora de desarrollo Have I Been Pwned nunca respondía: el `php.ini` de Laragon apuntaba `curl.cainfo` a un `cacert.pem` inexistente (cURL error 77) y la regla aceptaba cualquier contraseña, también `Password123!`. El aviso del log no decía la causa | `php.ini` corregido (fuera del repositorio; [`setup.md`](../development/setup.md) y [`deployment.md`](../development/deployment.md)); el aviso lleva el código de cURL o el estado HTTP; `clinic:create` y el `DemoSeeder` avisan en la consola. `PwnedPasswordsVerifierTest` |
+| 2 | Granja San Jorge usaba `80024680-2`, del rango de sociedades con dígito válido (probablemente real), y las cédulas de ejemplo podían ser de personas reales | RUC `999999xx` con su dígito y cédulas `99xxxxxx`; el test los exige |
+| 3 | Los tests escribían en `storage/logs/laravel.log` unos 24 KB por corrida | `LOG_CHANNEL=null` en `phpunit.xml` |
+
+**Validación manual del usuario** (2026-11-05, base `syncvet`). `DEMO_PASSWORD` comprobada con la regla; `migrate:fresh --seed` y
+`DemoSeeder` sin avisos; `clinic:create` interactivo creó "Veterinaria Prueba". Con Postman, contra `php artisan serve`:
+login con `recepcion-a@example.com` (Clínica A) y con `vet-b@example.com` (Clínica B, ficha
+`VET-000001`); `me` con el token de la A; el paciente 5 (Luna, de la B) responde 200 con el token de la B y 404 `RESOURCE_NOT_FOUND` con el de la A; cinco
+logins fallidos con 422 `INVALID_CREDENTIALS` y el sexto con 429 `AUTH_TOO_MANY_ATTEMPTS` y `Retry-After`; logout 200 y después
+`me` con ese token, 401 `UNAUTHENTICATED`. Esto completa la prueba con Postman que la 0.3 dejó para esta entrega, con el alcance que
+indica la [guía](../testing/guia-postman.md#fase-0--autenticación); el resto de sus filas lo cubren `tests/Feature/Auth` y
+`tests/Feature/Tenancy` (R-012).
+
+**Nota.** Sobre una base de desarrollo sembrada antes de R-011, el `DemoSeeder` falla: busca los clientes por su documento (que
+cambió), no los encuentra e intenta crearlos con un email que ya existe (`UniqueConstraintViolationException`). Se resuelve
+recreando la base (`migrate:fresh --seed` y el seeder).
+
+**Deuda que queda.** Deuda 7 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): los tests de `tests/Feature/Tenancy` usan
+cédulas de ejemplo fuera del rango ficticio.
+
+**Para la entrega 0.5:** acceso por rol (`tests/Feature/Access`) y verificación final en MySQL, según el diseño de este documento.

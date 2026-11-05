@@ -22,10 +22,12 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
 * **Base de datos:** MySQL 8. Esquema del MVP completo (28 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
-* **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está en desarrollo, con las entregas 0.1 (R-006), 0.2 (R-007) y
-  0.3 (R-008) completadas; siguen la 0.4 y la 0.5.
+* **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está en desarrollo, con las entregas 0.1 (R-006), 0.2 (R-007),
+  0.3 (R-008) y 0.4 (R-012) completadas; sigue la 0.5.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes y especies (ejemplo
   de referencia de la arquitectura).
+* **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
+  `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
   caja, facturación SIFEN y pagos.
 * **Frontend:** repositorio aparte, React 19 + TypeScript + Vite + Tabler.
@@ -94,6 +96,12 @@ empezar una sesión.
   usuarios fuera del login filtra por `clinic_id` de forma explícita, y el *route binding* de un usuario de otra clínica
   responde 404. Los usuarios se eliminan siempre modelo por modelo (`$user->delete()`), nunca con un borrado masivo
   (`User::where(...)->delete()`): el borrado masivo no dispara el evento `deleted` y sus tokens seguirían vigentes.
+* **Contraseñas:** la regla vive en `App\Support\UserPassword` (`Password::defaults()`, R-009): al menos 12 caracteres, con
+  mayúsculas, minúsculas, números y símbolos, y no filtrada (Have I Been Pwned). Toda función propia que reciba una contraseña
+  lleva `#[\SensitiveParameter]`; la aplicación oculta los argumentos de las trazas (R-010). Los tests no salen a la red: Have I
+  Been Pwned se simula en `TestCase`.
+* **Datos de ejemplo:** documentos ficticios. RUC `999999xx` con su dígito verificador y cédulas `99xxxxxx` (R-011); RUC
+  reales, solo en `tests/Unit/RucCheckDigitTest`.
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`.
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
 * Usuario que crea, emite o anula: columnas `created_by`, `issued_by`, `cancelled_by` + `cancelled_at` y
@@ -217,3 +225,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
+| 7 | Cédulas de ejemplo en los tests de `tests/Feature/Tenancy` fuera del rango ficticio |

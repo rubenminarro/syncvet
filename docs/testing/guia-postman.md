@@ -8,8 +8,11 @@ Las respuestas siguen el contrato de `CLAUDE.md` §4.
 Entregas 0.3 y 0.4. Variables de la colección: `{{base_url}}` (por ejemplo, `http://syncvet.test`), `{{demo_password}}` (el
 valor de `DEMO_PASSWORD`), `{{token}}` y `{{token_b}}`.
 
-> **Validación manual pendiente:** por decisión del usuario, esta sección se recorre con Postman con los datos del `DemoSeeder`
-> (entrega 0.4). Hasta entonces la respaldan los tests de `tests/Feature/Auth`, `tests/Feature/Tenancy` y
+> **Validación manual:** hecha por el usuario el 2026-11-05 con los datos del `DemoSeeder` (entrega 0.4, R-012), con este alcance:
+> login con un usuario de cada clínica (`recepcion-a` y `vet-b`, como las filas 2b y 2c) y `me` con el de la A, un paciente de otra clínica →
+> 404 (como la 16, con `GET /api/patients/{id}`), cinco fallidos y el sexto → 429 (como la 11 y la 12, con la sexta también
+> incorrecta), logout (como la 4) y `me` después → 401 (como la 5). Las
+> demás filas no se recorrieron a mano: las respaldan los tests de `tests/Feature/Auth`, `tests/Feature/Tenancy` y
 > `tests/Feature/Seeders`.
 
 **Datos.** Los crea el `DemoSeeder`, solo en `local` (y en los tests). En `.env`, definir `DEMO_PASSWORD` (al menos 12 caracteres,
@@ -20,7 +23,8 @@ php artisan migrate:fresh --seed
 php artisan db:seed --class=DemoSeeder
 ```
 
-Es idempotente: correrlo otra vez no duplica nada ni cambia las contraseñas. Para usar otra `DEMO_PASSWORD`, repetir los dos
+Es idempotente: correrlo otra vez no duplica nada ni cambia las contraseñas. Sobre una base sembrada antes de R-011 (con los
+documentos de ejemplo anteriores) falla: recrearla con los dos comandos. Para usar otra `DEMO_PASSWORD`, repetir los dos
 comandos. Solo usa sus clínicas (marcadas como de demostración, con RUC ficticios): si ya hay otra clínica con su RUC, o uno de
 sus emails es de un usuario de otra clínica, falla sin tocar nada (R-010).
 
@@ -88,7 +92,7 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 
 | # | Request | Body | Esperado |
 |---|---|---|---|
-| 1 | `POST /api/clients` | `{"document_number":"1234567","first_name":"Ana","last_name":"Gómez","email":"ana@ejemplo.com.py","phone":"+595981000000"}` | 201, `data.display_name` = "Ana Gómez" |
+| 1 | `POST /api/clients` | `{"document_number":"99300001","first_name":"Ana","last_name":"Gómez","email":"ana@ejemplo.com.py","phone":"+595981000000"}` | 201, `data.display_name` = "Ana Gómez" |
 | 2 | `POST /api/clients` | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@ejemplo.com.py","phone":"+595981000001"}` | 201 |
 | 3 | `POST /api/clients` con `first_name` en una empresa | | 422 `VALIDATION_ERROR` |
 | 4 | `GET /api/species` | | 200, especies con sus razas |

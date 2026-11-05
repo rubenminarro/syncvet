@@ -181,7 +181,7 @@ Correcciones de la revisión de `clinic:create` y el `DemoSeeder`, antes del cie
 | `DemoSeeder`: dos clínicas | Crea **dos** clínicas (A y B), no una como decía el diseño: la guía de Postman necesita una segunda clínica para probar la separación de datos (D1) | Usuario (desvío de la implementación, aceptado) |
 | `DemoSeeder`: solo lo suyo | Cada clínica de demostración lleva la marca `demo_data` en `system_settings`. Una clínica con el RUC de una de demostración sin la marca, o un email de usuario que ya es de otra clínica (también eliminado), lo hacen fallar con un mensaje claro: no los adopta ni los modifica. `system_settings` todavía no tiene modelo: la marca se lee y se escribe con el query builder y `clinic_id` explícito | Usuario (la regla); implementación (la marca en `system_settings`, sin migración) |
 | RUC de ejemplo | Los ejemplos usan RUC ficticios con dígito verificador válido: el `DemoSeeder` `99999901` y `99999902`; los tests, `99999910` y `99999911`; la factory de clínicas, de `90000000` a `99899999`. Se eligieron fuera de los RUC de sociedades (que empiezan con 80), sin confirmarlo en el padrón de la DNIT. Los RUC reales quedan solo en `tests/Unit/RucCheckDigitTest`, tomados de los rankings de contribuyentes de la DNIT de 2010 y 2011 (el algoritmo coincide con los 815) | Usuario |
-| Cliente de demostración | Granja San Jorge S.R.L. pasa a `80024680-2`: el dígito `1` estaba mal calculado. **Reemplazado en R-011**: era un RUC del rango de sociedades con dígito válido, probablemente real | Usuario |
+| Cliente de demostración | Granja San Jorge S.R.L. pasa a `80024680-2`: el dígito `1` estaba mal calculado | Usuario |
 | Tests | Los que sobrevivían a las mutaciones de la revisión ahora fallan al quitar su protección: argumentos en las trazas, verificador y su plazo, `#[\SensitiveParameter]`, `DEMO_PASSWORD` sin valor por defecto, dígito verificador (resto 0 y RUC de más de 10 dígitos, este calculado a mano porque no hay RUC reales tan largos), contraseña generada con un carácter de cada juego, entornos del seeder y emails eliminados de otra clínica | Usuario |
 
 # R-011 Segunda revisión de la entrega 0.4 de la FASE 0 (2026-11-05)
@@ -195,3 +195,20 @@ Correcciones de la segunda revisión, antes del cierre de la entrega. Completa R
 | Aviso en la consola | Si la contraseña escrita se aceptó sin consultar Have I Been Pwned, `clinic:create` (con interacción) y el `DemoSeeder` lo avisan en la consola (`UserPassword::leakCheckSkipped`). La contraseña generada de `clinic:create` no se consulta: no hay aviso | Usuario |
 | Documentos de ejemplo | Todos ficticios: los RUC de clínicas y de clientes empresa son `999999xx` con su dígito verificador (Granja San Jorge S.R.L. pasa a `99999903-6`) y las cédulas de los clientes persona, `99xxxxxx` (`99100001`, `99100002`, `99200001`, `99200002`). El test del `DemoSeeder` exige esos prefijos | Usuario |
 | Log de los tests | `phpunit.xml` fija `LOG_CHANNEL=null`: los tests no escriben en `storage/logs/laravel.log`. Los que revisan lo registrado escuchan `MessageLogged` o usan `Log::spy()`; el que necesite leer un log, configura su propio canal | Usuario |
+
+# R-012 Entrega 0.4 de la FASE 0: alta de clínicas y datos de demostración (2026-11-05)
+
+Cierre de la entrega 0.4: `php artisan clinic:create` y el `DemoSeeder`, con la regla de contraseñas (R-009) y las correcciones de
+sus dos revisiones (R-010 y R-011). Commits `35d5089`, `d135459` y `e7047b2`, en `feature/fase-00-04-clinic-create`. El detalle está
+en el [resultado de la entrega](../fases/fase-00-puesta-en-marcha.md#entrega-04).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | Suite en verde sobre `e7047b2` en SQLite (222 casos, 3208 aserciones, 1 omitido) y en MySQL 8.4.3 (`syncvet_test_mysql`, 3222 aserciones). Validación manual del usuario sobre la base `syncvet`: `DEMO_PASSWORD`, `migrate:fresh --seed`, `DemoSeeder` sin avisos, `clinic:create` interactivo y la prueba con Postman | Usuario, el 2026-11-05 |
+| Prueba con Postman de la 0.3 | Hecha, con alcance: login con un usuario de cada clínica, `me`, 404 al pedir un paciente de la otra clínica, 429 al sexto intento fallido, logout y 401 después. Las demás filas de la sección de la FASE 0 de la [guía](../testing/guia-postman.md) no se recorrieron a mano: las respaldan los tests de `tests/Feature/Auth` y `tests/Feature/Tenancy` | Usuario |
+| Bases de desarrollo anteriores a R-011 | El `DemoSeeder` falla sobre ellas (busca los clientes por su documento, que cambió, y choca con el email único). Se documenta en el resultado y en la guía (recrear la base); no se abre una deuda | Usuario |
+| Instalación | [`setup.md`](../development/setup.md) explica cómo apuntar `curl.cainfo` y `openssl.cafile` del `php.ini` de Laragon al `cacert.pem` que existe, y cómo comprobarlo | Usuario |
+| Cédulas de ejemplo en los tests | Los tests de `tests/Feature/Tenancy` siguen con cédulas fuera del rango ficticio. Deuda 7, para la FASE 1 | Implementación (detectada en el cierre) |
+| `CLAUDE.md` | §1 con el estado de la FASE 0 y los comandos; §3 con las reglas de contraseñas (R-009 y R-010) y de datos de ejemplo (R-011); §7 con la deuda 7 | Implementación |
+
+**Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles.
