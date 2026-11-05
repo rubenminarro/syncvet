@@ -96,7 +96,7 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 | 2 | `POST /api/clients` | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@ejemplo.com.py","phone":"+595981000001"}` | 201 |
 | 3 | `POST /api/clients` con `first_name` en una empresa | | 422 `VALIDATION_ERROR` |
 | 4 | `GET /api/species` | | 200, especies con sus razas |
-| 5 | `POST /api/clients/{id}/patients` | `{"name":"Toby","species_id":1,"birth_date":"2023-01-10"}` | 201, `data.code` = `PAC-000001` |
+| 5 | `POST /api/clients/{id}/patients` | `{"name":"Toby","species_id":<id de Canino en GET /api/species>,"birth_date":"2023-01-10"}` | 201, `data.code` = el siguiente de la serie de la clínica: con el `DemoSeeder` y `{{token}}` (clínica A, con cuatro pacientes), `PAC-000005` |
 | 6 | `POST /api/clients/{id}/patients` con una raza de otra especie | | 422 `PATIENT_BREED_SPECIES_MISMATCH` |
 | 7 | `POST /api/patients/{id}/change-owner` | `{"client_id": <empresa>}` | 200, `data.client.display_name` = "Haras del Sur SA" |
 | 8 | `POST /api/patients/{id}/change-owner` con el mismo dueño | | 422 `PATIENT_SAME_OWNER` |

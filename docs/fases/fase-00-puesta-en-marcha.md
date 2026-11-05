@@ -705,9 +705,10 @@ inicial (unos 3 s en SQLite y de 20 a 34 s en MySQL); no se usa `schema:dump` po
 
 Completada el 2026-11-05 (R-014). El proyecto corre sobre Laravel 13 con clínicas separadas en una base compartida (D1),
 autenticación con tokens de 12 horas y límite de intentos, alta de clínicas por comando, datos de demostración, regla de
-contraseñas y el acceso por rol de cada ruta probado contra la lista real de rutas. Sin merge a `main`: las ramas de las entregas
-se encadenan (`feature/fase-00-paquete-base` → `feature/fase-00-02-clinicas` → `feature/fase-00-03-auth` →
-`feature/fase-00-04-clinic-create` → `feature/fase-00-05-acceso`).
+contraseñas y el acceso por rol de cada ruta probado contra la lista real de rutas. Las ramas de las entregas se encadenaron
+(`feature/fase-00-paquete-base` → `feature/fase-00-02-clinicas` → `feature/fase-00-03-auth` →
+`feature/fase-00-04-clinic-create` → `feature/fase-00-05-acceso`) y la fase se integró a `main` con el merge `63b3eff`, después
+de la validación; `main` no tiene código posterior a `f87dbdd`.
 
 | Entrega | Contenido | Commits | Suite al cerrar |
 |---|---|---|---|

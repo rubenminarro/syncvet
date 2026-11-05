@@ -12,8 +12,8 @@ Si este documento contradice al código, manda el código.
 | Dato | Valor |
 |---|---|
 | Actualizado | 2026-11-05 |
-| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base, en la rama `feature/fase-00-05-acceso`, que sigue a `feature/fase-00-04-clinic-create`, `feature/fase-00-03-auth`, `feature/fase-00-02-clinicas` y `feature/fase-00-paquete-base` (sin merge a `main`) |
-| Último commit de código | `f87dbdd` Corrige los hallazgos de la revisión de la entrega 0.5 (R-013), en `origin/feature/fase-00-05-acceso`. `origin/main` está en `3eee538` |
+| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base. La FASE 0 se integró a `main` con el merge `63b3eff` (ramas `feature/fase-00-paquete-base` → … → `feature/fase-00-05-acceso`); después solo hubo commits de documentación |
+| Último commit de código | `f87dbdd` Corrige los hallazgos de la revisión de la entrega 0.5 (R-013), incluido en `main` |
 | Frontend | Sin empezar |
 | Última entrega de código | FASE 0, entrega 0.5: acceso por rol y verificación en MySQL (registros R-013 y R-014). Con ella se cierra la FASE 0 |
 | Tests del backend | Corrida de `php artisan test` del 2026-11-05 sobre `f87dbdd`: 204 métodos de test (242 casos con los *data providers*) en verde; 3910 aserciones en SQLite (2 omitidos, solo de MySQL) y 3926 contra MySQL 8.4.3 (`syncvet_test_mysql`). `tests/Feature` (entrega 0.1), `tests/Feature/Tenancy` (0.2), `tests/Feature/Auth` con `TrustedProxiesTest` (0.3), `tests/Feature/Console`, `Seeders`, `Security` y `tests/Unit` (0.4), y `tests/Feature/Access` y `Database` (0.5). Unos 27 s en SQLite y 52 s en MySQL. Cuándo correr cada base: `CLAUDE.md` §3, Entorno |
@@ -32,7 +32,7 @@ fases ([`roadmap/README.md`](roadmap/README.md)); la FASE 0 está completada (R-
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | FASE 1: clientes y pacientes ([`fases/fase-01-clientes-y-pacientes.md`](fases/fase-01-clientes-y-pacientes.md)): tests funcionales (deuda 1) y, en el ABM de especies y razas, cubrir `insert()` y `upsert()` ([resultado de la 0.2](fases/fase-00-puesta-en-marcha.md#entrega-02)). Empieza por el análisis y el diseño (pasos 1 y 2 de [`prompts/README.md`](prompts/README.md)); el diseño y las preguntas de negocio están pendientes | Autorización del usuario |
+| 1 | FASE 1: clientes y pacientes ([`fases/fase-01-clientes-y-pacientes.md`](fases/fase-01-clientes-y-pacientes.md)). Preguntas de negocio respondidas (R-015) y diseño aprobado el 2026-11-05 con cinco entregas, 1.1 a 1.5 (R-016). Sigue la entrega 1.1: traducciones, voseo y `PUT`/`PATCH` | Autorización del usuario para cada entrega |
 
 Ninguna entrega empieza sin autorización del usuario.
 
