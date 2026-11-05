@@ -1,6 +1,6 @@
 # FASE 0 — Puesta en marcha
 
-Etapa: Base. Estado: **EN DESARROLLO**: entrega 0.1 cerrada (R-006); diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
+Etapa: Base. Estado: **EN DESARROLLO**: entregas 0.1 (R-006), 0.2 (R-007) y 0.3 (R-008) cerradas; diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -17,7 +17,7 @@ Cada entrega recorre los pasos 4 a 7 y deja la suite en verde.
 |---|---|---|---|
 | 0.1 | Proyecto Laravel 13 sobre el paquete base, Sanctum y Spatie (solo configuración), `phpunit.xml` y base de tests, `ClinicRolesTest` | 0.1, 0.3, 0.5 y parte de 0.6 | COMPLETADO (R-006) |
 | 0.2 | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, `ClinicService::create` y tests de aislamiento | 0.2 | COMPLETADO (R-007) |
-| 0.3 | Autenticación: login, logout y `me`; tokens de 12 horas; límite de intentos; auditoría | 0.4 y parte de 0.6 | PENDIENTE |
+| 0.3 | Autenticación: login, logout y `me`; tokens de 12 horas; límite de intentos; auditoría | 0.4 y parte de 0.6 | COMPLETADO (R-008) |
 | 0.4 | Comando `clinic:create` y datos de demostración | Nueva (P5) | PENDIENTE |
 | 0.5 | Acceso por rol (`tests/Feature/Access`) y verificación final en MySQL | Parte de 0.6 y 0.7 | PENDIENTE |
 
@@ -296,7 +296,7 @@ migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, test
 
 ## Resultado
 
-Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entregas 0.3 a 0.5: PENDIENTE.
+Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entregas 0.4 y 0.5: PENDIENTE.
 
 ### Entrega 0.1
 
@@ -439,3 +439,94 @@ vez; 28 migraciones, 52 tablas y nombres de índices y claves de hasta 56 caract
 **Para la FASE 1:** `SharedCatalogBuilder` no cubre `insert()` ni `upsert()`: insertar una especie o una raza por el *builder* sin
 `clinic_id` crearía un registro global, porque no pasa por el evento de alta. Ningún código lo hace todavía; tenerlo en cuenta en
 el ABM de especies y razas.
+
+### Entrega 0.3
+
+Commits `2114244` (implementación), `3da07f2` (correcciones de la primera revisión, de seguridad) y `727546e` (correcciones de la
+segunda revisión), en `feature/fase-00-03-auth`. Validada por el usuario el 2026-11-05: suite en verde. La prueba manual con Postman
+([`guia-postman.md`](../testing/guia-postman.md)) queda, por decisión del usuario, para la entrega 0.4, cuando exista el `DemoSeeder`.
+Decisiones en [R-008](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `app/Http/Controllers/Api/AuthController.php`, `app/Services/AuthService.php`, `app/Http/Requests/LoginRequest.php`, `app/Http/Resources/MeResource.php`, `app/Exceptions/AuthException.php`, `config/trustedproxy.php` |
+| Cambiados | `app/Models/User.php` (email en minúsculas, `normalizeEmail()`, `remember_token` oculto, tokens borrados al eliminar), `app/Exceptions/AppException.php` (encabezados de la respuesta, para `Retry-After`), `app/Exceptions/ClinicException.php` y `app/Services/ClinicService.php` (`CLINIC_ADMIN_EMAIL_INVALID`, `#[\SensitiveParameter]`), `bootstrap/app.php` (`dontReport(AppException::class)` y encabezados), `routes/api.php`, `routes/console.php` (`sanctum:prune-expired` diario), `.env.example` (`TRUSTED_PROXIES`) |
+| Tests | `tests/Concerns/InteractsWithAuth.php`, las siete clases de `tests/Feature/Auth`, `tests/Feature/TrustedProxiesTest.php`; `ClinicRolesTest` (`login`, `logout` y `me` en `ROUTES_WITHOUT_PERMISSION`, con su motivo); `tests/bootstrap.php` (solo prepara el archivo con la conexión `sqlite`) |
+| Documentación | Este documento, [`guia-postman.md`](../testing/guia-postman.md) (sección de la FASE 0), [`deployment.md`](../development/deployment.md), [`deuda-tecnica.md`](../roadmap/deuda-tecnica.md) (deuda 6), [`fase-10-reportes-y-piloto.md`](fase-10-reportes-y-piloto.md), `CLAUDE.md` (§1, §3 y §7) y los documentos de estado |
+
+**Endpoints.** `POST /api/login` (público), `POST /api/logout` y `GET /api/me`, como en el diseño de la 0.3 de este documento. Sin
+permiso de Spatie; el seeder sigue con 119 permisos. `error_code` nuevos: `INVALID_CREDENTIALS` (422), `AUTH_TOO_MANY_ATTEMPTS` (429,
+con `Retry-After`) y `CLINIC_ADMIN_EMAIL_INVALID` (422, en `ClinicService`).
+
+**Tests.** Suite (corrida del 2026-11-05 sobre `727546e`): 132 métodos de test, 149 casos con los *data providers*; en SQLite, 689
+aserciones con 1 omitido (el de la collation de MySQL); contra MySQL 8.4.3 (`syncvet_test_mysql`), 703 aserciones sin omitidos. Los
+de esta entrega: 57 métodos y 59 casos, 399 aserciones en SQLite y 413 en MySQL. La tabla cuenta casos.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `LoginTest` | 13 | 131 | Login con cada rol (token y perfil); token de 12 horas; contraseña incorrecta, email desconocido y usuario eliminado con el mismo error; clínica suspendida sin token, y con la clave incorrecta, 422 (no revela la suspensión); varios tokens vigentes; validación con voseo: `password` no string, email de más de 255 y email no ASCII |
+| `LoginThrottleTest` | 12 | 140 (154 en MySQL) | Sexto fallido → 429 con `Retry-After`; contador por usuario y por IP; mayúsculas; un login correcto lo limpia; solo cuentan los fallidos (no los de una clínica suspendida); el bloqueo dura un minuto; emails inexistentes también cuentan; el intento se cuenta antes de verificar la contraseña; variantes Unicode nunca entran; en MySQL, el contador es el del usuario sea cual sea la variante del email (omitido en SQLite) |
+| `LoginCredentialsTest` | 10 | 27 | Email guardado y buscado en minúsculas (también en `ClinicService`); siempre se verifica un hash, también sin usuario o con usuario eliminado; el hash de relleno es un bcrypt con el costo de producción y es el que se usa; `password` y `remember_token` ocultos; `ClinicService` rechaza un email no ASCII |
+| `SessionTest` | 6 | 35 | El token vale hasta las 12 horas; el logout revoca solo el actual; `logout` y `me` exigen token; token válido de una clínica suspendida → 403; logout con la clínica suspendida; eliminar un usuario borra sus tokens y restaurarlo no los revive |
+| `AuthAuditTest` | 6 | 18 | `LOGIN`, `LOGIN_FAILED` (email conocido, desconocido y clínica suspendida con su motivo) y `LOGOUT` con el usuario y su clínica; `sanctum:prune-expired` programado a diario |
+| `MeTest` | 4 | 21 | Perfil con permisos ordenados; sin sucursal actual, `null`; ficha de veterinario; el administrador recibe todos los permisos |
+| `AuthLoggingTest` | 4 | 18 | Los logins fallidos y de clínica suspendida no escriben en el log; los errores de negocio no se reportan y `ClinicContextMissingException` sí; la contraseña no está en la traza de `AuthService::login` ni en la de `ClinicService::create` |
+| `TrustedProxiesTest` | 4 | 9 | Ningún proxy de confianza por defecto; sin proxies, `X-Forwarded-For` se ignora, también con un Host `*.on-forge.com`; un proxy de confianza pasa la IP del cliente |
+
+**Protecciones quitadas de a una.** La implementación quitó 41 y la primera revisión, 18: todas hacían fallar un test. La segunda
+revisión repitió 19 en SQLite y 3 en MySQL. Solo sobrevivió `#[\SensitiveParameter]` en `ClinicService::create`, que no tenía test; se
+agregó (`AuthLoggingTest::test_the_admin_password_is_not_in_the_clinic_service_trace`) y ahora falla al quitarlo. Dos resultados
+esperados: la clave por usuario solo se puede probar en MySQL (en SQLite el test se omite), y quitar solo la regla `ascii` no hace
+fallar los dos tests de la segunda capa (variantes Unicode), sino su propio test de validación.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| El email de `User` se guarda y se busca en minúsculas (`normalizeEmail()`) | El login no depende de la collation: SQLite distingue mayúsculas | Implementación (`2114244`) |
+| Sin usuario se verifica un hash de relleno (`AuthService::DUMMY_HASH`, bcrypt con el costo de producción, precalculado) | El tiempo de respuesta no revela qué emails tienen cuenta | Implementación; la constante, usuario, el 2026-11-05, a propuesta de la primera revisión |
+| `AppException` acepta encabezados | El 429 envía `Retry-After` | Implementación (`2114244`) |
+| Límite por usuario e IP (por email si no existe), no por `email\|ip` | Con la collation de MySQL, una variante Unicode del email encontraba al usuario con un contador nuevo | Usuario, el 2026-11-05, a propuesta de la primera revisión (`3da07f2`) |
+| El intento se cuenta antes de verificar la contraseña; un login con la clínica suspendida lo descuenta | Pedidos simultáneos pasaban todos la verificación del límite | Usuario, el 2026-11-05, a propuesta de la primera revisión |
+| El email solo admite ASCII, en el login y en `ClinicService` (`CLINIC_ADMIN_EMAIL_INVALID`, nuevo) | La collation de MySQL iguala `ā` y `a` | Usuario, el 2026-11-05, a propuesta de la primera revisión |
+| `logout` sin `SetCurrentClinic` | El usuario siempre puede cerrar su sesión, aunque la clínica esté suspendida | Usuario, el 2026-11-05, a propuesta de la primera revisión |
+| Los errores de negocio (`AppException` y subclases) no se reportan al log, en toda la API | La traza de un login fallido llevaba la contraseña al log | Usuario, el 2026-11-05, a propuesta de la primera revisión |
+| Al eliminar un usuario se borran sus tokens; `remember_token` oculto | Restaurarlo no revive sesiones viejas | Usuario, el 2026-11-05, a propuesta de la primera revisión |
+| `config/trustedproxy.php` con `TRUSTED_PROXIES`, vacía por defecto | La IP del límite y de la auditoría no puede venir de un `X-Forwarded-For` del cliente | Usuario, el 2026-11-05, a propuesta de la primera revisión |
+| Validación manual con Postman en la 0.4 | Hace falta el `DemoSeeder` | Usuario |
+
+**Hallazgos de la primera revisión (de seguridad) y su corrección** (commit `3da07f2`). Las correcciones las decidió el usuario el
+2026-11-05, a propuesta de la revisión.
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | La contraseña del login llegaba a `storage/logs/laravel.log` en la traza de la excepción (con `zend.exception_ignore_args=Off`) | `dontReport(AppException::class)`; `#[\SensitiveParameter]` en `AuthService::login` y `ClinicService::create`; `deployment.md` exige `zend.exception_ignore_args=On`. `AuthLoggingTest` |
+| 2 | En MySQL, una variante Unicode del email (`ānā@…`) encontraba al usuario con un contador nuevo y salteaba el límite | Contador por usuario e IP; email solo ASCII en el login y en `ClinicService`. `LoginThrottleTest`, `LoginTest`, `LoginCredentialsTest` |
+| 3 | Una ráfaga de pedidos simultáneos pasaba toda la verificación del límite | El intento se cuenta antes de verificar la contraseña, en una sola operación. `LoginThrottleTest` |
+| 4 | `TrustedProxies` nulo: con un Host `*.on-forge.com`, que manda el cliente, Laravel confiaba en todos los proxies | `TRUSTED_PROXIES`, vacía por defecto (lista vacía, no nula). `TrustedProxiesTest` |
+| 5 | Restaurar un usuario eliminado revivía sus tokens | Se borran al eliminarlo. `SessionTest` |
+| 6 | El hash de relleno se calculaba en el pedido: un bcrypt extra la primera vez en cada proceso | Constante precalculada, con un test que exige el costo de producción |
+| 7 | Con la clínica suspendida el usuario no podía cerrar su sesión | `logout` sin `SetCurrentClinic`. `SessionTest` |
+| 8 | Con `DB_CONNECTION=mysql`, `tests/bootstrap.php` convertía `DB_DATABASE` en una ruta y la suite corría contra otra base | Solo prepara el archivo con la conexión `sqlite` |
+| 9 | Protecciones sin test: hash de relleno, clave incorrecta en una clínica suspendida, fallos de emails inexistentes, `password` como array, `$hidden` y email de más de 255 | Tests nuevos en `LoginCredentialsTest`, `LoginTest` y `LoginThrottleTest` |
+
+**Hallazgos de la segunda revisión y su corrección** (commit `727546e`). La revisión verificó en SQLite y en MySQL que ninguna
+contraseña llega al log en 13 caminos del login, incluidas tres fallas 500 forzadas (hash que no es bcrypt, falla al crear el token y
+caída de la caché): en las 500 la contraseña aparece como `SensitiveParameterValue`. También, que el logout funciona con la clínica
+suspendida y que las variantes Unicode no saltean el límite.
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Con la caché `database`, 20 logins fallidos simultáneos dejaron pasar a verificar la contraseña de 5 a 9 en MySQL (de 0 a 4 de más), con un usuario existente y con emails inexistentes. En SQLite, la contención dio 500 (`database is locked`), pero SQLite solo se usa en los tests | Deuda 6 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): Redis en producción, en la FASE 10 (entrega 10.5), verificando que pasen exactamente 5 |
+| 2 | `#[\SensitiveParameter]` en `ClinicService::create` sin test | `AuthLoggingTest::test_the_admin_password_is_not_in_the_clinic_service_trace` |
+| 3 | Comentarios desactualizados en `routes/api.php` (el logout fijaba la clínica) y en `LoginThrottleTest` (contador por email) | Corregidos |
+| 4 | Un borrado masivo de usuarios (`User::where(...)->delete()`) no dispara `deleted` y deja los tokens vigentes. Ningún código lo hace todavía | Regla en `CLAUDE.md` §3: los usuarios se eliminan modelo por modelo |
+
+**Deuda que queda.** Deuda 6: el límite del login con la caché `database` no es exacto ante una ráfaga simultánea (riesgo bajo: unas
+pocas claves más por minuto e IP). Se resuelve con Redis en producción en la FASE 10; como la carrera está en el `RateLimiter` de
+Laravel, al desplegar hay que verificar que pasen exactamente 5 y, si no, envolver el `hit` en `Cache::lock`.
+
+**Para la entrega 0.4:** recorrer con Postman la sección de la FASE 0 de [`guia-postman.md`](../testing/guia-postman.md) con los
+usuarios del `DemoSeeder`.
