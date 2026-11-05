@@ -16,7 +16,7 @@ Cada entrega recorre los pasos 4 a 7 y deja la suite en verde.
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
 | 0.1 | Proyecto Laravel 13 sobre el paquete base, Sanctum y Spatie (solo configuración), `phpunit.xml` y base de tests, `ClinicRolesTest` | 0.1, 0.3, 0.5 y parte de 0.6 | COMPLETADO (R-006) |
-| 0.2 | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, `ClinicService::create` y tests de aislamiento | 0.2 | PENDIENTE |
+| 0.2 | D1: `clinics`, `clinic_id`, scopes, fallo cerrado, `ClinicService::create` y tests de aislamiento | 0.2 | COMPLETADO (R-007) |
 | 0.3 | Autenticación: login, logout y `me`; tokens de 12 horas; límite de intentos; auditoría | 0.4 y parte de 0.6 | PENDIENTE |
 | 0.4 | Comando `clinic:create` y datos de demostración | Nueva (P5) | PENDIENTE |
 | 0.5 | Acceso por rol (`tests/Feature/Access`) y verificación final en MySQL | Parte de 0.6 y 0.7 | PENDIENTE |
@@ -280,7 +280,7 @@ migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, test
 
 ## Resultado
 
-Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entregas 0.2 a 0.5: PENDIENTE.
+Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Entregas 0.3 a 0.5: PENDIENTE.
 
 ### Entrega 0.1
 
@@ -337,10 +337,56 @@ el test que la protege.
 
 ### Entrega 0.2
 
-En revisión, en `feature/fase-00-02-clinicas`: commit `fb52b73` (implementación) y las correcciones de la revisión. El resto de
-esta sección (archivos, tests por clase, desvíos) se completa en el cierre.
+Commits `fb52b73` (implementación) y `cf8f862` (correcciones de la revisión), en `feature/fase-00-02-clinicas`. Validada por el
+usuario el 2026-11-05: suite y `migrate:fresh --seed`. Decisiones en [R-007](../decisions/registro.md).
 
-**Hallazgos de la revisión y su corrección.** Ninguno se producía por la API existente; todos se reprodujeron con un test.
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Migraciones | Nueva: `0001_01_00_000000_create_clinics_table.php`. `clinic_id` agregado en las existentes (`users` y las tablas de negocio; nulo en `species`, `breeds` y `audit_logs`), con los únicos y los índices por clínica. La 000005 ya no crea `SUC-01` ni `DEP-01` |
+| Clínica y contexto | `app/Enums/ClinicStatus.php`, `app/Models/Clinic.php`, `app/Support/CurrentClinic.php`, `app/Support/ExecutionOrigin.php`, `app/Http/Middleware/SetCurrentClinic.php`, `app/Services/ClinicService.php` |
+| Aislamiento | `app/Models/Concerns/BelongsToClinic.php`, `SharedCatalog.php` y `ClinicIdGuard.php`; `app/Models/Scopes/ClinicScope.php` y `SharedCatalogScope.php`; `app/Models/Builders/SharedCatalogBuilder.php` |
+| Excepciones | `ClinicContextMissingException`, `ClinicException`, `CatalogException` |
+| Cambiados | Los 29 modelos de negocio (`BelongsToClinic`), `Species` y `Breed` (`SharedCatalog`), `User` (`clinic()`, `inClinic()`, *route binding* acotado), `AuditLog` (`ClinicScope`); los cinco Form Requests; `AuditLogger`, `DocumentSequenceService`, `AppServiceProvider`, `bootstrap/app.php`, `routes/api.php`, `SpeciesSeeder`, `UserFactory` |
+| Tests | `tests/Concerns/InteractsWithClinics.php`, `database/factories/ClinicFactory.php` y las diez clases de `tests/Feature/Tenancy`, con el job de prueba `Fixtures/CountClientsJob.php` |
+| Documentación | Este documento, `CLAUDE.md` (§1, §3 y §7), `README.md`, `docs/roadmap/deuda-tecnica.md` y los documentos de estado |
+
+**Endpoints.** Ninguno nuevo. Las rutas de `/api` pasan por `SetCurrentClinic`: un id de otra clínica responde 404
+`RESOURCE_NOT_FOUND`, y una clínica suspendida, 403 `CLINIC_NOT_AVAILABLE`.
+
+**Tests.** Suite: 90 casos de PHPUnit (75 métodos de test) y 290 aserciones en verde, en SQLite y contra MySQL 8.4.3
+(`syncvet_test_mysql`). Los de esta entrega: 72 casos y 232 aserciones en `tests/Feature/Tenancy`. La tabla cuenta casos: cada
+fila de un *data provider* es uno.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `ClinicAssignmentTest` | 9 | 13 | El alta toma la clínica del contexto aunque el cuerpo traiga `clinic_id`; `clinic_id` no es asignable; crear en otra clínica o sin clínica falla; cambiar `clinic_id` al editar falla; la auditoría usa la clínica del registro y, en un comando sin usuario, la del contexto |
+| `ClinicScopeTest` | 4 | 14 | Los listados de clientes y pacientes y la búsqueda solo ven la clínica; contar con el modelo da solo los propios |
+| `ClinicServiceTest` | 9 | 36 | `create` deja clínica, `SUC-01`, `DEP-01` y administrador, y cada clínica los suyos; si algo falla no queda nada; RUC inválido, RUC repetido y email repetido (también de un usuario eliminado) se rechazan; el alta queda en la auditoría de la clínica nueva |
+| `DocumentSequenceTest` | 1 | 7 | Cada clínica numera `PAC-` desde 1, de forma independiente |
+| `FailClosedTest` | 12 | 35 | Sin clínica fallan los modelos con scope, `User::inClinic()` y la numeración; un job o un comando sin `CurrentClinic::run` falla e informa su origen; `run` y `SetCurrentClinic` restauran el contexto; un pedido sin clínica responde 500 y deja la ruta en el log |
+| `RouteBindingTest` | 10 | 40 | Cada ruta de clientes y pacientes con un id de otra clínica responde 404; los propios se encuentran |
+| `SharedCatalogTest` | 15 | 45 | Especies y razas globales y propias, nunca las de otra clínica; los globales no se editan ni se eliminan; las escrituras masivas solo tocan los propios y no cambian `clinic_id`; un registro propio no pasa a global ni a otra clínica; `SpeciesSeeder` solo toca globales; un paciente no usa especies ni razas de otra clínica |
+| `SuspendedClinicTest` | 2 | 4 | Clínica suspendida → 403 `CLINIC_NOT_AVAILABLE`; activa, opera |
+| `UserIsolationTest` | 4 | 9 | `{user}` de otra clínica → 404; los de la propia se encuentran; Sanctum y la validación del login encuentran al usuario sin clínica en contexto; `inClinic()` filtra |
+| `ValidationScopeTest` | 6 | 29 | Documento, email y microchip únicos por clínica, en el alta y en la edición; `change-owner` no acepta un cliente de otra clínica |
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| `CLINIC_ADMIN_EMAIL_TAKEN` (422) en `ClinicException` | El diseño pedía el email del administrador único, pero no nombraba su `error_code` | Usuario (commit `fb52b73`) |
+| Más índices empiezan por `clinic_id`: además de los listados, los de filtro y listado (`clients` por teléfono y razón social, `patients` por nombre, `products` por código de barras, y los de estado o fecha de turnos, lotes, movimientos, consultas, aplicaciones y facturas) | Toda búsqueda de un listado filtra primero por la clínica | Implementación |
+| Quedan sin `clinic_id` los índices de los *morphs*, `appointments.series_id` y `client_notifications.external_id` | Buscan un registro puntual; el webhook del proveedor busca por `external_id` antes de conocer la clínica | Implementación |
+| `App\Support\ExecutionOrigin`, no previsto | Registra el origen de `ClinicContextMissingException`: el job, el comando o la ruta (R-005) | Implementación; los comandos por `CommandStarting`, corrección de la revisión |
+| `SpeciesSeeder` con el *query builder* | Los modelos exigen una clínica en contexto, y la siembra no la tiene | Implementación, dentro del diseño (motivo registrado) |
+| `AuditLogger`: primero la clínica del registro auditado, después la del contexto (el diseño decía el contexto primero) | El alta de una clínica llamada desde otra quedaba en la auditoría de esa otra | Usuario, en la revisión |
+| `SharedCatalogBuilder` y `ClinicIdGuard`, no previstos | Escrituras masivas sobre los catálogos y cambio de `clinic_id` al editar | Usuario, en la revisión |
+| El test del origen de un comando activa los eventos de consola con `rerouteSymfonyCommandEvents()` | Laravel no los dispara en los tests, y en producción sí. Es un método `@internal`: si Laravel lo cambia, falla ese test | Implementación, en la revisión |
+
+**Hallazgos de la revisión y su corrección** (commit `cf8f862`). Ninguno se producía por la API existente; todos se reprodujeron
+con un test.
 
 | # | Hallazgo | Corrección |
 |---|---|---|
@@ -351,12 +397,13 @@ esta sección (archivos, tests por clase, desvíos) se completa en el cierre.
 | 5 | Tres protecciones sin test (E, G y H de la tabla siguiente) | Tests nuevos en `SharedCatalogTest`, `FailClosedTest` y `ClinicAssignmentTest` |
 | 6 | Sin claves foráneas compuestas (`clinic_id` + `id`) | Deuda #5 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)) |
 
-**Protecciones quitadas de a una en la revisión.** Además de las 44 de la implementación.
+**Protecciones quitadas de a una.** La implementación quitó 44, y todas hacían fallar un test salvo dos mutaciones equivalentes. La
+revisión quitó ocho más:
 
 | Protección quitada | Resultado |
 |---|---|
 | A. `SharedCatalog`: el error al crear con otro `clinic_id` | Ningún test falla. Mutación equivalente: la línea siguiente (`setAttribute('clinic_id', CurrentClinic::id())`) pisa el valor recibido, así que el registro igual queda en la clínica en contexto; sin la verificación solo se pierde el aviso. Se mantiene para que el error sea visible, como en `BelongsToClinic`, donde sí tiene test |
-| B. `SharedCatalogScope` sin agrupar el `OR` (`whereNull(...)->orWhere(...)` suelto) | Ningún test falla. Mutación equivalente: Eloquent agrupa en un paréntesis propio las condiciones que agrega cada *global scope* cuando la consulta ya tiene otras (`Builder::applyScopes`), así que el `OR` nunca escapa del filtro. El agrupado explícito queda para no depender de ese detalle |
+| B. `SharedCatalogScope` sin agrupar el `OR` (`whereNull(...)->orWhere(...)` suelto) | Ningún test falla. Mutación equivalente: Eloquent agrupa en un paréntesis propio las condiciones que agrega cada *global scope* (`Builder::callScope` y `addNewWheresWithinGroup`), así que el `OR` nunca escapa del resto del filtro. El agrupado explícito queda para no depender de ese detalle |
 | C. `AuditLogger`: la clínica de la `Clinic` auditada | Falla `ClinicServiceTest` |
 | D. `ClinicScope` con `clinic_id` sin el nombre de la tabla | Ningún test falla. Equivalente hoy: ninguna consulta une dos tablas con `clinic_id`. Con un *join* así el error sería de SQL (columna ambigua) y el pedido fallaría: nunca devolvería datos de otra clínica. Se mantiene `qualifyColumn` para que esos *joins* funcionen cuando existan |
 | E. `SpeciesSeeder` sin `whereNull('clinic_id')` al buscar | Falla `SharedCatalogTest::test_seeder_only_touches_global_records` (nuevo) |
@@ -364,12 +411,15 @@ esta sección (archivos, tests por clase, desvíos) se completa en el cierre.
 | G. `SetCurrentClinic` fija la clínica sin restaurarla | Falla `FailClosedTest::test_request_restores_the_clinic_context_when_it_ends` (nuevo) |
 | H. `AuditLogger` sin la clínica en contexto | Falla `ClinicAssignmentTest::test_audit_log_takes_the_clinic_from_context_in_a_command` (nuevo) |
 
-Cada corrección nueva también se quitó de a una: el filtro de `update`, `delete` y `forceDelete` del builder, el rechazo de
+Cada corrección de la revisión también se quitó de a una: el filtro de `update`, `delete` y `forceDelete` del builder, el rechazo de
 `clinic_id`, el registro del builder, las dos ramas nuevas de `AuditLogger`, `ClinicIdGuard` en `BelongsToClinic` y los dos
 eventos de comando. En todos los casos falla su test. `ClinicIdGuard` en `SharedCatalog` está cubierto dos veces: guardar el
-modelo termina en `SharedCatalogBuilder::update`, que también rechaza `clinic_id`. Al quitar las dos capas, fallan los tres
-tests de inmutabilidad de `SharedCatalogTest`.
+modelo termina en `SharedCatalogBuilder::update`, que también rechaza `clinic_id`. Al quitar las dos capas, fallan los tests de
+inmutabilidad de `SharedCatalogTest`.
 
-**Verificación.** Suite: 90 tests y 290 aserciones en verde, en SQLite y contra MySQL 8.4.3 (`syncvet_test_mysql`). En
-`syncvet_test_mysql`: `migrate:fresh --seed`, rollback completo y `migrate --seed` otra vez; nombres de índices y claves de hasta
-56 caracteres.
+**Verificación en MySQL** (`syncvet_test_mysql`, MySQL 8.4.3): `migrate:fresh --seed`, rollback completo y `migrate --seed` otra
+vez; 28 migraciones, 52 tablas y nombres de índices y claves de hasta 56 caracteres.
+
+**Para la FASE 1:** `SharedCatalogBuilder` no cubre `insert()` ni `upsert()`: insertar una especie o una raza por el *builder* sin
+`clinic_id` crearía un registro global, porque no pasa por el evento de alta. Ningún código lo hace todavía; tenerlo en cuenta en
+el ABM de especies y razas.

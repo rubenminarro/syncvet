@@ -8,7 +8,7 @@ cambió.
 
 | # | Decisión | Registro |
 |---|---|---|
-| D1 | Una base compartida con `clinic_id` | [R-002](registro.md), ajustada en [R-004](registro.md) |
+| D1 | Una base compartida con `clinic_id` | [R-002](registro.md), ajustada en [R-004](registro.md) e implementada en [R-007](registro.md) |
 
 ## Decisiones pendientes
 

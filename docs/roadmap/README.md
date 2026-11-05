@@ -14,14 +14,14 @@ Fuente de verdad del estado por fase y entrega. Las fases conservan su numeraci�
 
 ## Antes de las fases: paquete base
 
-Esquema completo del MVP (27 migraciones), modelos, enums, excepciones, arquitectura base y el módulo de ejemplo de clientes y
+Esquema completo del MVP (27 migraciones, antes de la tabla `clinics` de la entrega 0.2), modelos, enums, excepciones, arquitectura base y el módulo de ejemplo de clientes y
 pacientes, sin tests todavía. Registro: [`decisions/registro.md`](../decisions/registro.md), sección R-001.
 
 ## Fases del MVP
 
 | Fase | Etapa | Contenido | Estado |
 |---|---|---|---|
-| [FASE 0](../fases/fase-00-puesta-en-marcha.md) | Base | Puesta en marcha | EN DESARROLLO: 0.1 COMPLETADO (R-006); 0.2 a 0.5 PENDIENTE |
+| [FASE 0](../fases/fase-00-puesta-en-marcha.md) | Base | Puesta en marcha | EN DESARROLLO: 0.1 COMPLETADO (R-006); 0.2 COMPLETADO (R-007); 0.3 a 0.5 PENDIENTE |
 | [FASE 1](../fases/fase-01-clientes-y-pacientes.md) | Base | Clientes y pacientes | PENDIENTE |
 | [FASE 2](../fases/fase-02-datos-maestros.md) | Base | Datos maestros | PENDIENTE |
 | [FASE 3](../fases/fase-03-agenda-y-turnos.md) | Atención | Agenda y turnos | PENDIENTE |

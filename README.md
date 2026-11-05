@@ -6,13 +6,13 @@ Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en 
 
 | Carpeta | Contenido |
 |---|---|
-| `database/migrations` | 27 migraciones: base de Laravel (usuarios, cache, colas, tokens, permisos) + 19 de SyncVet + auditoría, configuración y secuencias |
-| `app/Enums` | 33 enums (estados y tipos) con `label()` en español |
-| `app/Models` | 33 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde |
-| `app/Exceptions` | `AppException` y 11 excepciones de dominio |
-| `app/Services` | `ClientService`, `PatientService`, `DocumentSequenceService`, `AuditLogger` |
-| `app/Http` | Controllers, Requests y Resources de clientes, pacientes y especies; middleware `EnsureJsonResponse` |
-| `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal` |
+| `database/migrations` | 28 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración y secuencias. `clinic_id` en las tablas de negocio (D1) |
+| `app/Enums` | 34 enums (estados y tipos) con `label()` en español |
+| `app/Models` | 34 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog` |
+| `app/Exceptions` | `AppException`, 13 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
+| `app/Services` | `ClientService`, `PatientService`, `ClinicService`, `DocumentSequenceService`, `AuditLogger` |
+| `app/Http` | Controllers, Requests y Resources de clientes, pacientes y especies; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
+| `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin` |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
 | `routes/api.php` | Rutas de clientes, pacientes y especies |
 | `database/seeders` | `RolesAndPermissionsSeeder` (119 permisos, 3 roles) y `SpeciesSeeder` |
@@ -21,6 +21,7 @@ Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en 
 
 | Módulo | Tablas |
 |---|---|
+| Clínicas | clinics |
 | Sucursales | branches, branch_user, warehouses |
 | Personas | users, veterinarians, clients |
 | Pacientes | species, breeds, patients |
@@ -36,15 +37,15 @@ Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en 
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones suben y bajan en SQLite con claves foráneas activas.
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 28 actuales se verificaron también en MySQL 8.4 en la entrega 0.2 ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: la verificación en MySQL de la entrega 0.5 la reemplaza.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
 * Los 119 permisos de los Controllers y de los roles existen en el seeder.
 
-La suite de PHPUnit (`php artisan test`, desde la entrega 0.1) cubre los roles y permisos del seeder y de las rutas, y las
-respuestas de error en JSON. Los Form Requests y las rutas de clientes y pacientes todavía no tienen tests (deuda técnica #1).
+La suite de PHPUnit (`php artisan test`, desde la entrega 0.1) cubre los roles y permisos del seeder y de las rutas, las
+respuestas de error en JSON y, desde la entrega 0.2, la separación por clínica (`tests/Feature/Tenancy`). Los Form Requests y las rutas de clientes y pacientes todavía no tienen tests (deuda técnica #1).
 
 ## Instalación
 
