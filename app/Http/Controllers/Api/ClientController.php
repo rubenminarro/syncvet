@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\ClientKind;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ClientMessages;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
@@ -41,7 +42,7 @@ class ClientController extends Controller implements HasMiddleware
     {
         $request->validate(
             ['kind' => ['nullable', Rule::enum(ClientKind::class)]],
-            ['kind.' . Enum::class => 'El tipo de cliente debe ser person o company.']
+            ['kind.' . Enum::class => ClientMessages::all()['kind'][Enum::class]]
         );
 
         $clients = Client::query()

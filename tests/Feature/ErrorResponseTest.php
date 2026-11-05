@@ -39,7 +39,7 @@ class ErrorResponseTest extends TestCase
             ->assertExactJson([
                 'success' => false,
                 'status' => 403,
-                'message' => 'No tienes permisos para realizar esta acción.',
+                'message' => 'No tenés permisos para realizar esta acción.',
                 'data' => null,
                 'errors' => null,
                 'error_code' => 'FORBIDDEN',
@@ -50,7 +50,12 @@ class ErrorResponseTest extends TestCase
     {
         $this->get('api/_test/abort-403')
             ->assertForbidden()
-            ->assertJson(['success' => false, 'status' => 403, 'error_code' => 'FORBIDDEN']);
+            ->assertJson([
+                'success' => false,
+                'status' => 403,
+                'message' => 'No tenés permisos para realizar esta acción.',
+                'error_code' => 'FORBIDDEN',
+            ]);
     }
 
     public function test_abort_409_responds_conflict(): void

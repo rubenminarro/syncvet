@@ -71,7 +71,9 @@ empezar una sesión.
 * Errores de negocio: excepción de dominio (`ClientException`, `PatientException`…) con `error_code` y `422` (o `409` en
   conflictos). Nunca `500` ni trazas.
 * Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
-  `error_code` en inglés. Los mensajes del paquete base todavía usan tú: pasan a voseo en la FASE 1.
+  `error_code` en inglés. `VoseoTest` rechaza las formas de tú y de usted. Los mensajes de validación sin mensaje propio salen
+  de `lang/es/validation.php`, con las mismas claves que el del framework; todo campo de un Form Request lleva su nombre en
+  `attributes` (`ValidationTranslationsTest`).
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
@@ -106,7 +108,8 @@ empezar una sesión.
   `ClinicFactory`, RUC de 9 dígitos, que hoy no se emiten (R-013). Nunca un número de 7 dígitos (el rango de las cédulas
   reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
   guía de Postman; los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
-* Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`.
+* Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`. `apiResource` también registra `PUT`, con la
+  misma semántica parcial: no reemplaza el recurso ni borra los campos que no se envían (`HttpVerbsTest`).
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
 * Usuario que crea, emite o anula: columnas `created_by`, `issued_by`, `cancelled_by` + `cancelled_at` y
   `cancellation_reason`.

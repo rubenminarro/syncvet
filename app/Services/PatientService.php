@@ -68,7 +68,7 @@ class PatientService
             || $patient->applications()->exists()
             || $patient->appointments()->exists()) {
             throw new PatientException(
-                'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registre la fecha de fallecimiento.',
+                'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registrá la fecha de fallecimiento.',
                 409,
                 'PATIENT_IN_USE'
             );
