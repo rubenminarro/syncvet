@@ -577,5 +577,6 @@ decidir solo están al final de ese documento.
 | Email del usuario | Único en toda la base (es el login): en el MVP, una persona que trabaja en dos clínicas necesita dos emails | Usuario |
 | Entregas | En el orden del análisis: 2.1 sucursales y depósitos, 2.2 usuarios (dividida en 2.2a y 2.2b), 2.3 veterinarios, 2.4 servicios, 2.5 configuración y logo con la deuda 14, 2.6 auditoría con la deuda 13 | Usuario; la división de la 2.2, diseño |
 | Documentación | Se corrigen el handoff, el cierre de la FASE 1 y R-028 con el merge `7b35ea2` de la FASE 1 a `main` | Usuario |
+| Aprobación del diseño | El usuario aprueba el diseño de la FASE 2 tal como está ([`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md)), con las siete entregas y las preguntas 16 a 31 del diseño según la propuesta de cada una (códigos de sucursal y depósito escritos por el administrador, depósito por defecto en el alta de la sucursal, `PATCH me/password`, precio entero, claves de `system_settings`, RUC no editable, logo de hasta 2 MB, limpieza a las 24 horas, matrícula a 60 caracteres, `USER_IS_VETERINARIAN`, entre otras). Sigue la entrega 2.1 en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno` | Usuario, el 2026-11-06 |
 
-**Qué no cambió.** Código, rutas, permisos, `error_code` y contrato de respuesta: el diseño solo documenta.
+**Qué no cambió.** Código, rutas, permisos, `error_code` y contrato de respuesta: el diseño y su aprobación solo documentan.

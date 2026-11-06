@@ -12,7 +12,7 @@ Si este documento contradice al código, manda el código.
 | Dato | Valor |
 |---|---|
 | Actualizado | 2026-11-06 |
-| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base. La FASE 0 se integró a `main` con el merge `63b3eff` (ramas `feature/fase-00-paquete-base` → … → `feature/fase-00-05-acceso`). La FASE 1 está completada (R-028) e integrada a `main` con el merge `7b35ea2` (ramas `docs/fase-01-diseno` → `feature/fase-01-01-traducciones` → … → `feature/fase-01-05-foto`). El diseño de la FASE 2 está en `docs/fase-02-diseno`, sin integrar a `main` |
+| Backend | Repositorio [`rubenminarro/syncvet`](https://github.com/rubenminarro/syncvet). Proyecto Laravel 13 sobre el paquete base. La FASE 0 se integró a `main` con el merge `63b3eff` (ramas `feature/fase-00-paquete-base` → … → `feature/fase-00-05-acceso`). La FASE 1 está completada (R-028) e integrada a `main` con el merge `7b35ea2` (ramas `docs/fase-01-diseno` → `feature/fase-01-01-traducciones` → … → `feature/fase-01-05-foto`). El diseño de la FASE 2, aprobado (R-029), está en `docs/fase-02-diseno`, sin integrar a `main`; encima, `feature/fase-02-01-sucursales` para la entrega 2.1, todavía sin código |
 | Último commit de código | `79f7e8e`, las correcciones de la revisión de la 1.5 (R-027), integrado a `main` con `7b35ea2`. El cierre de la 1.5 y de la FASE 1 (R-028) solo documenta |
 | Frontend | Sin empezar |
 | Última entrega de código | FASE 1, entrega 1.5: foto del paciente (subir, ver y borrar en `patients/{patient}/photo`; JPG, PNG o WEBP de hasta 5 MB por el contenido, 413 `PAYLOAD_TOO_LARGE` si es más grande; disco privado con nombre al azar; descarga con `nosniff` y `no-store`; `has_photo` en lugar de `photo_path`; registro R-026). Revisada y corregida (R-027: disco propio `patient_photos` sin `serve`, `photo_path` fuera de `$fillable` y limitado a la carpeta del paciente, la imagen vuelta a codificar con GD sin EXIF ni contenido pegado, CSP en la descarga y aviso en el log si falla un borrado), validada por el usuario y cerrada (R-028). Con ella, la FASE 1 queda COMPLETADO ([cierre de la FASE 1](fases/fase-01-clientes-y-pacientes.md#cierre-de-la-fase-1)) |
@@ -33,7 +33,7 @@ fases ([`roadmap/README.md`](roadmap/README.md)); la FASE 0 está completada (R-
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | FASE 2: datos maestros ([`fases/fase-02-datos-maestros.md`](fases/fase-02-datos-maestros.md)). El análisis (paso 1) está hecho y las respuestas de negocio, registradas (R-029). El diseño (paso 2, [`prompts/2-diseno.md`](prompts/2-diseno.md)) está escrito en `docs/fase-02-diseno`, con siete entregas (2.1, 2.2a, 2.2b, 2.3 a 2.6) y sus preguntas del diseño: falta que el usuario lo apruebe | Aprobación del diseño y respuesta a las preguntas del diseño |
+| 1 | FASE 2, entrega 2.1: sucursales y depósitos ([diseño](fases/fase-02-datos-maestros.md#21-sucursales-y-depósitos), aprobado con las preguntas 16 a 31 según su propuesta, R-029). Se implementa en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno`, con el prompt de implementación de la fase (paso 4) | Autorización del usuario para empezar la implementación |
 | 2 | Opcional: ver en el Collection Runner el detalle del "Errors 1" de la validación de la 1.2 (PENDIENTE DE VERIFICACIÓN; Newman no lo reproduce) | Ninguno |
 
 Ninguna entrega empieza sin autorización del usuario.

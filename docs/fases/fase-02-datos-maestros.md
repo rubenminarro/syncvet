@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **PENDIENTE**: diseño escrito, pendiente de aprobación (respuestas de negocio en R-029). El estado vigente de
+Etapa: Base. Estado: **PENDIENTE**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); sigue la entrega 2.1. El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -476,26 +476,26 @@ volver a `datetime` en `deceased_at`; quitar la conversión de zona del filtro `
 
 ## Preguntas del diseño
 
-Lo que el diseño no puede decidir solo, con su propuesta. Las respuestas del usuario se anotan con la fecha.
+Lo que el diseño no podía decidir solo, con su propuesta y la respuesta del usuario (R-029): todas aprobadas según la propuesta.
 
 | # | Pregunta | Propuesta | Respuesta | Fecha |
 |---|---|---|---|---|
-| 16 | ¿Quién pone el código de sucursales y depósitos (`SUC-01`, `DEP-01`)? | Lo escribe el administrador: único en la clínica, en mayúsculas, editable (no son documentos ni salen de una serie) | | |
-| 17 | ¿El alta de una sucursal crea su depósito por defecto? | Sí, en la misma transacción, con `warehouse_code` obligatorio y `warehouse_name` ("Principal" por defecto) | | |
-| 18 | Al inactivar una sucursal, ¿qué pasa con los usuarios que la tienen como actual? | Quedan sin sucursal actual (`current_branch: null` en `me`) hasta que elijan otra; su asignación se conserva | | |
-| 19 | ¿La recepción y el veterinario listan sucursales? | Sí, solo `branches.index` (la agenda las necesita en la FASE 3) | | |
-| 20 | Contraseñas: ¿el cambio por el administrador revoca los tokens del usuario? ¿Se agrega `PATCH me/password` para la contraseña propia? | Sí a los dos (en la 2.2b, sin permiso, con la contraseña actual) | | |
-| 21 | ¿El precio de un servicio admite decimales? | No mientras la moneda sea PYG: entero de 0 a 999.999.999.999 (la columna sigue en `decimal(14,2)`) | | |
-| 22 | ¿Qué duración admite un servicio? | De 5 a 720 minutos, en múltiplos de 5 (la agenda de la FASE 3 usa bloques de 5) | | |
-| 23 | ¿Qué claves tiene `system_settings`? | `contact_email`, `contact_phone`, `website` y `document_footer` (pie de recetas y comprobantes no fiscales); `logo_path`, interna | | |
-| 24 | ¿El RUC de la clínica se edita por la API? | No: se muestra; un error de carga se corrige con un comando más adelante (lo crea `clinic:create`) | | |
-| 25 | ¿Cómo es el logo? | JPG, PNG o WEBP de hasta 2 MB, vuelto a codificar como la foto, sin redimensionar; más grande → 413 | | |
-| 26 | ¿Qué antigüedad debe tener un archivo huérfano para borrarlo? ¿Se programa el comando? | 24 horas; diario a las 03:00, con el cron en el despliegue (FASE 10) | | |
-| 27 | ¿El listado de la auditoría trae los valores anteriores y nuevos? | No: solo el detalle, para que el listado sea liviano; las rutas internas (`photo_path`, `logo_path`) nunca salen | | |
-| 28 | Una fecha con hora sin zona, ¿se acepta? | Sí, como hora de Asunción (es lo que pasa hoy con `deceased_at`: no cambia el contrato) | | |
-| 29 | ¿Se amplía `veterinarians.license_number` a 60 para el sufijo de baja? | Sí, con una migración; se valida hasta 30 | | |
-| 30 | ¿Se puede quitar el rol `veterinario` a un usuario con ficha de veterinario? | No: 409 `USER_IS_VETERINARIAN` hasta que se elimine la ficha (si está en uso, el usuario se inactiva) | | |
-| 31 | Entregas: la 2.2 se divide en 2.2a y 2.2b, y las sucursales pasan a ser la 2.1 | Aprobar con el diseño | | |
+| 16 | ¿Quién pone el código de sucursales y depósitos (`SUC-01`, `DEP-01`)? | Lo escribe el administrador: único en la clínica, en mayúsculas, editable (no son documentos ni salen de una serie) | Aprobada (usuario) | 2026-11-06 |
+| 17 | ¿El alta de una sucursal crea su depósito por defecto? | Sí, en la misma transacción, con `warehouse_code` obligatorio y `warehouse_name` ("Principal" por defecto) | Aprobada (usuario) | 2026-11-06 |
+| 18 | Al inactivar una sucursal, ¿qué pasa con los usuarios que la tienen como actual? | Quedan sin sucursal actual (`current_branch: null` en `me`) hasta que elijan otra; su asignación se conserva | Aprobada (usuario) | 2026-11-06 |
+| 19 | ¿La recepción y el veterinario listan sucursales? | Sí, solo `branches.index` (la agenda las necesita en la FASE 3) | Aprobada (usuario) | 2026-11-06 |
+| 20 | Contraseñas: ¿el cambio por el administrador revoca los tokens del usuario? ¿Se agrega `PATCH me/password` para la contraseña propia? | Sí a los dos (en la 2.2b, sin permiso, con la contraseña actual) | Aprobada (usuario) | 2026-11-06 |
+| 21 | ¿El precio de un servicio admite decimales? | No mientras la moneda sea PYG: entero de 0 a 999.999.999.999 (la columna sigue en `decimal(14,2)`) | Aprobada (usuario) | 2026-11-06 |
+| 22 | ¿Qué duración admite un servicio? | De 5 a 720 minutos, en múltiplos de 5 (la agenda de la FASE 3 usa bloques de 5) | Aprobada (usuario) | 2026-11-06 |
+| 23 | ¿Qué claves tiene `system_settings`? | `contact_email`, `contact_phone`, `website` y `document_footer` (pie de recetas y comprobantes no fiscales); `logo_path`, interna | Aprobada (usuario) | 2026-11-06 |
+| 24 | ¿El RUC de la clínica se edita por la API? | No: se muestra; un error de carga se corrige con un comando más adelante (lo crea `clinic:create`) | Aprobada (usuario) | 2026-11-06 |
+| 25 | ¿Cómo es el logo? | JPG, PNG o WEBP de hasta 2 MB, vuelto a codificar como la foto, sin redimensionar; más grande → 413 | Aprobada (usuario) | 2026-11-06 |
+| 26 | ¿Qué antigüedad debe tener un archivo huérfano para borrarlo? ¿Se programa el comando? | 24 horas; diario a las 03:00, con el cron en el despliegue (FASE 10) | Aprobada (usuario) | 2026-11-06 |
+| 27 | ¿El listado de la auditoría trae los valores anteriores y nuevos? | No: solo el detalle, para que el listado sea liviano; las rutas internas (`photo_path`, `logo_path`) nunca salen | Aprobada (usuario) | 2026-11-06 |
+| 28 | Una fecha con hora sin zona, ¿se acepta? | Sí, como hora de Asunción (es lo que pasa hoy con `deceased_at`: no cambia el contrato) | Aprobada (usuario) | 2026-11-06 |
+| 29 | ¿Se amplía `veterinarians.license_number` a 60 para el sufijo de baja? | Sí, con una migración; se valida hasta 30 | Aprobada (usuario) | 2026-11-06 |
+| 30 | ¿Se puede quitar el rol `veterinario` a un usuario con ficha de veterinario? | No: 409 `USER_IS_VETERINARIAN` hasta que se elimine la ficha (si está en uso, el usuario se inactiva) | Aprobada (usuario) | 2026-11-06 |
+| 31 | Entregas: la 2.2 se divide en 2.2a y 2.2b, y las sucursales pasan a ser la 2.1 | Aprobar con el diseño | Aprobada (usuario) | 2026-11-06 |
 
 ## Criterio de cierre
 
