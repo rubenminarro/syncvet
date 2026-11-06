@@ -457,3 +457,20 @@ test que falle al quitar la protección. El detalle está en el
 **Qué cambió en la API.** Rutas, permisos, `error_code` y contrato de respuesta, sin cambios. Cambian: una global con un cuerpo
 inválido responde 403 (antes, 422); un nombre sin letras responde 422; los espacios internos repetidos se guardan como uno y
 cuentan para el nombre repetido; un alta o edición de paciente simultánea con la baja de su especie o raza responde 422.
+
+# R-025 Entrega 1.4 de la FASE 1: validación y cierre (2026-11-06)
+
+Cierre de la entrega 1.4 (especies y razas). Commits `8a614c5` (implementación, R-023) y `aadc1d9` (correcciones de la revisión,
+R-024), en `feature/fase-01-04-especies`. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-025).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | El usuario corrió en Postman las tres colecciones contra `syncvet`: especies, 93 de 93 pruebas, dos veces; pacientes, 61 de 61; clientes, 48 de 48; sin errores. Entrega validada | Usuario, el 2026-11-06 |
+| Suite del cierre | No se repitió: el código no cambió desde la corrida de las correcciones (`aadc1d9`): 577 casos en verde; en SQLite, 6449 aserciones con 2 omitidos (solo de MySQL); en MySQL 8.4.3 (`syncvet_test_mysql`), 6465 aserciones | Cierre |
+| Hash en el handoff | Queda como lo dejaron las correcciones: el último commit de código es el hijo de `8a614c5`, sin su hash; no se agrega un commit solo para escribirlo | Usuario |
+| Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte (anotado en el resultado de la entrega) | Cierre |
+| Especies y razas | El módulo pasa a COMPLETADO: la 1.4 era su última entrega en el diseño (R-016) | Cierre |
+| Siguiente | Entrega 1.5: foto del paciente, con autorización del usuario | Diseño (R-016) |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

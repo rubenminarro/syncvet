@@ -1,6 +1,6 @@
 # FASE 1 — Clientes y pacientes
 
-Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017), 1.2 (R-019) y 1.3 (R-020 a R-022) cerradas. El estado
+Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017), 1.2 (R-019), 1.3 (R-020 a R-022) y 1.4 (R-023 a R-025) cerradas. El estado
 vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
@@ -19,7 +19,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 | 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | COMPLETADO (R-017) |
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020, R-021, R-022) |
-| 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | IMPLEMENTADA, en revisión (R-023) |
+| 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | COMPLETADO (R-023, R-024, R-025) |
 | 1.5 | Foto del paciente en disco privado | 1.4 | PENDIENTE |
 
 ## Preguntas de negocio
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2 y 1.3. Implementada, sin cerrar: 1.4. Pendiente: 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3 y 1.4. Pendiente: 1.5.
 
 ### Entrega 1.1
 
@@ -552,9 +552,9 @@ reimportar las colecciones.
 
 ### Entrega 1.4
 
-Implementación en `feature/fase-01-04-especies`, creada desde `feature/fase-01-03-pacientes`, revisada y corregida
-([correcciones de la revisión](#correcciones-de-la-revisión-r-024)). Falta la validación del usuario: esta sección se completa en
-el cierre. Decisiones en [R-023](../decisions/registro.md) y R-024.
+Implementación en `feature/fase-01-04-especies`, creada desde `feature/fase-01-03-pacientes` (`8a614c5`), revisada y corregida
+([correcciones de la revisión](#correcciones-de-la-revisión-r-024), `aadc1d9`), y validada por el usuario
+([validación del usuario](#validación-del-usuario-r-025)). Decisiones en [R-023](../decisions/registro.md), R-024 y R-025.
 
 **Archivos.**
 
@@ -666,3 +666,11 @@ paciente y responde 409), y la baja, justo antes del bloqueo del paciente (el pa
 inválido y la global "Pastor  Alemán"), y el alta de la raza propia comprueba los espacios juntados. Sobre `syncvet`, sin
 recrear la base: especies, 41 requests y 93 aserciones en verde dos veces seguidas; clientes, 24 y 48; pacientes, 30 y 61, en
 verde.
+
+#### Validación del usuario (R-025)
+
+El 2026-11-06 el usuario corrió en Postman las tres colecciones contra `syncvet`: especies, 93 de 93 pruebas en verde, dos veces;
+pacientes, 61 de 61; clientes, 48 de 48; sin errores. La suite no se repitió en el cierre: el código no cambió desde la corrida de
+las correcciones (`aadc1d9`), con 577 casos en verde; en SQLite, 6449 aserciones con 2 omitidos (solo de MySQL), y en MySQL 8.4.3
+(`syncvet_test_mysql`), 6465 aserciones sin omitidos. Con este cierre el módulo de especies y razas queda COMPLETADO; la FASE 1
+sigue con la 1.5 (foto del paciente).
