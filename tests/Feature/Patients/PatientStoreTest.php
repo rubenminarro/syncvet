@@ -193,13 +193,13 @@ class PatientStoreTest extends TestCase
     }
 
     /**
-     * photo_path sigue en la respuesta hasta la entrega 1.5.
+     * Entrega 1.5 (pregunta 14): la respuesta muestra has_photo, no la ruta interna.
      */
-    public function test_the_detail_still_shows_photo_path(): void
+    public function test_the_detail_shows_has_photo_instead_of_photo_path(): void
     {
-        $this->store($this->clientIn($this->clinic)->id, $this->patientPayload())
-            ->assertCreated()
-            ->assertJsonStructure(['data' => ['photo_path']]);
+        $response = $this->store($this->clientIn($this->clinic)->id, $this->patientPayload())->assertCreated();
+
+        $response->assertJsonPath('data.has_photo', false)->assertJsonMissingPath('data.photo_path');
     }
 
     private function store(int $clientId, array $payload): TestResponse

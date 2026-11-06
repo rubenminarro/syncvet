@@ -205,6 +205,7 @@ return [
         'microchip' => 'microchip',
         'allergies' => 'alergias',
         'deceased_at' => 'fecha de fallecimiento',
+        'photo' => 'foto',
 
         // Especies y razas
         'is_active' => 'activo',

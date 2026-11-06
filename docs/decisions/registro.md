@@ -474,3 +474,30 @@ R-024), en `feature/fase-01-04-especies`. El detalle está en el
 | Siguiente | Entrega 1.5: foto del paciente, con autorización del usuario | Diseño (R-016) |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-026 Entrega 1.5 de la FASE 1: foto del paciente (2026-11-06)
+
+Implementación de la entrega 1.5 en `feature/fase-01-05-foto` (creada desde `feature/fase-01-04-especies`). Falta la revisión y
+la validación del usuario: no es el cierre. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-15).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | `POST`, `GET` y `DELETE patients/{patient}/photo`, con `PatientPhotoController` y `PatientPhotoService`. Subir y borrar responden `ShowPatientResource`; ver responde el archivo | Diseño (R-016) |
+| Permisos | `patients.upload-photo`, `patients.show-photo` y `patients.delete-photo` (120 → 123). El recepcionista y el veterinario, los tres; el administrador, por `Gate::before`. Foto de los roles actualizada | Usuario (preguntas 7 y 13) |
+| Tipo y tamaño | JPG, PNG o WEBP de hasta 5 MB, por el contenido (`image` y `mimetypes`, que leen los bytes); otro tipo → 422. Más grande → 413 `PAYLOAD_TOO_LARGE`, como el pedido cortado por `post_max_size` o el archivo cortado por `upload_max_filesize` | Usuario (preguntas 7 y 16; el 413 de la foto grande, al autorizar la entrega) |
+| 413 genérico | `bootstrap/app.php` mapea el 413 a `PAYLOAD_TOO_LARGE`; `development/setup.md` documenta `upload_max_filesize` y `post_max_size` | Usuario (pregunta 16) |
+| Almacenamiento | Disco `local` (privado), `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}`, con la extensión del tipo detectado; sin redimensionar | Diseño (R-015 y R-016) |
+| Reemplazo y borrado | `photo_path` se lee con la fila del paciente bloqueada y se cambia en una transacción; el archivo anterior se borra después del commit (`DB::afterCommit`); si la transacción falla, se borra el nuevo | Diseño; el bloqueo, implementación |
+| Descarga | El archivo, con `Content-Type` del tipo guardado, `X-Content-Type-Options: nosniff`, `Content-Disposition: inline` con el código del paciente y `Cache-Control: private, no-store`. La única respuesta exitosa sin `ApiResponse` (`CLAUDE.md` §4) | Usuario (pregunta 7) |
+| Sin foto o archivo perdido | 404 `PATIENT_PHOTO_NOT_FOUND`; el archivo perdido deja un aviso en el log | Diseño (R-016) |
+| Fallecido | Sube y borra la foto, sin `PATIENT_DECEASED`: no es un dato clínico | Usuario (pregunta 12) |
+| Contrato | `has_photo` en `PatientResource` y en el detalle; `photo_path` ya no sale de la API. La colección de pacientes cambia ese paso | Usuario (pregunta 14) |
+| Otra clínica | Un paciente de otra clínica responde 404 `RESOURCE_NOT_FOUND` en las tres rutas (scope de la clínica en el *route binding*) | Diseño (R-016) |
+| Postman | Colección de la foto, repetible, con su rango de corrida (000000 a 099998, documento `990…`) y dos archivos versionados en `docs/testing/postman/archivos`; la carpeta de trabajo de Postman y Newman es la raíz del repositorio | Usuario |
+| Validación | Suite en verde en SQLite (606 casos, 6684 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 6700 aserciones). Doce protecciones quitadas de a una, cada una con un test que falla. Newman: la colección de la foto dos veces seguidas sin recrear la base (23 requests y 60 aserciones cada vez), y las de especies, clientes y pacientes, todo en verde | Implementación |
+| Siguiente | Revisión y validación de la 1.5; con su cierre, la FASE 1 queda completa | Diseño (R-016) |
+
+**Qué cambió en la API.** Rutas nuevas: las tres de `patients/{patient}/photo`. El paciente deja de mostrar `photo_path` y muestra
+`has_photo`. Un pedido que supera `post_max_size` responde 413 `PAYLOAD_TOO_LARGE` (antes, `HTTP_ERROR`). `error_code` nuevo:
+`PATIENT_PHOTO_NOT_FOUND`.

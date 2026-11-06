@@ -476,9 +476,10 @@
                             "    pm.expect(json.data.breed.name).to.eql('Beagle');",
                             "    pm.expect(json.data.weight_kg).to.eql('12.50');",
                             "});",
-                            "pm.test('Sin custom_fields y con photo_path', () => {",
+                            "pm.test('Sin custom_fields ni photo_path, con has_photo', () => {",
                             "    pm.expect(json.data).to.not.have.property('custom_fields');",
-                            "    pm.expect(json.data).to.have.property('photo_path');",
+                            "    pm.expect(json.data).to.not.have.property('photo_path');",
+                            "    pm.expect(json.data.has_photo).to.eql(false);",
                             "});",
                             "pm.collectionVariables.set('bolita_id', json.data.id);"
                         ]

@@ -4,8 +4,10 @@ namespace Tests\Feature\Access;
 
 use App\Models\Clinic;
 use App\Models\User;
+use App\Services\PatientPhotoService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -58,6 +60,12 @@ class RoleAccessTest extends TestCase
         $this->clinic = $this->createClinic();
         $client = $this->clientIn($this->clinic);
         $patient = $this->patientOf($client);
+
+        // Con foto: sin ella, ver la foto respondería 404 PATIENT_PHOTO_NOT_FOUND. El
+        // DELETE de la foto borra el archivo después del commit, y cada pedido se revierte.
+        Storage::fake(PatientPhotoService::DISK);
+        Storage::disk(PatientPhotoService::DISK)->put('clinics/foto.png', 'png');
+        DB::table('patients')->where('id', $patient->id)->update(['photo_path' => 'clinics/foto.png']);
         // Propias: una global respondería 403 CATALOG_GLOBAL_NOT_EDITABLE al editarla.
         [$species, $breed] = $this->ownSpeciesWithBreed($this->clinic, 'Hurón');
 
@@ -145,12 +153,12 @@ class RoleAccessTest extends TestCase
             foreach ($route['methods'] as $method) {
                 $only = $this->send($users["solo {$list}"], $route, $method);
                 if (! $this->isAllowed($only)) {
-                    $failures[] = "{$method} {$route['uri']}: con solo {$list} respondió {$only->status()}";
+                    $failures[] = "{$method} {$route['uri']}: con solo {$list} respondió {$only->getStatusCode()}";
                 }
 
                 $without = $this->send($users["sin {$list}"], $route, $method);
                 if (! $this->isForbidden($without)) {
-                    $failures[] = "{$method} {$route['uri']}: con todos los permisos menos {$list} respondió {$without->status()}";
+                    $failures[] = "{$method} {$route['uri']}: con todos los permisos menos {$list} respondió {$without->getStatusCode()}";
                 }
             }
         }
@@ -173,10 +181,10 @@ class RoleAccessTest extends TestCase
             foreach ($route['methods'] as $method) {
                 $checked++;
                 $response = $this->send(null, $route, $method);
-                $unauthenticated = $response->status() === 401 && $response->json('error_code') === 'UNAUTHENTICATED';
+                $unauthenticated = $response->getStatusCode() === 401 && $response->json('error_code') === 'UNAUTHENTICATED';
 
                 if ($public === $unauthenticated) {
-                    $failures[] = "{$method} {$route['uri']}: respondió {$response->status()}" . ($public ? ' (es pública)' : '');
+                    $failures[] = "{$method} {$route['uri']}: respondió {$response->getStatusCode()}" . ($public ? ' (es pública)' : '');
                 }
             }
         }
@@ -200,7 +208,7 @@ class RoleAccessTest extends TestCase
                 $user = User::factory()->for($this->clinic)->create();
                 $response = $this->send($user, $routes[$key], $method);
 
-                $this->assertSame(200, $response->status(), "{$method} {$routes[$key]['uri']} respondió {$response->status()}");
+                $this->assertSame(200, $response->getStatusCode(), "{$method} {$routes[$key]['uri']} respondió {$response->getStatusCode()}");
             }
         }
     }
@@ -227,11 +235,11 @@ class RoleAccessTest extends TestCase
                 $response = $this->send($user, $route, $method);
 
                 if ($allowed && ! $this->isAllowed($response)) {
-                    $failures[] = "{$method} {$route['uri']} ({$this->list($route)}): debía pasar y respondió {$response->status()}";
+                    $failures[] = "{$method} {$route['uri']} ({$this->list($route)}): debía pasar y respondió {$response->getStatusCode()}";
                 }
 
                 if (! $allowed && ! $this->isForbidden($response)) {
-                    $failures[] = "{$method} {$route['uri']} ({$this->list($route)}): debía responder 403 y respondió {$response->status()}";
+                    $failures[] = "{$method} {$route['uri']} ({$this->list($route)}): debía responder 403 y respondió {$response->getStatusCode()}";
                 }
             }
         }
@@ -300,12 +308,12 @@ class RoleAccessTest extends TestCase
 
     private function isAllowed(TestResponse $response): bool
     {
-        return ! in_array($response->status(), [401, 403, 404, 405], true) && $response->status() < 500;
+        return ! in_array($response->getStatusCode(), [401, 403, 404, 405], true) && $response->getStatusCode() < 500;
     }
 
     private function isForbidden(TestResponse $response): bool
     {
-        return $response->status() === 403 && $response->json('error_code') === 'FORBIDDEN';
+        return $response->getStatusCode() === 403 && $response->json('error_code') === 'FORBIDDEN';
     }
 
     private function list(array $route): string

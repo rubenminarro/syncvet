@@ -30,7 +30,7 @@ class RolesAndPermissionsSeeder extends Seeder
         /* clientes y pacientes */
         'clients.index', 'clients.store', 'clients.show', 'clients.update', 'clients.destroy',
         'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.destroy',
-        'patients.change-owner',
+        'patients.change-owner', 'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
         'species.index', 'species.store', 'species.update', 'species.destroy',
 
         /* veterinarios y servicios */
@@ -103,6 +103,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'clients.index', 'clients.store', 'clients.show', 'clients.update',
                     'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.change-owner',
+                    'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
                     'species.index',
                     'veterinarians.index', 'services.index', 'services.show',
                     'schedules.index', 'schedules.show',
@@ -124,6 +125,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'clients.index', 'clients.store', 'clients.show', 'clients.update',
                     'patients.index', 'patients.store', 'patients.show', 'patients.update',
+                    'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
                     'species.index', 'species.store', 'species.update', 'species.destroy',
                     'veterinarians.index', 'services.index', 'services.show',
                     'schedules.index', 'schedules.show',

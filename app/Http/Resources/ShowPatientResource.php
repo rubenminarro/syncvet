@@ -18,7 +18,6 @@ class ShowPatientResource extends PatientResource
                 'deleted' => $this->client->trashed(),
             ] : null,
             'color' => $this->color,
-            'photo_path' => $this->photo_path,
             'allergies' => $this->allergies,
             'notes' => $this->notes,
             'deceased_at' => $this->deceased_at?->toISOString(),

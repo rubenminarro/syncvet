@@ -25,15 +25,15 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
   (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022) y 1.4
-  (especies y razas, R-023 a R-025) cerradas, las tres últimas validadas por el usuario con Postman; falta la 1.5 (foto del
-  paciente).
+  (especies y razas, R-023 a R-025) cerradas, las tres últimas validadas por el usuario con Postman; la 1.5 (foto del
+  paciente, R-026) está implementada y falta su revisión y validación.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes y del catálogo (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`).
-  Validación manual de clientes, pacientes, especies y razas con las colecciones de Postman de `docs/testing/postman`, que
+  Validación manual de clientes, pacientes, especies y razas, y la foto del paciente, con las colecciones de Postman de `docs/testing/postman`, que
   se pueden correr más de una vez sin recrear la base.
-* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes, y especies y razas
-  (alta, edición, inactivación y baja del catálogo propio de la clínica).
+* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes (con su foto: subir, ver y
+  borrar), y especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
@@ -191,6 +191,10 @@ Controller (HasMiddleware) → Form Request → Service → Model/Eloquent → A
 
 Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 
+La única respuesta exitosa sin `ApiResponse` es la descarga de un archivo (`GET patients/{patient}/photo`): el cuerpo es el
+archivo, con `Content-Type` según el tipo guardado, `X-Content-Type-Options: nosniff` y `Cache-Control: private, no-store`. Sus
+errores sí usan el contrato.
+
 `error_code` genéricos (`bootstrap/app.php`; los de negocio salen de cada excepción de dominio):
 
 | HTTP | `error_code` | Cuándo |
@@ -202,6 +206,7 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 | 405 | `METHOD_NOT_ALLOWED` | Método HTTP no admitido en la ruta |
 | 406 | `NOT_ACCEPTABLE` | Formato de respuesta no aceptable |
 | 409 | `CONFLICT` | `abort(409)` u otro conflicto HTTP sin excepción de dominio |
+| 413 | `PAYLOAD_TOO_LARGE` | El pedido supera `post_max_size` de PHP (`development/setup.md`); la foto de más de 5 MB responde lo mismo, con `errors.photo` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Tipo de contenido no soportado |
 | 422 | `VALIDATION_ERROR` | Falla un Form Request (`errors` trae los campos) |
 | 429 | `TOO_MANY_REQUESTS` | Límite de pedidos (conserva `Retry-After`) |
@@ -249,7 +254,7 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 * Código `PAC-…`. Alta en `clients/{client}/patients` (el dueño sale de la URL; un `client_id` en el cuerpo se ignora). El
   código lo asigna la serie: `code` en el alta o en la edición → 422 (`prohibited`).
 * `custom_fields` no forma parte de la API (R-015): los Requests no lo aceptan (si llega, se ignora) y la respuesta no lo
-  muestra. La columna y el cast del modelo quedan. `photo_path` sigue en la respuesta hasta la entrega 1.5.
+  muestra. La columna y el cast del modelo quedan.
 * La raza debe ser de la especie (`PATIENT_BREED_SPECIES_MISMATCH`, 422).
 * Especie y raza: globales o de la clínica, activas y no eliminadas. Al editar se acepta también la que el paciente ya tiene
   aunque se haya inactivado (el formulario la reenvía); otra inactiva → 422. El alta y la edición las vuelven a buscar con un
@@ -268,6 +273,15 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 * No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento.
 * `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
   `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).
+* **Foto** (`patients/{patient}/photo`: subir con `POST`, ver con `GET`, borrar con `DELETE`; permisos `patients.upload-photo`,
+  `patients.show-photo` y `patients.delete-photo`). La suben y la borran el recepcionista y el veterinario; la ven los tres roles.
+  JPG, PNG o WEBP de hasta 5 MB, por el contenido del archivo, no por la extensión (`UploadPatientPhotoRequest`); otro tipo →
+  422; más grande → 413 `PAYLOAD_TOO_LARGE`. Disco `local` (privado), en `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}`
+  con la extensión del tipo detectado, sin redimensionar (`PatientPhotoService`). Reemplazar o borrar lee `photo_path` con la
+  fila del paciente bloqueada y borra el archivo anterior después del commit; si la transacción falla, se borra el nuevo. Sin
+  foto, o con `photo_path` y sin archivo (aviso en el log) → 404 `PATIENT_PHOTO_NOT_FOUND`. Un paciente fallecido también
+  sube y borra la foto (no es un dato clínico). La baja del paciente deja el archivo. La respuesta muestra `has_photo`, nunca
+  `photo_path`.
 
 ### 6.3 Especies y razas
 

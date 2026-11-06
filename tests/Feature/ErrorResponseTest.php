@@ -28,6 +28,7 @@ class ErrorResponseTest extends TestCase
         Route::get('api/_test/abort-403', fn () => abort(403));
         Route::get('api/_test/abort-409', fn () => abort(409));
         Route::get('api/_test/abort-410', fn () => abort(410));
+        Route::get('api/_test/post-too-large', fn () => throw new \Illuminate\Http\Exceptions\PostTooLargeException());
         Route::get('api/_test/abort-429', fn () => abort(429, '', ['Retry-After' => '60']));
         Route::get('api/_test/runtime', fn () => throw new RuntimeException('detalle interno'));
     }
@@ -63,6 +64,16 @@ class ErrorResponseTest extends TestCase
         $this->get('api/_test/abort-409')
             ->assertConflict()
             ->assertJson(['success' => false, 'status' => 409, 'error_code' => 'CONFLICT']);
+    }
+
+    /**
+     * post_max_size superado (FASE 1, entrega 1.5; pregunta 16 del diseño).
+     */
+    public function test_post_too_large_responds_payload_too_large(): void
+    {
+        $this->getJson('api/_test/post-too-large')
+            ->assertStatus(413)
+            ->assertJson(['success' => false, 'status' => 413, 'error_code' => 'PAYLOAD_TOO_LARGE']);
     }
 
     public function test_other_client_error_keeps_its_status(): void

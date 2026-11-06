@@ -66,3 +66,24 @@ Laragon, que traía la ruta de la máquina donde se armó el instalador (`D:\Pro
 
    El segundo comando debe mostrar el mensaje de contraseña filtrada, no `NULL`. Con `NULL`, `storage/logs/laravel.log` tiene el aviso
    de Have I Been Pwned con el `curl_error`.
+
+## Tamaño de las subidas (foto del paciente)
+
+La foto del paciente admite hasta 5 MB (FASE 1, entrega 1.5). PHP corta antes que Laravel si el archivo o el pedido superan sus
+límites, así que las dos directivas del `php.ini` en uso (`php --ini`) tienen que pasar de 5 MB:
+
+```ini
+upload_max_filesize = 8M
+post_max_size = 10M
+```
+
+`post_max_size` va por encima de `upload_max_filesize`: el pedido lleva, además del archivo, los encabezados del formulario. Con
+límites más bajos, una foto válida responde 413 `PAYLOAD_TOO_LARGE` (o el servidor web la rechaza antes, con su propio 413). En
+producción, el servidor web también debe aceptar el tamaño (en Nginx, `client_max_body_size 10M;`). Comprobar con:
+
+```bash
+php -r "echo ini_get('upload_max_filesize'), ' ', ini_get('post_max_size'), PHP_EOL;"
+```
+
+Las fotos se guardan en el disco `local` (`storage/app/private`, fuera de `public/`): no se publican con `storage:link` y solo se
+descargan por la API.

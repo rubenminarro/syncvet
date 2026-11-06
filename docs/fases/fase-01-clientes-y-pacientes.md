@@ -20,7 +20,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020, R-021, R-022) |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | COMPLETADO (R-023, R-024, R-025) |
-| 1.5 | Foto del paciente en disco privado | 1.4 | PENDIENTE |
+| 1.5 | Foto del paciente en disco privado | 1.4 | IMPLEMENTADA, en revisión (R-026) |
 
 ## Preguntas de negocio
 
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3 y 1.4. Pendiente: 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3 y 1.4. Implementada, sin cerrar: 1.5.
 
 ### Entrega 1.1
 
@@ -674,3 +674,62 @@ pacientes, 61 de 61; clientes, 48 de 48; sin errores. La suite no se repitió en
 las correcciones (`aadc1d9`), con 577 casos en verde; en SQLite, 6449 aserciones con 2 omitidos (solo de MySQL), y en MySQL 8.4.3
 (`syncvet_test_mysql`), 6465 aserciones sin omitidos. Con este cierre el módulo de especies y razas queda COMPLETADO; la FASE 1
 sigue con la 1.5 (foto del paciente).
+
+### Entrega 1.5
+
+Implementación en `feature/fase-01-05-foto`, creada desde `feature/fase-01-04-especies` (`711ef5a`). Falta la revisión y la
+validación del usuario: esta sección se completa en el cierre. Decisiones en [R-026](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `PatientPhotoController`, `UploadPatientPhotoRequest`, `PatientPhotoService`; `tests/Feature/Patients/PatientPhotoTest` y sus archivos de prueba (`tests/Fixtures/photos`: JPG, PNG, WEBP, GIF y SVG de 16 × 16); la colección `docs/testing/postman/syncvet-fase-01-foto.postman_collection.json` y sus archivos (`docs/testing/postman/archivos`: `foto-paciente.png` y `no-es-imagen.jpg`) |
+| Cambiados | `routes/api.php` (las tres rutas de la foto), `PatientResource` (`has_photo`) y `ShowPatientResource` (sin `photo_path`), `bootstrap/app.php` (413 `PAYLOAD_TOO_LARGE`), `RolesAndPermissionsSeeder` (tres permisos, 120 → 123, para el recepcionista y el veterinario), `lang/es/validation.php` (`photo`) |
+| Tests cambiados | `RoleAccessTest` (el paciente tiene foto en un disco falso; el estado de una respuesta con `getStatusCode()`, que también sirve para la descarga), `PatientStoreTest` (`has_photo` en lugar de `photo_path`), `ErrorResponseTest` (413), `tests/Fixtures/clinic-roles.json` |
+| Documentación | `CLAUDE.md` §1, §4 (la descarga como excepción a `ApiResponse` y el 413) y §6.2 (foto); `README.md` (123 permisos); `development/setup.md` (`upload_max_filesize` y `post_max_size`); la guía de Postman y la colección de pacientes (`has_photo`); este documento, el registro (R-026), el handoff y los documentos de estado |
+
+**Endpoints.**
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| POST | `patients/{patient}/photo` | `patients.upload-photo` | 200, `ShowPatientResource` | 404; 413 `PAYLOAD_TOO_LARGE`; 422 `VALIDATION_ERROR` |
+| GET | `patients/{patient}/photo` | `patients.show-photo` | 200, el archivo (`Content-Type` del tipo guardado, `nosniff`, `Content-Disposition: inline`, `Cache-Control: private, no-store`) | 404 `PATIENT_PHOTO_NOT_FOUND` o `RESOURCE_NOT_FOUND` |
+| DELETE | `patients/{patient}/photo` | `patients.delete-photo` | 200, `ShowPatientResource` | 404 `PATIENT_PHOTO_NOT_FOUND` o `RESOURCE_NOT_FOUND` |
+
+**Tests.** Suite del 2026-11-06: 606 casos con los *data providers*; en SQLite, 6684 aserciones con 2 omitidos (solo
+de MySQL); contra MySQL 8.4.3 (`syncvet_test_mysql`), 6700 aserciones sin omitidos. Frente al cierre de la 1.4: 29 casos y 235 aserciones más en las dos bases.
+La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `PatientPhotoTest` | 28 | 170 | JPG, PNG y WEBP guardados en `clinics/{clinic}/patients/{patient}/{uuid}.{ext}`, sin el nombre original, con su contenido y su tipo; los dos roles suben, ven y borran; la extensión sale del contenido (un PNG llamado `.jpg` se guarda `.png`); un texto con extensión `.jpg`, un SVG (también llamado `.png`) y un GIF → 422; sin archivo → 422; 5 MB pasa y un byte más → 413; el archivo cortado por PHP (`upload_max_filesize` y `post_max_size`) → 413; el reemplazo borra el anterior; si la transacción falla, se borra el nuevo; el anterior se borra solo después del commit; descarga con `Content-Type`, `nosniff`, `private, no-store` y el nombre con el código; sin foto → 404 al ver y al borrar; borrado; otra clínica → 404 y no se toca; archivo perdido → 404 con aviso en el log; un fallecido sube y borra; auditoría; la baja del paciente deja el archivo; el paciente se bloquea antes de leer la foto anterior (`for update` en MySQL) |
+| `ErrorResponseTest` | 8 | 19 | Suma `PostTooLargeException` → 413 `PAYLOAD_TOO_LARGE` |
+| `PatientStoreTest` | 18 | 50 | El detalle muestra `has_photo` y no `photo_path` |
+
+**Protecciones quitadas de a una.** Doce, cada una hace fallar al menos un test: `mimetypes` (un GIF pasaba con solo `image`), el
+413 de la foto grande, el borrado del archivo anterior, el borrado después del commit (borrarlo antes), la extensión del tipo
+detectado (usar la del archivo subido), `nosniff`, `no-store`, el nombre al azar (usar el original), el borrado del archivo nuevo
+si la transacción falla, `photo_path` fuera de la respuesta, el aviso del archivo perdido en el log y el bloqueo del paciente (en
+MySQL).
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| Una foto de más de 5 MB responde 413 `PAYLOAD_TOO_LARGE` (con `errors.photo`), no 422 | Lo pidió el usuario al autorizar la entrega: el mismo código que el pedido cortado por `post_max_size`. También el archivo cortado por `upload_max_filesize` | Usuario |
+| Un fallecido sube y borra la foto, sin `PATIENT_DECEASED` | La tabla de endpoints del diseño listaba el 422, pero la respuesta a la pregunta 12 lo exceptúa; el usuario lo confirmó al autorizar | Usuario |
+| `Content-Disposition: inline; filename=PAC-000001.png`, sin comillas | Symfony solo las agrega si el nombre las necesita; el código del paciente no las necesita | Implementación |
+| `photo_path` se lee con la fila del paciente bloqueada (`lockForUpdate`) | Dos subidas simultáneas leían la misma foto anterior y una dejaba su archivo huérfano | Implementación |
+| Borrar la foto con `photo_path` y sin archivo responde 200 y deja `photo_path` nulo | El diseño no lo fijaba; la foto ya no existe y el paciente queda sin foto | Implementación |
+| Si el disco no guarda el archivo, 500 genérico (`INTERNAL_SERVER_ERROR`, se reporta) | Es una falla del servidor, no una regla de negocio | Implementación |
+| Los tests usan archivos reales versionados (`tests/Fixtures/photos`), no `UploadedFile::fake()` | El archivo falso informa el tipo según el nombre: no probaría la detección por contenido | Implementación |
+| Se suma un GIF a los archivos rechazados | `image` acepta GIF y BMP: solo `mimetypes` los rechaza, y sin el caso esa protección no tenía test | Implementación |
+
+**Validación con Postman (Newman).** Sobre `syncvet` con el `DemoSeeder` y los roles sembrados otra vez (sin recrear la base), desde
+la raíz del repositorio: la colección de la foto corrió dos veces seguidas, 23 requests y 60 aserciones en verde cada vez.
+Especies (41 requests, 93 aserciones), clientes (24 y 48) y pacientes (30 y 61) corrieron después, en verde; la de pacientes
+fallaba en un paso que exigía `photo_path` y ahora exige `has_photo`.
+
+**Aviso.** El disco `local` de Laravel trae `serve => true` (`config/filesystems.php`): sirve sus archivos solo con una URL firmada y
+temporal, que la API no genera. La foto sale solo por `GET patients/{patient}/photo`.
