@@ -21,7 +21,6 @@ class ShowPatientResource extends PatientResource
             'photo_path' => $this->photo_path,
             'allergies' => $this->allergies,
             'notes' => $this->notes,
-            'custom_fields' => $this->custom_fields,
             'deceased_at' => $this->deceased_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

@@ -2,6 +2,7 @@
 
 namespace Tests\Concerns;
 
+use App\Enums\PatientApplicationType;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
@@ -9,7 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Consultas y facturas mínimas para las reglas de uso de clientes y pacientes
+ * Consultas, aplicaciones, turnos y facturas mínimas para las reglas de uso de clientes y pacientes
  * (FASE 1). Se insertan con las filas que exigen sus claves foráneas (sucursal,
  * usuario y veterinario), sin los Services de las fases que las crean.
  */
@@ -27,6 +28,49 @@ trait InteractsWithClinicalRecords
             'client_id' => ($client ?? $patient->client)->id,
             'veterinarian_id' => $this->testVeterinarianId($clinic),
             'consulted_at' => now(),
+            'created_by' => $this->testRecordsUser($clinic)->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    protected function applicationFor(Patient $patient): int
+    {
+        $clinic = $patient->clinic;
+
+        return DB::table('patient_applications')->insertGetId([
+            'clinic_id' => $clinic->id,
+            'patient_id' => $patient->id,
+            'type' => PatientApplicationType::VACCINE->value,
+            'name' => 'Antirrábica',
+            'applied_at' => now(),
+            'created_by' => $this->testRecordsUser($clinic)->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    protected function appointmentFor(Patient $patient): int
+    {
+        $clinic = $patient->clinic;
+        $branchId = $this->testBranchId($clinic);
+
+        $scheduleId = DB::table('schedules')->insertGetId([
+            'clinic_id' => $clinic->id,
+            'branch_id' => $branchId,
+            'name' => 'Agenda de prueba',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::table('appointments')->insertGetId([
+            'clinic_id' => $clinic->id,
+            'branch_id' => $branchId,
+            'schedule_id' => $scheduleId,
+            'client_id' => $patient->client_id,
+            'patient_id' => $patient->id,
+            'starts_at' => now()->addDay(),
+            'ends_at' => now()->addDay()->addMinutes(30),
             'created_by' => $this->testRecordsUser($clinic)->id,
             'created_at' => now(),
             'updated_at' => now(),

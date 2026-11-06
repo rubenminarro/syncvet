@@ -204,7 +204,6 @@ return [
         'weight_kg' => 'peso',
         'microchip' => 'microchip',
         'allergies' => 'alergias',
-        'custom_fields' => 'campos personalizados',
         'deceased_at' => 'fecha de fallecimiento',
 
         // Autenticación

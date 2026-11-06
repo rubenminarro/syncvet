@@ -8,6 +8,8 @@ use App\Models\Breed;
 use App\Models\Client;
 use App\Models\Patient;
 use App\Support\DeletedSuffix;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +36,10 @@ class PatientService
     public function update(Patient $patient, array $data): Patient
     {
         $this->ensureNotDeceased($patient, $data);
+
+        if (! empty($data['deceased_at'])) {
+            $data['deceased_at'] = $this->toAppTimezone($data['deceased_at']);
+        }
 
         $this->ensureBreedMatchesSpecies(
             $data['species_id'] ?? $patient->species_id,
@@ -77,14 +83,25 @@ class PatientService
 
         DB::transaction(function () use ($patient) {
             if ($patient->microchip) {
-                // La columna tiene 30 caracteres hasta la entrega 1.3, que la amplía:
-                // un chip ISO de 15 conserva entero un id de hasta 5 dígitos.
-                $patient->microchip = substr($patient->microchip . DeletedSuffix::for($patient), 0, 30);
+                // La columna tiene 60 caracteres (entrega 1.3): 30 del chip más el
+                // sufijo entero, con el id; sin cortar, dos bajas del mismo chip no chocan.
+                $patient->microchip .= DeletedSuffix::for($patient);
                 $patient->save();
             }
 
             $patient->delete();
         });
+    }
+
+    /**
+     * La API recibe las fechas con hora en UTC ("Z") o con su desplazamiento; la
+     * base guarda la hora de America/Asuncion. Sin convertir, el cast del modelo
+     * guardaba la hora UTC como si fuera local (3 horas corrida). Deuda 13: llevar
+     * la conversión de todas las fechas con hora a un lugar común antes de la FASE 3.
+     */
+    private function toAppTimezone(string $value): CarbonInterface
+    {
+        return Date::parse($value)->setTimezone(config('app.timezone'));
     }
 
     private function ensureBreedMatchesSpecies(int $speciesId, ?int $breedId): void

@@ -1,6 +1,6 @@
 # FASE 1 — Clientes y pacientes
 
-Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017) y 1.2 (R-019) cerradas. El estado
+Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017), 1.2 (R-019) y 1.3 (R-020) cerradas. El estado
 vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
@@ -18,7 +18,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 |---|---|---|---|
 | 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | COMPLETADO (R-017) |
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
-| 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | PENDIENTE |
+| 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020) |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | PENDIENTE |
 | 1.5 | Foto del paciente en disco privado | 1.4 | PENDIENTE |
 
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerradas: 1.1 y 1.2. Pendientes: 1.3 a 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2 y 1.3. Pendientes: 1.4 y 1.5.
 
 ### Entrega 1.1
 
@@ -429,7 +429,7 @@ restante, la línea del Service que agregaba el sufijo a la base, sobrevivía po
 | 3 | Baja | Email en minúsculas al editar, sin test | Corregido: test en `ClientUpdateTest` |
 | 4 | Baja | Un obligatorio vacío al editar daba tres mensajes de formato; al cambiar de tipo, `null` en los campos del otro tipo daba 422 | Corregido: la edición valida como el alta |
 | 5 | Baja | El mismo documento entraba dos veces como `99999903`, `099999903` y `99999903-6` | Corregido: `document_base` (R-018) |
-| 6 | Baja | Con un chip de 15 y un id de más de 5 dígitos, dos bajas del mismo microchip pueden chocar | Pendiente: entrega 1.3 |
+| 6 | Baja | Con un chip de 15 y un id de más de 5 dígitos, dos bajas del mismo microchip pueden chocar | Corregido en la entrega 1.3: microchip a 60, sufijo sin cortar |
 
 **Validación con Postman.** El usuario corrió la colección (21 pasos, 24 requests) con el Collection Runner contra `syncvet`
 recreada con el `DemoSeeder`: 48 pruebas en verde, ninguna fallida. El Runner marcó además "Errors 1": PENDIENTE DE
@@ -439,3 +439,63 @@ log de la API no tiene errores de esa corrida: no se reprodujo y la colección n
 **Preparación.** En esta validación el primer login dio 500: `syncvet` tenía el esquema anterior a la entrega 0.2 (sin
 `audit_logs.clinic_id`) y el `.env` no tenía `DEMO_PASSWORD`. No fue un error del código; quedó documentado en
 [`development/setup.md`](../development/setup.md).
+
+### Entrega 1.3
+
+Un commit en `feature/fase-01-03-pacientes`, creada desde `feature/fase-01-02-clientes`. Segundo intento: el primero quedó sin
+subir en otra computadora y se descartó; lo que ese intento encontró y el usuario aprobó se aplicó directamente (tabla de
+desvíos). Decisiones en [R-020](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | Migración `2026_11_06_000000_widen_patients_microchip` (microchip a 60); `tests/Feature/Patients` (`PatientStoreTest`, `PatientUpdateTest`, `PatientChangeOwnerTest`, `PatientDeceasedTest`, `PatientSearchTest`); `docs/testing/postman/syncvet-fase-01-pacientes.postman_collection.json` |
+| Cambiados | `StorePatientRequest` (`code` prohibido, sin `custom_fields`), `UpdatePatientRequest` (sin `custom_fields`; especie y raza activas o las que el paciente ya tiene), `PatientMessages` y `lang/es/validation.php` (sin `custom_fields`), `ShowPatientResource` (sin `custom_fields`), `PatientService` (sufijo del microchip sin cortar; `deceased_at` a la hora de Asunción); la colección de clientes (valores únicos por corrida) |
+| Tests cambiados | `PatientDeleteTest` (reescrito con las reglas de baja), `ValidationTranslationsTest` (sin `custom_fields`), `InteractsWithClinicalRecords` (aplicaciones y turnos mínimos), `InteractsWithClinics` (razas globales, especies propias y datos del alta de un paciente) |
+| Documentación | `CLAUDE.md` §1, §6.2 y §7; `README.md` (31 migraciones); la guía de Postman; este documento, el registro (R-020), la deuda técnica (1 resuelta, 13 nueva), el handoff y los documentos de estado |
+
+**Endpoints.** Ninguno nuevo; sin cambios de rutas, permisos ni `error_code`. Cambia:
+
+* `POST /api/clients/{client}/patients`: `code` en el cuerpo → 422 (antes se ignoraba); `custom_fields` se ignora.
+* `PATCH`/`PUT /api/patients/{id}`: se acepta la especie o la raza que el paciente ya tiene aunque esté inactiva (antes, 422);
+  `custom_fields` se ignora (antes se guardaba); `deceased_at` en UTC se guarda en la hora de Asunción (antes, 3 horas corrida).
+* El detalle del paciente ya no trae `custom_fields`. `photo_path` sigue hasta la 1.5.
+* `DELETE /api/patients/{id}`: el sufijo del microchip ya no se corta.
+
+**Tests.** Suite del 2026-11-06: 434 casos con los *data providers*; en SQLite, 5579 aserciones con 2 omitidos (solo de MySQL);
+contra MySQL 8.4.3 (`syncvet_test_mysql`), 5595 aserciones sin omitidos. Frente a la 1.2: 66 casos y 208 aserciones más en las
+dos bases. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `PatientStoreTest` | 18 | 50 | El dueño sale de la URL (un `client_id` en el cuerpo no lo cambia); dueño de otra clínica → 404; `PAC-` correlativo por clínica; `code` → 422; raza de otra especie → `PATIENT_BREED_SPECIES_MISMATCH`; especie o raza propia activa; inactiva o de otra clínica → 422; peso con 3 decimales, cero o más de 2000 → 422; nacimiento futuro → 422; microchip único y de hasta 30; `custom_fields` ignorado y fuera de la respuesta; `photo_path` presente |
+| `PatientUpdateTest` | 10 | 36 | `client_id` y `code` → 422; cambiar la especie dejando la raza anterior → `PATIENT_BREED_SPECIES_MISMATCH`; cambiar las dos; conservar una especie y una raza inactivas que ya tenía → 200 (con `PUT`); otra inactiva → 422; especie de otra clínica → 422; `custom_fields` ignorado; microchip único ignorando al propio; paciente de otra clínica → 404 |
+| `PatientChangeOwnerTest` | 8 | 21 | Cambio → 200 con el nuevo `client`; el mismo dueño → `PATIENT_SAME_OWNER`; cliente de otra clínica o eliminado → 422; dueño obligatorio; la consulta anterior conserva su `client_id`; el dueño de un fallecido se cambia; el veterinario recibe 403 |
+| `PatientDeceasedTest` | 9 | 37 | Fallecido: solo fecha y notas (otro campo → `PATIENT_DECEASED`); quitar la fecha lo reactiva; fecha futura → 422; `deceased_at` en UTC, con milisegundos, con desplazamiento y sin zona se guarda en la hora de Asunción y vuelve en UTC; el listado lo oculta salvo `include_deceased=1`; `include_deceased` inválido → 422 |
+| `PatientDeleteTest` | 8 | 29 | Baja sin uso; consultas, aplicaciones o turnos → `PATIENT_IN_USE` (uno por caso); microchip liberado y alta otra vez; dos bajas del mismo chip en el mismo segundo; un chip de 30 con un id de 9 dígitos llena los 60 sin cortar; el recepcionista recibe 403 |
+| `PatientSearchTest` | 14 | 44 | `search` por nombre, código, microchip y nombre, apellido, razón social, documento y teléfono del dueño; sin resultados; filtro `species_id` y su 422; paginación; solo la clínica; listado anidado solo con los de ese cliente |
+
+**Protecciones quitadas de a una.** Seis, cada una hace fallar un test: `code` prohibido en el alta, la excepción de la especie
+o raza actual, la exigencia de `is_active` para otra, la conversión de `deceased_at`, el sufijo del microchip sin cortar (con el
+corte a 30, falla el chip de 30 con un id de 9 dígitos) y `custom_fields` fuera de la respuesta.
+
+**Migración.** Probada en MySQL 8.4.3 (`syncvet_test_mysql`): subir (60), bajar (30) y subir (60), con el índice único
+`patients_clinic_id_microchip_unique` y la columna nula intactos.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| El microchip pasa a 60 caracteres, no a 50 (pregunta 15) | 30 del chip más el sufijo entero con un id de hasta 9 dígitos | Usuario (primer intento) |
+| `photo_path` sigue en la respuesta; `has_photo` (pregunta 14) queda para la 1.5 | La foto se diseña y se cambia junta, en la 1.5 | Usuario (primer intento) |
+| `deceased_at` se convierte de UTC a `America/Asuncion` en `PatientService` | Error encontrado por un test: se guardaba 3 horas corrida. La conversión general queda como deuda 13 | Usuario (primer intento) |
+| `PATIENT_IN_USE` se prueba solo en PHPUnit | La API todavía no crea consultas, aplicaciones ni turnos | Usuario (primer intento) |
+| `code` prohibido también en el alta (el código lo ignoraba) | Que no parezca que el código enviado se guardó | Usuario (primer intento) |
+| Colección de Postman de pacientes, y la de clientes repetible (valores únicos por corrida) | Validar sin recrear la base cada vez | Usuario (primer intento) |
+| Tests no previstos: dueño de otra clínica en la URL, especie de otra clínica al editar, `include_deceased` inválido, chip de 30 con id de 9 dígitos | Cubren los bordes de las reglas cambiadas | Implementación |
+
+**Validación con Postman (Newman).** Sobre `syncvet` con el `DemoSeeder` y la migración nueva aplicada (sin recrear la base),
+cada colección corrió dos veces seguidas: clientes, 24 requests y 48 aserciones en verde las dos veces; pacientes, 30 requests y 61
+aserciones en verde las dos veces. Una tercera corrida de clientes después de pacientes, también en verde. El log de la API no tiene
+errores.

@@ -110,14 +110,15 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 | 16 | `PATCH /api/clients/{id}` de la empresa con `{"kind":"person","first_name":"Rosa","last_name":"Benítez","business_name":null}` | | 200, `data.display_name` = "Rosa Benítez" (R-018) |
 | 17 | `GET /api/clients?per_page=abc`, `?per_page=100000` y `?search[]=x` | | 422 `VALIDATION_ERROR`, nunca 500 (R-018) |
 
-### Validación de clientes con la colección (entrega 1.2, R-018)
+### Validación de clientes con la colección (entrega 1.2, R-018; repetible desde la 1.3, R-020)
 
 La colección [`postman/syncvet-fase-01-clientes.postman_collection.json`](postman/syncvet-fase-01-clientes.postman_collection.json)
 tiene los 21 pasos de la validación de clientes, en orden. Cada request lleva sus encabezados, su body y un test que verifica
 el código HTTP y el dato clave. Los logins guardan los tokens (`token` y `token_admin`) y las altas y la búsqueda guardan los
 ids que usan los pasos siguientes (`juan_id`, `empresa_id`, `laura_id`): no hay que copiar nada a mano.
 
-**Preparación.** Recrear la base con el `DemoSeeder` (ver **Datos**, al comienzo) y levantar el servidor en el puerto 8001:
+**Preparación.** Una base con el `DemoSeeder` y las migraciones al día (ver **Datos**, al comienzo): la primera vez, o después de
+cambiar a una rama con migraciones nuevas, recrearla o correr `php artisan migrate`. Levantar el servidor en el puerto 8001:
 
 ```bash
 php artisan migrate:fresh --seed
@@ -133,8 +134,10 @@ php artisan serve --port=8001
 3. **Run collection** (Collection Runner): correrla entera, en orden, sin cambiar el orden de los requests. Esperado: todos los
    tests en verde.
 
-Corre sobre una base recién recreada: crea y da de baja clientes, así que una segunda corrida falla en las altas hasta volver
-a recrear la base. Los emails nuevos usan `mailinator.com`: con `EMAIL_DNS_CHECK=true` (el valor del `.env`), la validación
+Se puede correr más de una vez sin recrear la base: el primer request (01a) genera un número de corrida y, con él, el documento
+y el email de Juan (`juan_doc`, `juan_ruc` con su dígito verificador y `juan_email`) y los de la empresa (`empresa_base`,
+`empresa_ruc` y `empresa_email`). Son documentos ficticios `99xxxxxx` (R-011), con la corrida entre 500000 y 999999, lejos de los
+del `DemoSeeder` y de los fijos de la colección. En la tabla, "de la corrida" indica esos valores. Los emails nuevos usan `mailinator.com`: con `EMAIL_DNS_CHECK=true` (el valor del `.env`), la validación
 consulta el MX del dominio y rechaza `example.com` (tiene un MX nulo) y los dominios sin servidor de correo.
 
 Usuarios de la clínica A: recepción es `recepcion-a@example.com` (`{{token}}`); admin es `admin-a@example.com`
@@ -143,12 +146,12 @@ Usuarios de la clínica A: recepción es `recepcion-a@example.com` (`{{token}}`)
 | # | Paso | Request | Usuario | Body | Esperado |
 |---|---|---|---|---|---|
 | 1 | Login | `POST /login` (dos requests: 01a y 01b) | — | `{"email":"recepcion-a@example.com","password":"{{demo_password}}"}` y lo mismo con `admin-a@example.com` | 200, `data.token` → `token` y `token_admin` |
-| 2 | Alta de una persona | `POST /clients` | recepción | `{"document_number":"99300001","first_name":"Juan","last_name":"Pérez","email":"juan.perez@mailinator.com","phone":"+595981300001"}` | 201 "Cliente creado correctamente.", `display_name` = "Juan Pérez" → `juan_id` |
-| 3 | Alta de una empresa | `POST /clients` | recepción | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@mailinator.com","phone":"+595981300002"}` | 201, `display_name` = "Haras del Sur SA", nombre y apellido en `null` → `empresa_id` |
+| 2 | Alta de una persona | `POST /clients` | recepción | `{"document_number":"{{juan_doc}}","first_name":"Juan","last_name":"Pérez","email":"{{juan_email}}","phone":"+595981300001"}`, documento y email de la corrida | 201 "Cliente creado correctamente.", `display_name` = "Juan Pérez" → `juan_id` |
+| 3 | Alta de una empresa | `POST /clients` | recepción | `{"kind":"company","document_number":"{{empresa_ruc}}","business_name":"Haras del Sur SA","email":"{{empresa_email}}","phone":"+595981300002"}`, RUC y email de la corrida | 201, `display_name` = "Haras del Sur SA", nombre y apellido en `null` → `empresa_id` |
 | 4 | Empresa con nombre | `POST /clients` | recepción | Una empresa (`99300003`) con `"first_name":"Juan"` | 422, `errors.first_name` = ["Una empresa no lleva nombre: usá la razón social."] |
 | 5 | RUC con el dígito equivocado | `POST /clients` | recepción | Como el 2, con el número `99300002` y el dígito 8 (el correcto es 9) | 422, `errors.document_number` = ["El RUC no es válido: revisá el número y el dígito verificador."] |
 | 6 | Documento repetido como cédula | `POST /clients` | recepción | Como el 2, con `"document_number":"099100001"` (Laura con un cero) | 422, `errors.document_number` = ["Este número de documento ya está en uso."] |
-| 7 | Documento repetido como RUC | `POST /clients` (dos requests: 07a y 07b) | recepción | Como el 2, con `"99100001-3"` (Laura) y con `"99999905"` (la empresa del 3, sin dígito) | 422, el mismo mensaje en los dos |
+| 7 | Documento repetido como RUC | `POST /clients` (dos requests: 07a y 07b) | recepción | Como el 2, con `"99100001-3"` (Laura) y con `"{{empresa_base}}"` (la empresa del 3, sin dígito) | 422, el mismo mensaje en los dos |
 | 8 | Edición | `PATCH /clients/{{juan_id}}` | recepción | `{"phone":"+595981399999","city":"Asunción"}` | 200 "Cliente actualizado correctamente.", con los datos nuevos |
 | 9 | Email con mayúsculas | `PATCH /clients/{{juan_id}}` | recepción | `{"email":"Juan@Mailinator.com"}` | 422, `errors.email` = ["El correo debe estar en minúsculas."] |
 | 10 | Nombre vacío | `PATCH /clients/{{juan_id}}` | recepción | `{"first_name":null}` | 422, `errors.first_name` = ["El nombre es obligatorio."], un solo mensaje |
@@ -162,4 +165,56 @@ Usuarios de la clínica A: recepción es `recepcion-a@example.com` (`{{token}}`)
 | 18 | Baja por el recepcionista | `DELETE /clients/{{laura_id}}` | recepción | — | 403 `FORBIDDEN` |
 | 19 | Baja con pacientes | `DELETE /clients/{{laura_id}}` | admin | — | 409 `CLIENT_IN_USE`, "El cliente tiene pacientes, consultas o facturas y no puede eliminarse." |
 | 20 | Baja sin pacientes | `DELETE /clients/{{juan_id}}` y después `GET /clients/{{juan_id}}` (20a y 20b) | admin y recepción | — | 200 "Cliente eliminado correctamente."; después 404 `RESOURCE_NOT_FOUND` |
-| 21 | Documento liberado | `POST /clients` | recepción | Como el 2, con `"document_number":"99300001-0"` | 201: la baja liberó el documento (también como RUC) y el email |
+| 21 | Documento liberado | `POST /clients` | recepción | Como el 2, con `"document_number":"{{juan_ruc}}"` (el documento de Juan como RUC) | 201: la baja liberó el documento (también como RUC) y el email |
+
+### Validación de pacientes con la colección (entrega 1.3, R-020)
+
+La colección [`postman/syncvet-fase-01-pacientes.postman_collection.json`](postman/syncvet-fase-01-pacientes.postman_collection.json)
+tiene los 26 pasos de la validación de pacientes (30 requests), en orden, con la misma preparación y la misma forma de importarla y
+correrla que la de clientes. También se corre más de una vez sin recrear la base: el primer request genera la corrida y, con ella,
+el documento y el email de Ana y de Pedro (`ana_doc`, `ana_email`, `pedro_doc`, `pedro_email`) y el microchip (`chip`, `CHIP` más
+la corrida). Los ids que usan los pasos siguientes se guardan solos (`canino_id`, `felino_id`, `beagle_id`, `siames_id`, `ana_id`,
+`pedro_id`, `bolita_id`).
+
+`PATIENT_IN_USE` (409) no está en la colección: la API todavía no crea consultas, aplicaciones ni turnos; lo prueba
+`PatientDeleteTest`. La especie o raza inactiva tampoco: no hay ABM de especies hasta la 1.4; lo prueban `PatientStoreTest` y
+`PatientUpdateTest`.
+
+Usuarios de la clínica A: recepción (`{{token}}`), admin (`{{token_admin}}`) y `vet-a@example.com` (`{{token_vet}}`).
+
+| # | Paso | Request | Usuario | Body | Esperado |
+|---|---|---|---|---|---|
+| 1 | Login | `POST /login` (01a, 01b y 01c) | — | recepción, admin y veterinario | 200 → `token`, `token_admin` y `token_vet` |
+| 2 | Especies y razas | `GET /species` | recepción | — | 200 → ids de Canino, Felino, Beagle y Siamés |
+| 3 | Alta de la dueña | `POST /clients` | recepción | Ana Villalba, documento y email de la corrida | 201 → `ana_id` |
+| 4 | Alta de otro cliente | `POST /clients` | recepción | Pedro Acosta, documento y email de la corrida | 201 → `pedro_id` |
+| 5 | Alta de Bolita | `POST /clients/{{ana_id}}/patients` | recepción | `{"name":"Bolita","species_id":{{canino_id}},"breed_id":{{beagle_id}},"sex":"male","birth_date":"2023-01-10","weight_kg":12.5,"microchip":"{{chip}}","client_id":{{pedro_id}},"custom_fields":{"collar":"rojo"}}` | 201 "Paciente creado correctamente.", `code` `PAC-…`, `client.id` = Ana (el `client_id` del body se ignora), `weight_kg` = "12.50", sin `custom_fields` y con `photo_path` → `bolita_id` |
+| 6 | Código en el alta | `POST /clients/{{ana_id}}/patients` | recepción | Con `"code":"PAC-999999"` | 422, `errors.code` = ["El código del paciente se asigna automáticamente."] |
+| 7 | Raza de otra especie | `POST /clients/{{ana_id}}/patients` | recepción | Canino con Siamés | 422 `PATIENT_BREED_SPECIES_MISMATCH`, "La raza no corresponde a la especie del paciente." |
+| 8 | Microchip repetido | `POST /clients/{{ana_id}}/patients` | recepción | Con `"microchip":"{{chip}}"` | 422, `errors.microchip` = ["Este microchip ya está registrado en otro paciente."] |
+| 9 | Peso con 3 decimales | `POST /clients/{{ana_id}}/patients` | recepción | `"weight_kg":1.234` | 422, `errors.weight_kg` = ["El peso admite hasta 2 decimales."] |
+| 10 | Dueño en la edición | `PATCH /patients/{{bolita_id}}` | recepción | `{"client_id":{{pedro_id}}}` | 422, `errors.client_id` = ["El dueño se cambia con la acción \"cambiar dueño\"."] |
+| 11 | Especie con la raza anterior | `PATCH /patients/{{bolita_id}}` | recepción | `{"species_id":{{felino_id}}}` | 422 `PATIENT_BREED_SPECIES_MISMATCH` |
+| 12 | Edición | `PATCH /patients/{{bolita_id}}` | recepción | `{"color":"Blanco y negro","weight_kg":13}` | 200 "Paciente actualizado correctamente.", `weight_kg` = "13.00" |
+| 13 | Cambio de dueño | `POST /patients/{{bolita_id}}/change-owner` | recepción | `{"client_id":{{pedro_id}}}` | 200 "Dueño del paciente actualizado correctamente.", `client.display_name` = "Pedro Acosta" |
+| 14 | El mismo dueño | `POST /patients/{{bolita_id}}/change-owner` | recepción | Pedro otra vez | 422 `PATIENT_SAME_OWNER`, "El paciente ya pertenece a ese cliente." |
+| 15 | Cambio por el veterinario | `POST /patients/{{bolita_id}}/change-owner` | veterinario | `{"client_id":{{ana_id}}}` | 403 `FORBIDDEN` |
+| 16 | Búsqueda por microchip | `GET /patients?search={{chip}}` | recepción | — | 200, un resultado: Bolita |
+| 17 | Búsqueda por el dueño | `GET /patients?search={{pedro_doc}}` | recepción | — | 200, un resultado: Bolita |
+| 18 | Pacientes de Pedro | `GET /clients/{{pedro_id}}/patients` | recepción | — | 200, solo Bolita |
+| 19 | Fallecimiento | `PATCH /patients/{{bolita_id}}` | recepción | `{"deceased_at":"2025-11-05T13:00:00Z","notes":"Falleció en la clínica."}` | 200, `is_deceased` = `true`, `deceased_at` = "2025-11-05T13:00:00.000000Z" (la base guarda las 10:00 de Asunción) |
+| 20 | Edición de un fallecido | `PATCH /patients/{{bolita_id}}` | recepción | `{"name":"Bolita II"}` | 422 `PATIENT_DECEASED` |
+| 21 | Listado sin y con fallecidos | `GET /patients?search={{chip}}` y con `&include_deceased=1` (21a y 21b) | recepción | — | 200, `total` 0 y después 1 |
+| 22 | Cambio de dueño de un fallecido | `POST /patients/{{bolita_id}}/change-owner` | recepción | `{"client_id":{{ana_id}}}` | 200: se permite (pregunta 17 del diseño) |
+| 23 | Filtro mal formado | `GET /patients?per_page=abc` | recepción | — | 422 `VALIDATION_ERROR` con `errors.per_page`, nunca 500 |
+| 24 | Baja por el recepcionista | `DELETE /patients/{{bolita_id}}` | recepción | — | 403 `FORBIDDEN` |
+| 25 | Baja | `DELETE /patients/{{bolita_id}}` y después `GET /patients/{{bolita_id}}` (25a y 25b) | admin y recepción | — | 200 "Paciente eliminado correctamente."; después 404 `RESOURCE_NOT_FOUND` |
+| 26 | Microchip liberado | `POST /clients/{{ana_id}}/patients` | recepción | Como el 5, con el nombre "Bolita Segunda" | 201 con el mismo microchip |
+
+**Con Newman.** Las dos colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
+que tiene prioridad sobre la de la colección):
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-01-clientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/testing/postman/syncvet-fase-01-pacientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```

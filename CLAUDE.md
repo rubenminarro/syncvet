@@ -20,14 +20,16 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
-* **Base de datos:** MySQL 8. Esquema del MVP completo (30 migraciones). Una base compartida por todas las clínicas, con
+* **Base de datos:** MySQL 8. Esquema del MVP completo (31 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
-  (traducciones, voseo y `PUT`/`PATCH`, R-017) y 1.2 (clientes, R-018 y R-019) cerradas; sigue la 1.3 (pacientes).
+  (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019) y 1.3 (pacientes, R-020) cerradas; sigue la
+  1.4 (especies y razas).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
-  clientes (`tests/Feature/Clients`). Validación manual de clientes con la colección de Postman de `docs/testing/postman`.
+  clientes y de pacientes (`tests/Feature/Clients`, `tests/Feature/Patients`). Validación manual de clientes y de pacientes con
+  las colecciones de Postman de `docs/testing/postman`, que se pueden correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes y especies (ejemplo
   de referencia de la arquitectura).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
@@ -234,14 +236,22 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 
 ### 6.2 Pacientes
 
-* Código `PAC-…`. Alta en `clients/{client}/patients` (el dueño sale de la URL).
+* Código `PAC-…`. Alta en `clients/{client}/patients` (el dueño sale de la URL; un `client_id` en el cuerpo se ignora). El
+  código lo asigna la serie: `code` en el alta o en la edición → 422 (`prohibited`).
+* `custom_fields` no forma parte de la API (R-015): los Requests no lo aceptan (si llega, se ignora) y la respuesta no lo
+  muestra. La columna y el cast del modelo quedan. `photo_path` sigue en la respuesta hasta la entrega 1.5.
 * La raza debe ser de la especie (`PATIENT_BREED_SPECIES_MISMATCH`, 422).
+* Especie y raza: globales o de la clínica, y activas. Al editar se acepta también la que el paciente ya tiene aunque se haya
+  inactivado (el formulario la reenvía); otra inactiva → 422.
 * El dueño se cambia solo con `POST patients/{patient}/change-owner` (`client_id` es `prohibited` en el PATCH); el mismo
-  dueño → `PATIENT_SAME_OWNER` (422). Las consultas guardan el dueño de ese momento (`consultations.client_id`).
+  dueño → `PATIENT_SAME_OWNER` (422). Las consultas guardan el dueño de ese momento (`consultations.client_id`). El dueño
+  de un paciente fallecido también se cambia (corrige errores de carga).
 * Paciente fallecido (`deceased_at`): solo se editan la fecha de fallecimiento y las notas (`PATIENT_DECEASED`, 422). El
-  listado los oculta salvo `include_deceased=1`.
+  listado los oculta salvo `include_deceased=1`. `deceased_at` llega en UTC (o con su desplazamiento) y se guarda en la hora
+  de `America/Asuncion` (`PatientService`; deuda 13).
 * No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento.
-* `microchip` único; al eliminar se libera con el sufijo.
+* `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
+  `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).
 
 ### 6.3 Pendientes de diseño (reglas a definir antes de programar)
 
@@ -261,9 +271,10 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 
 | # | Deuda |
 |---|---|
-| 1 | Pacientes sin tests funcionales de PHPUnit (los de clientes, en la entrega 1.2); se cierra con la 1.3 |
+
 | 2 | Modelos generados desde el esquema: revisar relaciones y casts al usarlos |
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 8 | `scopeBindings()` sin test: hoy no hay rutas con dos parámetros anidados; se agrega con la primera |
+| 13 | Fechas con hora de la API: solo `deceased_at` se convierte de UTC a `America/Asuncion`; llevarlo a un lugar común antes de la FASE 3 |

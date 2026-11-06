@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 1: validación de clientes",
-        "description": "Validación manual de clientes (FASE 1, entrega 1.2; R-018). Correrla entera y en orden con el Collection Runner, sobre una base recién recreada con el DemoSeeder: crea y da de baja clientes, así que una segunda corrida sin recrear la base falla. Completar la variable demo_password con la DEMO_PASSWORD del .env. Ver docs/testing/guia-postman.md.",
+        "description": "Validación manual de clientes (FASE 1, entregas 1.2 y 1.3; R-018). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Se puede correr más de una vez sin recrear la base: el primer request genera documentos y emails únicos de la corrida. Completar la variable demo_password con la DEMO_PASSWORD del .env. Ver docs/testing/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {
@@ -49,12 +49,76 @@
             "key": "laura_id",
             "value": "",
             "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "juan_doc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "juan_ruc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "juan_email",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "empresa_base",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "empresa_ruc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "empresa_email",
+            "value": "",
+            "type": "string"
         }
     ],
     "item": [
         {
             "name": "01a Login del recepcionista (clínica A)",
             "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
+                            "// Documentos ficticios 99xxxxxx (R-011), lejos de los del DemoSeeder (991… y 992…) y de los fijos de esta colección (993…).",
+                            "const run = 500000 + Math.floor(Math.random() * 499998);",
+                            "const dv = (number) => {",
+                            "    let total = 0;",
+                            "    let factor = 2;",
+                            "    for (const digit of String(number).split('').reverse()) {",
+                            "        if (factor > 11) factor = 2;",
+                            "        total += Number(digit) * factor;",
+                            "        factor++;",
+                            "    }",
+                            "    const remainder = total % 11;",
+                            "    return remainder > 1 ? 11 - remainder : 0;",
+                            "};",
+                            "pm.collectionVariables.set('run', String(run));",
+                            "pm.collectionVariables.set('juan_doc', `99${run}`);",
+                            "pm.collectionVariables.set('juan_ruc', `99${run}-${dv('99' + run)}`);",
+                            "pm.collectionVariables.set('juan_email', `juan.perez.${run}@mailinator.com`);",
+                            "pm.collectionVariables.set('empresa_base', `99${run + 1}`);",
+                            "pm.collectionVariables.set('empresa_ruc', `99${run + 1}-${dv('99' + (run + 1))}`);",
+                            "pm.collectionVariables.set('empresa_email', `haras.${run}@mailinator.com`);"
+                        ]
+                    }
+                },
                 {
                     "listen": "test",
                     "script": {
@@ -197,10 +261,10 @@
                         "clients"
                     ]
                 },
-                "description": "Guarda el id en juan_id.",
+                "description": "Guarda el id en juan_id. Documento y email de la corrida (juan_doc y juan_email).",
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"document_number\": \"99300001\",\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"email\": \"juan.perez@mailinator.com\",\n    \"phone\": \"+595981300001\"\n}",
+                    "raw": "{\n    \"document_number\": \"{{juan_doc}}\",\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"email\": \"{{juan_email}}\",\n    \"phone\": \"+595981300001\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -263,7 +327,7 @@
                 "description": "Guarda el id en empresa_id.",
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"kind\": \"company\",\n    \"document_number\": \"99999905-2\",\n    \"business_name\": \"Haras del Sur SA\",\n    \"email\": \"haras@mailinator.com\",\n    \"phone\": \"+595981300002\"\n}",
+                    "raw": "{\n    \"kind\": \"company\",\n    \"document_number\": \"{{empresa_ruc}}\",\n    \"business_name\": \"Haras del Sur SA\",\n    \"email\": \"{{empresa_email}}\",\n    \"phone\": \"+595981300002\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -550,7 +614,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"document_number\": \"99999905\",\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"email\": \"rep3@mailinator.com\",\n    \"phone\": \"+595981300001\"\n}",
+                    "raw": "{\n    \"document_number\": \"{{empresa_base}}\",\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"email\": \"rep3@mailinator.com\",\n    \"phone\": \"+595981300001\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -1039,6 +1103,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1089,6 +1156,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1142,6 +1212,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1187,6 +1260,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1235,6 +1311,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1280,6 +1359,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1325,6 +1407,9 @@
                             "type": "string"
                         }
                     ]
+                },
+                "body": {
+                    "raw": null
                 }
             }
         },
@@ -1339,8 +1424,8 @@
                             "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
                             "const json = pm.response.json();",
                             "pm.test('Se crea con el documento y el email liberados', () => {",
-                            "    pm.expect(json.data.document_number).to.eql('99300001-0');",
-                            "    pm.expect(json.data.email).to.eql('juan.perez@mailinator.com');",
+                            "    pm.expect(json.data.document_number).to.eql(pm.collectionVariables.get('juan_ruc'));",
+                            "    pm.expect(json.data.email).to.eql(pm.collectionVariables.get('juan_email'));",
                             "});"
                         ]
                     }
@@ -1369,7 +1454,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"document_number\": \"99300001-0\",\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"email\": \"juan.perez@mailinator.com\",\n    \"phone\": \"+595981300001\"\n}",
+                    "raw": "{\n    \"document_number\": \"{{juan_ruc}}\",\n    \"first_name\": \"Juan\",\n    \"last_name\": \"Pérez\",\n    \"email\": \"{{juan_email}}\",\n    \"phone\": \"+595981300001\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"

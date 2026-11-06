@@ -10,7 +10,9 @@ use Illuminate\Validation\Rule;
 /**
  * Alta de paciente bajo un cliente: el client_id sale de la URL
  * (clients/{client}/patients). Especies y razas: las globales (clinic_id nulo) o
- * las de la clínica actual.
+ * las de la clínica actual, solo activas. El código lo asigna la serie: enviarlo
+ * es un error (422). custom_fields no forma parte de la API (R-015): si llega,
+ * se ignora como cualquier campo desconocido.
  */
 class StorePatientRequest extends FormRequest
 {
@@ -22,6 +24,7 @@ class StorePatientRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'code' => ['prohibited'],
             'name' => ['required', 'string', 'min:1', 'max:100', 'regex:/^[\pL\pN\s.\-\']+$/u'],
             'species_id' => ['required', 'integer', Rule::exists('species', 'id')->where('is_active', true)->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))],
             'breed_id' => ['nullable', 'integer', Rule::exists('breeds', 'id')->where('is_active', true)->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))],
@@ -34,7 +37,6 @@ class StorePatientRequest extends FormRequest
             'microchip' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9]+$/', Rule::unique('patients', 'microchip')->where('clinic_id', CurrentClinic::id())],
             'allergies' => ['nullable', 'string', 'max:1000'],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'custom_fields' => ['nullable', 'array'],
         ];
     }
 

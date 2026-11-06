@@ -55,7 +55,6 @@ class PatientMessages
             ],
             'allergies.max' => 'Las alergias no deben tener más de 1000 caracteres.',
             'notes.max' => 'Las notas no deben tener más de 1000 caracteres.',
-            'custom_fields.array' => 'Los campos personalizados deben ser un objeto.',
             'deceased_at' => [
                 'date' => 'La fecha de fallecimiento no es válida.',
                 'before_or_equal' => 'La fecha de fallecimiento no puede ser futura.',
