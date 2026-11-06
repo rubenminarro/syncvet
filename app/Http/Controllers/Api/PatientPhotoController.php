@@ -36,7 +36,7 @@ class PatientPhotoController extends Controller implements HasMiddleware
 
     public function store(UploadPatientPhotoRequest $request, Patient $patient)
     {
-        $patient = $this->photoService->upload($patient, $request->file('photo'));
+        $patient = $this->photoService->upload($patient, $request->encodedPhoto(), $request->file('photo')->getMimeType());
 
         return $this->successResponse(
             'Foto del paciente guardada correctamente.',

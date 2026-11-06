@@ -160,8 +160,10 @@ encontrar un solo Firulais y ningún Toby en esa clínica.
 `PatientDeleteTest`. La baja de una especie usada solo por un paciente eliminado (409), la concurrencia de dos altas del mismo nombre y las altas
 masivas del builder: lo prueban `CatalogDeleteTest`, `CatalogLockTest` y `SharedCatalogInsertTest`. De la foto: un archivo de más
 de 5 MB (413 `PAYLOAD_TOO_LARGE`; no se versiona un archivo de ese tamaño), WEBP y JPG, un SVG o un GIF (422), que el reemplazo
-borre el archivo anterior del disco privado, un archivo perdido (404 con aviso en el log) y la transacción que falla: lo prueba
-`PatientPhotoTest`.
+borre el archivo anterior del disco privado, un archivo perdido (404 con aviso en el log), la transacción que falla, la imagen vuelta a codificar sin EXIF
+(tampoco el GPS) ni HTML pegado al final, los 4 bytes de JPEG seguidos de HTML y la imagen de más de 25 megapíxeles (422), la
+`Content-Security-Policy` de la descarga, un `photo_path` fuera de la carpeta del paciente (404) o enviado en un `PATCH` (se
+ignora) y que `/storage/...` no sirva la foto, ni con firma (R-027): lo prueba `PatientPhotoTest`.
 
 **Con Newman.** Las cuatro colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
 que tiene prioridad sobre la de la colección):

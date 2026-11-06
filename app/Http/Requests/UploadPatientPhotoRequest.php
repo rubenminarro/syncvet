@@ -3,9 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Exceptions\PatientException;
+use App\Support\ImageReencoder;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
+use LogicException;
 
 /**
  * Foto del paciente (FASE 1, entrega 1.5): JPG, PNG o WEBP de hasta 5 MB. El tipo
@@ -13,12 +15,22 @@ use Illuminate\Http\UploadedFile;
  * de la extensión ni del Content-Type que manda el cliente. Un SVG no es una imagen
  * para `image`. Un archivo de más de 5 MB responde 413 PAYLOAD_TOO_LARGE, como el que
  * supera post_max_size de PHP (bootstrap/app.php).
+ *
+ * finfo solo mira los primeros bytes: si las reglas pasan, la imagen se vuelve a
+ * codificar con GD (ImageReencoder, R-027). Si GD no la puede decodificar, o pasa de
+ * 25 megapíxeles, 422 en `photo`. El Service guarda la imagen ya codificada.
  */
 class UploadPatientPhotoRequest extends FormRequest
 {
     public const MAX_KILOBYTES = 5120;
 
     public const TOO_LARGE = 'La foto no debe pesar más de 5 MB.';
+
+    public const NOT_AN_IMAGE = 'La foto debe ser una imagen JPG, PNG o WEBP.';
+
+    public const TOO_MANY_PIXELS = 'La foto no debe superar los 25 megapíxeles.';
+
+    private ?string $encodedPhoto = null;
 
     public function authorize(): bool
     {
@@ -38,10 +50,47 @@ class UploadPatientPhotoRequest extends FormRequest
             'photo.required' => 'La foto es obligatoria.',
             'photo.file' => 'La foto debe ser un archivo.',
             'photo.uploaded' => 'La foto no se pudo subir.',
-            'photo.image' => 'La foto debe ser una imagen JPG, PNG o WEBP.',
-            'photo.mimetypes' => 'La foto debe ser una imagen JPG, PNG o WEBP.',
+            'photo.image' => self::NOT_AN_IMAGE,
+            'photo.mimetypes' => self::NOT_AN_IMAGE,
             'photo.max' => self::TOO_LARGE,
         ];
+    }
+
+    /**
+     * Con las reglas cumplidas, la imagen se decodifica y se vuelve a codificar.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($validator->errors()->has('photo')) {
+                    return;
+                }
+
+                $file = $this->file('photo');
+                $pixels = ImageReencoder::pixels($file->getRealPath());
+
+                if ($pixels !== null && $pixels > ImageReencoder::MAX_PIXELS) {
+                    $validator->errors()->add('photo', self::TOO_MANY_PIXELS);
+
+                    return;
+                }
+
+                $this->encodedPhoto = ImageReencoder::reencode($file->getRealPath(), $file->getMimeType());
+
+                if ($this->encodedPhoto === null) {
+                    $validator->errors()->add('photo', self::NOT_AN_IMAGE);
+                }
+            },
+        ];
+    }
+
+    /**
+     * La imagen ya codificada de nuevo, sin metadatos ni contenido pegado.
+     */
+    public function encodedPhoto(): string
+    {
+        return $this->encodedPhoto ?? throw new LogicException('La foto no se validó.');
     }
 
     /**

@@ -501,3 +501,29 @@ la validación del usuario: no es el cierre. El detalle está en el
 **Qué cambió en la API.** Rutas nuevas: las tres de `patients/{patient}/photo`. El paciente deja de mostrar `photo_path` y muestra
 `has_photo`. Un pedido que supera `post_max_size` responde 413 `PAYLOAD_TOO_LARGE` (antes, `HTTP_ERROR`). `error_code` nuevo:
 `PATIENT_PHOTO_NOT_FOUND`.
+
+# R-027 Revisión de la entrega 1.5 de la FASE 1: correcciones (2026-11-06)
+
+La revisión de la entrega 1.5 (foto del paciente), con foco en la seguridad de los archivos subidos, encontró cuatro hallazgos de
+gravedad baja y dos de documentación; el usuario aceptó los desvíos de la implementación y pidió corregirlos en
+`feature/fase-01-05-foto`, cada uno con un test que falle al quitar la protección. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-027).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Disco | Disco propio `patient_photos` en `storage/app/private/patient-photos`, sin `serve`. `local` también pasa a `serve => false`: su raíz contiene la carpeta de las fotos, y con `serve` Laravel las serviría por `/storage/patient-photos/...` con una URL firmada, sin token ni clínica. Nadie usa `temporaryUrl()` | Usuario; `serve` en `local`, implementación |
+| `photo_path` | Fuera de `$fillable` de `Patient`: solo lo cambia `PatientPhotoService`. Ver, borrar y reemplazar lo usan solo si es un archivo de la carpeta del paciente (`clinics/{clinic_id}/patients/{id}/` y un nombre `{uuid}.{jpg,png,webp}`); si no, 404 `PATIENT_PHOTO_NOT_FOUND` y un aviso en el log | Usuario; el nombre exigido y que el reemplazo no borre un archivo ajeno, implementación |
+| Volver a codificar (cambia R-015) | Al subir, la imagen se vuelve a codificar con GD en su mismo formato (`ImageReencoder`): se pierden los metadatos (EXIF, también el GPS) y lo que venga pegado después de la imagen. Si GD no la decodifica, 422 con el mensaje de tipo. Sigue sin redimensionar. GD con JPEG, PNG y WEBP es obligatoria (`development/setup.md`) | Usuario |
+| Orientación | La orientación del EXIF se aplica a los píxeles antes de descartarlo (extensión `exif`): sin eso, una foto vertical de un teléfono quedaría acostada | Implementación |
+| Megapíxeles | Más de 25 megapíxeles (según el encabezado, antes de decodificar) → 422 "La foto no debe superar los 25 megapíxeles.": una imagen chica en bytes puede ocupar gigas al decodificarse. `memory_limit` de al menos 256M | Implementación; a confirmar por el usuario |
+| Calidad | JPEG y WEBP con calidad 90; PNG y WEBP conservan la transparencia. La imagen se decodifica una vez, en el `after()` del Form Request, y el Service guarda los bytes nuevos | Implementación |
+| Descarga | Suma `Content-Security-Policy: default-src 'none'; sandbox` | Usuario |
+| Borrado que falla | Un borrado de archivo que falla (después del commit, o el del nuevo si la transacción falla) deja un aviso en el log | Usuario |
+| Deuda 14 | Archivos huérfanos: la baja del paciente deja su foto, y un proceso que muere antes del commit deja el archivo nuevo. Limpieza programada más adelante | Usuario |
+| Documentos | `development/setup.md` (disco propio, sin `serve`, y GD y `exif` obligatorias) y el handoff (la 1.5 no trae migraciones) | Usuario |
+| Validación | Suite en verde en SQLite (616 casos, 6756 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 6772 aserciones). Once protecciones quitadas de a una, cada una con un test que falla. Newman: la colección de la foto dos veces seguidas sin recrear la base y la de pacientes, en verde | Implementación |
+
+**Qué cambió en la API.** Rutas, permisos, `error_code` y contrato de respuesta, sin cambios. Cambian: la foto guardada (y
+descargada) es la imagen vuelta a codificar, sin metadatos; una imagen que GD no decodifica o de más de 25 megapíxeles responde
+422 `VALIDATION_ERROR` en `photo`; la descarga suma `Content-Security-Policy`; `photo_path` ya no se puede asignar en masa; la ruta
+`/storage/{path}` de Laravel deja de existir.

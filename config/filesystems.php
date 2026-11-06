@@ -30,10 +30,22 @@ return [
 
     'disks' => [
 
+        // Sin `serve`: Laravel publicaría GET y PUT /storage/{path} con URL firmada
+        // (sin token ni clínica), y patient-photos está dentro de esta raíz (R-027).
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Fotos de los pacientes (FASE 1, entrega 1.5; R-027): privado y sin `serve`.
+        // Solo se descargan por GET api/patients/{patient}/photo.
+        'patient_photos' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/patient-photos'),
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

@@ -26,7 +26,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
   (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022) y 1.4
   (especies y razas, R-023 a R-025) cerradas, las tres últimas validadas por el usuario con Postman; la 1.5 (foto del
-  paciente, R-026) está implementada y falta su revisión y validación.
+  paciente, R-026) está implementada, con las correcciones de su revisión (R-027), y falta su validación.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes y del catálogo (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`).
@@ -192,8 +192,8 @@ Controller (HasMiddleware) → Form Request → Service → Model/Eloquent → A
 Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 
 La única respuesta exitosa sin `ApiResponse` es la descarga de un archivo (`GET patients/{patient}/photo`): el cuerpo es el
-archivo, con `Content-Type` según el tipo guardado, `X-Content-Type-Options: nosniff` y `Cache-Control: private, no-store`. Sus
-errores sí usan el contrato.
+archivo, con `Content-Type` según el tipo guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none';
+sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 
 `error_code` genéricos (`bootstrap/app.php`; los de negocio salen de cada excepción de dominio):
 
@@ -276,12 +276,18 @@ errores sí usan el contrato.
 * **Foto** (`patients/{patient}/photo`: subir con `POST`, ver con `GET`, borrar con `DELETE`; permisos `patients.upload-photo`,
   `patients.show-photo` y `patients.delete-photo`). La suben y la borran el recepcionista y el veterinario; la ven los tres roles.
   JPG, PNG o WEBP de hasta 5 MB, por el contenido del archivo, no por la extensión (`UploadPatientPhotoRequest`); otro tipo →
-  422; más grande → 413 `PAYLOAD_TOO_LARGE`. Disco `local` (privado), en `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}`
-  con la extensión del tipo detectado, sin redimensionar (`PatientPhotoService`). Reemplazar o borrar lee `photo_path` con la
-  fila del paciente bloqueada y borra el archivo anterior después del commit; si la transacción falla, se borra el nuevo. Sin
-  foto, o con `photo_path` y sin archivo (aviso en el log) → 404 `PATIENT_PHOTO_NOT_FOUND`. Un paciente fallecido también
-  sube y borra la foto (no es un dato clínico). La baja del paciente deja el archivo. La respuesta muestra `has_photo`, nunca
-  `photo_path`.
+  422; más grande → 413 `PAYLOAD_TOO_LARGE`. La imagen se vuelve a codificar con GD en su mismo formato (`ImageReencoder`,
+  R-027): se pierden los metadatos (EXIF, también el GPS) y lo que venga pegado después de la imagen, y la orientación del EXIF
+  se aplica a los píxeles. Si GD no la decodifica → 422; de más de 25 megapíxeles → 422, antes de decodificar. GD con JPEG, PNG y
+  WEBP es obligatoria (`development/setup.md`). Disco propio `patient_photos` (`storage/app/private/patient-photos`; ningún
+  disco tiene `serve`), en `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}` con la extensión del tipo detectado, sin
+  redimensionar (`PatientPhotoService`). `photo_path` no es asignable en masa: solo lo cambia el Service. Ver, borrar o
+  reemplazar usan `photo_path` solo si es un archivo de la carpeta del paciente; si no, 404 `PATIENT_PHOTO_NOT_FOUND` (al
+  reemplazar, el archivo ajeno no se borra) y un aviso en el log. Reemplazar o borrar lee `photo_path` con la fila del paciente
+  bloqueada y borra el archivo anterior después del commit (si el borrado falla, aviso en el log; deuda 14); si la transacción
+  falla, se borra el nuevo. Sin foto, o con `photo_path` y sin archivo (aviso en el log) → 404 `PATIENT_PHOTO_NOT_FOUND`. Un
+  paciente fallecido también sube y borra la foto (no es un dato clínico). La baja del paciente deja el archivo. La respuesta
+  muestra `has_photo`, nunca `photo_path`.
 
 ### 6.3 Especies y razas
 
@@ -329,3 +335,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 13 | Fechas con hora de la API: solo `deceased_at` se convierte de UTC a `America/Asuncion`; llevarlo a un lugar común antes de la FASE 3 |
+| 14 | Fotos huérfanas (baja del paciente, proceso que muere antes del commit, borrado que falla): falta una limpieza programada |

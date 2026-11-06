@@ -32,7 +32,7 @@ class Patient extends Model
         'color',
         'weight_kg',
         'microchip',
-        'photo_path',
+        // photo_path no: solo lo cambia PatientPhotoService, con el archivo (R-027).
         'allergies',
         'notes',
         'custom_fields',

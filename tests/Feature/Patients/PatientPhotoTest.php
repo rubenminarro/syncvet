@@ -8,10 +8,12 @@ use App\Models\Clinic;
 use App\Models\Patient;
 use App\Services\PatientPhotoService;
 use App\Support\CurrentClinic;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -85,8 +87,142 @@ class PatientPhotoTest extends TestCase
         $this->assertStringNotContainsString('Original', $path);
         $this->assertStringNotContainsString($path, $response->getContent());
         Storage::disk(PatientPhotoService::DISK)->assertExists($path);
-        $this->assertSame(file_get_contents(self::FIXTURES . $fixture), Storage::disk(PatientPhotoService::DISK)->get($path));
+        // Vuelta a codificar (R-027): el mismo formato y el mismo tamaño en píxeles.
+        $saved = getimagesizefromstring(Storage::disk(PatientPhotoService::DISK)->get($path));
+        $original = getimagesize(self::FIXTURES . $fixture);
+        $this->assertSame([$original[0], $original[1], $type], [$saved[0], $saved[1], $saved['mime']]);
         $this->assertSame($type, Storage::disk(PatientPhotoService::DISK)->mimeType($path));
+    }
+
+    /**
+     * Disco propio (R-027): `patient_photos`, en storage/app/private/patient-photos.
+     */
+    public function test_photos_go_to_their_own_disk(): void
+    {
+        $this->assertSame('patient_photos', PatientPhotoService::DISK);
+        $this->assertSame(storage_path('app/private/patient-photos'), config('filesystems.disks.patient_photos.root'));
+    }
+
+    /**
+     * Ningún disco sirve la foto por /storage/{path}, ni con una URL firmada como la
+     * de temporaryUrl(): ni el disco de las fotos ni `local`, cuya raíz la contiene.
+     * Con disco real (no el falso), en una carpeta propia que se borra al terminar.
+     */
+    public function test_a_storage_url_does_not_serve_the_photo_even_signed(): void
+    {
+        // Sin el disco falso de setUp: la ruta /storage leería del disco real.
+        Storage::forgetDisk(PatientPhotoService::DISK);
+        $disk = Storage::build(config('filesystems.disks.patient_photos'));
+        $folder = 'clinics/test-' . Str::uuid();
+        $disk->put("{$folder}/foto.png", file_get_contents(self::FIXTURES . 'foto.png'));
+
+        try {
+            $uris = ["/storage/{$folder}/foto.png", "/storage/patient-photos/{$folder}/foto.png"];
+
+            foreach ($uris as $uri) {
+                $unsigned = $this->get($uri, ['Accept' => 'application/json']);
+                $this->assertNotSame(200, $unsigned->getStatusCode(), "{$uri} sin firma");
+
+                // La firma relativa de Laravel: HMAC de la ruta con su query, con APP_KEY.
+                $url = $uri . '?expires=' . now()->addMinutes(5)->getTimestamp();
+                $signed = $this->get($url . '&signature=' . hash_hmac('sha256', $url, config('app.key')), ['Accept' => 'application/json']);
+                $this->assertNotSame(200, $signed->getStatusCode(), "{$uri} con firma");
+                $this->assertStringNotContainsString("\x89PNG", (string) $signed->getContent());
+            }
+        } finally {
+            $disk->deleteDirectory($folder);
+        }
+    }
+
+    /**
+     * Sin EXIF (tampoco el GPS) y con la orientación aplicada a los píxeles: el
+     * archivo de prueba es de 16 × 8, rojo a la izquierda y azul a la derecha, con
+     * Orientation 6 (girar un cuarto de vuelta en sentido horario).
+     */
+    public function test_the_photo_is_reencoded_without_exif_or_gps_and_keeps_its_orientation(): void
+    {
+        $this->actAs('recepcionista');
+        $original = file_get_contents(self::FIXTURES . 'foto-gps.jpg');
+        $this->assertStringContainsString("Exif\0\0", $original);
+        $this->assertSame('S', exif_read_data(self::FIXTURES . 'foto-gps.jpg')['GPSLatitudeRef'] ?? null);
+
+        $this->upload($this->file('foto-gps.jpg'))->assertOk();
+
+        $saved = Storage::disk(PatientPhotoService::DISK)->get($this->photoPath());
+        $this->assertStringNotContainsString("Exif\0\0", $saved);
+        $this->assertStringNotContainsString('SyncVetTest', $saved);
+        $tmp = tempnam(sys_get_temp_dir(), 'foto');
+        file_put_contents($tmp, $saved);
+        $exif = @exif_read_data($tmp) ?: [];
+        $this->assertArrayNotHasKey('GPSLatitude', $exif);
+        $this->assertArrayNotHasKey('Orientation', $exif);
+
+        // Girada: 8 × 16, rojo arriba y azul abajo.
+        $image = imagecreatefromstring($saved);
+        $this->assertSame([8, 16], [imagesx($image), imagesy($image)]);
+        $top = imagecolorsforindex($image, imagecolorat($image, 4, 2));
+        $bottom = imagecolorsforindex($image, imagecolorat($image, 4, 13));
+        $this->assertGreaterThan(200, $top['red']);
+        $this->assertLessThan(60, $top['blue']);
+        $this->assertGreaterThan(200, $bottom['blue']);
+        $this->assertLessThan(60, $bottom['red']);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function polyglots(): array
+    {
+        return ['png' => ['foto.png'], 'jpg' => ['foto.jpg']];
+    }
+
+    /**
+     * Una imagen válida con HTML pegado al final: se guarda solo la imagen.
+     */
+    #[DataProvider('polyglots')]
+    public function test_content_appended_after_the_image_is_removed(string $fixture): void
+    {
+        $this->actAs('recepcionista');
+        $html = '<html><body><b>no es parte de la foto</b></body></html>';
+
+        $this->upload($this->fileWithContent(file_get_contents(self::FIXTURES . $fixture) . $html, $fixture))->assertOk();
+
+        $saved = Storage::disk(PatientPhotoService::DISK)->get($this->photoPath());
+        $this->assertStringNotContainsString('<html', $saved);
+        $this->assertNotFalse(imagecreatefromstring($saved));
+    }
+
+    /**
+     * finfo solo mira el comienzo: 4 bytes de JPEG seguidos de HTML pasan `image` y
+     * `mimetypes`, pero GD no los decodifica → 422 y no se guarda nada.
+     */
+    public function test_a_file_gd_cannot_decode_is_rejected(): void
+    {
+        $this->actAs('recepcionista');
+
+        $response = $this->upload($this->fileWithContent("\xFF\xD8\xFF\xE0<html><body>hola</body></html>", 'foto.jpg'));
+
+        $this->assertErrorCode($response, 422, 'VALIDATION_ERROR');
+        $this->assertSame(UploadPatientPhotoRequest::NOT_AN_IMAGE, $response->json('errors.photo.0'));
+        $this->assertNull($this->photoPath());
+        $this->assertSame([], Storage::disk(PatientPhotoService::DISK)->allFiles());
+    }
+
+    /**
+     * Una imagen chica en bytes que ocuparía gigas al decodificarse: el encabezado
+     * dice 6000 × 5000 (30 megapíxeles) y se rechaza antes de decodificar.
+     */
+    public function test_an_image_of_more_than_25_megapixels_is_rejected_before_decoding(): void
+    {
+        $this->actAs('recepcionista');
+        $chunk = fn (string $type, string $data) => pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+        $png = "\x89PNG\r\n\x1a\n" . $chunk('IHDR', pack('NNCCCCC', 6000, 5000, 8, 2, 0, 0, 0)) . $chunk('IEND', '');
+
+        $response = $this->upload($this->fileWithContent($png, 'enorme.png'));
+
+        $this->assertErrorCode($response, 422, 'VALIDATION_ERROR');
+        $this->assertSame(UploadPatientPhotoRequest::TOO_MANY_PIXELS, $response->json('errors.photo.0'));
+        $this->assertSame([], Storage::disk(PatientPhotoService::DISK)->allFiles());
     }
 
     #[DataProvider('roles')]
@@ -248,10 +384,11 @@ class PatientPhotoTest extends TestCase
 
         $response->assertHeader('Content-Type', $type);
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('Content-Security-Policy', "default-src 'none'; sandbox");
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertStringContainsString('private', $response->headers->get('Cache-Control'));
         $response->assertHeader('Content-Disposition', "inline; filename={$this->patient->code}.{$extension}");
-        $this->assertSame(file_get_contents(self::FIXTURES . $fixture), $response->streamedContent());
+        $this->assertSame(Storage::disk(PatientPhotoService::DISK)->get($this->photoPath()), $response->streamedContent());
     }
 
     public function test_without_photo_seeing_or_deleting_it_answers_404(): void
@@ -281,8 +418,8 @@ class PatientPhotoTest extends TestCase
     {
         $other = $this->createClinic();
         $foreign = $this->patientOf($this->clientIn($other));
-        Storage::disk(PatientPhotoService::DISK)->put('clinics/ajena.png', 'png');
-        DB::table('patients')->where('id', $foreign->id)->update(['photo_path' => 'clinics/ajena.png']);
+        $foreignPhoto = $this->photoIn($other->id, $foreign->id);
+        DB::table('patients')->where('id', $foreign->id)->update(['photo_path' => $foreignPhoto]);
         $this->actAs('recepcionista');
         $url = "/api/patients/{$foreign->id}/photo";
 
@@ -290,8 +427,90 @@ class PatientPhotoTest extends TestCase
         $this->assertErrorCode($this->getJson($url), 404, 'RESOURCE_NOT_FOUND');
         $this->assertErrorCode($this->deleteJson($url), 404, 'RESOURCE_NOT_FOUND');
 
-        $this->assertSame('clinics/ajena.png', DB::table('patients')->where('id', $foreign->id)->value('photo_path'));
-        Storage::disk(PatientPhotoService::DISK)->assertExists('clinics/ajena.png');
+        $this->assertSame($foreignPhoto, DB::table('patients')->where('id', $foreign->id)->value('photo_path'));
+        Storage::disk(PatientPhotoService::DISK)->assertExists($foreignPhoto);
+    }
+
+    /**
+     * photo_path de otro paciente u otra clínica (la API no lo escribe; R-027): ver y
+     * borrar responden 404 con un aviso en el log, y el archivo ajeno no se toca,
+     * tampoco al reemplazar la foto.
+     */
+    public function test_a_photo_path_outside_the_patient_folder_is_not_used(): void
+    {
+        $other = $this->createClinic();
+        $foreign = $this->patientOf($this->clientIn($other));
+        $foreignPhoto = $this->photoIn($other->id, $foreign->id);
+        $paths = [
+            $foreignPhoto,
+            "clinics/{$this->clinic->id}/patients/{$this->patient->id}/../../{$foreign->id}/foto.png",
+            "clinics/{$this->clinic->id}/patients/{$this->patient->id}",
+        ];
+        $this->actAs('recepcionista');
+
+        foreach ($paths as $path) {
+            DB::table('patients')->where('id', $this->patient->id)->update(['photo_path' => $path]);
+            Log::spy();
+
+            $this->assertErrorCode($this->get($this->url(), ['Accept' => 'application/json']), 404, 'PATIENT_PHOTO_NOT_FOUND');
+            $this->assertErrorCode($this->deleteJson($this->url()), 404, 'PATIENT_PHOTO_NOT_FOUND');
+
+            $this->assertSame($path, $this->photoPath());
+            Log::shouldHaveReceived('warning')->withArgs(
+                fn (string $message, array $context) => str_contains($message, 'fuera de su carpeta') && $context['photo_path'] === $path
+            )->twice();
+        }
+
+        DB::table('patients')->where('id', $this->patient->id)->update(['photo_path' => $foreignPhoto]);
+        $this->upload($this->file('foto.png'))->assertOk();
+        Storage::disk(PatientPhotoService::DISK)->assertExists($foreignPhoto);
+    }
+
+    /**
+     * photo_path no es asignable en masa (R-027): un PATCH o un alta que lo traen lo
+     * ignoran, y fill() tampoco lo toma.
+     */
+    public function test_a_patch_or_a_store_with_photo_path_ignores_it(): void
+    {
+        $this->actAs('recepcionista');
+        $path = $this->photoIn($this->clinic->id, $this->patient->id);
+
+        $this->patchJson("/api/patients/{$this->patient->id}", ['photo_path' => $path, 'notes' => 'Con foto'])
+            ->assertOk()->assertJsonPath('data.has_photo', false);
+        $this->assertNull($this->photoPath());
+
+        $this->assertNull((new Patient())->fill(['photo_path' => $path])->photo_path);
+    }
+
+    /**
+     * El disco no lanza excepciones: un borrado que falla después del commit (el
+     * archivo anterior queda huérfano) deja un aviso en el log (deuda 14).
+     */
+    public function test_a_failed_delete_after_the_commit_is_logged(): void
+    {
+        $this->actAs('recepcionista');
+        $this->upload($this->file('foto.jpg'))->assertOk();
+        $previous = $this->photoPath();
+        $fake = Storage::disk(PatientPhotoService::DISK);
+        Storage::set(PatientPhotoService::DISK, new class($fake->getDriver(), $fake->getAdapter(), $fake->getConfig()) extends FilesystemAdapter {
+            public function delete($paths)
+            {
+                return false;
+            }
+        });
+        Log::spy();
+
+        $this->upload($this->file('foto.png'))->assertOk();
+        $this->deleteJson($this->url())->assertOk();
+
+        $current = Storage::disk(PatientPhotoService::DISK)->allFiles();
+        $this->assertCount(2, $current);
+        foreach ($current as $path) {
+            Log::shouldHaveReceived('warning')->withArgs(
+                fn (string $message, array $context) => str_contains($message, 'No se pudo borrar') && $context['photo_path'] === $path
+            )->once();
+        }
+        $this->assertContains($previous, $current);
     }
 
     public function test_a_lost_file_answers_404_and_warns_in_the_log(): void
@@ -394,6 +613,17 @@ class PatientPhotoTest extends TestCase
     private function upload(UploadedFile $file, ?string $url = null): TestResponse
     {
         return $this->post($url ?? $this->url(), ['photo' => $file], ['Accept' => 'application/json']);
+    }
+
+    /**
+     * Un archivo en la carpeta de un paciente, con el nombre como lo guarda el Service.
+     */
+    private function photoIn(int $clinicId, int $patientId): string
+    {
+        $path = "clinics/{$clinicId}/patients/{$patientId}/" . Str::uuid() . '.png';
+        Storage::disk(PatientPhotoService::DISK)->put($path, file_get_contents(self::FIXTURES . 'foto.png'));
+
+        return $path;
     }
 
     private function photoPath(): ?string

@@ -20,7 +20,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020, R-021, R-022) |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | COMPLETADO (R-023, R-024, R-025) |
-| 1.5 | Foto del paciente en disco privado | 1.4 | IMPLEMENTADA, en revisión (R-026) |
+| 1.5 | Foto del paciente en disco privado | 1.4 | IMPLEMENTADA y corregida tras la revisión (R-026, R-027); falta la validación |
 
 ## Preguntas de negocio
 
@@ -236,7 +236,7 @@ La descarga es la única respuesta de la API que no usa `ApiResponse` (es un arc
 |---|---|
 | Almacenamiento | Disco `local` (privado, fuera de `public/`). Ruta `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}`, con la extensión según el tipo detectado, nunca el nombre del archivo subido |
 | Reemplazo | Se guarda el archivo nuevo, se actualiza `photo_path` en una transacción y, después del commit, se borra el anterior. Si la transacción falla, se borra el nuevo |
-| Sin redimensionar | El archivo se guarda tal cual (R-015) |
+| Sin redimensionar | El archivo se guarda tal cual (R-015). Cambiado en la revisión: la imagen se vuelve a codificar con GD en su mismo formato, sin redimensionar (R-027) |
 | Baja del paciente | `SoftDeletes`: el archivo queda con el registro |
 | Archivo perdido | `photo_path` sin archivo en disco → 404 `PATIENT_PHOTO_NOT_FOUND` y un aviso en el log |
 | Auditoría | El cambio de `photo_path` queda en `audit_logs` (`Auditable`) |
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3 y 1.4. Implementada, sin cerrar: 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3 y 1.4. Implementada y corregida tras su revisión, sin cerrar: 1.5.
 
 ### Entrega 1.1
 
@@ -733,3 +733,46 @@ fallaba en un paso que exigía `photo_path` y ahora exige `has_photo`.
 
 **Aviso.** El disco `local` de Laravel trae `serve => true` (`config/filesystems.php`): sirve sus archivos solo con una URL firmada y
 temporal, que la API no genera. La foto sale solo por `GET patients/{patient}/photo`.
+
+#### Correcciones de la revisión (R-027)
+
+La revisión de la 1.5, con foco en la seguridad de los archivos subidos, encontró cuatro hallazgos de gravedad baja (ninguno
+explotable con el código de la implementación) y dos de documentación. El usuario aceptó los desvíos de la implementación y pidió
+corregirlos, cada uno con un test que falle al quitar la protección; el hallazgo 3 cambia R-015 (la imagen ya no se guarda tal
+cual). La revisión se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte. Decisiones en
+[R-027](../decisions/registro.md).
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Baja | El disco `local` tenía `serve => true`: Laravel publicaba `GET` y `PUT /storage/{path}`, que con una URL firmada (`APP_KEY`) servían la foto sin token ni clínica, y escribían en el disco privado | Disco propio `patient_photos` (`storage/app/private/patient-photos`), sin `serve`; `local` también pasa a `serve => false`, porque su raíz contiene la carpeta de las fotos y la serviría por `/storage/patient-photos/...` | `PatientPhotoTest::test_a_storage_url_does_not_serve_the_photo_even_signed` (con `serve` en `local` o en `patient_photos`, la URL firmada devuelve la foto) y `test_photos_go_to_their_own_disk` |
+| 2 | Baja | `photo_path` era asignable en masa, y ver o borrar confiaban en la ruta guardada | `photo_path` fuera de `$fillable` (solo lo cambia el Service). Ver, borrar y reemplazar usan `photo_path` solo si es `clinics/{clinic_id}/patients/{id}/{uuid}.{jpg,png,webp}`; si no, 404 `PATIENT_PHOTO_NOT_FOUND` y un aviso en el log, y al reemplazar el archivo ajeno no se borra | `test_a_patch_or_a_store_with_photo_path_ignores_it` (`fill()` lo toma) y `test_a_photo_path_outside_the_patient_folder_is_not_used` (la descarga sirve el archivo ajeno; el reemplazo lo borra) |
+| 3 | Baja | `finfo` solo mira los primeros bytes: 4 bytes de JPEG seguidos de HTML pasaban, y una imagen real conservaba su EXIF (con el GPS) y lo que viniera pegado al final | La imagen se vuelve a codificar con GD en su mismo formato (`App\Support\ImageReencoder`, desde el `after()` del Form Request; el Service guarda los bytes nuevos). La orientación del EXIF se aplica a los píxeles antes de descartarlo. Si GD no la decodifica, 422; de más de 25 megapíxeles, 422 antes de decodificar. La descarga suma `Content-Security-Policy: default-src 'none'; sandbox`. GD con JPEG, PNG y WEBP es obligatoria (`development/setup.md`) | `test_the_photo_is_reencoded_without_exif_or_gps_and_keeps_its_orientation` (guardar el original; no aplicar la orientación), `test_content_appended_after_the_image_is_removed` (PNG y JPG con HTML al final), `test_a_file_gd_cannot_decode_is_rejected`, `test_an_image_of_more_than_25_megapixels_is_rejected_before_decoding` y `test_the_download_is_the_file_with_nosniff_and_no_store` (CSP) |
+| 4 | Baja | Archivos huérfanos sin aviso: el borrado después del commit fallaba en silencio (`throw => false`) | Un borrado que falla deja un aviso en el log (después del commit, o el del archivo nuevo si la transacción falla). Los huérfanos de la baja del paciente o de un proceso que muere antes del commit quedan como deuda 14, con una limpieza programada más adelante | `test_a_failed_delete_after_the_commit_is_logged` |
+| 5 | Documentación | `development/setup.md` decía que las fotos "solo se descargan por la API", con `serve` activo | La frase describe el disco propio y que ningún disco tiene `serve` | — |
+| 6 | Documentación | El handoff pedía aplicar migraciones nuevas, y la 1.5 no trae | El handoff dice que la 1.5 no trae migraciones y pide comprobar GD y `exif` | — |
+
+El **Aviso** del final del resultado de la 1.5 queda resuelto por el hallazgo 1.
+
+**Decisiones de implementación.** El límite de 25 megapíxeles (unos 100 MB al decodificar; 6000 × 4000 entra) protege de una
+imagen chica en bytes que ocuparía gigas en memoria; su mensaje es "La foto no debe superar los 25 megapíxeles.". JPEG y WEBP se
+codifican con calidad 90, y PNG y WEBP conservan la transparencia. La orientación del EXIF se aplica porque, sin ella, una foto
+vertical de un teléfono quedaría acostada al perder el EXIF. La imagen se decodifica una sola vez, en el Form Request.
+
+**Archivos.** Nuevos: `app/Support/ImageReencoder.php` y `tests/Fixtures/photos/foto-gps.jpg` (16 × 8, rojo a la izquierda y azul a
+la derecha, con EXIF: `Orientation` 6 y el GPS de Asunción). Cambiados: `config/filesystems.php` (disco `patient_photos`, sin
+`serve` en ningún disco), `Patient` (`photo_path` fuera de `$fillable`), `UploadPatientPhotoRequest` (`after()` y
+`encodedPhoto()`), `PatientPhotoService` (bytes ya codificados, carpeta verificada, CSP y aviso del borrado fallido),
+`PatientPhotoController`; los tests `PatientPhotoTest` y `RoleAccessTest` (la foto en la carpeta del paciente); `CLAUDE.md` §1, §4,
+§6.2 y §7, `development/setup.md`, la deuda técnica, la guía de Postman, el registro y los documentos de estado.
+
+**Tests.** Suite del 2026-11-06: 616 casos con los *data providers*; en SQLite, 6756 aserciones con 2 omitidos (solo de MySQL);
+contra MySQL 8.4.3 (`syncvet_test_mysql`), 6772 aserciones sin omitidos. Frente a la implementación de la 1.5: 10 casos y 72
+aserciones más en las dos bases. Clases cambiadas (SQLite): `PatientPhotoTest` 38 casos y 242 aserciones, `RoleAccessTest` 7 y 340.
+
+**Protecciones quitadas de a una.** Once, cada una hace fallar al menos un test: `serve` en `local` y en `patient_photos`,
+`photo_path` en `$fillable`, la carpeta verificada en la descarga y en el reemplazo, guardar el original sin codificar, el 422 de
+la imagen que GD no decodifica, el límite de megapíxeles, la CSP, la orientación del EXIF y el aviso del borrado fallido.
+
+**Validación con Postman (Newman).** Sobre `syncvet`, sin recrear la base: la colección de la foto dos veces seguidas (23 requests
+y 60 aserciones cada vez) y la de pacientes (30 y 61), en verde. Las colecciones no cambian: el PNG de Postman se vuelve a
+codificar sin problema, y el EXIF, los políglotas y la CSP los prueba `PatientPhotoTest`.

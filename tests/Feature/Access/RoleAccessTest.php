@@ -61,11 +61,13 @@ class RoleAccessTest extends TestCase
         $client = $this->clientIn($this->clinic);
         $patient = $this->patientOf($client);
 
-        // Con foto: sin ella, ver la foto respondería 404 PATIENT_PHOTO_NOT_FOUND. El
-        // DELETE de la foto borra el archivo después del commit, y cada pedido se revierte.
+        // Con foto, en la carpeta del paciente: sin ella, o fuera de esa carpeta, ver la
+        // foto respondería 404 PATIENT_PHOTO_NOT_FOUND. El DELETE de la foto borra el
+        // archivo después del commit, y cada pedido se revierte.
         Storage::fake(PatientPhotoService::DISK);
-        Storage::disk(PatientPhotoService::DISK)->put('clinics/foto.png', 'png');
-        DB::table('patients')->where('id', $patient->id)->update(['photo_path' => 'clinics/foto.png']);
+        $photo = "clinics/{$this->clinic->id}/patients/{$patient->id}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png";
+        Storage::disk(PatientPhotoService::DISK)->put($photo, 'png');
+        DB::table('patients')->where('id', $patient->id)->update(['photo_path' => $photo]);
         // Propias: una global respondería 403 CATALOG_GLOBAL_NOT_EDITABLE al editarla.
         [$species, $breed] = $this->ownSpeciesWithBreed($this->clinic, 'Hurón');
 

@@ -85,5 +85,29 @@ producción, el servidor web también debe aceptar el tamaño (en Nginx, `client
 php -r "echo ini_get('upload_max_filesize'), ' ', ini_get('post_max_size'), PHP_EOL;"
 ```
 
-Las fotos se guardan en el disco `local` (`storage/app/private`, fuera de `public/`): no se publican con `storage:link` y solo se
-descargan por la API.
+Las fotos se guardan en su propio disco, `patient_photos` (`storage/app/private/patient-photos`, fuera de `public/`). Ningún disco
+tiene `serve` (`config/filesystems.php`; R-027): Laravel no publica la ruta `/storage/{path}`, ni con una URL firmada, y
+`storage:link` solo enlaza el disco `public`. La foto se descarga únicamente con `GET api/patients/{patient}/photo`, con token y
+dentro de la clínica.
+
+## GD (foto del paciente)
+
+Al subir la foto, la imagen se vuelve a codificar con GD en su mismo formato (R-027): así se pierden los metadatos (EXIF, también
+el GPS) y todo lo que venga pegado después de la imagen. La extensión `gd` de PHP es **obligatoria**, con soporte de JPEG, PNG y
+WEBP; sin ella, o sin alguno de los tres formatos, toda foto de ese formato responde 422. La extensión `exif` se usa para aplicar
+la orientación de la foto antes de descartar el EXIF: sin ella, una foto vertical de un teléfono puede quedar acostada. En el
+`php.ini` (`php --ini`), las dos sin `;` adelante:
+
+```ini
+extension=gd
+extension=exif
+```
+
+Comprobar con:
+
+```bash
+php -r "\$g = gd_info(); var_dump(\$g['JPEG Support'], \$g['PNG Support'], \$g['WebP Support'], extension_loaded('exif'));"
+```
+
+Las cuatro deben dar `bool(true)`. Una foto se decodifica en memoria (unos 4 bytes por píxel; el límite es 25 megapíxeles, unos
+100 MB): `memory_limit` de al menos 256M (Laragon trae 512M).
