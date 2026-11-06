@@ -92,8 +92,8 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 
 | # | Request | Body | Esperado |
 |---|---|---|---|
-| 1 | `POST /api/clients` | `{"document_number":"99300001","first_name":"Ana","last_name":"Gómez","email":"ana@ejemplo.com.py","phone":"+595981000000"}` | 201, `data.display_name` = "Ana Gómez" |
-| 2 | `POST /api/clients` | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@ejemplo.com.py","phone":"+595981000001"}` | 201 |
+| 1 | `POST /api/clients` | `{"document_number":"99300001","first_name":"Ana","last_name":"Gómez","email":"ana@mailinator.com","phone":"+595981000000"}` | 201, `data.display_name` = "Ana Gómez" |
+| 2 | `POST /api/clients` | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@mailinator.com","phone":"+595981000001"}` | 201 |
 | 3 | `POST /api/clients` con `first_name` en una empresa | | 422 `VALIDATION_ERROR` |
 | 4 | `GET /api/species` | | 200, especies con sus razas |
 | 5 | `POST /api/clients/{id}/patients` | `{"name":"Toby","species_id":<id de Canino en GET /api/species>,"birth_date":"2023-01-10"}` | 201, `data.code` = el siguiente de la serie de la clínica: con el `DemoSeeder` y `{{token}}` (clínica A, con cuatro pacientes), `PAC-000005` |
@@ -109,3 +109,57 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 | 15 | `PATCH /api/clients/{id}` de Ana con `{"first_name":null}` | | 422, `errors.first_name` = ["El nombre es obligatorio."], un solo mensaje (R-018) |
 | 16 | `PATCH /api/clients/{id}` de la empresa con `{"kind":"person","first_name":"Rosa","last_name":"Benítez","business_name":null}` | | 200, `data.display_name` = "Rosa Benítez" (R-018) |
 | 17 | `GET /api/clients?per_page=abc`, `?per_page=100000` y `?search[]=x` | | 422 `VALIDATION_ERROR`, nunca 500 (R-018) |
+
+### Validación de clientes con la colección (entrega 1.2, R-018)
+
+La colección [`postman/syncvet-fase-01-clientes.postman_collection.json`](postman/syncvet-fase-01-clientes.postman_collection.json)
+tiene los 21 pasos de la validación de clientes, en orden. Cada request lleva sus encabezados, su body y un test que verifica
+el código HTTP y el dato clave. Los logins guardan los tokens (`token` y `token_admin`) y las altas y la búsqueda guardan los
+ids que usan los pasos siguientes (`juan_id`, `empresa_id`, `laura_id`): no hay que copiar nada a mano.
+
+**Preparación.** Recrear la base con el `DemoSeeder` (ver **Datos**, al comienzo) y levantar el servidor en el puerto 8001:
+
+```bash
+php artisan migrate:fresh --seed
+php artisan db:seed --class=DemoSeeder
+php artisan serve --port=8001
+```
+
+**Importar y correr.**
+
+1. En Postman: **Import** → elegir el archivo de la colección.
+2. En la colección, pestaña **Variables**: completar `demo_password` con la `DEMO_PASSWORD` del `.env` y guardar. `base_url`
+   ya es `http://127.0.0.1:8001/api`.
+3. **Run collection** (Collection Runner): correrla entera, en orden, sin cambiar el orden de los requests. Esperado: todos los
+   tests en verde.
+
+Corre sobre una base recién recreada: crea y da de baja clientes, así que una segunda corrida falla en las altas hasta volver
+a recrear la base. Los emails nuevos usan `mailinator.com`: con `EMAIL_DNS_CHECK=true` (el valor del `.env`), la validación
+consulta el MX del dominio y rechaza `example.com` (tiene un MX nulo) y los dominios sin servidor de correo.
+
+Usuarios de la clínica A: recepción es `recepcion-a@example.com` (`{{token}}`); admin es `admin-a@example.com`
+(`{{token_admin}}`). Laura Martínez (`99100001`, con Firulais) y Toby (clínica B) salen del `DemoSeeder`.
+
+| # | Paso | Request | Usuario | Body | Esperado |
+|---|---|---|---|---|---|
+| 1 | Login | `POST /login` (dos requests: 01a y 01b) | — | `{"email":"recepcion-a@example.com","password":"{{demo_password}}"}` y lo mismo con `admin-a@example.com` | 200, `data.token` → `token` y `token_admin` |
+| 2 | Alta de una persona | `POST /clients` | recepción | `{"document_number":"99300001","first_name":"Juan","last_name":"Pérez","email":"juan.perez@mailinator.com","phone":"+595981300001"}` | 201 "Cliente creado correctamente.", `display_name` = "Juan Pérez" → `juan_id` |
+| 3 | Alta de una empresa | `POST /clients` | recepción | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@mailinator.com","phone":"+595981300002"}` | 201, `display_name` = "Haras del Sur SA", nombre y apellido en `null` → `empresa_id` |
+| 4 | Empresa con nombre | `POST /clients` | recepción | Una empresa (`99300003`) con `"first_name":"Juan"` | 422, `errors.first_name` = ["Una empresa no lleva nombre: usá la razón social."] |
+| 5 | RUC con el dígito equivocado | `POST /clients` | recepción | Como el 2, con el número `99300002` y el dígito 8 (el correcto es 9) | 422, `errors.document_number` = ["El RUC no es válido: revisá el número y el dígito verificador."] |
+| 6 | Documento repetido como cédula | `POST /clients` | recepción | Como el 2, con `"document_number":"099100001"` (Laura con un cero) | 422, `errors.document_number` = ["Este número de documento ya está en uso."] |
+| 7 | Documento repetido como RUC | `POST /clients` (dos requests: 07a y 07b) | recepción | Como el 2, con `"99100001-3"` (Laura) y con `"99999905"` (la empresa del 3, sin dígito) | 422, el mismo mensaje en los dos |
+| 8 | Edición | `PATCH /clients/{{juan_id}}` | recepción | `{"phone":"+595981399999","city":"Asunción"}` | 200 "Cliente actualizado correctamente.", con los datos nuevos |
+| 9 | Email con mayúsculas | `PATCH /clients/{{juan_id}}` | recepción | `{"email":"Juan@Mailinator.com"}` | 422, `errors.email` = ["El correo debe estar en minúsculas."] |
+| 10 | Nombre vacío | `PATCH /clients/{{juan_id}}` | recepción | `{"first_name":null}` | 422, `errors.first_name` = ["El nombre es obligatorio."], un solo mensaje |
+| 11 | Nombre en la empresa | `PATCH /clients/{{empresa_id}}` | recepción | `{"first_name":"Juan"}` | 422, "Una empresa no lleva nombre: usá la razón social." |
+| 12 | Cambio de tipo sin razón social | `PATCH /clients/{{juan_id}}` | recepción | `{"kind":"company"}` | 422, `errors.business_name` = ["La razón social es obligatoria para una empresa."] |
+| 13 | Cambio de tipo | `PATCH /clients/{{juan_id}}` | recepción | `{"kind":"company","business_name":"Pérez Hnos SA","first_name":null,"last_name":null}` | 200, `kind.value` = `company`, `display_name` = "Pérez Hnos SA" |
+| 14 | Vuelta a persona | `PATCH /clients/{{juan_id}}` | recepción | `{"kind":"person","first_name":"Juan","last_name":"Pérez","business_name":null}` | 200, `display_name` = "Juan Pérez", `business_name` en `null` |
+| 15 | Búsqueda por mascota | `GET /clients?search=Firulais` | recepción | — | 200, un resultado: Laura Martínez → `laura_id` |
+| 16 | Mascota de otra clínica | `GET /clients?search=Toby` | recepción | — | 200, `meta.pagination.total` = 0 |
+| 17 | Filtro mal formado | `GET /clients?per_page=abc` | recepción | — | 422 `VALIDATION_ERROR` con `errors.per_page`, nunca 500 |
+| 18 | Baja por el recepcionista | `DELETE /clients/{{laura_id}}` | recepción | — | 403 `FORBIDDEN` |
+| 19 | Baja con pacientes | `DELETE /clients/{{laura_id}}` | admin | — | 409 `CLIENT_IN_USE`, "El cliente tiene pacientes, consultas o facturas y no puede eliminarse." |
+| 20 | Baja sin pacientes | `DELETE /clients/{{juan_id}}` y después `GET /clients/{{juan_id}}` (20a y 20b) | admin y recepción | — | 200 "Cliente eliminado correctamente."; después 404 `RESOURCE_NOT_FOUND` |
+| 21 | Documento liberado | `POST /clients` | recepción | Como el 2, con `"document_number":"99300001-0"` | 201: la baja liberó el documento (también como RUC) y el email |
