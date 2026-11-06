@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Support\CurrentClinic;
 use App\Support\ExecutionOrigin;
 use App\Support\PwnedPasswordsVerifier;
+use App\Support\SearchTerm;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Gate;
@@ -50,6 +52,22 @@ class AppServiceProvider extends ServiceProvider
         // no se nota con él: probar siempre con un rol propio.
         Gate::before(function ($user, $ability) {
             return $user->hasRole('administrador') ? true : null;
+        });
+
+        // Búsqueda literal de los listados (R-021): "contiene", con "%", "_" y la
+        // barra invertida como caracteres comunes (SearchTerm).
+        QueryBuilder::macro('whereContains', function (string $column, string $search, string $boolean = 'and') {
+            /** @var QueryBuilder $this */
+            return $this->whereRaw(
+                $this->getGrammar()->wrap($column) . " like ? escape '" . SearchTerm::ESCAPE . "'",
+                [SearchTerm::contains($search)],
+                $boolean
+            );
+        });
+
+        QueryBuilder::macro('orWhereContains', function (string $column, string $search) {
+            /** @var QueryBuilder $this */
+            return $this->whereContains($column, $search, 'or');
         });
     }
 }

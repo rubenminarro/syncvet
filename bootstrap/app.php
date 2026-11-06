@@ -138,7 +138,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'success' => false,
                     'status' => 403,
-                    'message' => 'No tienes permisos para realizar esta acción.',
+                    'message' => 'No tenés permisos para realizar esta acción.',
                     'data' => null,
                     'errors' => null,
                     'error_code' => 'FORBIDDEN',
@@ -230,11 +230,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 [$message, $errorCode] = match ($status) {
                     400 => ['Solicitud incorrecta.', 'BAD_REQUEST'],
                     401 => ['No autenticado.', 'UNAUTHENTICATED'],
-                    403 => ['No tienes permisos para realizar esta acción.', 'FORBIDDEN'],
+                    403 => ['No tenés permisos para realizar esta acción.', 'FORBIDDEN'],
                     404 => ['Recurso no encontrado.', 'RESOURCE_NOT_FOUND'],
                     405 => ['Método HTTP no permitido.', 'METHOD_NOT_ALLOWED'],
                     406 => ['Formato de respuesta no aceptable.', 'NOT_ACCEPTABLE'],
                     409 => ['La solicitud entra en conflicto con el estado actual del recurso.', 'CONFLICT'],
+                    // post_max_size de PHP superado (PostTooLargeException; FASE 1, entrega 1.5).
+                    413 => ['Los datos enviados superan el tamaño permitido.', 'PAYLOAD_TOO_LARGE'],
                     415 => ['Tipo de contenido no soportado.', 'UNSUPPORTED_MEDIA_TYPE'],
                     429 => ['Demasiadas solicitudes.', 'TOO_MANY_REQUESTS'],
                     503 => ['Servicio no disponible.', 'SERVICE_UNAVAILABLE'],

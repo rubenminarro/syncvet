@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\ClientKind;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexClientRequest;
+use App\Http\Requests\ListFilters;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
@@ -11,11 +12,8 @@ use App\Http\Resources\ShowClientResource;
 use App\Models\Client;
 use App\Services\ClientService;
 use App\Traits\ApiResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 
 class ClientController extends Controller implements HasMiddleware
 {
@@ -37,32 +35,28 @@ class ClientController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(Request $request)
+    public function index(IndexClientRequest $request)
     {
-        $request->validate(
-            ['kind' => ['nullable', Rule::enum(ClientKind::class)]],
-            ['kind.' . Enum::class => 'El tipo de cliente debe ser person o company.']
-        );
-
         $clients = Client::query()
             ->when($request->filled('kind'), fn ($query) => $query->where('kind', $request->kind))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->search;
 
                 $query->where(function ($q) use ($search) {
-                    $q->where('document_number', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('business_name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
+                    // Búsqueda literal: "%" y "_" no son comodines (R-021).
+                    $q->whereContains('document_number', $search)
+                        ->orWhereContains('first_name', $search)
+                        ->orWhereContains('last_name', $search)
+                        ->orWhereContains('business_name', $search)
+                        ->orWhereContains('phone', $search)
+                        ->orWhereContains('email', $search)
                         // También encuentra al dueño por el nombre o el código de su mascota.
-                        ->orWhereHas('patients', fn ($p) => $p->where('name', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%"));
+                        ->orWhereHas('patients', fn ($p) => $p->whereContains('name', $search)
+                            ->orWhereContains('code', $search));
                 });
             })
             ->latest()
-            ->paginate($request->per_page ?? 10);
+            ->paginate($request->integer('per_page', ListFilters::DEFAULT_PER_PAGE));
 
         return $this->successResponse(
             'Clientes obtenidos correctamente.',

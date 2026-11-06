@@ -9,6 +9,19 @@ use Illuminate\Validation\Rules\Enum;
  */
 class PatientMessages
 {
+    /**
+     * Fallecimiento anterior al nacimiento (UpdatePatientRequest::after).
+     */
+    public const DECEASED_BEFORE_BIRTH = 'La fecha de fallecimiento no puede ser anterior a la fecha de nacimiento.';
+
+    /**
+     * Especie o raza que no existe, inactiva o eliminada: la regla exists del Request y,
+     * con el bloqueo compartido tomado, PatientService (una baja simultánea).
+     */
+    public const SPECIES_UNAVAILABLE = 'La especie seleccionada no existe o está inactiva.';
+
+    public const BREED_UNAVAILABLE = 'La raza seleccionada no existe o está inactiva.';
+
     public static function all(): array
     {
         return [
@@ -23,11 +36,11 @@ class PatientMessages
             'species_id' => [
                 'required' => 'La especie es obligatoria.',
                 'integer' => 'La especie debe tener el formato correcto.',
-                'exists' => 'La especie seleccionada no existe o está inactiva.',
+                'exists' => self::SPECIES_UNAVAILABLE,
             ],
             'breed_id' => [
                 'integer' => 'La raza debe tener el formato correcto.',
-                'exists' => 'La raza seleccionada no existe o está inactiva.',
+                'exists' => self::BREED_UNAVAILABLE,
             ],
             'sex' => [
                 Enum::class => 'El sexo debe ser male (macho), female (hembra) o unknown (sin determinar).',
@@ -55,7 +68,6 @@ class PatientMessages
             ],
             'allergies.max' => 'Las alergias no deben tener más de 1000 caracteres.',
             'notes.max' => 'Las notas no deben tener más de 1000 caracteres.',
-            'custom_fields.array' => 'Los campos personalizados deben ser un objeto.',
             'deceased_at' => [
                 'date' => 'La fecha de fallecimiento no es válida.',
                 'before_or_equal' => 'La fecha de fallecimiento no puede ser futura.',

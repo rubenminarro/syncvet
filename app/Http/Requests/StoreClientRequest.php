@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Enums\ClientKind;
+use App\Rules\RucCheckDigit;
+use App\Rules\UniqueClientDocument;
 use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -31,8 +33,10 @@ class StoreClientRequest extends FormRequest
             ],
             'document_number' => [
                 'required', 'string', 'min:5', 'max:20',
-                Rule::unique('clients', 'document_number')->where('clinic_id', CurrentClinic::id()),
                 'regex:/^[a-zA-Z0-9-]+$/',
+                new RucCheckDigit(),
+                // Único por número base: cédula y RUC son el mismo documento (R-018).
+                new UniqueClientDocument(),
             ],
             'first_name' => [
                 Rule::requiredIf(! $isCompany),

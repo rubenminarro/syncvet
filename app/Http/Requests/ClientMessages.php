@@ -33,7 +33,7 @@ class ClientMessages
             ],
             'first_name' => [
                 'required' => 'El nombre es obligatorio.',
-                'prohibited' => 'Una empresa no lleva nombre: use la razón social.',
+                'prohibited' => 'Una empresa no lleva nombre: usá la razón social.',
                 'string' => 'El nombre debe tener el formato correcto.',
                 'min' => 'El nombre debe tener al menos 2 caracteres.',
                 'max' => 'El nombre no debe tener más de 100 caracteres.',
@@ -41,7 +41,7 @@ class ClientMessages
             ],
             'last_name' => [
                 'required' => 'El apellido es obligatorio.',
-                'prohibited' => 'Una empresa no lleva apellido: use la razón social.',
+                'prohibited' => 'Una empresa no lleva apellido: usá la razón social.',
                 'string' => 'El apellido debe tener el formato correcto.',
                 'min' => 'El apellido debe tener al menos 2 caracteres.',
                 'max' => 'El apellido no debe tener más de 100 caracteres.',

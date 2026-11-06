@@ -30,8 +30,8 @@ class RolesAndPermissionsSeeder extends Seeder
         /* clientes y pacientes */
         'clients.index', 'clients.store', 'clients.show', 'clients.update', 'clients.destroy',
         'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.destroy',
-        'patients.change-owner',
-        'species.index', 'species.store', 'species.update',
+        'patients.change-owner', 'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
+        'species.index', 'species.store', 'species.update', 'species.destroy',
 
         /* veterinarios y servicios */
         'veterinarians.index', 'veterinarians.store', 'veterinarians.show', 'veterinarians.update', 'veterinarians.destroy',
@@ -103,6 +103,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'clients.index', 'clients.store', 'clients.show', 'clients.update',
                     'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.change-owner',
+                    'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
                     'species.index',
                     'veterinarians.index', 'services.index', 'services.show',
                     'schedules.index', 'schedules.show',
@@ -124,7 +125,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'permissions' => [
                     'clients.index', 'clients.store', 'clients.show', 'clients.update',
                     'patients.index', 'patients.store', 'patients.show', 'patients.update',
-                    'species.index',
+                    'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
+                    'species.index', 'species.store', 'species.update', 'species.destroy',
                     'veterinarians.index', 'services.index', 'services.show',
                     'schedules.index', 'schedules.show',
                     'appointments.index', 'appointments.show', 'appointments.check-in',

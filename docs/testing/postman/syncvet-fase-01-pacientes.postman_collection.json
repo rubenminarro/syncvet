@@ -1,0 +1,1824 @@
+{
+    "info": {
+        "name": "SyncVet — FASE 1: validación de pacientes",
+        "description": "Validación manual de pacientes (FASE 1, entrega 1.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Se puede correr más de una vez sin recrear la base: el primer request genera documentos, emails y un microchip únicos de la corrida. Completar la variable demo_password con la DEMO_PASSWORD del .env. PATIENT_IN_USE no está aquí: la API todavía no crea consultas, aplicaciones ni turnos (lo prueba PatientDeleteTest). Ver docs/testing/guia-postman.md.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8001/api",
+            "type": "string"
+        },
+        {
+            "key": "demo_password",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_admin",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_vet",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "ana_doc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "ana_email",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "pedro_doc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "pedro_email",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "chip",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "canino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "felino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "beagle_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "siames_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "ana_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "pedro_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "bolita_id",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "01a Login del recepcionista (clínica A)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
+                            "// Documentos ficticios 99xxxxxx (R-011) con la corrida entre 750000 y 999998: un rango propio de esta colección,",
+                            "// lejos de los del DemoSeeder (991… y 992…), de los fijos de la colección de clientes (993…) y de los de la colección de clientes (500000 a 749998).",
+                            "const run = 750000 + Math.floor(Math.random() * 249998);",
+                            "const dv = (number) => {",
+                            "    let total = 0;",
+                            "    let factor = 2;",
+                            "    for (const digit of String(number).split('').reverse()) {",
+                            "        if (factor > 11) factor = 2;",
+                            "        total += Number(digit) * factor;",
+                            "        factor++;",
+                            "    }",
+                            "    const remainder = total % 11;",
+                            "    return remainder > 1 ? 11 - remainder : 0;",
+                            "};",
+                            "pm.collectionVariables.set('run', String(run));",
+                            "pm.collectionVariables.set('ana_doc', `99${run}`);",
+                            "pm.collectionVariables.set('ana_email', `ana.villalba.${run}@mailinator.com`);",
+                            "pm.collectionVariables.set('pedro_doc', `99${run + 1}`);",
+                            "pm.collectionVariables.set('pedro_email', `pedro.acosta.${run}@mailinator.com`);",
+                            "pm.collectionVariables.set('chip', `CHIP${run}`);"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01b Login del administrador (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token_admin', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01c Login del veterinario (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token_vet', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"vet-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "02 Especies y razas",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const canino = json.data.find(s => s.name === 'Canino');",
+                            "const felino = json.data.find(s => s.name === 'Felino');",
+                            "pm.test('Canino y Felino con sus razas', () => {",
+                            "    pm.expect(canino).to.be.an('object');",
+                            "    pm.expect(felino).to.be.an('object');",
+                            "});",
+                            "pm.collectionVariables.set('canino_id', canino.id);",
+                            "pm.collectionVariables.set('felino_id', felino.id);",
+                            "pm.collectionVariables.set('beagle_id', canino.breeds.find(b => b.name === 'Beagle').id);",
+                            "pm.collectionVariables.set('siames_id', felino.breeds.find(b => b.name === 'Siamés').id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "description": "Guarda canino_id, felino_id, beagle_id y siames_id.",
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 Alta de la dueña (Ana Villalba)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('ana_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients"
+                    ]
+                },
+                "description": "Guarda el id en ana_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"document_number\": \"{{ana_doc}}\",\n    \"first_name\": \"Ana\",\n    \"last_name\": \"Villalba\",\n    \"email\": \"{{ana_email}}\",\n    \"phone\": \"+595981400001\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Alta del segundo cliente (Pedro Acosta)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('pedro_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients"
+                    ]
+                },
+                "description": "Guarda el id en pedro_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"document_number\": \"{{pedro_doc}}\",\n    \"first_name\": \"Pedro\",\n    \"last_name\": \"Acosta\",\n    \"email\": \"{{pedro_email}}\",\n    \"phone\": \"+595981400002\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05 Alta de Bolita bajo Ana",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Código de la serie y dueña de la URL', () => {",
+                            "    pm.expect(json.message).to.eql('Paciente creado correctamente.');",
+                            "    pm.expect(json.data.code).to.match(/^PAC-\\d{6}$/);",
+                            "    pm.expect(json.data.client.id).to.eql(Number(pm.collectionVariables.get('ana_id')));",
+                            "    pm.expect(json.data.breed.name).to.eql('Beagle');",
+                            "    pm.expect(json.data.weight_kg).to.eql('12.50');",
+                            "});",
+                            "pm.test('Sin custom_fields ni photo_path, con has_photo', () => {",
+                            "    pm.expect(json.data).to.not.have.property('custom_fields');",
+                            "    pm.expect(json.data).to.not.have.property('photo_path');",
+                            "    pm.expect(json.data.has_photo).to.eql(false);",
+                            "});",
+                            "pm.collectionVariables.set('bolita_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{ana_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{ana_id}}",
+                        "patients"
+                    ]
+                },
+                "description": "El client_id del body (Pedro) se ignora: la dueña sale de la URL. custom_fields se ignora. Guarda el id en bolita_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Bolita\",\n    \"species_id\": {{canino_id}},\n    \"breed_id\": {{beagle_id}},\n    \"sex\": \"male\",\n    \"birth_date\": \"2023-01-10\",\n    \"weight_kg\": 12.5,\n    \"microchip\": \"{{chip}}\",\n    \"client_id\": {{pedro_id}},\n    \"custom_fields\": {\"collar\":\"rojo\"}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Código en el alta: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en code', () => pm.expect(json.errors.code).to.eql([\"El código del paciente se asigna automáticamente.\"]));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{ana_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{ana_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Pirata\",\n    \"species_id\": {{canino_id}},\n    \"code\": \"PAC-999999\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "07 Raza de otra especie: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('PATIENT_BREED_SPECIES_MISMATCH', () => {",
+                            "    pm.expect(json.error_code).to.eql('PATIENT_BREED_SPECIES_MISMATCH');",
+                            "    pm.expect(json.message).to.eql(\"La raza no corresponde a la especie del paciente.\");",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{ana_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{ana_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Pirata\",\n    \"species_id\": {{canino_id}},\n    \"breed_id\": {{siames_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "08 Microchip repetido: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en microchip', () => pm.expect(json.errors.microchip).to.eql([\"Este microchip ya está registrado en otro paciente.\"]));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{ana_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{ana_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Pirata\",\n    \"species_id\": {{canino_id}},\n    \"microchip\": \"{{chip}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Peso con 3 decimales: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en weight_kg', () => pm.expect(json.errors.weight_kg).to.eql([\"El peso admite hasta 2 decimales.\"]));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{ana_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{ana_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Pirata\",\n    \"species_id\": {{canino_id}},\n    \"weight_kg\": 1.234\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 Dueño en la edición: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en client_id', () => pm.expect(json.errors.client_id).to.eql([\"El dueño se cambia con la acción \\\"cambiar dueño\\\".\"]));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"client_id\": {{pedro_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 Especie nueva con la raza anterior: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('PATIENT_BREED_SPECIES_MISMATCH', () => {",
+                            "    pm.expect(json.error_code).to.eql('PATIENT_BREED_SPECIES_MISMATCH');",
+                            "    pm.expect(json.message).to.eql(\"La raza no corresponde a la especie del paciente.\");",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"species_id\": {{felino_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "12 Edición de Bolita",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Datos nuevos', () => {",
+                            "    pm.expect(json.message).to.eql('Paciente actualizado correctamente.');",
+                            "    pm.expect(json.data.color).to.eql('Blanco y negro');",
+                            "    pm.expect(json.data.weight_kg).to.eql('13.00');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"color\": \"Blanco y negro\",\n    \"weight_kg\": 13\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13 Cambio de dueño a Pedro",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Nuevo dueño', () => {",
+                            "    pm.expect(json.message).to.eql('Dueño del paciente actualizado correctamente.');",
+                            "    pm.expect(json.data.client.id).to.eql(Number(pm.collectionVariables.get('pedro_id')));",
+                            "    pm.expect(json.data.client.display_name).to.eql('Pedro Acosta');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}/change-owner",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}",
+                        "change-owner"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"client_id\": {{pedro_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "14 Cambio al mismo dueño: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('PATIENT_SAME_OWNER', () => {",
+                            "    pm.expect(json.error_code).to.eql('PATIENT_SAME_OWNER');",
+                            "    pm.expect(json.message).to.eql(\"El paciente ya pertenece a ese cliente.\");",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}/change-owner",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}",
+                        "change-owner"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"client_id\": {{pedro_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15 Cambio de dueño por el veterinario: 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "const json = pm.response.json();",
+                            "pm.test('Sin permiso', () => pm.expect(json.error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}/change-owner",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}",
+                        "change-owner"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"client_id\": {{ana_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16 Búsqueda por microchip",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Encuentra a Bolita', () => pm.expect(json.meta.pagination.total).to.eql(1));",
+                            "pm.test('Es Bolita', () => pm.expect(json.data[0].name).to.eql('Bolita'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients?search={{chip}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "{{chip}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "17 Búsqueda por el documento del dueño",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Encuentra a Bolita por Pedro', () => pm.expect(json.meta.pagination.total).to.eql(1));",
+                            "pm.test('Es Bolita', () => pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('bolita_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients?search={{pedro_doc}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "{{pedro_doc}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "18 Pacientes de Pedro",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Solo Bolita', () => {",
+                            "    pm.expect(json.data).to.have.lengthOf(1);",
+                            "    pm.expect(json.data[0].name).to.eql('Bolita');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{pedro_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{pedro_id}}",
+                        "patients"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "19 Registro del fallecimiento (hora en UTC)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('La misma hora de vuelta, en UTC', () => {",
+                            "    pm.expect(json.data.is_deceased).to.eql(true);",
+                            "    pm.expect(json.data.deceased_at).to.eql('2025-11-05T13:00:00.000000Z');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "description": "La base guarda la hora de Asunción (10:00) y la API la devuelve en UTC (13:00Z).",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"deceased_at\": \"2025-11-05T13:00:00Z\",\n    \"notes\": \"Falleció en la clínica.\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "20 Edición de un fallecido: 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('PATIENT_DECEASED', () => {",
+                            "    pm.expect(json.error_code).to.eql('PATIENT_DECEASED');",
+                            "    pm.expect(json.message).to.eql(\"El paciente figura como fallecido: solo se pueden editar la fecha de fallecimiento y las notas.\");",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Bolita II\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21a El listado oculta a los fallecidos",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('No aparece', () => pm.expect(json.meta.pagination.total).to.eql(0));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients?search={{chip}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "{{chip}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21b Con include_deceased=1 aparece",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Aparece', () => pm.expect(json.meta.pagination.total).to.eql(1));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients?search={{chip}}&include_deceased=1",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "{{chip}}"
+                        },
+                        {
+                            "key": "include_deceased",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22 Cambio de dueño de un fallecido",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Vuelve a Ana', () => pm.expect(json.data.client.id).to.eql(Number(pm.collectionVariables.get('ana_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}/change-owner",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}",
+                        "change-owner"
+                    ]
+                },
+                "description": "Pregunta 17 del diseño: se permite (corrige errores de carga).",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"client_id\": {{ana_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23 Filtro mal formado: 422, nunca 500",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error de validación en per_page', () => {",
+                            "    pm.expect(json.error_code).to.eql('VALIDATION_ERROR');",
+                            "    pm.expect(json.errors).to.have.property('per_page');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients?per_page=abc",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "abc"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Baja por el recepcionista: 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "const json = pm.response.json();",
+                            "pm.test('Sin permiso', () => pm.expect(json.error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25a Baja de Bolita",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Eliminado', () => pm.expect(json.message).to.eql('Paciente eliminado correctamente.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25b Bolita ya no existe: 404",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                            "const json = pm.response.json();",
+                            "pm.test('No encontrado', () => pm.expect(json.error_code).to.eql('RESOURCE_NOT_FOUND'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{bolita_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{bolita_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 Microchip liberado: alta otra vez",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Con el mismo microchip', () => pm.expect(json.data.microchip).to.eql(pm.collectionVariables.get('chip')));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{ana_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{ana_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Bolita Segunda\",\n    \"species_id\": {{canino_id}},\n    \"breed_id\": {{beagle_id}},\n    \"sex\": \"male\",\n    \"birth_date\": \"2023-01-10\",\n    \"weight_kg\": 12.5,\n    \"microchip\": \"{{chip}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

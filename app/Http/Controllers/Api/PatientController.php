@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangePatientOwnerRequest;
+use App\Http\Requests\IndexPatientRequest;
+use App\Http\Requests\ListFilters;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Http\Resources\ShowPatientResource;
@@ -11,7 +13,6 @@ use App\Models\Client;
 use App\Models\Patient;
 use App\Services\PatientService;
 use App\Traits\ApiResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
@@ -35,13 +36,8 @@ class PatientController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(Request $request)
+    public function index(IndexPatientRequest $request)
     {
-        $request->validate([
-            'species_id' => ['nullable', 'integer'],
-            'include_deceased' => ['nullable', 'boolean'],
-        ]);
-
         $patients = Patient::query()
             ->with(['species', 'breed', 'client'])
             ->when(! $request->boolean('include_deceased'), fn ($q) => $q->whereNull('deceased_at'))
@@ -50,18 +46,19 @@ class PatientController extends Controller implements HasMiddleware
                 $search = $request->search;
 
                 $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('code', 'like', "%{$search}%")
-                        ->orWhere('microchip', 'like', "%{$search}%")
-                        ->orWhereHas('client', fn ($c) => $c->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('business_name', 'like', "%{$search}%")
-                            ->orWhere('document_number', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%"));
+                    // Búsqueda literal: "%" y "_" no son comodines (R-021).
+                    $q->whereContains('name', $search)
+                        ->orWhereContains('code', $search)
+                        ->orWhereContains('microchip', $search)
+                        ->orWhereHas('client', fn ($c) => $c->whereContains('first_name', $search)
+                            ->orWhereContains('last_name', $search)
+                            ->orWhereContains('business_name', $search)
+                            ->orWhereContains('document_number', $search)
+                            ->orWhereContains('phone', $search));
                 });
             })
             ->orderBy('name')
-            ->paginate($request->per_page ?? 10);
+            ->paginate($request->integer('per_page', ListFilters::DEFAULT_PER_PAGE));
 
         return $this->successResponse(
             'Pacientes obtenidos correctamente.',

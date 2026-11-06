@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\PatientController;
+use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\SpeciesController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +29,13 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::apiResource('patients', PatientController::class)->only(['index', 'show', 'update', 'destroy']);
     Route::post('patients/{patient}/change-owner', [PatientController::class, 'changeOwner'])->name('patients.change-owner');
 
-    // Catálogos
-    Route::get('species', [SpeciesController::class, 'index'])->name('species.index');
+    // Foto del paciente (FASE 1, entrega 1.5): disco privado; la descarga es el archivo.
+    Route::post('patients/{patient}/photo', [PatientPhotoController::class, 'store'])->name('patients.upload-photo');
+    Route::get('patients/{patient}/photo', [PatientPhotoController::class, 'show'])->name('patients.show-photo');
+    Route::delete('patients/{patient}/photo', [PatientPhotoController::class, 'destroy'])->name('patients.delete-photo');
+
+    // Catálogos: especies y sus razas (FASE 1, entrega 1.4). Las razas usan los
+    // permisos de especie (R-015); scopeBindings() da 404 a una raza de otra especie.
+    Route::apiResource('species', SpeciesController::class)->except(['show']);
+    Route::apiResource('species.breeds', BreedController::class)->except(['show']);
 });

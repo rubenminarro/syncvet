@@ -87,6 +87,56 @@ trait InteractsWithClinics
     }
 
     /**
+     * Raza global sembrada por SpeciesSeeder.
+     */
+    protected function globalBreedId(string $name, string $species = 'Canino'): int
+    {
+        return DB::table('breeds')->whereNull('clinic_id')
+            ->where('species_id', $this->globalSpeciesId($species))
+            ->where('name', $name)
+            ->value('id');
+    }
+
+    /**
+     * Especie propia de la clínica, con una raza propia; activas o no.
+     *
+     * @return array{0: int, 1: int} [species_id, breed_id]
+     */
+    protected function ownSpeciesWithBreed(Clinic $clinic, string $name, bool $active = true): array
+    {
+        $speciesId = DB::table('species')->insertGetId([
+            'clinic_id' => $clinic->id,
+            'name' => $name,
+            'is_active' => $active,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $breedId = DB::table('breeds')->insertGetId([
+            'clinic_id' => $clinic->id,
+            'species_id' => $speciesId,
+            'name' => "{$name} común",
+            'is_active' => $active,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return [$speciesId, $breedId];
+    }
+
+    /**
+     * Datos válidos para el alta de un paciente por la API.
+     */
+    protected function patientPayload(array $overrides = []): array
+    {
+        return [
+            'name' => 'Toby',
+            'species_id' => $this->globalSpeciesId(),
+            ...$overrides,
+        ];
+    }
+
+    /**
      * Datos válidos para el alta de un cliente por la API.
      */
     protected function clientPayload(array $overrides = []): array

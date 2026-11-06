@@ -2,24 +2,24 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en `CLAUDE.md`.
 
-Estado: FASE 0 (puesta en marcha) completada; sigue la FASE 1, clientes y pacientes. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; sigue la FASE 2, datos maestros. El estado de cada fase está en
 [`docs/roadmap/README.md`](docs/roadmap/README.md) y el punto de continuidad, en [`docs/handoff.md`](docs/handoff.md).
 
 ## Qué incluye
 
 | Carpeta | Contenido |
 |---|---|
-| `database/migrations` | 28 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración y secuencias. `clinic_id` en las tablas de negocio (D1) |
+| `database/migrations` | 32 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4). `clinic_id` en las tablas de negocio (D1) |
 | `app/Enums` | 34 enums (estados y tipos) con `label()` en español |
 | `app/Models` | 34 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog` |
 | `app/Exceptions` | `AppException`, 14 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
 | `app/Services` | `AuthService`, `ClientService`, `PatientService`, `ClinicService`, `DocumentSequenceService`, `AuditLogger` |
-| `app/Http` | Controllers, Requests y Resources de autenticación, clientes, pacientes y especies; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
+| `app/Http` | Controllers, Requests y Resources de autenticación, clientes, pacientes, y especies y razas; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas) y `PwnedPasswordsVerifier` |
 | `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | Rutas de autenticación (`login`, `logout`, `me`), clientes, pacientes y especies |
-| `database/seeders` | `RolesAndPermissionsSeeder` (119 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
+| `routes/api.php` | Rutas de autenticación (`login`, `logout`, `me`), clientes, pacientes, y especies y razas |
+| `database/seeders` | `RolesAndPermissionsSeeder` (123 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
 
@@ -41,13 +41,13 @@ Estado: FASE 0 (puesta en marcha) completada; sigue la FASE 1, clientes y pacien
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 28 actuales se verificaron también en MySQL 8.4 en la entrega 0.2 ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 32 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: lo reemplazan la verificación en MySQL de la entrega 0.5 y
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
-* Los 119 permisos de los Controllers y de los roles existen en el seeder.
+* Los 123 permisos de los Controllers y de los roles existen en el seeder.
 
 La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y de las rutas, y las respuestas de error en JSON
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);
@@ -58,7 +58,8 @@ acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo 
 ## Instalación
 
 Proyecto Laravel 13 con Sanctum 4 y spatie/laravel-permission 8 (entrega 0.1 de la FASE 0). Requisitos: PHP 8.3+ con `bcmath`,
-`intl`, `pdo_mysql` y `pdo_sqlite`; Composer; MySQL 8.
+`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md));
+Composer; MySQL 8.
 
 ```bash
 git clone https://github.com/rubenminarro/syncvet.git
@@ -93,5 +94,4 @@ php artisan key:generate
 
 ## Pendiente
 
-* Tests de Feature de clientes y pacientes (FASE 1).
 * Verificar los códigos SIFEN de `PaymentMethod::sifenCode()` y `invoice_items.unit_of_measure` contra el Manual Técnico.

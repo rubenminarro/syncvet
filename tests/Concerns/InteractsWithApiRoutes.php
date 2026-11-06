@@ -35,11 +35,16 @@ trait InteractsWithApiRoutes
 
     /**
      * Rutas cuyo permiso no sigue la regla del nombre (expectedPermission), con el
-     * permiso que exigen y su motivo. Vacía: hoy todas la siguen.
+     * permiso que exigen y su motivo.
      *
      * @var array<string, array{permission: string, reason: string}> nombre de la ruta => excepción
      */
-    protected const ROUTES_WITH_ANOTHER_PERMISSION = [];
+    protected const ROUTES_WITH_ANOTHER_PERMISSION = [
+        'species.breeds.index' => ['permission' => 'species.index', 'reason' => 'R-015: las razas usan los permisos de especie'],
+        'species.breeds.store' => ['permission' => 'species.store', 'reason' => 'R-015: las razas usan los permisos de especie'],
+        'species.breeds.update' => ['permission' => 'species.update', 'reason' => 'R-015: las razas usan los permisos de especie'],
+        'species.breeds.destroy' => ['permission' => 'species.destroy', 'reason' => 'R-015: las razas usan los permisos de especie'],
+    ];
 
     /**
      * Regla del nombre: el permiso de una ruta es `recurso.acción`, los dos últimos

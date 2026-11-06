@@ -26,6 +26,8 @@ class PatientResource extends JsonResource
             'weight_kg' => $this->weight_kg,
             'microchip' => $this->microchip,
             'is_deceased' => $this->deceased_at !== null,
+            // La ruta interna del archivo no sale de la API (entrega 1.5, pregunta 14).
+            'has_photo' => $this->photo_path !== null,
         ];
     }
 }

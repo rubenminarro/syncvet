@@ -4,10 +4,17 @@ namespace App\Services;
 
 use App\Enums\DocumentSeries;
 use App\Exceptions\PatientException;
+use App\Http\Requests\PatientMessages;
 use App\Models\Breed;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Species;
+use App\Support\DeletedSuffix;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Pacientes. El código PAC-000001 sale de la serie (DocumentSequenceService).
@@ -22,26 +29,57 @@ class PatientService
 
     public function create(Client $client, array $data): Patient
     {
-        $this->ensureBreedMatchesSpecies($data['species_id'], $data['breed_id'] ?? null);
+        return DB::transaction(function () use ($client, $data) {
+            // Orden de bloqueo: especie → raza → serie (la serie, siempre última).
+            $this->lockCatalog($data['species_id'], $data['breed_id'] ?? null);
 
-        return DB::transaction(fn () => $this->sequences->create(
-            DocumentSeries::PATIENT,
-            fn (string $code) => $client->patients()->create([...$data, 'code' => $code])
-        ));
+            return $this->sequences->create(
+                DocumentSeries::PATIENT,
+                fn (string $code) => $client->patients()->create([...$data, 'code' => $code])
+            );
+        });
     }
 
     public function update(Patient $patient, array $data): Patient
     {
         $this->ensureNotDeceased($patient, $data);
 
-        $this->ensureBreedMatchesSpecies(
-            $data['species_id'] ?? $patient->species_id,
-            array_key_exists('breed_id', $data) ? $data['breed_id'] : $patient->breed_id
-        );
+        if (! empty($data['deceased_at'])) {
+            $data['deceased_at'] = $this->toAppTimezone($data['deceased_at']);
+        }
 
-        $patient->update($data);
+        return DB::transaction(function () use ($patient, $data) {
+            $this->lockCatalog(
+                $data['species_id'] ?? $patient->species_id,
+                array_key_exists('breed_id', $data) ? $data['breed_id'] : $patient->breed_id
+            );
 
-        return $patient;
+            $patient->update($data);
+
+            return $patient;
+        });
+    }
+
+    /**
+     * Bloqueo compartido (sharedLock) de la especie y la raza que el paciente va a
+     * usar, dentro de la transacción del alta o de la edición. La baja de una especie
+     * o una raza las bloquea con lockForUpdate antes de revisar si están en uso
+     * (SpeciesService, BreedService): si la baja terminó primero, aquí ya no se
+     * encuentran (el scope de SoftDeletes) y el pedido responde 422; si el paciente
+     * terminó primero, la baja lo ve y responde 409. El Form Request ya las validó,
+     * pero sin bloqueo: una baja podía entrar entre su validación y el alta.
+     */
+    private function lockCatalog(int $speciesId, ?int $breedId): void
+    {
+        if (Species::query()->whereKey($speciesId)->sharedLock()->first() === null) {
+            throw ValidationException::withMessages(['species_id' => PatientMessages::SPECIES_UNAVAILABLE]);
+        }
+
+        if ($breedId !== null && Breed::query()->whereKey($breedId)->sharedLock()->first() === null) {
+            throw ValidationException::withMessages(['breed_id' => PatientMessages::BREED_UNAVAILABLE]);
+        }
+
+        $this->ensureBreedMatchesSpecies($speciesId, $breedId);
     }
 
     /**
@@ -68,7 +106,7 @@ class PatientService
             || $patient->applications()->exists()
             || $patient->appointments()->exists()) {
             throw new PatientException(
-                'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registre la fecha de fallecimiento.',
+                'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registrá la fecha de fallecimiento.',
                 409,
                 'PATIENT_IN_USE'
             );
@@ -76,12 +114,25 @@ class PatientService
 
         DB::transaction(function () use ($patient) {
             if ($patient->microchip) {
-                $patient->microchip = substr($patient->microchip . '//deleted_' . now()->timestamp, 0, 30);
+                // La columna tiene 60 caracteres (entrega 1.3): 30 del chip más el
+                // sufijo entero, con el id; sin cortar, dos bajas del mismo chip no chocan.
+                $patient->microchip .= DeletedSuffix::for($patient);
                 $patient->save();
             }
 
             $patient->delete();
         });
+    }
+
+    /**
+     * La API recibe las fechas con hora en UTC ("Z") o con su desplazamiento; la
+     * base guarda la hora de America/Asuncion. Sin convertir, el cast del modelo
+     * guardaba la hora UTC como si fuera local (3 horas corrida). Deuda 13: llevar
+     * la conversión de todas las fechas con hora a un lugar común antes de la FASE 3.
+     */
+    private function toAppTimezone(string $value): CarbonInterface
+    {
+        return Date::parse($value)->setTimezone(config('app.timezone'));
     }
 
     private function ensureBreedMatchesSpecies(int $speciesId, ?int $breedId): void
@@ -96,11 +147,21 @@ class PatientService
     }
 
     /**
-     * Un paciente fallecido solo admite corregir la fecha de fallecimiento o quitarla.
+     * Un paciente fallecido solo admite cambiar la fecha de fallecimiento (o quitarla)
+     * y las notas. Los demás campos pueden llegar si no cambian: el frontend manda el
+     * formulario completo (revisión de la entrega 1.3, R-021). Se comparan con los
+     * casts del modelo, así "12.5" y "12.50" o "male" y PatientSex::MALE son iguales.
      */
     private function ensureNotDeceased(Patient $patient, array $data): void
     {
-        if ($patient->deceased_at && array_diff(array_keys($data), ['deceased_at', 'notes']) !== []) {
+        if (! $patient->deceased_at) {
+            return;
+        }
+
+        $probe = clone $patient;
+        $probe->fill(Arr::except($data, ['deceased_at', 'notes']));
+
+        if ($probe->isDirty()) {
             throw new PatientException(
                 'El paciente figura como fallecido: solo se pueden editar la fecha de fallecimiento y las notas.',
                 422,

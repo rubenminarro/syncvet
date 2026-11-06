@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexClientPatientRequest;
 use App\Http\Requests\StorePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Http\Resources\ShowPatientResource;
@@ -33,9 +34,13 @@ class ClientPatientController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(Client $client)
+    public function index(IndexClientPatientRequest $request, Client $client)
     {
-        $patients = $client->patients()->with(['species', 'breed'])->orderBy('name')->get();
+        $patients = $client->patients()
+            ->with(['species', 'breed'])
+            ->when(! $request->boolean('include_deceased'), fn ($q) => $q->whereNull('deceased_at'))
+            ->orderBy('name')
+            ->get();
 
         return $this->successResponse(
             'Pacientes del cliente obtenidos correctamente.',

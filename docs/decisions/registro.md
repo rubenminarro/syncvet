@@ -255,3 +255,296 @@ completa. Commits `8fe50cc` y `f87dbdd`, en `feature/fase-00-05-acceso`. El deta
 
 **Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles; las
 reglas de negocio de clientes y pacientes.
+
+# R-015 Respuestas de negocio y alcance de la FASE 1 (2026-11-05)
+
+Respuestas del usuario a las preguntas de negocio de la FASE 1 (las tres del alcance inicial y las cinco que agregó el análisis), y
+el alcance que suma a la fase. El diseño que las aplica está en [`fase-01-clientes-y-pacientes.md`](../fases/fase-01-clientes-y-pacientes.md),
+pendiente de aprobación.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Tutores | Un solo tutor responsable por paciente en el MVP (`patients.client_id`). Se revisa después del piloto | Usuario |
+| Campos personalizados | Postergados: la columna `patients.custom_fields` queda, sin API ni pantalla, hasta que una clínica real los pida. Los Requests dejan de aceptarlos | Usuario |
+| RUC del cliente | Se valida el dígito verificador cuando el documento tiene la forma `NNNNNNN-D`, con el cálculo de `ClinicService`. Una cédula sin guion no se valida | Usuario |
+| Baja de especies y razas | `is_active` las oculta de las altas nuevas (los pacientes que ya las usan las siguen mostrando). Se eliminan con `SoftDeletes` solo si nunca se usaron; en uso, 409, como los demás datos maestros | Usuario |
+| Nombres de especies y razas | Únicos sin distinguir mayúsculas: una clínica no crea una especie o raza con el nombre de una global ni de una propia, y tampoco se repiten entre globales | Usuario |
+| Quién administra el catálogo | El administrador y el veterinario. Las razas van anidadas (`species/{species}/breeds`) con los permisos de especie. Con ellas llega el test de `scopeBindings()` y se cierra la deuda 8 | Usuario |
+| Foto del paciente | JPG, PNG o WEBP de hasta 5 MB, en disco privado, descargada por la API con `nosniff`, sin redimensionar. La suben el recepcionista y el veterinario. Permiso según la regla "permiso = nombre de la ruta" | Usuario |
+| Baja de clientes y pacientes | Sigue siendo solo del administrador. `CLIENT_IN_USE` y `PATIENT_IN_USE` se prueban con un rol propio con esos permisos | Usuario |
+| Alcance sumado | Traducciones de validación en `lang/es` con voseo y un test que impida claves crudas (`validation.*`); voseo en los mensajes que quedaron en tú o usted; `SpeciesController` con un Resource; `insert()` y `upsert()` de `SharedCatalogBuilder` respetan la clínica; `PUT` y `PATCH` con la misma semántica parcial, aclarada en `CLAUDE.md` | Usuario |
+| Documentación | Se corrigen las menciones a "sin merge a `main`" del handoff y del cierre de la FASE 0 (la fase se integró con `63b3eff`) y el `PAC-000001` del paso 5 de la FASE 1 en la guía de Postman | Usuario |
+
+# R-016 Aprobación del diseño de la FASE 1 (2026-11-05)
+
+El usuario aprueba el diseño de la FASE 1 ([`fase-01-clientes-y-pacientes.md`](../fases/fase-01-clientes-y-pacientes.md)) con cinco
+entregas (1.1 a 1.5) y responde las preguntas 9 a 19 del diseño.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | Cinco: 1.1 traducciones, voseo y `PUT`/`PATCH`; 1.2 clientes; 1.3 pacientes; 1.4 especies y razas; 1.5 foto del paciente. Reemplazan las cuatro del alcance inicial | Usuario |
+| Nombres de especies y razas | Únicos sin distinguir mayúsculas ni acentos. Se comparan en la aplicación con el nombre normalizado (minúsculas y sin acentos), sin depender de la collation, para que SQLite y MySQL den el mismo resultado; test en las dos bases. Las razas, dentro de su especie | Usuario |
+| Globales por clínica | Una clínica no puede ocultar para sí una especie o raza global en el MVP | Usuario |
+| Foto del paciente | Queda fuera del bloqueo `PATIENT_DECEASED`. La suben y la borran el recepcionista y el veterinario; la ven los tres roles | Usuario |
+| Contrato del paciente | Se quita `custom_fields` de la respuesta y `photo_path` se reemplaza por `has_photo` | Usuario |
+| Sufijo de baja | Si un test confirma el choque, una migración nueva amplía `clients.document_number` y `patients.microchip` a 50 caracteres | Usuario |
+| Archivos grandes | `413 PAYLOAD_TOO_LARGE` entre los `error_code` genéricos; `development/setup.md` documenta `upload_max_filesize` y `post_max_size` | Usuario |
+| Paciente fallecido | Se sigue pudiendo cambiar su dueño | Usuario |
+| Baja de una especie propia | Elimina también sus razas propias sin uso, en la misma transacción | Usuario |
+
+# R-017 Entrega 1.1 de la FASE 1: traducciones, voseo y `PUT`/`PATCH` (2026-11-05)
+
+Cierre de la entrega 1.1. Commit `0675c5b`, en `feature/fase-01-01-traducciones`. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-11).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | Suite en verde sobre `0675c5b` en SQLite (260 casos, 5043 aserciones, 2 omitidos que son solo de MySQL), validada por el usuario en su máquina, y en MySQL 8.4.3 (`syncvet_test_mysql`, 5059 aserciones), corrida en el cierre | Usuario, el 2026-11-05 |
+| Traducciones | `lang/es/validation.php` con todas las claves del framework y el nombre en español de cada campo; los mensajes propios de los Requests siguen mandando. Sin paquetes nuevos | Diseño (R-016), implementación |
+| Voseo | Regla de `CLAUDE.md` §3: `VoseoTest` rechaza las formas de tú y de usted de su lista; todo campo de un Form Request lleva su nombre en `attributes` (`ValidationTranslationsTest`) | Implementación, validada por el usuario |
+| `PUT` y `PATCH` | Regla de `CLAUDE.md` §3: `apiResource` registra los dos y los dos son parciales (`HttpVerbsTest`) | Diseño (R-016) |
+| Hallazgos de la revisión | Cuatro huecos de los tests (lista cerrada de `VoseoTest` y mensajes en inglés, marcadores, nombres de los campos que solo valida un Controller, falsos positivos en tercera persona) quedan sin corregir en la entrega: el usuario la validó sin pedir cambios. Se registran como deudas 9 a 12, a resolver en la entrega 1.2 | Usuario |
+| Siguiente | Entrega 1.2: clientes, con autorización del usuario | Diseño (R-016) |
+| `CLAUDE.md` | §1 con el estado de la FASE 1 y la entrega 1.1; §3 con las dos reglas, ya en el commit de la entrega | Implementación |
+
+**Qué no cambió.** Contrato de respuesta, `error_code`, códigos HTTP y rutas existentes; los 119 permisos y los tres roles; las
+reglas de negocio de clientes y pacientes.
+
+# R-018 Revisión de la entrega 1.2 de la FASE 1: documento por número base y filtros de los listados (2026-11-05)
+
+La revisión de la entrega 1.2 (clientes) encontró seis hallazgos; el usuario pidió corregir los cinco primeros en la misma
+entrega, en `feature/fase-01-02-clientes`.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Filtros de los listados | `per_page=abc`, `per_page=-3` y `search[]=x` daban 500 en clientes y pacientes, y `per_page` no tenía tope. `IndexClientRequest` e `IndexPatientRequest` validan los filtros comunes de `ListFilters`: `search` texto de hasta 100, `per_page` entero de 1 a 100 (10 por defecto) y `page` entero desde 1. Regla en `CLAUDE.md` §3 | Usuario |
+| Tests de edición | Una empresa no acepta `first_name` ni `last_name`, una persona no acepta `business_name` y el email va en minúsculas también al editar: estaban probados solo en el alta | Usuario |
+| Edición como el alta | Un campo obligatorio enviado vacío responde solo "El … es obligatorio." (antes, tres mensajes de formato). Los campos del otro tipo admiten `null`, también al cambiar de tipo, porque el frontend manda todos los campos; un valor sigue rechazado | Usuario |
+| Documento por número base | En Paraguay el RUC de una persona es su cédula más el dígito verificador. Columna `clients.document_base` (dígitos antes del guion, sin ceros adelante; un documento con letras es su propia base, en mayúsculas), única por clínica y completada por el modelo al guardar. `99999903`, `099999903` y `99999903-6` son el mismo documento: 422 con "Este número de documento ya está en uso." La baja le agrega el mismo sufijo y la libera. Regla en `CLAUDE.md` §6.1 | Usuario |
+| Migración | `2026_11_05_000001_add_document_base_to_clients` calcula la base de los clientes existentes. Si dos clientes de una clínica comparten la base, se detiene con sus ids antes de tocar la tabla (en MySQL el DDL no se deshace). Probada en MySQL 8.4 (`syncvet_test_mysql`): subir, bajar y subir, con datos previos y con un duplicado | Implementación |
+| Sin corregir | El microchip se sigue cortando a 30 caracteres: con un chip ISO de 15 y un id de más de 5 dígitos, dos bajas pueden chocar. Queda para la entrega 1.3, que amplía la columna | Revisión, fuera del pedido |
+
+**Qué no cambió.** Rutas, permisos, `error_code` y el contrato de respuesta. Cambia el código HTTP de un filtro mal formado
+(de 500 a 422) y, al editar, los mensajes de un campo obligatorio vacío.
+
+# R-019 Entrega 1.2 de la FASE 1: clientes (2026-11-05)
+
+Cierre de la entrega 1.2. Commits `fff480a`, `54677d8` y `544f5cd`, en `feature/fase-01-02-clientes`. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-12).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | Suite en verde sobre `544f5cd` en SQLite (368 casos, 5371 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 5387 aserciones), corrida en el cierre. El usuario validó la entrega con la colección de Postman contra `syncvet` recreada con el `DemoSeeder`: 48 pruebas en verde | Usuario, el 2026-11-05 |
+| "Errors 1" del Collection Runner | No se reprodujo: Newman, sobre `syncvet` recreada, corrió los 24 requests sin errores de script, y el log de la API no tiene errores. Queda PENDIENTE DE VERIFICACIÓN; la colección no cambió | Cierre |
+| Reglas de clientes | Dígito verificador del RUC (R-015), documento único por número base y edición que valida como el alta (R-018): `CLAUDE.md` §6.1 | Usuario |
+| Sufijo de baja | `//deleted_<id>_<timestamp>`, sin cortar en clientes (documento a 50 caracteres, pregunta 15); el microchip se amplía en la 1.3 | Diseño (R-016), implementación |
+| Deudas | 9 a 12 resueltas. La 1 sigue abierta solo para pacientes: se cierra con la 1.3 | Diseño (R-016) |
+| Preparación | `development/setup.md` documenta `DEMO_PASSWORD` entre comillas simples y recrear la base después de cambiar a una rama con migraciones nuevas: en la validación, el login dio 500 por una base vieja | Usuario |
+| Siguiente | Entrega 1.3: pacientes, con autorización del usuario | Diseño (R-016) |
+
+**Qué no cambió.** Rutas, permisos, `error_code` y el contrato de respuesta, salvo lo que detalla R-018.
+
+# R-020 Entrega 1.3 de la FASE 1: pacientes (2026-11-06)
+
+Cierre de la entrega 1.3, en `feature/fase-01-03-pacientes` (creada desde `feature/fase-01-02-clientes`). Segundo intento: el
+primero quedó sin subir en otra computadora y se descartó; sus hallazgos, aprobados por el usuario, se aplicaron directamente. El
+detalle está en el [resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-13).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Tests | Cada regla de `CLAUDE.md` §6.2 en `tests/Feature/Patients`, con el rol recepcionista (la baja, con un rol de test con `patients.destroy`). Deuda 1 resuelta | Diseño (R-016) |
+| `code` | Prohibido también en el alta (422): antes se ignoraba | Usuario |
+| `custom_fields` | Los Requests no lo aceptan (si llega, se ignora) y la respuesta no lo muestra (R-015, pregunta 14) | Usuario |
+| Especie o raza inactiva al editar | Se acepta la que el paciente ya tiene; otra inactiva → 422 | Diseño (R-016) |
+| Microchip | El sufijo de baja lleva el id y no se corta; la columna pasa a 60 caracteres (30 del chip, el sufijo y el id), no a 50 como decía la pregunta 15. Migración probada en `syncvet_test_mysql`: subir, bajar y subir | Usuario |
+| `deceased_at` | Llegaba en UTC y se guardaba 3 horas corrida: `PatientService` lo convierte a `America/Asuncion`, con test. Resolver la conversión de todas las fechas con hora en un lugar común antes de la FASE 3: deuda 13 | Usuario |
+| Cambio de dueño de un fallecido | Permitido (pregunta 17) | Usuario |
+| `photo_path` | Sigue en la respuesta hasta la 1.5 (la pregunta 14 lo reemplaza por `has_photo` allí) | Usuario |
+| `PATIENT_IN_USE` | Solo en los tests: la API todavía no crea consultas, aplicaciones ni turnos | Usuario |
+| Postman | Colección de pacientes, y la de clientes repetible: el primer request genera documentos, emails y microchip únicos de la corrida | Usuario |
+| Validación | Suite en verde en SQLite (434 casos, 5579 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 5595 aserciones). Newman: cada colección dos veces seguidas sin recrear la base, todo en verde | Implementación |
+| Siguiente | Entrega 1.4: especies y razas, con autorización del usuario | Diseño (R-016) |
+
+**Qué no cambió.** Rutas, permisos, `error_code` y el contrato de respuesta, salvo `custom_fields` fuera del detalle del paciente
+y `code` en el alta, que ahora responde 422.
+
+# R-021 Revisión de la entrega 1.3 de la FASE 1: correcciones (2026-11-06)
+
+La revisión de la entrega 1.3 (pacientes) encontró dos hallazgos de gravedad media, cuatro de baja y dos avisos; el usuario pidió
+corregir los ocho en `feature/fase-01-03-pacientes`, cada uno con un test que falle al quitar la protección. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-021).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Fallecido con el formulario completo | `ensureNotDeceased` compara valores, no nombres de campo: los campos bloqueados pueden llegar con el valor que ya tienen (con los casts del modelo: "12.5" y "12.50" son iguales); se rechaza solo si cambian. Regla en `CLAUDE.md` §6.2 | Usuario |
+| Test del sufijo más largo | No guarda un paciente con id 999999999: en MySQL el autoincremento no vuelve atrás con la transacción del test, y los pacientes siguientes de la suite recibían ids de 10 dígitos (la baja de un chip de 30 daba 500). El sufijo se arma con el id como dato, y el valor de 60 caracteres se guarda en una fila existente | Usuario |
+| Fallecimiento anterior al nacimiento | 422 en `deceased_at` con "La fecha de fallecimiento no puede ser anterior a la fecha de nacimiento.", contra la fecha de nacimiento del pedido o la del paciente, comparando el día en la hora de Asunción (`UpdatePatientRequest::after`). Regla nueva en `CLAUDE.md` §6.2 | Usuario |
+| Listado de los pacientes de un cliente | `clients/{client}/patients` oculta a los fallecidos salvo `include_deceased=1`, validado en `IndexClientPatientRequest`, como el listado general. Regla aclarada en `CLAUDE.md` §6.2 | Usuario |
+| Búsqueda literal | `search=%` devolvía todo el listado. `whereContains`/`orWhereContains` (`App\Support\SearchTerm`) escapan `%` y `_` con `ESCAPE '!'`, el mismo en SQLite y MySQL; la barra invertida queda como un carácter más. En los listados de clientes y de pacientes. Regla en `CLAUDE.md` §3 | Usuario; el carácter de escape, implementación |
+| Postman | Cada colección genera sus documentos en un rango propio (clientes, corrida de 500000 a 749998; pacientes, de 750000 a 999998). La guía remite a las colecciones y ya no tiene tablas de pasos propias: la tabla manual de la FASE 1 creaba a Toby en la clínica A y rompía la colección de clientes | Usuario |
+| Documentos | `README.md` con las 31 migraciones actuales; el handoff con el hash del checkpoint | Usuario |
+| Validación | Suite en verde en SQLite (449 casos, 5626 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 5642 aserciones). Newman: cada colección dos veces seguidas sin recrear la base, todo en verde | Implementación |
+
+**Qué no cambió.** Rutas, permisos y `error_code`. Cambian: un fallecido acepta el formulario completo sin cambios; un fallecimiento
+anterior al nacimiento responde 422; `clients/{client}/patients` oculta a los fallecidos (antes los mostraba) y acepta
+`include_deceased`; `search` con `%` o `_` ya no funciona como comodín.
+
+# R-022 Entrega 1.3 de la FASE 1: validación y cierre (2026-11-06)
+
+Cierre de la entrega 1.3 (pacientes). Commits `fd2334f` (implementación, R-020), `837484a` (correcciones de la revisión, R-021) y
+`be47879` (hash del checkpoint en el handoff), en `feature/fase-01-03-pacientes`. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-022).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | El usuario corrió en Postman las dos colecciones contra `syncvet`: clientes, 48 de 48 pruebas; pacientes, 61 de 61; sin errores. Entrega validada | Usuario, el 2026-11-06 |
+| Suite del cierre | Sobre `be47879` (el código de `837484a`): 449 casos en verde; en SQLite, 5626 aserciones con 2 omitidos (solo de MySQL); en MySQL 8.4.3 (`syncvet_test_mysql`), 5642 aserciones. Newman: cada colección dos veces seguidas sin recrear la base, todo en verde | Cierre |
+| Protecciones quitadas de a una | No se repiten en el cierre: valen las de la implementación y las de las correcciones (seis y seis) | Usuario |
+| Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte. Queda anotado en el resultado de la entrega | Usuario |
+| `demo_password` en Postman | La guía indica guardarla en un Environment "SyncVet local": reimportar una colección la reemplaza con su `demo_password` vacía, y un Environment tiene prioridad sobre las variables de la colección y no se toca al reimportar | Usuario |
+| Pacientes | El módulo sigue EN DESARROLLO: falta la foto del paciente (entrega 1.5) | Cierre |
+| Siguiente | Entrega 1.4: especies y razas, con autorización del usuario | Diseño (R-016) |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-023 Entrega 1.4 de la FASE 1: especies y razas (2026-11-06)
+
+Implementación de la entrega 1.4 en `feature/fase-01-04-especies` (creada desde `feature/fase-01-03-pacientes`). Falta la revisión
+y la validación del usuario: no es el cierre. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-14).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| ABM | `species` y `species/{species}/breeds` con alta, edición (`PATCH`/`PUT` parciales), inactivación y baja; sin detalle (`show`). `SpeciesController` reescrito con `SpeciesResource`; `BreedController` y `BreedResource` nuevos | Diseño (R-016) |
+| Baja | `is_active` oculta de las altas nuevas; `SoftDeletes` solo sin uso (pacientes, también eliminados): 409 `SPECIES_IN_USE` o `BREED_IN_USE`. La baja de una especie se lleva sus razas | Usuario (R-015, pregunta 18) |
+| Nombre único | Sin mayúsculas, acentos ni espacios de los extremos (`App\Support\CatalogName`), comparado en la aplicación; la especie frente a las globales y a las propias, la raza dentro de su especie. 422 `VALIDATION_ERROR` en `name`, desde el Service, con la fila de la clínica bloqueada (`CatalogLock`; orden de bloqueo clínica → catálogo) | Usuario (preguntas 9 y 10) |
+| Globales | No se editan, no se inactivan ni se eliminan (403 `CATALOG_GLOBAL_NOT_EDITABLE`, antes que el nombre repetido); no se ocultan por clínica | Usuario (pregunta 11) |
+| Permisos | `species.destroy` nuevo (119 → 120). El veterinario suma `species.store`, `species.update` y `species.destroy`; el recepcionista, solo `species.index`. Las cuatro rutas de razas, en `ROUTES_WITH_ANOTHER_PERMISSION` con los permisos de especie. Foto de roles actualizada | Usuario (pregunta 6) |
+| `SharedCatalogBuilder` | Las altas masivas fijan la clínica en contexto en cada fila y rechazan otra o un global explícito; `upsert` no actualiza `clinic_id`; `insertUsing` e `insertOrIgnoreUsing` fallan siempre; sin clínica, fallo cerrado | Diseño (R-016) |
+| `upsert` con el id | Rechazado (en las filas o en la clave de unicidad): `ON DUPLICATE KEY UPDATE` no admite un filtro por clínica y un upsert por id actualizaría un global o un registro de otra clínica | Implementación |
+| Largo del nombre | Se valida hasta 60 (especie) y 80 (raza), como el diseño; las columnas pasan a 90 y 110 (no quedan en 80 y 100) para el sufijo de baja con el id (`//deleted_<id>_<timestamp>`, R-021) | Implementación |
+| Formato del nombre | Letras, números, espacios, puntos, guiones, apóstrofos y paréntesis; sin `/`, que es del sufijo de baja | Implementación |
+| Deuda 8 | Resuelta: `NestedBindingTest` pide una raza de otra especie de la misma clínica y espera 404; falla sin `scopeBindings()` | Diseño (R-016) |
+| Concurrencia | `CatalogLockTest` verifica que el alta y el cambio de nombre bloquean la clínica (`for update` en MySQL) antes de leer los nombres, dentro de la transacción del Service. No simula dos pedidos simultáneos: PHPUnit corre con una sola conexión dentro de la transacción de `RefreshDatabase` | Implementación |
+| Postman | Colección de especies y razas, repetible, con su propio rango de corrida (400000 a 499998). En una base que no se recrea hay que volver a sembrar los roles (`RolesAndPermissionsSeeder`) | Usuario |
+| Validación | Suite en verde en SQLite (557 casos, 6330 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 557 casos, 6346 aserciones). Migración probada en MySQL: subir, bajar y subir. Newman: la colección de especies dos veces seguidas sin recrear la base (38 requests y 84 aserciones cada vez), y las de clientes y pacientes otra vez, todo en verde | Implementación |
+| Siguiente | Revisión y validación de la 1.4; después, la 1.5 con autorización del usuario | Diseño (R-016) |
+
+**Qué cambió en la API.** Rutas nuevas: `POST species`, `PATCH`/`PUT`/`DELETE species/{species}` y las cuatro de
+`species/{species}/breeds`. `GET species` conserva su forma (`id`, `name`, `breeds[].id`, `breeds[].name`) y suma `is_active`,
+`is_global` y, en cada raza, `species_id`, `is_active` e `is_global`; acepta `include_inactive`. El alta y la edición de pacientes
+rechazan una especie o raza eliminada (422). Sin cambios en los `error_code` existentes ni en el contrato de respuesta.
+
+# R-024 Revisión de la entrega 1.4 de la FASE 1: correcciones (2026-11-06)
+
+La revisión de la entrega 1.4 (especies y razas) encontró un hallazgo de gravedad media, cuatro de baja y tres de documentación; el
+usuario aceptó los desvíos de la implementación y pidió corregir los hallazgos en `feature/fase-01-04-especies`, cada uno con un
+test que falle al quitar la protección. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-024).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Baja y alta de paciente simultáneas | La baja de una especie bloquea la especie y sus razas (`lockForUpdate`), y la de una raza, la raza, y revisan el uso dentro de su transacción. El alta y la edición de un paciente toman un `sharedLock` sobre la especie y la raza dentro de la suya y las vuelven a buscar: si una baja terminó antes, 422 en `species_id` o `breed_id` con el mensaje de la regla `exists`. Orden de bloqueo nuevo en `CLAUDE.md` §3: especie → raza → serie | Usuario |
+| Tests de la carrera | Una sola conexión no puede esperar un bloqueo: el test pone el otro pedido en el único momento en que puede terminar sin esperar (el paciente antes del bloqueo de la baja → 409; la baja antes del bloqueo del paciente → 422), y en MySQL exige `for update` y `lock in share mode` en ese orden. El alta dentro del evento `deleting` de la revisión no se reproduce tal cual: con el bloqueo, en una base real ese alta espera | Implementación |
+| Globales | 403 `CATALOG_GLOBAL_NOT_EDITABLE` antes de validar el cuerpo: lo revisa `authorize()` del Form Request de edición; el Service lo sigue revisando | Usuario |
+| Nombre con letras | `CatalogMessages::NAME_REGEX` exige al menos una letra; el mensaje lo dice ("debe tener al menos una letra y solo puede contener…") | Usuario; el texto del mensaje, implementación |
+| Espacios internos | `CatalogName::clean` junta toda serie de espacios (también tabs y espacios duros) en uno y quita los de los extremos. Se aplica al guardar (el nombre en `Species` y `Breed`) y al comparar (`normalize`) | Usuario; el lugar (el modelo), implementación |
+| `insert([])` | `insert` e `insertOrIgnore` de `SharedCatalogBuilder` sin filas no hacen nada, como en Laravel | Usuario |
+| Documentos | `README.md` con 120 permisos; `CLAUDE.md` §6.2 con especie y raza no eliminadas; el handoff con `8a614c5` como el commit de la implementación (un commit no puede llevar su propio hash: el de estas correcciones se informa al subirlo) | Usuario |
+| Postman | La colección de especies suma el nombre sin letras, la global con un cuerpo inválido y la global con dos espacios internos, y comprueba los espacios juntados en un alta (41 requests, 93 aserciones) | Implementación |
+| Validación | Suite en verde en SQLite (577 casos, 6449 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 6465 aserciones). Quince protecciones quitadas de a una, cada una con un test que falla. Newman: especies dos veces seguidas sin recrear la base, y clientes y pacientes, todo en verde | Implementación |
+
+**Qué cambió en la API.** Rutas, permisos, `error_code` y contrato de respuesta, sin cambios. Cambian: una global con un cuerpo
+inválido responde 403 (antes, 422); un nombre sin letras responde 422; los espacios internos repetidos se guardan como uno y
+cuentan para el nombre repetido; un alta o edición de paciente simultánea con la baja de su especie o raza responde 422.
+
+# R-025 Entrega 1.4 de la FASE 1: validación y cierre (2026-11-06)
+
+Cierre de la entrega 1.4 (especies y razas). Commits `8a614c5` (implementación, R-023) y `aadc1d9` (correcciones de la revisión,
+R-024), en `feature/fase-01-04-especies`. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-025).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | El usuario corrió en Postman las tres colecciones contra `syncvet`: especies, 93 de 93 pruebas, dos veces; pacientes, 61 de 61; clientes, 48 de 48; sin errores. Entrega validada | Usuario, el 2026-11-06 |
+| Suite del cierre | No se repitió: el código no cambió desde la corrida de las correcciones (`aadc1d9`): 577 casos en verde; en SQLite, 6449 aserciones con 2 omitidos (solo de MySQL); en MySQL 8.4.3 (`syncvet_test_mysql`), 6465 aserciones | Cierre |
+| Hash en el handoff | Queda como lo dejaron las correcciones: el último commit de código es el hijo de `8a614c5`, sin su hash; no se agrega un commit solo para escribirlo | Usuario |
+| Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte (anotado en el resultado de la entrega) | Cierre |
+| Especies y razas | El módulo pasa a COMPLETADO: la 1.4 era su última entrega en el diseño (R-016) | Cierre |
+| Siguiente | Entrega 1.5: foto del paciente, con autorización del usuario | Diseño (R-016) |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-026 Entrega 1.5 de la FASE 1: foto del paciente (2026-11-06)
+
+Implementación de la entrega 1.5 en `feature/fase-01-05-foto` (creada desde `feature/fase-01-04-especies`). Falta la revisión y
+la validación del usuario: no es el cierre. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-15).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | `POST`, `GET` y `DELETE patients/{patient}/photo`, con `PatientPhotoController` y `PatientPhotoService`. Subir y borrar responden `ShowPatientResource`; ver responde el archivo | Diseño (R-016) |
+| Permisos | `patients.upload-photo`, `patients.show-photo` y `patients.delete-photo` (120 → 123). El recepcionista y el veterinario, los tres; el administrador, por `Gate::before`. Foto de los roles actualizada | Usuario (preguntas 7 y 13) |
+| Tipo y tamaño | JPG, PNG o WEBP de hasta 5 MB, por el contenido (`image` y `mimetypes`, que leen los bytes); otro tipo → 422. Más grande → 413 `PAYLOAD_TOO_LARGE`, como el pedido cortado por `post_max_size` o el archivo cortado por `upload_max_filesize` | Usuario (preguntas 7 y 16; el 413 de la foto grande, al autorizar la entrega) |
+| 413 genérico | `bootstrap/app.php` mapea el 413 a `PAYLOAD_TOO_LARGE`; `development/setup.md` documenta `upload_max_filesize` y `post_max_size` | Usuario (pregunta 16) |
+| Almacenamiento | Disco `local` (privado), `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}`, con la extensión del tipo detectado; sin redimensionar | Diseño (R-015 y R-016) |
+| Reemplazo y borrado | `photo_path` se lee con la fila del paciente bloqueada y se cambia en una transacción; el archivo anterior se borra después del commit (`DB::afterCommit`); si la transacción falla, se borra el nuevo | Diseño; el bloqueo, implementación |
+| Descarga | El archivo, con `Content-Type` del tipo guardado, `X-Content-Type-Options: nosniff`, `Content-Disposition: inline` con el código del paciente y `Cache-Control: private, no-store`. La única respuesta exitosa sin `ApiResponse` (`CLAUDE.md` §4) | Usuario (pregunta 7) |
+| Sin foto o archivo perdido | 404 `PATIENT_PHOTO_NOT_FOUND`; el archivo perdido deja un aviso en el log | Diseño (R-016) |
+| Fallecido | Sube y borra la foto, sin `PATIENT_DECEASED`: no es un dato clínico | Usuario (pregunta 12) |
+| Contrato | `has_photo` en `PatientResource` y en el detalle; `photo_path` ya no sale de la API. La colección de pacientes cambia ese paso | Usuario (pregunta 14) |
+| Otra clínica | Un paciente de otra clínica responde 404 `RESOURCE_NOT_FOUND` en las tres rutas (scope de la clínica en el *route binding*) | Diseño (R-016) |
+| Postman | Colección de la foto, repetible, con su rango de corrida (000000 a 099998, documento `990…`) y dos archivos versionados en `docs/testing/postman/archivos`; la carpeta de trabajo de Postman y Newman es la raíz del repositorio | Usuario |
+| Validación | Suite en verde en SQLite (606 casos, 6684 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 6700 aserciones). Doce protecciones quitadas de a una, cada una con un test que falla. Newman: la colección de la foto dos veces seguidas sin recrear la base (23 requests y 60 aserciones cada vez), y las de especies, clientes y pacientes, todo en verde | Implementación |
+| Siguiente | Revisión y validación de la 1.5; con su cierre, la FASE 1 queda completa | Diseño (R-016) |
+
+**Qué cambió en la API.** Rutas nuevas: las tres de `patients/{patient}/photo`. El paciente deja de mostrar `photo_path` y muestra
+`has_photo`. Un pedido que supera `post_max_size` responde 413 `PAYLOAD_TOO_LARGE` (antes, `HTTP_ERROR`). `error_code` nuevo:
+`PATIENT_PHOTO_NOT_FOUND`.
+
+# R-027 Revisión de la entrega 1.5 de la FASE 1: correcciones (2026-11-06)
+
+La revisión de la entrega 1.5 (foto del paciente), con foco en la seguridad de los archivos subidos, encontró cuatro hallazgos de
+gravedad baja y dos de documentación; el usuario aceptó los desvíos de la implementación y pidió corregirlos en
+`feature/fase-01-05-foto`, cada uno con un test que falle al quitar la protección. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-027).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Disco | Disco propio `patient_photos` en `storage/app/private/patient-photos`, sin `serve`. `local` también pasa a `serve => false`: su raíz contiene la carpeta de las fotos, y con `serve` Laravel las serviría por `/storage/patient-photos/...` con una URL firmada, sin token ni clínica. Nadie usa `temporaryUrl()` | Usuario; `serve` en `local`, implementación |
+| `photo_path` | Fuera de `$fillable` de `Patient`: solo lo cambia `PatientPhotoService`. Ver, borrar y reemplazar lo usan solo si es un archivo de la carpeta del paciente (`clinics/{clinic_id}/patients/{id}/` y un nombre `{uuid}.{jpg,png,webp}`); si no, 404 `PATIENT_PHOTO_NOT_FOUND` y un aviso en el log | Usuario; el nombre exigido y que el reemplazo no borre un archivo ajeno, implementación |
+| Volver a codificar (cambia R-015) | Al subir, la imagen se vuelve a codificar con GD en su mismo formato (`ImageReencoder`): se pierden los metadatos (EXIF, también el GPS) y lo que venga pegado después de la imagen. Si GD no la decodifica, 422 con el mensaje de tipo. Sigue sin redimensionar. GD con JPEG, PNG y WEBP es obligatoria (`development/setup.md`) | Usuario |
+| Orientación | La orientación del EXIF se aplica a los píxeles antes de descartarlo (extensión `exif`): sin eso, una foto vertical de un teléfono quedaría acostada | Implementación |
+| Megapíxeles | Más de 25 megapíxeles (según el encabezado, antes de decodificar) → 422 "La foto no debe superar los 25 megapíxeles.": una imagen chica en bytes puede ocupar gigas al decodificarse. `memory_limit` de al menos 256M | Implementación; a confirmar por el usuario |
+| Calidad | JPEG y WEBP con calidad 90; PNG y WEBP conservan la transparencia. La imagen se decodifica una vez, en el `after()` del Form Request, y el Service guarda los bytes nuevos | Implementación |
+| Descarga | Suma `Content-Security-Policy: default-src 'none'; sandbox` | Usuario |
+| Borrado que falla | Un borrado de archivo que falla (después del commit, o el del nuevo si la transacción falla) deja un aviso en el log | Usuario |
+| Deuda 14 | Archivos huérfanos: la baja del paciente deja su foto, y un proceso que muere antes del commit deja el archivo nuevo. Limpieza programada más adelante | Usuario |
+| Documentos | `development/setup.md` (disco propio, sin `serve`, y GD y `exif` obligatorias) y el handoff (la 1.5 no trae migraciones) | Usuario |
+| Validación | Suite en verde en SQLite (616 casos, 6756 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 6772 aserciones). Once protecciones quitadas de a una, cada una con un test que falla. Newman: la colección de la foto dos veces seguidas sin recrear la base y la de pacientes, en verde | Implementación |
+
+**Qué cambió en la API.** Rutas, permisos, `error_code` y contrato de respuesta, sin cambios. Cambian: la foto guardada (y
+descargada) es la imagen vuelta a codificar, sin metadatos; una imagen que GD no decodifica o de más de 25 megapíxeles responde
+422 `VALIDATION_ERROR` en `photo`; la descarga suma `Content-Security-Policy`; `photo_path` ya no se puede asignar en masa; la ruta
+`/storage/{path}` de Laravel deja de existir.
+
+# R-028 Entrega 1.5 y cierre de la FASE 1 (2026-11-06)
+
+Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisión (R-027), y de la FASE 1 completa. Commits
+`1650605` (implementación, R-026) y `79f7e8e` (correcciones, R-027), en `feature/fase-01-05-foto`. El detalle está en la
+[validación de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-028) y en el
+[cierre de la fase](../fases/fase-01-clientes-y-pacientes.md#cierre-de-la-fase-1).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | El usuario corrió en Postman, contra `syncvet` y sobre `79f7e8e`, la colección de la foto (60 de 60) y la de pacientes (61 de 61), sin errores. Entrega validada | Usuario, el 2026-11-06 |
+| Decisiones de R-027 | Confirmadas: la orientación del EXIF aplicada a los píxeles, el límite de 25 megapíxeles y la calidad 90 | Usuario |
+| Suite del cierre | MySQL 8.4.3 (`syncvet_test_mysql`) corrida otra vez en el cierre: 616 casos, 6772 aserciones, sin omitidos. SQLite, de la corrida de las correcciones sobre el mismo código: 616 casos, 6756 aserciones, 2 omitidos (solo de MySQL) | Cierre |
+| Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte (anotado en el resultado de la entrega) | Cierre |
+| Pacientes | El módulo pasa a COMPLETADO: la 1.5 era su última entrega en el diseño (R-016) | Cierre |
+| FASE 1 | COMPLETADO: las cinco entregas cerradas y el criterio de cierre de la fase cumplido, punto por punto en el cierre de la fase. Sin merge a `main`: lo autoriza el usuario | Usuario |
+| Deudas abiertas | 2, 3, 5, 6, 13 y 14 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 1, 8, 9, 10, 11 y 12 | Cierre |
+| Siguiente | FASE 2, datos maestros: empieza por el análisis (paso 1) y sigue con el diseño (paso 2), con autorización del usuario | Usuario |
+| Documentos | `CLAUDE.md` §1 con la FASE 1 completada; `README.md` con el estado, sin el pendiente de los tests de clientes y pacientes (deuda 1, resuelta) y con `gd` y `exif` en los requisitos (R-027) | Cierre |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

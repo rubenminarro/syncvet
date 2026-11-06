@@ -88,18 +88,91 @@ clínica B (login con `admin-b@example.com`):
 
 ## FASE 1 — Clientes y pacientes
 
-Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 1.
+Se valida con cuatro colecciones de Postman, que son la fuente de verdad de los pasos: cada request lleva su nombre (con el código HTTP
+esperado), sus encabezados, su body y un test que verifica el código HTTP y el dato clave. Esta guía no repite sus pasos ni tiene
+requests propios para la FASE 1: una tabla aparte quedaba desactualizada y, si se seguía a mano, creaba datos que hacían fallar las
+colecciones (R-021).
 
-| # | Request | Body | Esperado |
-|---|---|---|---|
-| 1 | `POST /api/clients` | `{"document_number":"99300001","first_name":"Ana","last_name":"Gómez","email":"ana@ejemplo.com.py","phone":"+595981000000"}` | 201, `data.display_name` = "Ana Gómez" |
-| 2 | `POST /api/clients` | `{"kind":"company","document_number":"99999905-2","business_name":"Haras del Sur SA","email":"haras@ejemplo.com.py","phone":"+595981000001"}` | 201 |
-| 3 | `POST /api/clients` con `first_name` en una empresa | | 422 `VALIDATION_ERROR` |
-| 4 | `GET /api/species` | | 200, especies con sus razas |
-| 5 | `POST /api/clients/{id}/patients` | `{"name":"Toby","species_id":1,"birth_date":"2023-01-10"}` | 201, `data.code` = `PAC-000001` |
-| 6 | `POST /api/clients/{id}/patients` con una raza de otra especie | | 422 `PATIENT_BREED_SPECIES_MISMATCH` |
-| 7 | `POST /api/patients/{id}/change-owner` | `{"client_id": <empresa>}` | 200, `data.client.display_name` = "Haras del Sur SA" |
-| 8 | `POST /api/patients/{id}/change-owner` con el mismo dueño | | 422 `PATIENT_SAME_OWNER` |
-| 9 | `PATCH /api/patients/{id}` con `client_id` | | 422 `VALIDATION_ERROR` |
-| 10 | `DELETE /api/clients/{id}` con pacientes | | 409 `CLIENT_IN_USE` |
-| 11 | `GET /api/clients?search=Toby` | | 200, encuentra a Ana por su mascota |
+| Colección | Entrega | Qué valida |
+|---|---|---|
+| [`postman/syncvet-fase-01-clientes.postman_collection.json`](postman/syncvet-fase-01-clientes.postman_collection.json) | 1.2 (R-018); repetible desde la 1.3 (R-020) | Alta de persona y de empresa, RUC con el dígito verificador equivocado, documento repetido como cédula, con un cero o como RUC, edición, cambio de tipo, email en minúsculas, búsqueda por mascota, aislamiento entre clínicas, filtros mal formados, baja con pacientes (409) y sin ellos, y el documento liberado |
+| [`postman/syncvet-fase-01-pacientes.postman_collection.json`](postman/syncvet-fase-01-pacientes.postman_collection.json) | 1.3 (R-020) | Alta bajo un cliente (el dueño sale de la URL, sin `custom_fields`), `code` prohibido, raza de otra especie, microchip repetido, peso, dueño en la edición, cambio de dueño (también de un fallecido y el 403 del veterinario), búsquedas, listado del cliente, fallecimiento en UTC, edición de un fallecido, listados sin y con fallecidos, baja y microchip liberado |
+| [`postman/syncvet-fase-01-especies.postman_collection.json`](postman/syncvet-fase-01-especies.postman_collection.json) | 1.4 (R-023 y R-024) | Listado con y sin inactivas (forma de la respuesta e `is_global`), alta de especie propia, nombre repetido en mayúsculas y sin acento o de una global, nombre sin letras (422), alta inactiva, cambio de nombre, global no editable (403, también con un cuerpo inválido), razas propias en una especie propia y en una global (los espacios internos repetidos se juntan), nombre repetido dentro de la especie (también una global con dos espacios), raza de otra especie en la URL (404), `species_id` prohibido, el recepcionista lista pero no escribe, especie y raza en uso por un paciente (se inactivan, el paciente las sigue mostrando, un alta nueva no las acepta, la baja da 409), baja de una global (403), baja de una raza y de una especie sin uso con su raza, y el nombre liberado |
+| [`postman/syncvet-fase-01-foto.postman_collection.json`](postman/syncvet-fase-01-foto.postman_collection.json) | 1.5 (R-026) | Paciente sin foto (`has_photo` falso, ver la foto da 404), un texto con extensión `.jpg` (422), subida de un PNG, descarga por los tres roles con `Content-Type`, `nosniff`, `no-store` y el nombre con el código, reemplazo por el veterinario, `has_photo` en el detalle, borrado (y 404 al repetirlo), paciente de otra clínica (404 al ver y al subir), y un fallecido que sube y borra la foto |
+
+**Preparación.** Una base con el `DemoSeeder` y las migraciones al día (ver **Datos**, al comienzo): la primera vez, o después de
+cambiar a una rama con migraciones nuevas, recrearla o correr `php artisan migrate`. Si la rama cambia los permisos de un rol (la
+1.4 le suma al veterinario `species.store`, `species.update` y `species.destroy`) y la base no se recrea, volver a sembrar los
+roles: `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos). Sin eso, el veterinario recibe 403 `FORBIDDEN`
+en la colección de especies. La 1.5 suma `patients.upload-photo`, `patients.show-photo` y `patients.delete-photo` al recepcionista y
+al veterinario: sin volver a sembrar, la colección de la foto recibe 403. Levantar el servidor en el puerto 8001:
+
+```bash
+php artisan serve --port=8001
+```
+
+**Importar y correr.**
+
+1. En Postman: **Import** → elegir el archivo de la colección.
+2. Elegir el Environment **SyncVet local** en el selector de entornos (arriba a la derecha); la primera vez, crearlo como indica
+   el párrafo siguiente. `base_url` ya es `http://127.0.0.1:8001/api` en las colecciones.
+3. **Run collection** (Collection Runner): correrla entera, en orden, sin cambiar el orden de los requests, con **SyncVet local**
+   elegido como Environment. Esperado: todos los tests en verde.
+
+**Los archivos de la colección de la foto.** Sube los archivos de [`postman/archivos`](postman/archivos) (`foto-paciente.png`,
+un PNG de 32 × 32, y `no-es-imagen.jpg`, un texto), con la ruta relativa a la raíz del repositorio
+(`docs/testing/postman/archivos/…`). Para que el Runner los encuentre:
+
+1. **Settings** (el engranaje) → **General** → **Working directory**: elegir la carpeta del repositorio (por ejemplo,
+   `C:\laragon\www\syncvet`).
+2. **Allow reading files outside working directory** puede quedar apagado.
+3. Si un request de subida muestra el archivo en rojo o la API responde 422 "La foto es obligatoria.", Postman no encontró el
+   archivo: revisar la carpeta de trabajo y volver a importar la colección.
+
+**La contraseña, en un Environment.** Reimportar una colección (por ejemplo, después de un cambio en el repositorio) la reemplaza
+con sus variables: `demo_password` vuelve a quedar vacía y el login falla. Un Environment no se toca al reimportar y sus variables
+tienen prioridad sobre las de la colección, así que la contraseña se guarda una sola vez:
+
+1. **Environments** (barra lateral) → **+** (o **Create Environment**) y llamarlo `SyncVet local`.
+2. Agregar la variable `demo_password`, de tipo **secret**, con la `DEMO_PASSWORD` del `.env` como valor, y guardar (**Save**).
+3. Elegirlo en el selector de entornos antes de correr cualquiera de las colecciones.
+
+No exportar el Environment al repositorio ni completar `demo_password` en la colección antes de exportarla: la contraseña quedaría
+en el archivo. Si cambia la `DEMO_PASSWORD` del `.env`, actualizar el valor en el Environment.
+
+**Se corren más de una vez sin recrear la base.** El primer request de cada colección genera un número de corrida y, con él, los
+documentos (cédulas ficticias `99xxxxxx`, R-011, y su RUC con el dígito verificador), los emails y el microchip de esa corrida. Cada
+colección usa un rango propio que no se cruza con el de las otras: clientes, de 500000 a 749998; pacientes, de 750000 a 999998;
+especies, de 400000 a 499998 (su documento queda en `994…`, y los nombres de especies y razas de la corrida llevan el número);
+foto, de 000000 a 099998 (su documento queda en `990…`). Los
+logins guardan los tokens y los pasos guardan los ids que usan los siguientes: no hay que copiar nada a mano.
+
+Los emails nuevos usan `mailinator.com`: con `EMAIL_DNS_CHECK=true` (el valor del `.env`), la validación consulta el MX del dominio y
+rechaza `example.com` (tiene un MX nulo) y los dominios sin servidor de correo.
+
+**Datos del `DemoSeeder` que usan.** Usuarios de la clínica A: `recepcion-a@example.com` (`{{token}}`), `admin-a@example.com`
+(`{{token_admin}}`) y `vet-a@example.com` (`{{token_vet}}`); de la clínica B, `recepcion-b@example.com` (`{{token_b}}`, en la
+colección de la foto, para tomar un paciente de otra clínica). Laura Martínez (`99100001`, con Firulais) en la clínica A y Toby en la
+clínica B. Para probar algo a mano, no crear en la clínica A otro paciente llamado Firulais o Toby: la colección de clientes espera
+encontrar un solo Firulais y ningún Toby en esa clínica.
+
+**Lo que no está en las colecciones.** `PATIENT_IN_USE` (409): la API todavía no crea consultas, aplicaciones ni turnos; lo prueba
+`PatientDeleteTest`. La baja de una especie usada solo por un paciente eliminado (409), la concurrencia de dos altas del mismo nombre y las altas
+masivas del builder: lo prueban `CatalogDeleteTest`, `CatalogLockTest` y `SharedCatalogInsertTest`. De la foto: un archivo de más
+de 5 MB (413 `PAYLOAD_TOO_LARGE`; no se versiona un archivo de ese tamaño), WEBP y JPG, un SVG o un GIF (422), que el reemplazo
+borre el archivo anterior del disco privado, un archivo perdido (404 con aviso en el log), la transacción que falla, la imagen vuelta a codificar sin EXIF
+(tampoco el GPS) ni HTML pegado al final, los 4 bytes de JPEG seguidos de HTML y la imagen de más de 25 megapíxeles (422), la
+`Content-Security-Policy` de la descarga, un `photo_path` fuera de la carpeta del paciente (404) o enviado en un `PATCH` (se
+ignora) y que `/storage/...` no sirva la foto, ni con firma (R-027): lo prueba `PatientPhotoTest`.
+
+**Con Newman.** Las cuatro colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
+que tiene prioridad sobre la de la colección):
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-01-clientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/testing/postman/syncvet-fase-01-pacientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/testing/postman/syncvet-fase-01-especies.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/testing/postman/syncvet-fase-01-foto.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+Se corren desde la raíz del repositorio: la colección de la foto busca sus archivos con la ruta relativa a esa carpeta.
