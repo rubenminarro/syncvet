@@ -17,6 +17,31 @@ El detalle de las variables de entorno está en el [`README.md`](../../README.md
 
 En Laragon, `mysql.exe` no está en el `PATH`: está en `C:\laragon\bin\mysql\<versión>\bin\`.
 
+## Datos de demostración y cambio de rama
+
+Para probar la API a mano ([guía de Postman](../testing/guia-postman.md)), el `.env` necesita `DEMO_PASSWORD`, la contraseña de
+los usuarios del `DemoSeeder`, **entre comillas simples**:
+
+```dotenv
+DEMO_PASSWORD='<al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos>'
+```
+
+Las comillas simples dejan el valor literal: sin ellas, un `#` puede leerse como el comienzo de un comentario y un `$` como una
+variable. Un `.env` copiado antes de la entrega 0.4 no tiene la línea: agregarla (está en `.env.example`). Sin ella, el `DemoSeeder`
+se detiene con "Definí DEMO_PASSWORD en .env".
+
+**Después de cambiar a una rama con migraciones nuevas, recrear la base** antes de probar:
+
+```bash
+php artisan migrate:fresh --seed
+php artisan db:seed --class=DemoSeeder
+```
+
+Con una base vieja, la API falla de formas que no dicen la causa. En la validación de la entrega 1.2 (FASE 1), el login respondió
+500: la base `syncvet` tenía el esquema anterior a la entrega 0.2, sin `audit_logs.clinic_id`, y el login fallido no pudo
+registrarse en la auditoría. `php artisan migrate:status` muestra las migraciones pendientes. `migrate:fresh` borra todos los
+datos: usarlo solo en la base de desarrollo.
+
 ## Certificados de PHP en Laragon
 
 La regla de contraseñas consulta Have I Been Pwned por HTTPS (R-009). Si `curl.cainfo` apunta a un `cacert.pem` que no existe, toda

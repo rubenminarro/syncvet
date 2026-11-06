@@ -23,10 +23,11 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Base de datos:** MySQL 8. Esquema del MVP completo (30 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
-  0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entrega 1.1
-  cerrada (traducciones, voseo y `PUT`/`PATCH`, R-017); sigue la 1.2 (clientes).
+  0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
+  (traducciones, voseo y `PUT`/`PATCH`, R-017) y 1.2 (clientes, R-018 y R-019) cerradas; sigue la 1.3 (pacientes).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
-  (`tests/Feature/Access`) y los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`).
+  (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
+  clientes (`tests/Feature/Clients`). Validación manual de clientes con la colección de Postman de `docs/testing/postman`.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes y especies (ejemplo
   de referencia de la arquitectura).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
@@ -260,7 +261,7 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 
 | # | Deuda |
 |---|---|
-| 1 | Clientes y pacientes sin tests de PHPUnit |
+| 1 | Pacientes sin tests funcionales de PHPUnit (los de clientes, en la entrega 1.2); se cierra con la 1.3 |
 | 2 | Modelos generados desde el esquema: revisar relaciones y casts al usarlos |
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |

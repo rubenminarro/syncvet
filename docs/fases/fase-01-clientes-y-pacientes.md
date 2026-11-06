@@ -1,6 +1,6 @@
 # FASE 1 — Clientes y pacientes
 
-Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y la entrega 1.1 cerrada (R-017). El estado
+Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017) y 1.2 (R-019) cerradas. El estado
 vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
@@ -17,7 +17,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
 | 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | COMPLETADO (R-017) |
-| 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | PENDIENTE |
+| 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | PENDIENTE |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | PENDIENTE |
 | 1.5 | Foto del paciente en disco privado | 1.4 | PENDIENTE |
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerrada: 1.1. Pendientes: 1.2 a 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1 y 1.2. Pendientes: 1.3 a 1.5.
 
 ### Entrega 1.1
 
@@ -360,3 +360,82 @@ no cambió ningún `error_code` ni código HTTP. Son huecos de los tests. Sin co
 | 3 | Baja | Los nombres de los campos que solo se validan en un Controller (hoy, `include_deceased`) no se prueban: sin él, el mensaje diría "include deceased" | Deuda 11 |
 | 4 | Baja | `VoseoTest` rechazaría textos correctos en tercera persona (`registra`, `revisa`, `verifica`, `intenta`, `vuelve`) | Deuda 12 |
 | 5 | Baja | `CLAUDE.md` §1 y el handoff seguían sin la 1.1 | Corregido en este cierre |
+
+### Entrega 1.2
+
+Commits `fff480a` (implementación), `54677d8` (correcciones de la revisión, R-018) y `544f5cd` (colección de Postman), en
+`feature/fase-01-02-clientes`, encima de la 1.1. Validada por el usuario el 2026-11-05 con la colección de Postman. Decisiones en
+[R-018 y R-019](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `app/Rules/RucCheckDigit.php`, `app/Rules/UniqueClientDocument.php`, `app/Support/DeletedSuffix.php`, `app/Support/DocumentBase.php`, `app/Http/Requests/IndexClientRequest.php`, `app/Http/Requests/IndexPatientRequest.php`, `app/Http/Requests/ListFilters.php`; migraciones `2026_11_05_000000_widen_clients_document_number` (documento a 50) y `2026_11_05_000001_add_document_base_to_clients`; `tests/Concerns/InteractsWithClinicalRecords.php`; `docs/testing/postman/syncvet-fase-01-clientes.postman_collection.json` |
+| Cambiados | `StoreClientRequest` y `UpdateClientRequest` (RUC, documento por número base; la edición valida como el alta), `ClientService` (sufijo de baja con el id, sin cortar), `PatientService` (sufijo con el id), `Client` (completa `document_base` al guardar), `ClientController` y `PatientController` (filtros en Form Requests, `per_page` validado), `lang/es/validation.php` (`search`, `per_page`, `page`) |
+| Tests nuevos | `tests/Feature/Clients` (`ClientStoreTest`, `ClientUpdateTest`, `ClientDeleteTest`, `ClientSearchTest`, `ClientShowTest`, `ClientDocumentBaseTest`, `ListFiltersTest`), `tests/Feature/Patients/PatientDeleteTest`, `tests/Unit/DocumentBaseTest` |
+| Tests cambiados | `VoseoTest` y `ValidationTranslationsTest` (deudas 9 a 12) |
+| Documentación | `CLAUDE.md` §2 (ritmo de las entregas), §3 (sufijo de baja, filtros de los listados, validación en Form Requests) y §6.1; `README.md` (30 migraciones); la guía de Postman y su colección; `development/setup.md`; y en el cierre §1 y §7, este documento, el registro (R-019), la deuda 1 y los documentos de estado |
+
+**Endpoints.** Ninguno nuevo; sin cambios de rutas, permisos ni `error_code`. Cambia:
+
+* `POST` y `PATCH /api/clients`: un RUC (`NNNNNNN-D`) con el dígito verificador equivocado → 422; el documento es único por su
+  número base (cédula, cédula con ceros adelante y RUC son el mismo) → 422 "Este número de documento ya está en uso.".
+* `PATCH /api/clients/{id}`: un obligatorio vacío responde solo "es obligatorio"; los campos del otro tipo admiten `null`; al
+  cambiar de tipo, los del tipo nuevo son obligatorios (antes, una persona pasaba a empresa sin razón social).
+* `DELETE /api/clients/{id}`: la segunda baja de un documento largo respondía 500; ahora no choca.
+* `GET /api/clients` y `GET /api/patients`: `search`, `per_page` y `page` validados; un filtro mal formado responde 422 en lugar de 500.
+
+**Tests.** Suite (corrida del cierre, sobre `544f5cd`): 368 casos con los *data providers*; en SQLite, 5371 aserciones con 2
+omitidos (solo de MySQL); contra MySQL 8.4.3 (`syncvet_test_mysql`), 5387 aserciones sin omitidos. Frente a la 1.1: 108 casos y
+328 aserciones más en las dos bases. La tabla cuenta casos de las clases nuevas o cambiadas (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `ClientStoreTest` | 21 | 75 | Persona por defecto; empresa con razón social; empresa con nombre o apellido y persona con razón social → 422; obligatorios y únicos en la clínica; email en minúsculas; teléfonos válidos e inválidos; RUC con el dígito correcto e incorrecto; cédula sin guion y documentos con letras sin validar |
+| `ClientUpdateTest` | 18 | 92 | Cambio de tipo que vacía los campos del otro; campos del tipo nuevo obligatorios; con facturas → `CLIENT_KIND_NOT_EDITABLE`; únicos ignorando al propio cliente; RUC al editar; empresa sin nombre ni apellido y persona sin razón social; email en minúsculas; un obligatorio vacío dice solo "es obligatorio"; `null` en los campos del otro tipo |
+| `ClientDeleteTest` | 9 | 32 | Baja sin uso; documento, base y email libres; `CLIENT_IN_USE` con pacientes, consultas o facturas; dos bajas del mismo documento largo, también en el mismo segundo; la base liberada admite el documento en otra forma; el recepcionista recibe 403 |
+| `ClientDocumentBaseTest` | 14 | 44 | Cédula, cédula con un cero y RUC son el mismo documento, al crear y al editar; letras sin distinguir mayúsculas; la base se guarda y sigue al documento nuevo; un cliente pasa su cédula a RUC; otra clínica usa el mismo documento |
+| `ClientSearchTest` | 13 | 43 | Búsqueda por nombre, apellido, razón social, documento, teléfono, email, nombre y código de la mascota; filtro `kind` y su 422; paginación; `display_name` en el listado |
+| `ClientShowTest` | 2 | 10 | El detalle trae los pacientes con especie y raza |
+| `ListFiltersTest` | 19 | 73 | En clientes y pacientes, `per_page` no numérico, negativo, cero o mayor que 100, `search` como lista o de más de 100 y `page` inválida → 422; `per_page` 10 por defecto y hasta 100; nombre del campo en español |
+| `PatientDeleteTest` | 1 | 4 | Dos bajas del mismo microchip en el mismo segundo |
+| `DocumentBaseTest` | 9 | 9 | Número base de cédulas, RUC, ceros adelante, letras y documentos dados de baja |
+| `VoseoTest` | 2 | 24 | Imperativos de tú y de usted conjugados de una lista de verbos, solo al comienzo de una cláusula; palabras de tú y de usted; mensajes en inglés (deudas 9 y 12) |
+| `ValidationTranslationsTest` | 10 | 1012 | Lo de la 1.1, con los marcadores comparados exactos (deuda 10), ninguna validación en un Controller (deuda 11) y `UniqueClientDocument` clasificada |
+
+**Protecciones quitadas de a una.** El commit de la implementación no registra las suyas. La revisión quitó 6: 4 hacen fallar
+un test y 2 sobreviven (hallazgos 2 y 3). En las correcciones se quitaron 13, de a una: 12 hacen fallar un test (los filtros de
+clientes y de pacientes, `prohibited` y `nullable` en los campos del otro tipo, `required` y `lowercase` al editar, la regla de la
+base en el alta y en la edición, los ceros, las mayúsculas, el sufijo de la base y el recálculo al cambiar el documento). La
+restante, la línea del Service que agregaba el sufijo a la base, sobrevivía porque el modelo ya lo hacía: se quitó.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| El microchip no se amplía en esta entrega: el sufijo pasa a llevar el id y la columna sigue en 30 | La entrega es de clientes; la columna se amplía en la 1.3 | Implementación |
+| El sufijo de baja pasa a `//deleted_<id>_<timestamp>` (`DeletedSuffix`), en clientes y pacientes | Con solo el timestamp, dos bajas del mismo valor en el mismo segundo también chocaban | Implementación, validada por el usuario |
+| Columna `document_base` y regla `UniqueClientDocument`, no previstas | Regla de Paraguay: el RUC de una persona es su cédula más el dígito (R-018) | Usuario |
+| Filtros comunes de los listados (`ListFilters`) e `IndexPatientRequest`, en una entrega de clientes | Los filtros mal formados daban 500 en los dos listados (R-018) | Usuario |
+| `CLAUDE.md` §2 suma el ritmo de las entregas | Que cada entrega tarde menos | Usuario |
+
+**Hallazgos de la revisión** (R-018).
+
+| # | Gravedad | Hallazgo | Estado |
+|---|---|---|---|
+| 1 | Media | `per_page=abc`, `per_page=-3` y `search[]=x` daban 500 en los listados de clientes y pacientes; `per_page` sin tope | Corregido: `ListFilters`, `ListFiltersTest` |
+| 2 | Media | Empresa con nombre o apellido y persona con razón social al editar, sin test | Corregido: tests en `ClientUpdateTest` |
+| 3 | Baja | Email en minúsculas al editar, sin test | Corregido: test en `ClientUpdateTest` |
+| 4 | Baja | Un obligatorio vacío al editar daba tres mensajes de formato; al cambiar de tipo, `null` en los campos del otro tipo daba 422 | Corregido: la edición valida como el alta |
+| 5 | Baja | El mismo documento entraba dos veces como `99999903`, `099999903` y `99999903-6` | Corregido: `document_base` (R-018) |
+| 6 | Baja | Con un chip de 15 y un id de más de 5 dígitos, dos bajas del mismo microchip pueden chocar | Pendiente: entrega 1.3 |
+
+**Validación con Postman.** El usuario corrió la colección (21 pasos, 24 requests) con el Collection Runner contra `syncvet`
+recreada con el `DemoSeeder`: 48 pruebas en verde, ninguna fallida. El Runner marcó además "Errors 1": PENDIENTE DE
+VERIFICACIÓN. Newman, sobre `syncvet` recreada, corrió los 24 requests sin errores de script y con las 48 aserciones en verde, y el
+log de la API no tiene errores de esa corrida: no se reprodujo y la colección no cambió.
+
+**Preparación.** En esta validación el primer login dio 500: `syncvet` tenía el esquema anterior a la entrega 0.2 (sin
+`audit_logs.clinic_id`) y el `.env` no tenía `DEMO_PASSWORD`. No fue un error del código; quedó documentado en
+[`development/setup.md`](../development/setup.md).
