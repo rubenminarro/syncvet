@@ -546,5 +546,36 @@ Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisi�
 | Deudas abiertas | 2, 3, 5, 6, 13 y 14 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 1, 8, 9, 10, 11 y 12 | Cierre |
 | Siguiente | FASE 2, datos maestros: empieza por el análisis (paso 1) y sigue con el diseño (paso 2), con autorización del usuario | Usuario |
 | Documentos | `CLAUDE.md` §1 con la FASE 1 completada; `README.md` con el estado, sin el pendiente de los tests de clientes y pacientes (deuda 1, resuelta) y con `gd` y `exif` en los requisitos (R-027) | Cierre |
+| Merge a `main` | La FASE 1 se integró a `main` con el merge `7b35ea2` (`feature/fase-01-05-foto`, que contiene el diseño y las cinco entregas encadenadas), autorizado por el usuario el 2026-11-06. Agregado en el diseño de la FASE 2 (R-029): el handoff y el cierre de la fase seguían diciendo "sin merge a `main`" | Usuario |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-029 Respuestas de negocio y alcance de la FASE 2 (2026-11-06)
+
+Respuestas del usuario a las preguntas del análisis de la FASE 2 (paso 1), que incluyen las tres del alcance inicial (P5, P8 y P11)
+y la de usuarios inactivos que la FASE 0 dejó para esta fase. El diseño que las aplica está en
+[`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md), pendiente de aprobación. Las preguntas que el diseño no puede
+decidir solo están al final de ese documento.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| P1 Usuarios inactivos | `users.is_active`, con una migración. Un usuario inactivo no entra: con la contraseña correcta, 403 "usuario inactivo"; con una incorrecta, el error genérico de siempre (`INVALID_CREDENTIALS`). Al inactivarlo se revocan todos sus tokens. La baja (`SoftDeletes` con el sufijo `//deleted_`) solo sin uso; con uso, 409 | Usuario |
+| P2 Quién gestiona usuarios | Solo el administrador | Usuario |
+| P3 Roles | Un usuario puede tener varios roles | Usuario |
+| P4 Administradores | Un administrador no se inactiva ni se da de baja a sí mismo, y nadie deja la clínica sin un administrador activo: 409 | Usuario |
+| P5 Veterinario y sucursales | Trabaja en las sucursales de su usuario (`branch_user`), sin una tabla aparte | Usuario |
+| P6 Veterinario | Necesita un usuario con el rol `veterinario`. En uso, se inactiva; sin uso, se da de baja, y si se vuelve a dar de alta al mismo usuario se restaura el anterior en lugar de crear uno nuevo (`veterinarians.user_id` es único) | Usuario |
+| P7 Comisión | `commission_percentage` se guarda; no se calcula nada hasta los reportes | Usuario |
+| P8 Precios | Un precio único por servicio (`standard_price`). La factura guardará su precio | Usuario |
+| P9 Sucursales | `establishment` se edita solo mientras la sucursal no tenga facturas (en esta fase siempre se puede; el punto queda preparado). Sucursales y depósitos solo se inactivan. La sucursal y el depósito por defecto no se inactivan | Usuario |
+| P10 Depósitos | Una sucursal tiene varios depósitos, uno por defecto | Usuario |
+| P11 Datos de la clínica | Se guardan la razón social, el nombre de fantasía y el RUC de la clínica, y la dirección y el teléfono de cada sucursal. El timbrado, la actividad económica y el punto de expedición quedan para la fase de SIFEN | Usuario |
+| P12 Logo | Se muestra después del login (en `me` y en la configuración). No se agrega un slug a `clinics` | Usuario |
+| P13 Configuración | `system_settings` con una lista cerrada de claves (Enum) y validación por clave | Usuario |
+| P14 Auditoría | La ve solo el administrador, con filtros por fecha, usuario, evento y registro, sin valores sensibles, filtrada por la clínica. Los `LOGIN_FAILED` sin clínica no se muestran | Usuario |
+| P15 Fotos huérfanas (deuda 14) | La foto de un paciente dado de baja se conserva. El comando de limpieza solo borra archivos que no sean el `photo_path` ni el logo de nadie | Usuario |
+| Email del usuario | Único en toda la base (es el login): en el MVP, una persona que trabaja en dos clínicas necesita dos emails | Usuario |
+| Entregas | En el orden del análisis: 2.1 sucursales y depósitos, 2.2 usuarios (dividida en 2.2a y 2.2b), 2.3 veterinarios, 2.4 servicios, 2.5 configuración y logo con la deuda 14, 2.6 auditoría con la deuda 13 | Usuario; la división de la 2.2, diseño |
+| Documentación | Se corrigen el handoff, el cierre de la FASE 1 y R-028 con el merge `7b35ea2` de la FASE 1 a `main` | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code` y contrato de respuesta: el diseño solo documenta.

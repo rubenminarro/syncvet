@@ -794,7 +794,8 @@ regla de `CLAUDE.md` §6.1 y §6.2; se sumaron el ABM de especies y razas (catá
 del paciente en un disco privado; los mensajes de la API están en voseo, con las traducciones de validación completas y `PUT` y
 `PATCH` con la misma semántica parcial. Las ramas de las entregas se encadenaron (`docs/fase-01-diseno` →
 `feature/fase-01-01-traducciones` → `feature/fase-01-02-clientes` → `feature/fase-01-03-pacientes` →
-`feature/fase-01-04-especies` → `feature/fase-01-05-foto`) y no se integraron a `main`: el merge lo autoriza el usuario.
+`feature/fase-01-04-especies` → `feature/fase-01-05-foto`) y se integraron a `main` con el merge `7b35ea2`, autorizado por el
+usuario (R-028).
 
 | Entrega | Contenido | Commits | Suite al cerrar |
 |---|---|---|---|
@@ -833,5 +834,5 @@ Resueltas en la fase: 1, 8, 9, 10, 11 y 12. Nuevas en la fase: 9 a 12 (resueltas
 
 **Pendiente de verificación.** El "Errors 1" del Collection Runner en la validación de la 1.2: Newman no lo reproduce (handoff).
 
-**Para la FASE 2** (datos maestros): [`fase-02-datos-maestros.md`](fase-02-datos-maestros.md), sin diseño todavía. Empieza por el
-análisis de lo hecho (paso 1, [`prompts/1-analisis.md`](../prompts/1-analisis.md)) y sigue con el diseño y sus preguntas de negocio.
+**Para la FASE 2** (datos maestros): [`fase-02-datos-maestros.md`](fase-02-datos-maestros.md). El análisis de lo hecho (paso 1,
+[`prompts/1-analisis.md`](../prompts/1-analisis.md)) y las respuestas de negocio (R-029) ya están; el diseño espera su aprobación.

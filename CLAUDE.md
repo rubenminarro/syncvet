@@ -26,7 +26,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está completada (R-028): entregas 1.1 (traducciones,
   voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. Sigue la FASE 2
-  (datos maestros), que empieza por el análisis.
+  (datos maestros): análisis hecho, respuestas de negocio en R-029 y diseño pendiente de aprobación.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes y del catálogo (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`).
