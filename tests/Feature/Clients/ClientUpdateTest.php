@@ -10,6 +10,7 @@ use App\Services\ClinicService;
 use App\Support\CurrentClinic;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithAuth;
 use Tests\Concerns\InteractsWithClinicalRecords;
 use Tests\TestCase;
@@ -136,6 +137,102 @@ class ClientUpdateTest extends TestCase
         $this->update($client, ['document_number' => '99999905-2'])
             ->assertOk()
             ->assertJsonPath('data.document_number', '99999905-2');
+    }
+
+    /**
+     * Sin cambiar el tipo, la edición también rechaza los campos del otro tipo
+     * (revisión de la 1.2: solo estaba probado en el alta).
+     */
+    public function test_a_company_does_not_take_a_first_or_last_name(): void
+    {
+        $company = $this->companyIn($this->clinic);
+
+        $this->assertFieldError($this->update($company, ['first_name' => 'Juan']), 'first_name', 'Una empresa no lleva nombre: usá la razón social.');
+        $this->assertFieldError($this->update($company, ['last_name' => 'Pérez']), 'last_name', 'Una empresa no lleva apellido: usá la razón social.');
+
+        $fresh = $this->fresh($company);
+        $this->assertNull($fresh->first_name);
+        $this->assertNull($fresh->last_name);
+    }
+
+    public function test_a_person_does_not_take_a_business_name(): void
+    {
+        $person = $this->clientIn($this->clinic);
+
+        $this->assertFieldError(
+            $this->update($person, ['business_name' => 'Haras del Sur SA']),
+            'business_name',
+            'La razón social solo corresponde a una empresa.'
+        );
+        $this->assertNull($this->fresh($person)->business_name);
+    }
+
+    /**
+     * El email queda en minúsculas también al editar (revisión de la 1.2).
+     */
+    public function test_the_email_must_be_in_lowercase_on_update(): void
+    {
+        $client = $this->clientIn($this->clinic, ['email' => 'antes@example.com']);
+
+        $this->assertFieldError($this->update($client, ['email' => 'Nuevo@Example.com']), 'email', 'El correo debe estar en minúsculas.');
+        $this->assertSame('antes@example.com', $this->fresh($client)->email);
+
+        $this->update($client, ['email' => 'nuevo@example.com'])->assertOk();
+        $this->assertSame('nuevo@example.com', $this->fresh($client)->email);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function requiredFields(): array
+    {
+        return [
+            'nombre' => ['person', 'first_name', 'El nombre es obligatorio.'],
+            'apellido' => ['person', 'last_name', 'El apellido es obligatorio.'],
+            'razón social' => ['company', 'business_name', 'La razón social es obligatoria para una empresa.'],
+            'documento' => ['person', 'document_number', 'El número de documento es obligatorio.'],
+            'email' => ['person', 'email', 'El correo es obligatorio.'],
+            'teléfono' => ['person', 'phone', 'El teléfono es obligatorio.'],
+        ];
+    }
+
+    /**
+     * Como en el alta: un campo obligatorio enviado vacío responde solo "es
+     * obligatorio", sin los mensajes de formato (revisión de la 1.2).
+     */
+    #[DataProvider('requiredFields')]
+    public function test_null_in_a_required_field_only_says_it_is_required(string $kind, string $field, string $message): void
+    {
+        $client = $kind === 'company' ? $this->companyIn($this->clinic) : $this->clientIn($this->clinic);
+
+        foreach ([null, ''] as $empty) {
+            $this->update($client, [$field => $empty])
+                ->assertUnprocessable()
+                ->assertJsonPath('error_code', 'VALIDATION_ERROR')
+                ->assertJsonPath("errors.{$field}", [$message]);
+        }
+    }
+
+    /**
+     * El frontend manda todos los campos: al cambiar de tipo, los del otro tipo
+     * llegan en null y se aceptan, como en el alta (revisión de la 1.2).
+     */
+    public function test_a_kind_change_accepts_null_in_the_other_kind_fields(): void
+    {
+        $person = $this->clientIn($this->clinic);
+        $this->update($person, ['kind' => 'company', 'business_name' => 'Haras del Sur SA', 'first_name' => null, 'last_name' => null])
+            ->assertOk()
+            ->assertJsonPath('data.display_name', 'Haras del Sur SA');
+
+        $company = $this->companyIn($this->clinic);
+        $this->update($company, ['kind' => 'person', 'first_name' => 'Rosa', 'last_name' => 'Benítez', 'business_name' => null])
+            ->assertOk()
+            ->assertJsonPath('data.display_name', 'Rosa Benítez');
+
+        // Sin cambiar el tipo, también.
+        $this->update($this->companyIn($this->clinic), ['business_name' => 'Otra SA', 'first_name' => null, 'last_name' => null])
+            ->assertOk()
+            ->assertJsonPath('data.display_name', 'Otra SA');
     }
 
     private function companyIn(Clinic $clinic): Client

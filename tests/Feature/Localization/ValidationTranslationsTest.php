@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Rules\RucCheckDigit;
+use App\Rules\UniqueClientDocument;
 use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Routing\Route;
@@ -281,6 +282,8 @@ class ValidationTranslationsTest extends TestCase
                 $rule instanceof NotIn => [['not_in']],
                 // Trae su propio mensaje (RucCheckDigit::MESSAGE); VoseoTest lo revisa.
                 $rule instanceof RucCheckDigit => [],
+                // Usa el mensaje "unique" del campo en el Request (R-018).
+                $rule instanceof UniqueClientDocument => [['unique']],
                 $rule instanceof Password =>array_map(fn (string $key) => [$key], ['min', 'password.letters', 'password.mixed', 'password.numbers', 'password.symbols', 'password.uncompromised']),
                 default => $this->fail("{$where}: regla sin clasificar (" . get_debug_type($rule) . '); agregala a messageKeys().'),
             });

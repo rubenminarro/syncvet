@@ -20,6 +20,7 @@ class IndexPatientRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...ListFilters::rules(),
             'species_id' => ['nullable', 'integer'],
             'include_deceased' => ['nullable', 'boolean'],
         ];

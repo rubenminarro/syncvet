@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ClientKind;
+use App\Support\DocumentBase;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +36,19 @@ class Client extends Model
         'kind' => 'person',
         'notifications_enabled' => true,
     ];
+
+    /**
+     * El número base del documento sale siempre del documento, al guardar
+     * (R-018). En la baja, el documento lleva el sufijo y la base también.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Client $client) {
+            if ($client->isDirty('document_number')) {
+                $client->document_base = DocumentBase::of($client->document_number);
+            }
+        });
+    }
 
     protected function casts(): array
     {

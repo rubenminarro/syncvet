@@ -105,3 +105,7 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 | 11 | `GET /api/clients?search=Toby` | | 200, encuentra a Ana por su mascota |
 | 12 | `POST /api/clients` con un RUC y el dígito verificador equivocado: el número de la fila 2 (`99999905`) con `-3` | Como el de la fila 1, con otro email | 422 `VALIDATION_ERROR`, `errors.document_number` = "El RUC no es válido: revisá el número y el dígito verificador." (entrega 1.2) |
 | 13 | `PATCH /api/clients/{id}` de Ana con `{"kind":"company"}`, sin `business_name` | | 422 `VALIDATION_ERROR`, `errors.business_name` = "La razón social es obligatoria para una empresa." (entrega 1.2) |
+| 14 | `POST /api/clients` con el documento de Ana como RUC (`99300001-0`) y con un cero adelante (`099300001`) | Como el de la fila 1, con otro email | 422 `VALIDATION_ERROR`, `errors.document_number` = "Este número de documento ya está en uso." (R-018) |
+| 15 | `PATCH /api/clients/{id}` de Ana con `{"first_name":null}` | | 422, `errors.first_name` = ["El nombre es obligatorio."], un solo mensaje (R-018) |
+| 16 | `PATCH /api/clients/{id}` de la empresa con `{"kind":"person","first_name":"Rosa","last_name":"Benítez","business_name":null}` | | 200, `data.display_name` = "Rosa Benítez" (R-018) |
+| 17 | `GET /api/clients?per_page=abc`, `?per_page=100000` y `?search[]=x` | | 422 `VALIDATION_ERROR`, nunca 500 (R-018) |

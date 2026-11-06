@@ -212,6 +212,9 @@ return [
 
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
+        'search' => 'búsqueda',
+        'per_page' => 'resultados por página',
+        'page' => 'página',
     ],
 
 ];

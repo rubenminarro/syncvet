@@ -22,6 +22,7 @@ class IndexClientRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...ListFilters::rules(),
             'kind' => ['nullable', Rule::enum(ClientKind::class)],
         ];
     }

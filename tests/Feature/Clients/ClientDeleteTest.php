@@ -46,10 +46,26 @@ class ClientDeleteTest extends TestCase
         $deleted = CurrentClinic::run($clinic, fn () => Client::withTrashed()->findOrFail($client->id));
         $suffix = "//deleted_{$client->id}_" . now()->timestamp;
         $this->assertSame('99400002' . $suffix, $deleted->document_number);
+        $this->assertSame('99400002' . $suffix, $deleted->document_base);
         $this->assertSame('libre@example.com' . $suffix, $deleted->email);
 
         $this->postJson('/api/clients', $this->clientPayload(['document_number' => '99400002', 'email' => 'libre@example.com']))
             ->assertCreated();
+    }
+
+    /**
+     * La baja libera también el número base (R-018): el documento vuelve a
+     * cargarse en otra forma, con un cero adelante.
+     */
+    public function test_the_deleted_document_base_is_free_again(): void
+    {
+        $clinic = $this->createClinic();
+        $client = $this->clientIn($clinic, ['document_number' => '99400002']);
+        $this->actAsDeleter($clinic)->givePermissionTo('clients.store');
+
+        $this->deleteJson("/api/clients/{$client->id}")->assertOk();
+
+        $this->postJson('/api/clients', $this->clientPayload(['document_number' => '099400002']))->assertCreated();
     }
 
     public function test_a_client_with_patients_is_in_use(): void

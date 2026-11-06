@@ -20,7 +20,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
-* **Base de datos:** MySQL 8. Esquema del MVP completo (29 migraciones). Una base compartida por todas las clínicas, con
+* **Base de datos:** MySQL 8. Esquema del MVP completo (30 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entrega 1.1
@@ -87,7 +87,8 @@ empezar una sesión.
   salen de `lang/es/validation.php`, con las mismas claves y los mismos marcadores que el del framework; todo campo de un
   Form Request lleva su nombre en `attributes` (`ValidationTranslationsTest`).
 * Toda validación de un pedido va en un **Form Request**, también la de los filtros de un listado; un Controller no llama a
-  `validate()` (`ValidationTranslationsTest`).
+  `validate()` (`ValidationTranslationsTest`). Los listados validan además los filtros comunes de `ListFilters`: `search`
+  texto de hasta 100, `per_page` de 1 a 100 (10 por defecto) y `page` desde 1; un filtro mal formado responde 422, nunca 500.
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
@@ -216,6 +217,13 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
   los campos del tipo nuevo son obligatorios y los del anterior se vacían.
 * Nombre para mostrar: siempre `Client::display_name`, nunca concatenando nombre y apellido.
 * `document_number` y `email` únicos en la clínica y obligatorios; el email, en minúsculas. Teléfono `+?[1-9]\d{7,14}`.
+* El documento es único por su **número base** (`clients.document_base`, `App\Support\DocumentBase`, R-018): los dígitos
+  antes del guion, sin ceros adelante. En Paraguay el RUC de una persona es su cédula más el dígito verificador, así que
+  `99999903`, `099999903` y `99999903-6` son el mismo documento (`UniqueClientDocument`, 422 con el mensaje de documento
+  en uso). Un documento con letras es su propia base, en mayúsculas. El modelo completa la base al guardar; la baja le
+  agrega el mismo sufijo.
+* La edición valida como el alta: un campo obligatorio enviado vacío responde solo "es obligatorio", y los campos del otro
+  tipo admiten `null` (el frontend manda todos) y rechazan cualquier valor.
 * Un documento con la forma de un RUC (`NNNNNNN-D`) debe tener su dígito verificador correcto (`App\Rules\RucCheckDigit`,
   con el cálculo de `ClinicService`; R-015). Una cédula sin guion o un documento con letras no se valida.
 * La baja agrega `//deleted_<id>_<timestamp>` entero al documento y al email: `clients.document_number` admite 50

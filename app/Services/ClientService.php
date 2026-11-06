@@ -59,9 +59,11 @@ class ClientService
         DB::transaction(function () use ($client) {
             $suffix = DeletedSuffix::for($client);
 
-            // Sin cortar: la columna (50) admite el documento (20) y el sufijo con un
+            // Sin cortar: las columnas (50) admiten el documento (20) y el sufijo con un
             // id de hasta 9 dígitos (21 + id). Con el id, dos bajas del mismo documento
-            // no chocan con el índice único, ni siquiera en el mismo segundo.
+            // no chocan con el índice único, ni siquiera en el mismo segundo. El modelo
+            // recalcula la base con el mismo sufijo (DocumentBase), así el documento
+            // queda libre en cualquier forma (cédula o RUC, R-018).
             $client->document_number = $client->document_number . $suffix;
             $client->email = $client->email . $suffix;
             $client->save();

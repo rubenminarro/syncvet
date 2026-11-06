@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangePatientOwnerRequest;
 use App\Http\Requests\IndexPatientRequest;
+use App\Http\Requests\ListFilters;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Http\Resources\ShowPatientResource;
@@ -56,7 +57,7 @@ class PatientController extends Controller implements HasMiddleware
                 });
             })
             ->orderBy('name')
-            ->paginate($request->per_page ?? 10);
+            ->paginate($request->integer('per_page', ListFilters::DEFAULT_PER_PAGE));
 
         return $this->successResponse(
             'Pacientes obtenidos correctamente.',

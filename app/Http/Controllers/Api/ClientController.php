@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\IndexClientRequest;
+use App\Http\Requests\ListFilters;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
@@ -54,7 +55,7 @@ class ClientController extends Controller implements HasMiddleware
                 });
             })
             ->latest()
-            ->paginate($request->per_page ?? 10);
+            ->paginate($request->integer('per_page', ListFilters::DEFAULT_PER_PAGE));
 
         return $this->successResponse(
             'Clientes obtenidos correctamente.',
