@@ -24,8 +24,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
-  (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019) y 1.3 (pacientes, R-020 y R-021) cerradas; sigue la
-  1.4 (especies y razas).
+  (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019) y 1.3 (pacientes, R-020 a R-022, validada por el
+  usuario con Postman) cerradas; sigue la 1.4 (especies y razas).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes y de pacientes (`tests/Feature/Clients`, `tests/Feature/Patients`). Validación manual de clientes y de pacientes con
@@ -141,7 +141,8 @@ empezar una sesión.
 * Cada Controller implementa `HasMiddleware` con `permission:<recurso>.<acción>` por método.
 * El permiso de cada ruta es su nombre, `recurso.acción` (en las anidadas, los dos últimos tramos: `clients.patients.store` →
   `patients.store`). Cada ruta de la API tiene un nombre propio. Una excepción va con su motivo en
-  `ROUTES_WITH_ANOTHER_PERMISSION`, y una ruta sin permiso, en `ROUTES_WITHOUT_PERMISSION` (`tests/Concerns/InteractsWithApiRoutes`).* El permiso debe existir exactamente en `RolesAndPermissionsSeeder::PERMISSIONS`. El rol `administrador` pasa todo por
+  `ROUTES_WITH_ANOTHER_PERMISSION`, y una ruta sin permiso, en `ROUTES_WITHOUT_PERMISSION` (`tests/Concerns/InteractsWithApiRoutes`).
+* El permiso debe existir exactamente en `RolesAndPermissionsSeeder::PERMISSIONS`. El rol `administrador` pasa todo por
   `Gate::before`: probar siempre con un rol propio.
 * Roles de la clínica en `RolesAndPermissionsSeeder::clinicRoles()`: `recepcionista` y `veterinario`.
 
@@ -277,7 +278,6 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 
 | # | Deuda |
 |---|---|
-
 | 2 | Modelos generados desde el esquema: revisar relaciones y casts al usarlos |
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |

@@ -1,6 +1,6 @@
 # FASE 1 — Clientes y pacientes
 
-Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017), 1.2 (R-019) y 1.3 (R-020) cerradas. El estado
+Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017), 1.2 (R-019) y 1.3 (R-020 a R-022) cerradas. El estado
 vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
@@ -18,7 +18,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 |---|---|---|---|
 | 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | COMPLETADO (R-017) |
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
-| 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020) |
+| 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020, R-021, R-022) |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | PENDIENTE |
 | 1.5 | Foto del paciente en disco privado | 1.4 | PENDIENTE |
 
@@ -442,9 +442,11 @@ log de la API no tiene errores de esa corrida: no se reprodujo y la colección n
 
 ### Entrega 1.3
 
-Un commit en `feature/fase-01-03-pacientes`, creada desde `feature/fase-01-02-clientes`. Segundo intento: el primero quedó sin
+Commits `fd2334f` (implementación), `837484a` (correcciones de la revisión, R-021) y `be47879` (hash del checkpoint en el
+handoff), en `feature/fase-01-03-pacientes`, creada desde `feature/fase-01-02-clientes`. Segundo intento: el primero quedó sin
 subir en otra computadora y se descartó; lo que ese intento encontró y el usuario aprobó se aplicó directamente (tabla de
-desvíos). Decisiones en [R-020](../decisions/registro.md).
+desvíos). Validada por el usuario el 2026-11-06 con las dos colecciones de Postman. Decisiones en
+[R-020, R-021 y R-022](../decisions/registro.md).
 
 **Archivos.**
 
@@ -503,7 +505,8 @@ errores.
 #### Correcciones de la revisión (R-021)
 
 La revisión de la 1.3 encontró dos hallazgos de gravedad media, cuatro de baja y dos avisos. El usuario pidió corregir los ocho,
-cada uno con un test que falle al quitar la protección. Decisiones en [R-021](../decisions/registro.md).
+cada uno con un test que falle al quitar la protección. La revisión se hizo en la misma sesión de Claude Code que la
+implementación, no en una sesión aparte: quien revisó tenía el contexto de quien implementó. Decisiones en [R-021](../decisions/registro.md).
 
 | # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
 |---|---|---|---|---|
@@ -535,3 +538,14 @@ escape de los comodines y la columna de 60 (a 59, en MySQL).
 **Validación con Postman (Newman).** Sobre `syncvet` con el `DemoSeeder`, sin recrear la base: clientes, 24 requests y 48
 aserciones en verde dos veces seguidas; pacientes, 30 requests y 61 aserciones en verde dos veces seguidas. El log de la API no
 tiene errores.
+
+#### Validación del usuario (R-022)
+
+El 2026-11-06 el usuario corrió en Postman las dos colecciones contra `syncvet`: clientes, 48 de 48 pruebas en verde; pacientes,
+61 de 61, sin errores. No pidió repetir las protecciones quitadas de a una. En el cierre, la suite corrió otra vez sobre
+`be47879` (el código de `837484a`): 449 casos en verde; en SQLite, 5626 aserciones con 2 omitidos (solo de MySQL), y en MySQL
+8.4.3 (`syncvet_test_mysql`), 5642 aserciones sin omitidos. Newman corrió cada colección dos veces seguidas, sin recrear la base:
+clientes, 24 requests y 48 aserciones; pacientes, 30 requests y 61 aserciones; todo en verde.
+
+**Guía de Postman.** Suma cómo guardar `demo_password` en un Environment de Postman ("SyncVet local"), para que no se borre al
+reimportar las colecciones.

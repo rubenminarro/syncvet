@@ -108,10 +108,21 @@ php artisan serve --port=8001
 **Importar y correr.**
 
 1. En Postman: **Import** → elegir el archivo de la colección.
-2. En la colección, pestaña **Variables**: completar `demo_password` con la `DEMO_PASSWORD` del `.env` y guardar. `base_url`
-   ya es `http://127.0.0.1:8001/api`.
-3. **Run collection** (Collection Runner): correrla entera, en orden, sin cambiar el orden de los requests. Esperado: todos los
-   tests en verde.
+2. Elegir el Environment **SyncVet local** en el selector de entornos (arriba a la derecha); la primera vez, crearlo como indica
+   el párrafo siguiente. `base_url` ya es `http://127.0.0.1:8001/api` en las colecciones.
+3. **Run collection** (Collection Runner): correrla entera, en orden, sin cambiar el orden de los requests, con **SyncVet local**
+   elegido como Environment. Esperado: todos los tests en verde.
+
+**La contraseña, en un Environment.** Reimportar una colección (por ejemplo, después de un cambio en el repositorio) la reemplaza
+con sus variables: `demo_password` vuelve a quedar vacía y el login falla. Un Environment no se toca al reimportar y sus variables
+tienen prioridad sobre las de la colección, así que la contraseña se guarda una sola vez:
+
+1. **Environments** (barra lateral) → **+** (o **Create Environment**) y llamarlo `SyncVet local`.
+2. Agregar la variable `demo_password`, de tipo **secret**, con la `DEMO_PASSWORD` del `.env` como valor, y guardar (**Save**).
+3. Elegirlo en el selector de entornos antes de correr cualquiera de las dos colecciones.
+
+No exportar el Environment al repositorio ni completar `demo_password` en la colección antes de exportarla: la contraseña quedaría
+en el archivo. Si cambia la `DEMO_PASSWORD` del `.env`, actualizar el valor en el Environment.
 
 **Se corren más de una vez sin recrear la base.** El primer request de cada colección genera un número de corrida y, con él, los
 documentos (cédulas ficticias `99xxxxxx`, R-011, y su RUC con el dígito verificador), los emails y el microchip de esa corrida. Cada

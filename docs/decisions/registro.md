@@ -388,3 +388,21 @@ corregir los ocho en `feature/fase-01-03-pacientes`, cada uno con un test que fa
 **Qué no cambió.** Rutas, permisos y `error_code`. Cambian: un fallecido acepta el formulario completo sin cambios; un fallecimiento
 anterior al nacimiento responde 422; `clients/{client}/patients` oculta a los fallecidos (antes los mostraba) y acepta
 `include_deceased`; `search` con `%` o `_` ya no funciona como comodín.
+
+# R-022 Entrega 1.3 de la FASE 1: validación y cierre (2026-11-06)
+
+Cierre de la entrega 1.3 (pacientes). Commits `fd2334f` (implementación, R-020), `837484a` (correcciones de la revisión, R-021) y
+`be47879` (hash del checkpoint en el handoff), en `feature/fase-01-03-pacientes`. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-022).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | El usuario corrió en Postman las dos colecciones contra `syncvet`: clientes, 48 de 48 pruebas; pacientes, 61 de 61; sin errores. Entrega validada | Usuario, el 2026-11-06 |
+| Suite del cierre | Sobre `be47879` (el código de `837484a`): 449 casos en verde; en SQLite, 5626 aserciones con 2 omitidos (solo de MySQL); en MySQL 8.4.3 (`syncvet_test_mysql`), 5642 aserciones. Newman: cada colección dos veces seguidas sin recrear la base, todo en verde | Cierre |
+| Protecciones quitadas de a una | No se repiten en el cierre: valen las de la implementación y las de las correcciones (seis y seis) | Usuario |
+| Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte. Queda anotado en el resultado de la entrega | Usuario |
+| `demo_password` en Postman | La guía indica guardarla en un Environment "SyncVet local": reimportar una colección la reemplaza con su `demo_password` vacía, y un Environment tiene prioridad sobre las variables de la colección y no se toca al reimportar | Usuario |
+| Pacientes | El módulo sigue EN DESARROLLO: falta la foto del paciente (entrega 1.5) | Cierre |
+| Siguiente | Entrega 1.4: especies y razas, con autorización del usuario | Diseño (R-016) |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

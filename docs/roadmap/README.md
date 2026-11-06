@@ -22,7 +22,7 @@ pacientes, sin tests todavía. Registro: [`decisions/registro.md`](../decisions/
 | Fase | Etapa | Contenido | Estado |
 |---|---|---|---|
 | [FASE 0](../fases/fase-00-puesta-en-marcha.md) | Base | Puesta en marcha | COMPLETADO (R-014): 0.1 (R-006), 0.2 (R-007), 0.3 (R-008), 0.4 (R-012) y 0.5 (R-013, R-014) |
-| [FASE 1](../fases/fase-01-clientes-y-pacientes.md) | Base | Clientes y pacientes | EN DESARROLLO: 1.1 (R-017), 1.2 (R-018, R-019) y 1.3 (R-020, R-021); pendientes 1.4 y 1.5 |
+| [FASE 1](../fases/fase-01-clientes-y-pacientes.md) | Base | Clientes y pacientes | EN DESARROLLO: 1.1 (R-017), 1.2 (R-018, R-019) y 1.3 (R-020 a R-022); pendientes 1.4 y 1.5 |
 | [FASE 2](../fases/fase-02-datos-maestros.md) | Base | Datos maestros | PENDIENTE |
 | [FASE 3](../fases/fase-03-agenda-y-turnos.md) | Atención | Agenda y turnos | PENDIENTE |
 | [FASE 4](../fases/fase-04-historia-clinica.md) | Atención | Historia clínica | PENDIENTE |
