@@ -1,6 +1,6 @@
 # FASE 1 — Clientes y pacientes
 
-Etapa: Base. Estado: **EN DESARROLLO**, con el diseño aprobado el 2026-11-05 (R-016) y las entregas 1.1 (R-017), 1.2 (R-019), 1.3 (R-020 a R-022) y 1.4 (R-023 a R-025) cerradas. El estado
+Etapa: Base. Estado: **COMPLETADO** el 2026-11-06 (R-028): entregas 1.1 (R-017), 1.2 (R-018 y R-019), 1.3 (R-020 a R-022), 1.4 (R-023 a R-025) y 1.5 (R-026 a R-028) cerradas; diseño aprobado el 2026-11-05 (R-016). Ver el [cierre de la fase](#cierre-de-la-fase-1). El estado
 vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
@@ -20,7 +20,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020, R-021, R-022) |
 | 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | COMPLETADO (R-023, R-024, R-025) |
-| 1.5 | Foto del paciente en disco privado | 1.4 | IMPLEMENTADA y corregida tras la revisión (R-026, R-027); falta la validación |
+| 1.5 | Foto del paciente en disco privado | 1.4 | COMPLETADO (R-026, R-027, R-028) |
 
 ## Preguntas de negocio
 
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3 y 1.4. Implementada y corregida tras su revisión, sin cerrar: 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3, 1.4 y 1.5; el resumen de la fase está en el [cierre de la FASE 1](#cierre-de-la-fase-1).
 
 ### Entrega 1.1
 
@@ -677,8 +677,9 @@ sigue con la 1.5 (foto del paciente).
 
 ### Entrega 1.5
 
-Implementación en `feature/fase-01-05-foto`, creada desde `feature/fase-01-04-especies` (`711ef5a`). Falta la revisión y la
-validación del usuario: esta sección se completa en el cierre. Decisiones en [R-026](../decisions/registro.md).
+Implementación en `feature/fase-01-05-foto`, creada desde `feature/fase-01-04-especies` (`711ef5a`): commits `1650605`
+(implementación, R-026) y `79f7e8e` (correcciones de la revisión, R-027). Validada por el usuario y cerrada el 2026-11-06 (R-028).
+Decisiones en [R-026](../decisions/registro.md), [R-027](../decisions/registro.md) y [R-028](../decisions/registro.md).
 
 **Archivos.**
 
@@ -753,7 +754,7 @@ cual). La revisión se hizo en la misma sesión de Claude Code que la implementa
 
 El **Aviso** del final del resultado de la 1.5 queda resuelto por el hallazgo 1.
 
-**Decisiones de implementación.** El límite de 25 megapíxeles (unos 100 MB al decodificar; 6000 × 4000 entra) protege de una
+**Decisiones de implementación** (confirmadas por el usuario en el cierre, R-028). El límite de 25 megapíxeles (unos 100 MB al decodificar; 6000 × 4000 entra) protege de una
 imagen chica en bytes que ocuparía gigas en memoria; su mensaje es "La foto no debe superar los 25 megapíxeles.". JPEG y WEBP se
 codifican con calidad 90, y PNG y WEBP conservan la transparencia. La orientación del EXIF se aplica porque, sin ella, una foto
 vertical de un teléfono quedaría acostada al perder el EXIF. La imagen se decodifica una sola vez, en el Form Request.
@@ -776,3 +777,61 @@ la imagen que GD no decodifica, el límite de megapíxeles, la CSP, la orientaci
 **Validación con Postman (Newman).** Sobre `syncvet`, sin recrear la base: la colección de la foto dos veces seguidas (23 requests
 y 60 aserciones cada vez) y la de pacientes (30 y 61), en verde. Las colecciones no cambian: el PNG de Postman se vuelve a
 codificar sin problema, y el EXIF, los políglotas y la CSP los prueba `PatientPhotoTest`.
+
+#### Validación del usuario (R-028)
+
+El 2026-11-06 el usuario corrió en Postman, contra `syncvet` y después de las correcciones de `79f7e8e`, la colección de la foto
+(60 de 60 pruebas) y la de pacientes (61 de 61), sin errores, y confirmó las tres decisiones de implementación de R-027: la
+orientación del EXIF aplicada a los píxeles, el límite de 25 megapíxeles y la calidad 90. En el cierre, la suite corrió otra vez
+contra MySQL 8.4.3 (`syncvet_test_mysql`) sobre el mismo código: 616 casos en verde, 6772 aserciones sin omitidos; en SQLite
+vale la corrida de las correcciones (616 casos, 6756 aserciones, 2 omitidos que son solo de MySQL), porque el código no cambió. Con
+este cierre el módulo de pacientes queda COMPLETADO, y con él la FASE 1.
+
+## Cierre de la FASE 1
+
+Completada el 2026-11-06 (R-028). Los clientes y los pacientes que traía el paquete base quedaron cubiertos por tests, regla por
+regla de `CLAUDE.md` §6.1 y §6.2; se sumaron el ABM de especies y razas (catálogo global más el propio de cada clínica) y la foto
+del paciente en un disco privado; los mensajes de la API están en voseo, con las traducciones de validación completas y `PUT` y
+`PATCH` con la misma semántica parcial. Las ramas de las entregas se encadenaron (`docs/fase-01-diseno` →
+`feature/fase-01-01-traducciones` → `feature/fase-01-02-clientes` → `feature/fase-01-03-pacientes` →
+`feature/fase-01-04-especies` → `feature/fase-01-05-foto`) y no se integraron a `main`: el merge lo autoriza el usuario.
+
+| Entrega | Contenido | Commits | Suite al cerrar |
+|---|---|---|---|
+| [1.1](#entrega-11) | Traducciones de validación, voseo y `PUT`/`PATCH` | `0675c5b` (cierre `fad400b`) | 260 casos; 5043 aserciones en SQLite y 5059 en MySQL |
+| [1.2](#entrega-12) | Clientes: tests de §6.1, dígito verificador del RUC, documento por número base, deudas 9 a 12 | `fff480a`, `54677d8`, `544f5cd` (cierre `37d6fba`) | 368 casos; 5371 aserciones en SQLite y 5387 en MySQL |
+| [1.3](#entrega-13) | Pacientes: tests de §6.2, cambio de dueño, sin `custom_fields` en la API, deuda 1 | `fd2334f`, `837484a` (cierre `d0de804`) | 449 casos; 5626 aserciones en SQLite y 5642 en MySQL |
+| [1.4](#entrega-14) | ABM de especies y razas, deuda 8 | `8a614c5`, `aadc1d9` (cierre `711ef5a`) | 577 casos; 6449 aserciones en SQLite y 6465 en MySQL |
+| [1.5](#entrega-15) | Foto del paciente: disco propio, imagen vuelta a codificar con GD, descarga con `nosniff` y CSP | `1650605`, `79f7e8e` | 616 casos; 6756 aserciones en SQLite y 6772 en MySQL |
+
+**Suite final** (2026-11-06, `79f7e8e`): 616 casos con los *data providers*, en verde. SQLite: 6756 aserciones, 2 omitidos (solo
+de MySQL). MySQL 8.4.3 (`syncvet_test_mysql`): 6772 aserciones, sin omitidos. Frente al cierre de la FASE 0 (242 casos): 374
+casos más.
+
+**Colecciones de Postman** (`docs/testing/postman`; se corren más de una vez sin recrear la base, [guía](../testing/guia-postman.md)):
+
+| Colección | Entrega | Requests | Aserciones | Validación del usuario |
+|---|---|---|---|---|
+| Clientes | 1.2 | 24 | 48 | 2026-11-05 (1.2) y 2026-11-06 (1.3 y 1.4), en verde |
+| Pacientes | 1.3 | 30 | 61 | 2026-11-06 (1.3, 1.4 y 1.5), en verde |
+| Especies y razas | 1.4 | 41 | 93 | 2026-11-06 (1.4), dos veces, en verde |
+| Foto del paciente | 1.5 | 23 | 60 | 2026-11-06 (1.5), en verde |
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| Cada regla de `CLAUDE.md` 6.1, 6.2 y 6.3 tiene su test, con el rol de la operación | `tests/Feature/Clients` (1.2), `tests/Feature/Patients` (1.3 y 1.5) y `tests/Feature/Catalog` (1.4), con `recepcionista` en clientes, pacientes y foto, `veterinario` en el catálogo y un rol de test en las bajas; cada protección se quitó de a una en la implementación y en la revisión de cada entrega |
+| Ninguna regla de los Requests devuelve una clave cruda | `ValidationTranslationsTest` y `VoseoTest` (1.1, reforzados en la 1.2) |
+| Suite en verde en SQLite y en MySQL | La suite final, en las dos bases |
+| Deudas 1 y 8 resueltas | Deuda 1 en las entregas 1.2 y 1.3 (R-019, R-020); deuda 8 en la 1.4 (`NestedBindingTest`, R-023) |
+
+**Deudas abiertas al cerrar** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): 2 (modelos generados desde el esquema), 3
+(códigos SIFEN sin verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en ráfagas con la caché `database`), 13
+(fechas con hora de la API: solo `deceased_at` se convierte; antes de la FASE 3) y 14 (fotos huérfanas, sin limpieza programada).
+Resueltas en la fase: 1, 8, 9, 10, 11 y 12. Nuevas en la fase: 9 a 12 (resueltas), 13 y 14.
+
+**Pendiente de verificación.** El "Errors 1" del Collection Runner en la validación de la 1.2: Newman no lo reproduce (handoff).
+
+**Para la FASE 2** (datos maestros): [`fase-02-datos-maestros.md`](fase-02-datos-maestros.md), sin diseño todavía. Empieza por el
+análisis de lo hecho (paso 1, [`prompts/1-analisis.md`](../prompts/1-analisis.md)) y sigue con el diseño y sus preguntas de negocio.

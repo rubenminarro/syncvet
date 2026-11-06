@@ -23,10 +23,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Base de datos:** MySQL 8. Esquema del MVP completo (32 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
-  0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
-  (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022) y 1.4
-  (especies y razas, R-023 a R-025) cerradas, las tres últimas validadas por el usuario con Postman; la 1.5 (foto del
-  paciente, R-026) está implementada, con las correcciones de su revisión (R-027), y falta su validación.
+  0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está completada (R-028): entregas 1.1 (traducciones,
+  voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
+  a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. Sigue la FASE 2
+  (datos maestros), que empieza por el análisis.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes y del catálogo (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`).

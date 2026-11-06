@@ -2,7 +2,7 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en `CLAUDE.md`.
 
-Estado: FASE 0 (puesta en marcha) completada; sigue la FASE 1, clientes y pacientes. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; sigue la FASE 2, datos maestros. El estado de cada fase está en
 [`docs/roadmap/README.md`](docs/roadmap/README.md) y el punto de continuidad, en [`docs/handoff.md`](docs/handoff.md).
 
 ## Qué incluye
@@ -58,7 +58,8 @@ acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo 
 ## Instalación
 
 Proyecto Laravel 13 con Sanctum 4 y spatie/laravel-permission 8 (entrega 0.1 de la FASE 0). Requisitos: PHP 8.3+ con `bcmath`,
-`intl`, `pdo_mysql` y `pdo_sqlite`; Composer; MySQL 8.
+`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md));
+Composer; MySQL 8.
 
 ```bash
 git clone https://github.com/rubenminarro/syncvet.git
@@ -93,5 +94,4 @@ php artisan key:generate
 
 ## Pendiente
 
-* Tests de Feature de clientes y pacientes (FASE 1).
 * Verificar los códigos SIFEN de `PaymentMethod::sifenCode()` y `invoice_items.unit_of_measure` contra el Manual Técnico.

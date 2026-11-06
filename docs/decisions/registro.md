@@ -527,3 +527,24 @@ gravedad baja y dos de documentación; el usuario aceptó los desvíos de la imp
 descargada) es la imagen vuelta a codificar, sin metadatos; una imagen que GD no decodifica o de más de 25 megapíxeles responde
 422 `VALIDATION_ERROR` en `photo`; la descarga suma `Content-Security-Policy`; `photo_path` ya no se puede asignar en masa; la ruta
 `/storage/{path}` de Laravel deja de existir.
+
+# R-028 Entrega 1.5 y cierre de la FASE 1 (2026-11-06)
+
+Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisión (R-027), y de la FASE 1 completa. Commits
+`1650605` (implementación, R-026) y `79f7e8e` (correcciones, R-027), en `feature/fase-01-05-foto`. El detalle está en la
+[validación de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-028) y en el
+[cierre de la fase](../fases/fase-01-clientes-y-pacientes.md#cierre-de-la-fase-1).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Validación | El usuario corrió en Postman, contra `syncvet` y sobre `79f7e8e`, la colección de la foto (60 de 60) y la de pacientes (61 de 61), sin errores. Entrega validada | Usuario, el 2026-11-06 |
+| Decisiones de R-027 | Confirmadas: la orientación del EXIF aplicada a los píxeles, el límite de 25 megapíxeles y la calidad 90 | Usuario |
+| Suite del cierre | MySQL 8.4.3 (`syncvet_test_mysql`) corrida otra vez en el cierre: 616 casos, 6772 aserciones, sin omitidos. SQLite, de la corrida de las correcciones sobre el mismo código: 616 casos, 6756 aserciones, 2 omitidos (solo de MySQL) | Cierre |
+| Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte (anotado en el resultado de la entrega) | Cierre |
+| Pacientes | El módulo pasa a COMPLETADO: la 1.5 era su última entrega en el diseño (R-016) | Cierre |
+| FASE 1 | COMPLETADO: las cinco entregas cerradas y el criterio de cierre de la fase cumplido, punto por punto en el cierre de la fase. Sin merge a `main`: lo autoriza el usuario | Usuario |
+| Deudas abiertas | 2, 3, 5, 6, 13 y 14 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 1, 8, 9, 10, 11 y 12 | Cierre |
+| Siguiente | FASE 2, datos maestros: empieza por el análisis (paso 1) y sigue con el diseño (paso 2), con autorización del usuario | Usuario |
+| Documentos | `CLAUDE.md` §1 con la FASE 1 completada; `README.md` con el estado, sin el pendiente de los tests de clientes y pacientes (deuda 1, resuelta) y con `gd` y `exif` en los requisitos (R-027) | Cierre |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
