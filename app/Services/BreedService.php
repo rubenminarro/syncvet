@@ -50,16 +50,20 @@ class BreedService
     {
         $breed->ensureNotGlobal();
 
-        // Incluye a los pacientes eliminados: su historia sigue apuntando a la raza.
-        if ($breed->patients()->withTrashed()->exists()) {
-            throw new CatalogException(
-                'La raza está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
-                409,
-                'BREED_IN_USE'
-            );
-        }
-
         DB::transaction(function () use ($breed) {
+            // Bloqueada antes de revisar el uso, como la especie (SpeciesService::delete):
+            // el alta y la edición de un paciente toman un bloqueo compartido sobre la raza.
+            Breed::query()->whereKey($breed->getKey())->lockForUpdate()->firstOrFail();
+
+            // Incluye a los pacientes eliminados: su historia sigue apuntando a la raza.
+            if ($breed->patients()->withTrashed()->exists()) {
+                throw new CatalogException(
+                    'La raza está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
+                    409,
+                    'BREED_IN_USE'
+                );
+            }
+
             // Sin cortar: la columna (110) admite el nombre (80) y el sufijo con un id de
             // hasta 9 dígitos (21 + id).
             $breed->name = $breed->name . DeletedSuffix::for($breed);

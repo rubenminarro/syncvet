@@ -146,6 +146,60 @@ class SpeciesWriteTest extends TestCase
         $this->assertSame('Canino', $this->speciesRow($canine)->name);
     }
 
+    /**
+     * Revisión de la entrega 1.4: la global responde 403 antes de validar el
+     * cuerpo (el Form Request corre antes que el Service).
+     */
+    public function test_a_global_species_answers_403_before_validating_the_body(): void
+    {
+        $this->actAsVet($this->createClinic());
+        $canine = $this->globalSpeciesId();
+
+        foreach ([['name' => 'H'], ['name' => ''], ['name' => '--'], ['is_active' => 'x']] as $body) {
+            $this->assertErrorCode($this->patchJson("/api/species/{$canine}", $body), 403, 'CATALOG_GLOBAL_NOT_EDITABLE');
+            $this->assertErrorCode($this->putJson("/api/species/{$canine}", $body), 403, 'CATALOG_GLOBAL_NOT_EDITABLE');
+        }
+
+        $this->assertSame('Canino', $this->speciesRow($canine)->name);
+    }
+
+    /**
+     * Revisión de la entrega 1.4: sin al menos una letra no es un nombre.
+     */
+    public function test_a_name_needs_at_least_one_letter(): void
+    {
+        $this->actAsVet($this->createClinic());
+
+        foreach (['--', '()', '12', '1 2 3', "'.'"] as $name) {
+            $this->postJson('/api/species', ['name' => $name])->assertUnprocessable()
+                ->assertJsonPath('errors.name.0', 'El nombre de la especie debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.');
+        }
+
+        $this->assertSame(0, DB::table('species')->whereNotNull('clinic_id')->count());
+        $this->postJson('/api/species', ['name' => '3 Colores'])->assertCreated();
+    }
+
+    /**
+     * Revisión de la entrega 1.4: los espacios internos repetidos (también un tab)
+     * se juntan en uno al guardar y al comparar.
+     */
+    public function test_repeated_inner_spaces_are_collapsed_when_saving_and_comparing(): void
+    {
+        $this->actAsVet($this->createClinic());
+
+        $response = $this->postJson('/api/species', ['name' => "Hurón   \t Gris"])->assertCreated();
+        $response->assertJsonPath('data.name', 'Hurón Gris');
+        $this->assertSame('Hurón Gris', $this->speciesRow($response->json('data.id'))->name);
+
+        $taken = $this->postJson('/api/species', ['name' => 'huron  gris']);
+        $this->assertErrorCode($taken, 422, 'VALIDATION_ERROR');
+        $taken->assertJsonPath('errors.name.0', SpeciesService::NAME_TAKEN);
+
+        $id = $this->createSpecies('Erizo');
+        $this->patchJson("/api/species/{$id}", ['name' => 'Erizo    Pigmeo'])->assertOk()->assertJsonPath('data.name', 'Erizo Pigmeo');
+        $this->assertSame('Erizo Pigmeo', $this->speciesRow($id)->name);
+    }
+
     public function test_a_species_of_another_clinic_answers_404(): void
     {
         $this->actAsVet($this->createClinic());

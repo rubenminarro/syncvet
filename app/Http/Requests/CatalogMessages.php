@@ -12,9 +12,10 @@ class CatalogMessages
     /**
      * Letras (con acentos), números, espacios, puntos, guiones, apóstrofos y
      * paréntesis: "Pastor Alemán", "Cuarto de Milla", "Shih Tzu". Sin "/", que es
-     * del sufijo de baja.
+     * del sufijo de baja. Con al menos una letra: "--", "()" o "12" no son nombres
+     * (revisión de la entrega 1.4).
      */
-    public const NAME_REGEX = '/^[\pL\pN\s.\-\'()]+$/u';
+    public const NAME_REGEX = '/^(?=[^\pL]*\pL)[\pL\pN\s.\-\'()]+$/u';
 
     public static function species(): array
     {
@@ -37,7 +38,7 @@ class CatalogMessages
                 'string' => "{$name} debe tener el formato correcto.",
                 'min' => "{$name} debe tener al menos 2 caracteres.",
                 'max' => "{$name} no debe tener más de {$max} caracteres.",
-                'regex' => "{$name} solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.",
+                'regex' => "{$name} debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.",
             ],
             'is_active.boolean' => 'El campo activo debe ser verdadero o falso.',
         ];

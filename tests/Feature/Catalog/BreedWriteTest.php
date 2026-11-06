@@ -126,6 +126,43 @@ class BreedWriteTest extends TestCase
         $this->assertTrue((bool) $this->breedRow($labrador)->is_active);
     }
 
+    /**
+     * Revisión de la entrega 1.4: la global responde 403 antes de validar el
+     * cuerpo, también con un species_id (prohibido) o un nombre inválido.
+     */
+    public function test_a_global_breed_answers_403_before_validating_the_body(): void
+    {
+        $this->actAsVet($this->createClinic());
+        $canine = $this->globalSpeciesId();
+        $labrador = $this->globalBreedId('Labrador Retriever');
+
+        foreach ([['name' => 'L'], ['name' => '12'], ['species_id' => $this->globalSpeciesId('Felino')]] as $body) {
+            $this->assertErrorCode($this->patchJson("/api/species/{$canine}/breeds/{$labrador}", $body), 403, 'CATALOG_GLOBAL_NOT_EDITABLE');
+        }
+
+        $this->assertSame('Labrador Retriever', $this->breedRow($labrador)->name);
+    }
+
+    /**
+     * Revisión de la entrega 1.4: "Pastor  Alemán" (dos espacios) es la global
+     * "Pastor Alemán"; un nombre sin letras no se acepta.
+     */
+    public function test_inner_spaces_and_letters_in_breed_names(): void
+    {
+        $this->actAsVet($this->createClinic());
+        $canine = $this->globalSpeciesId();
+
+        $response = $this->postJson("/api/species/{$canine}/breeds", ['name' => 'Pastor  Alemán']);
+        $this->assertErrorCode($response, 422, 'VALIDATION_ERROR');
+        $response->assertJsonPath('errors.name.0', BreedService::NAME_TAKEN);
+
+        $this->postJson("/api/species/{$canine}/breeds", ['name' => '--'])->assertUnprocessable()
+            ->assertJsonPath('errors.name.0', 'El nombre de la raza debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.');
+
+        $id = $this->createBreed($canine, 'Fila   Paraguayo');
+        $this->assertSame('Fila Paraguayo', $this->breedRow($id)->name);
+    }
+
     public function test_a_breed_of_another_clinic_answers_404(): void
     {
         $this->actAsVet($this->createClinic());

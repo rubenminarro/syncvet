@@ -25,7 +25,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
   (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019) y 1.3 (pacientes, R-020 a R-022, validada por el
-  usuario con Postman) cerradas; la 1.4 (especies y razas, R-023) está implementada y falta su revisión y validación.
+  usuario con Postman) cerradas; la 1.4 (especies y razas, R-023) está implementada, con las correcciones de la revisión (R-024), y falta su validación.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes y del catálogo (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`).
@@ -104,7 +104,9 @@ empezar una sesión.
 * Operaciones sobre varios registros en `DB::transaction`; concurrencia con `lockForUpdate`. **Orden de bloqueo** (para no
   generar *deadlocks*, siempre en este sentido): agenda → turno; consulta → ítem → `product_stocks` → `product_lots`;
   timbrado → factura; factura → pago; caja → pago; documento → serie de códigos (la serie, siempre última); clínica →
-  catálogo (`CatalogLock`: la fila de la clínica antes de leer los nombres de especies y razas).
+  catálogo (`CatalogLock`: la fila de la clínica antes de leer los nombres de especies y razas); especie → raza → serie (la
+  baja de una especie o una raza, con `lockForUpdate` antes de revisar si está en uso; el alta y la edición de un paciente,
+  con `sharedLock` sobre la especie y la raza que usa, antes de la serie).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -120,8 +122,8 @@ empezar una sesión.
 * **Catálogos compartidos** (`species`, `breeds`): `clinic_id` nulo para los globales. Su scope muestra "globales + los de mi
   clínica", también con fallo cerrado. Solo se crean y editan los de la propia clínica, también en las escrituras masivas
   (`SharedCatalogBuilder`): las altas masivas (`insert`, `insertOrIgnore`, `insertGetId`, los `fillAndInsert…` y `upsert`) fijan
-  la clínica en contexto en cada fila y rechazan otra o un global; `upsert` no actualiza `clinic_id` ni usa el id;
-  `insertUsing` falla siempre. Los globales salen del seeder.
+  la clínica en contexto en cada fila y rechazan otra o un global; sin filas (`insert([])`), no hacen nada, como en Laravel;
+  `upsert` no actualiza `clinic_id` ni usa el id; `insertUsing` falla siempre. Los globales salen del seeder.
 * **Usuarios:** `User` no tiene el scope de clínica, porque el login y Sanctum lo buscan antes de conocerla. Toda consulta de
   usuarios fuera del login filtra por `clinic_id` de forma explícita, y el *route binding* de un usuario de otra clínica
   responde 404. Los usuarios se eliminan siempre modelo por modelo (`$user->delete()`), nunca con un borrado masivo
@@ -248,8 +250,10 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 * `custom_fields` no forma parte de la API (R-015): los Requests no lo aceptan (si llega, se ignora) y la respuesta no lo
   muestra. La columna y el cast del modelo quedan. `photo_path` sigue en la respuesta hasta la entrega 1.5.
 * La raza debe ser de la especie (`PATIENT_BREED_SPECIES_MISMATCH`, 422).
-* Especie y raza: globales o de la clínica, y activas. Al editar se acepta también la que el paciente ya tiene aunque se haya
-  inactivado (el formulario la reenvía); otra inactiva → 422.
+* Especie y raza: globales o de la clínica, activas y no eliminadas. Al editar se acepta también la que el paciente ya tiene
+  aunque se haya inactivado (el formulario la reenvía); otra inactiva → 422. El alta y la edición las vuelven a buscar con un
+  bloqueo compartido (`sharedLock`) dentro de su transacción: una baja simultánea de la especie o la raza responde 422 en
+  `species_id` o `breed_id` (§6.3).
 * El dueño se cambia solo con `POST patients/{patient}/change-owner` (`client_id` es `prohibited` en el PATCH); el mismo
   dueño → `PATIENT_SAME_OWNER` (422). Las consultas guardan el dueño de ese momento (`consultations.client_id`). El dueño
   de un paciente fallecido también se cambia (corrige errores de carga).
@@ -269,18 +273,22 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 * Catálogo compartido (§3): las globales (`clinic_id` nulo) y las propias de la clínica. Lo administran el administrador y el
   `veterinario`; el `recepcionista` solo lo lista. Razas anidadas en `species/{species}/breeds`, con los permisos de especie
   (`species.index`, `species.store`, `species.update` y `species.destroy`; R-015).
-* Las globales no se editan, no se inactivan ni se eliminan desde una clínica (`CATALOG_GLOBAL_NOT_EDITABLE`, 403, antes que
-  cualquier error del nombre). Una clínica no oculta una global para sí.
-* Nombre único sin distinguir mayúsculas ni acentos ni los espacios de los extremos (`App\Support\CatalogName`), comparado en la
-  aplicación para que SQLite y MySQL den lo mismo: una especie, frente a las globales y a las propias no eliminadas; una raza,
-  lo mismo **dentro de su especie**. Repetido → 422 `VALIDATION_ERROR` en `name`. El alta y el cambio de nombre bloquean antes
-  la fila de la clínica (`CatalogLock`). Hasta 60 caracteres la especie y 80 la raza.
+* Las globales no se editan, no se inactivan ni se eliminan desde una clínica (`CATALOG_GLOBAL_NOT_EDITABLE`, 403, antes de
+  validar el cuerpo: lo revisa el `authorize()` del Form Request, y otra vez el Service). Una clínica no oculta una global para sí.
+* Nombre único sin distinguir mayúsculas ni acentos ni espacios (`App\Support\CatalogName`): sin los de los extremos y con los
+  internos repetidos juntados en uno, también al guardar ("Pastor  Alemán" se guarda y se compara como "Pastor Alemán").
+  Comparado en la aplicación para que SQLite y MySQL den lo mismo: una especie, frente a las globales y a las propias no
+  eliminadas; una raza, lo mismo **dentro de su especie**. Repetido → 422 `VALIDATION_ERROR` en `name`. El alta y el cambio de
+  nombre bloquean antes la fila de la clínica (`CatalogLock`). Hasta 60 caracteres la especie y 80 la raza, con al menos una
+  letra (`CatalogMessages::NAME_REGEX`: "--" o "12" → 422).
 * `is_active = false` la oculta de los listados (salvo `include_inactive=1`) y de las altas de pacientes; los pacientes que ya
   la usan la siguen mostrando (§6.2). Se inactiva aunque esté en uso. Una raza propia puede ir en una especie global.
 * La raza no cambia de especie (`species_id` `prohibited` al editar; en el alta sale de la URL y uno en el cuerpo se ignora). Una
   raza de otra especie en la URL → 404 (`scopeBindings()`).
-* Baja (`SoftDeletes`) solo si ningún paciente, tampoco uno eliminado, la usa: `SPECIES_IN_USE` o `BREED_IN_USE` (409). La
-  baja de una especie se lleva sus razas (las propias de la clínica) en la misma transacción. Agrega
+* Baja (`SoftDeletes`) solo si ningún paciente, tampoco uno eliminado, la usa: `SPECIES_IN_USE` o `BREED_IN_USE` (409). El
+  uso se revisa dentro de la transacción de la baja, con la especie y sus razas (o la raza) ya bloqueadas (`lockForUpdate`;
+  el paciente toma un `sharedLock`, §6.2 y §3): un alta simultánea de un paciente no deja una especie o raza eliminada en uso.
+  La baja de una especie se lleva sus razas (las propias de la clínica) en la misma transacción. Agrega
   `//deleted_<id>_<timestamp>` entero al nombre: las columnas admiten 90 y 110 caracteres.
 
 ### 6.4 Pendientes de diseño (reglas a definir antes de programar)

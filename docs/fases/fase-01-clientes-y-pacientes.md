@@ -552,8 +552,9 @@ reimportar las colecciones.
 
 ### Entrega 1.4
 
-Implementación en `feature/fase-01-04-especies`, creada desde `feature/fase-01-03-pacientes`. Falta la revisión y la validación del
-usuario: esta sección se completa en el cierre. Decisiones en [R-023](../decisions/registro.md).
+Implementación en `feature/fase-01-04-especies`, creada desde `feature/fase-01-03-pacientes`, revisada y corregida
+([correcciones de la revisión](#correcciones-de-la-revisión-r-024)). Falta la validación del usuario: esta sección se completa en
+el cierre. Decisiones en [R-023](../decisions/registro.md) y R-024.
 
 **Archivos.**
 
@@ -617,6 +618,51 @@ intactos.
 | `species_id` en el alta de una raza se ignora (en la edición, 422) | Como el `client_id` del alta de un paciente: la especie sale de la URL | Implementación |
 
 **Validación con Postman (Newman).** Sobre `syncvet` con el `DemoSeeder`, la migración nueva aplicada y los roles sembrados otra
-vez (sin recrear la base): la colección de especies corrió dos veces seguidas, 38 requests y 84 aserciones en verde cada vez. Antes
+vez (sin recrear la base): la colección de especies corrió dos veces seguidas, 38 requests y 84 aserciones en verde cada vez (la
+colección de la implementación; las correcciones le suman tres requests). Antes
 de re-sembrar los roles, el veterinario recibía 403 `FORBIDDEN` (lo anota la guía). Las de clientes (24 requests, 48 aserciones) y
 pacientes (30 requests, 61 aserciones) corrieron otra vez después, en verde.
+
+#### Correcciones de la revisión (R-024)
+
+La revisión de la 1.4 encontró un hallazgo de gravedad media, cuatro de baja y tres de documentación. El usuario pidió corregirlos,
+cada uno con un test que falle al quitar la protección. La revisión se hizo en la misma sesión de Claude Code que la
+implementación, no en una sesión aparte. Decisiones en [R-024](../decisions/registro.md).
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Media | La baja revisaba el uso antes de su transacción y sin bloqueo, y el paciente validaba la especie con un `exists` sin bloqueo: un alta entre la revisión y la baja dejaba al paciente con `species: null` | La baja bloquea la especie y sus razas (o la raza) con `lockForUpdate` y revisa el uso dentro de su transacción; el alta y la edición de un paciente toman un `sharedLock` sobre la especie y la raza dentro de la suya y las vuelven a buscar (422 si ya no están). Orden de bloqueo especie → raza → serie (`CLAUDE.md` §3) | `CatalogDeleteRaceTest`: un paciente creado justo antes del bloqueo de la especie o de la raza → 409; una especie o raza eliminada después de la validación → 422 en el alta y en la edición; el orden de los bloqueos (`for update` y `lock in share mode` en MySQL) |
+| 2 | Baja | Una global con un cuerpo inválido respondía 422, no 403 | `authorize()` de `UpdateSpeciesRequest` y `UpdateBreedRequest` llama a `ensureNotGlobal()` antes de validar | `SpeciesWriteTest::test_a_global_species_answers_403_before_validating_the_body` y `BreedWriteTest::test_a_global_breed_answers_403_before_validating_the_body` |
+| 3 | Baja | Se aceptaban nombres sin letras ("--", "()", "12") | `NAME_REGEX` exige al menos una letra | `SpeciesWriteTest::test_a_name_needs_at_least_one_letter` y `BreedWriteTest::test_inner_spaces_and_letters_in_breed_names` |
+| 4 | Baja | "Pastor  Alemán" (dos espacios) pasaba junto a la global "Pastor Alemán" | `CatalogName::clean` junta los espacios repetidos; los modelos guardan el nombre limpio y `normalize` compara con él | `SpeciesWriteTest::test_repeated_inner_spaces_are_collapsed_when_saving_and_comparing`, `BreedWriteTest::test_inner_spaces_and_letters_in_breed_names` y `CatalogNameTest` |
+| 5 | Baja | `Species::query()->insert([])` armaba una fila con solo `clinic_id` y fallaba en la base | Sin filas, `insert` e `insertOrIgnore` no hacen nada, como en Laravel | `SharedCatalogInsertTest::test_an_empty_insert_does_nothing` |
+| 6 | Documentación | `README.md` decía 119 permisos; `CLAUDE.md` §6.2 no decía que la especie y la raza no pueden estar eliminadas; el handoff no tenía el hash del último commit de código | 120 permisos; §6.2 con "no eliminadas" y el bloqueo compartido; el handoff con `8a614c5` | `/validar-docs` compara la cifra |
+
+**Archivos.** Nuevos: `tests/Feature/Catalog/CatalogDeleteRaceTest.php` y `tests/Unit/CatalogNameTest.php`. Cambiados:
+`SpeciesService` y `BreedService` (bloqueo y uso dentro de la transacción), `PatientService` (`sharedLock` y nueva búsqueda),
+`PatientMessages` (los mensajes de especie y raza no disponibles, como constantes), `UpdateSpeciesRequest` y `UpdateBreedRequest`
+(`authorize()`), `CatalogMessages` (al menos una letra), `CatalogName` (`clean`), `Species` y `Breed` (el nombre limpio al
+guardar), `SharedCatalogBuilder` (`insert([])`); los tests `SpeciesWriteTest`, `BreedWriteTest` y `SharedCatalogInsertTest`; la
+colección de especies; `CLAUDE.md` §1, §3, §6.2 y §6.3, `README.md`, la guía de Postman, el registro y los documentos de estado.
+
+**Tests.** Suite del 2026-11-06: 577 casos con los *data providers*; en SQLite, 6449 aserciones con 2 omitidos (solo de MySQL);
+contra MySQL 8.4.3 (`syncvet_test_mysql`), 6465 aserciones sin omitidos. Frente a la implementación de la 1.4: 20 casos y 119
+aserciones más en las dos bases. Clases nuevas o cambiadas (SQLite): `CatalogDeleteRaceTest` 7 casos y 48 aserciones,
+`SpeciesWriteTest` 20 y 127, `BreedWriteTest` 12 y 82, `SharedCatalogInsertTest` 50 y 60, `CatalogNameTest` 7 y 10.
+
+**Protecciones quitadas de a una.** Quince, cada una hace fallar al menos un test: el bloqueo de la especie y el de la raza en
+la baja, la revisión del uso fuera de la transacción (el código de la implementación, en especies y en razas), la nueva búsqueda
+de la especie y la de la raza en el paciente, el `sharedLock` del paciente y el `lockForUpdate` de las razas (los dos, en MySQL),
+el 403 antes de validar en especies y en razas, la letra obligatoria, los espacios al comparar, y al guardar en especies y en
+razas, y el `insert([])`.
+
+**Concurrencia.** Como en la implementación, PHPUnit no corre dos pedidos simultáneos (una sola conexión, dentro de la
+transacción de `RefreshDatabase`). La revisión simuló el alta dentro del evento `deleting`; con el bloqueo, en una base real ese
+alta espera a que la baja termine y recibe 422, y un alta en una sola conexión no puede esperar. Por eso los tests ponen el otro
+pedido en el único momento en que puede terminar sin esperar: el paciente, justo antes del bloqueo de la baja (la baja ve al
+paciente y responde 409), y la baja, justo antes del bloqueo del paciente (el paciente no encuentra la especie y responde 422).
+
+**Validación con Postman (Newman).** La colección de especies suma tres requests (nombre sin letras, global con un cuerpo
+inválido y la global "Pastor  Alemán"), y el alta de la raza propia comprueba los espacios juntados. Sobre `syncvet`, sin
+recrear la base: especies, 41 requests y 93 aserciones en verde dos veces seguidas; clientes, 24 y 48; pacientes, 30 y 61, en
+verde.

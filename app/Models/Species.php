@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Models\Concerns\SharedCatalog;
+use App\Support\CatalogName;
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -33,6 +35,15 @@ class Species extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * El nombre se guarda sin espacios en los extremos y con los internos repetidos
+     * juntados en uno (CatalogName::clean; revisión de la entrega 1.4).
+     */
+    protected function name(): Attribute
+    {
+        return Attribute::make(set: fn ($value) => is_string($value) ? CatalogName::clean($value) : $value);
     }
 
     public function breeds(): HasMany

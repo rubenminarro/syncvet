@@ -125,6 +125,24 @@ class SharedCatalogInsertTest extends TestCase
         $this->assertSame('Canino', DB::table('species')->where('id', $canine)->value('name'));
     }
 
+    /**
+     * Revisión de la entrega 1.4: sin filas no se inserta nada, como en Laravel
+     * (antes se armaba una fila con solo clinic_id y fallaba en la base).
+     */
+    public function test_an_empty_insert_does_nothing(): void
+    {
+        $own = $this->createClinic();
+        $before = DB::table('species')->count();
+
+        CurrentClinic::run($own, function () {
+            $this->assertTrue(Species::query()->insert([]));
+            $this->assertSame(0, Species::query()->insertOrIgnore([]));
+            $this->assertTrue(Breed::query()->insert([]));
+        });
+
+        $this->assertSame($before, DB::table('species')->count());
+    }
+
     public function test_insert_from_a_query_always_fails(): void
     {
         $own = $this->createClinic();

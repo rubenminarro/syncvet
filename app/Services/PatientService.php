@@ -4,14 +4,17 @@ namespace App\Services;
 
 use App\Enums\DocumentSeries;
 use App\Exceptions\PatientException;
+use App\Http\Requests\PatientMessages;
 use App\Models\Breed;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Species;
 use App\Support\DeletedSuffix;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Pacientes. El código PAC-000001 sale de la serie (DocumentSequenceService).
@@ -26,12 +29,15 @@ class PatientService
 
     public function create(Client $client, array $data): Patient
     {
-        $this->ensureBreedMatchesSpecies($data['species_id'], $data['breed_id'] ?? null);
+        return DB::transaction(function () use ($client, $data) {
+            // Orden de bloqueo: especie → raza → serie (la serie, siempre última).
+            $this->lockCatalog($data['species_id'], $data['breed_id'] ?? null);
 
-        return DB::transaction(fn () => $this->sequences->create(
-            DocumentSeries::PATIENT,
-            fn (string $code) => $client->patients()->create([...$data, 'code' => $code])
-        ));
+            return $this->sequences->create(
+                DocumentSeries::PATIENT,
+                fn (string $code) => $client->patients()->create([...$data, 'code' => $code])
+            );
+        });
     }
 
     public function update(Patient $patient, array $data): Patient
@@ -42,14 +48,38 @@ class PatientService
             $data['deceased_at'] = $this->toAppTimezone($data['deceased_at']);
         }
 
-        $this->ensureBreedMatchesSpecies(
-            $data['species_id'] ?? $patient->species_id,
-            array_key_exists('breed_id', $data) ? $data['breed_id'] : $patient->breed_id
-        );
+        return DB::transaction(function () use ($patient, $data) {
+            $this->lockCatalog(
+                $data['species_id'] ?? $patient->species_id,
+                array_key_exists('breed_id', $data) ? $data['breed_id'] : $patient->breed_id
+            );
 
-        $patient->update($data);
+            $patient->update($data);
 
-        return $patient;
+            return $patient;
+        });
+    }
+
+    /**
+     * Bloqueo compartido (sharedLock) de la especie y la raza que el paciente va a
+     * usar, dentro de la transacción del alta o de la edición. La baja de una especie
+     * o una raza las bloquea con lockForUpdate antes de revisar si están en uso
+     * (SpeciesService, BreedService): si la baja terminó primero, aquí ya no se
+     * encuentran (el scope de SoftDeletes) y el pedido responde 422; si el paciente
+     * terminó primero, la baja lo ve y responde 409. El Form Request ya las validó,
+     * pero sin bloqueo: una baja podía entrar entre su validación y el alta.
+     */
+    private function lockCatalog(int $speciesId, ?int $breedId): void
+    {
+        if (Species::query()->whereKey($speciesId)->sharedLock()->first() === null) {
+            throw ValidationException::withMessages(['species_id' => PatientMessages::SPECIES_UNAVAILABLE]);
+        }
+
+        if ($breedId !== null && Breed::query()->whereKey($breedId)->sharedLock()->first() === null) {
+            throw ValidationException::withMessages(['breed_id' => PatientMessages::BREED_UNAVAILABLE]);
+        }
+
+        $this->ensureBreedMatchesSpecies($speciesId, $breedId);
     }
 
     /**

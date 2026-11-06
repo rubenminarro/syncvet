@@ -52,20 +52,28 @@ class SpeciesService
     {
         $species->ensureNotGlobal();
 
-        // Incluye a los pacientes eliminados: su historia sigue apuntando a la especie.
-        if ($species->patients()->withTrashed()->exists()
-            || Patient::withTrashed()->whereIn('breed_id', $species->breeds()->select('id'))->exists()) {
-            throw new CatalogException(
-                'La especie está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
-                409,
-                'SPECIES_IN_USE'
-            );
-        }
-
         DB::transaction(function () use ($species) {
+            // La especie y sus razas, bloqueadas antes de revisar el uso. El alta y la
+            // edición de un paciente toman un bloqueo compartido sobre las dos
+            // (PatientService): o esperan a que la baja termine, y ven la especie
+            // eliminada, o terminan antes, y la baja ve al paciente. Orden de bloqueo:
+            // especie → raza (CLAUDE.md §3).
+            Species::query()->whereKey($species->getKey())->lockForUpdate()->firstOrFail();
+            $breeds = $species->breeds()->lockForUpdate()->get();
+
+            // Incluye a los pacientes eliminados: su historia sigue apuntando a la especie.
+            if ($species->patients()->withTrashed()->exists()
+                || Patient::withTrashed()->whereIn('breed_id', $breeds->modelKeys())->exists()) {
+                throw new CatalogException(
+                    'La especie está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
+                    409,
+                    'SPECIES_IN_USE'
+                );
+            }
+
             // Las razas de una especie propia son de la clínica: se eliminan con ella,
             // una por una (auditoría y sufijo de cada nombre).
-            $species->breeds()->get()->each(function (Breed $breed) {
+            $breeds->each(function (Breed $breed) {
                 $breed->name = $breed->name . DeletedSuffix::for($breed);
                 $breed->save();
                 $breed->delete();

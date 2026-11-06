@@ -93,15 +93,25 @@ class SharedCatalogBuilder extends Builder
      * modelo, así que cada fila recibe aquí la clínica en contexto. Una fila con
      * otra clínica, o con clinic_id nulo de forma explícita (un global), falla.
      * Cubre también fillAndInsert, fillAndInsertOrIgnore y fillAndInsertGetId,
-     * que terminan en estos métodos.
+     * que terminan en estos métodos. Sin filas, insert e insertOrIgnore no hacen
+     * nada, como en Laravel (revisión de la entrega 1.4): la clínica no se agrega a
+     * una fila que no existe.
      */
     public function insert(array $values)
     {
+        if ($values === []) {
+            return $this->toBase()->insert([]);
+        }
+
         return $this->toBase()->insert($this->withCurrentClinic($values));
     }
 
     public function insertOrIgnore(array $values)
     {
+        if ($values === []) {
+            return $this->toBase()->insertOrIgnore([]);
+        }
+
         return $this->toBase()->insertOrIgnore($this->withCurrentClinic($values));
     }
 

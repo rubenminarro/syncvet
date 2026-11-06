@@ -409,6 +409,65 @@
             }
         },
         {
+            "name": "06b Nombre sin letras → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('Pide una letra', () => pm.expect(json.errors.name[0]).to.include('al menos una letra'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "description": "El nombre lleva al menos una letra (revisión de la entrega 1.4).",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"12\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "07 Alta de una especie inactiva (Erizo)",
             "event": [
                 {
@@ -680,6 +739,64 @@
             }
         },
         {
+            "name": "11b Una especie global con un cuerpo inválido → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code CATALOG_GLOBAL_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CATALOG_GLOBAL_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}"
+                    ]
+                },
+                "description": "La global responde 403 antes de validar el cuerpo (revisión de la entrega 1.4).",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"H\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "12 Alta de una raza en la especie propia (Albino)",
             "event": [
                 {
@@ -812,6 +929,7 @@
                             "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
                             "const json = pm.response.json();",
                             "pm.test('En Canino', () => pm.expect(json.data.species_id).to.eql(Number(pm.collectionVariables.get('canino_id'))));",
+                            "pm.test('Espacios juntados', () => pm.expect(json.data.name).to.eql(`Fila Paraguayo ${pm.collectionVariables.get('run')}`));",
                             "pm.collectionVariables.set('fila_id', json.data.id);"
                         ]
                     }
@@ -840,10 +958,10 @@
                         "breeds"
                     ]
                 },
-                "description": "Guarda el id en fila_id.",
+                "description": "Con espacios internos repetidos: se guarda con uno (revisión de la entrega 1.4). Guarda el id en fila_id.",
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"name\": \"Fila Paraguayo {{run}}\"\n}",
+                    "raw": "{\n    \"name\": \"Fila   Paraguayo {{run}}\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -904,6 +1022,67 @@
                 "body": {
                     "mode": "raw",
                     "raw": "{\n    \"name\": \"labrador retriever\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15b La global con dos espacios internos → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('errors.name: Ya existe una raza con ese nombre en esta especie.', () => pm.expect(json.errors.name[0]).to.eql('Ya existe una raza con ese nombre en esta especie.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}",
+                        "breeds"
+                    ]
+                },
+                "description": "\"Pastor  Alemán\" (dos espacios) es la global \"Pastor Alemán\" (revisión de la entrega 1.4).",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Pastor  Alemán\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"

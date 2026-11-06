@@ -434,3 +434,26 @@ y la validación del usuario: no es el cierre. El detalle está en el
 `species/{species}/breeds`. `GET species` conserva su forma (`id`, `name`, `breeds[].id`, `breeds[].name`) y suma `is_active`,
 `is_global` y, en cada raza, `species_id`, `is_active` e `is_global`; acepta `include_inactive`. El alta y la edición de pacientes
 rechazan una especie o raza eliminada (422). Sin cambios en los `error_code` existentes ni en el contrato de respuesta.
+
+# R-024 Revisión de la entrega 1.4 de la FASE 1: correcciones (2026-11-06)
+
+La revisión de la entrega 1.4 (especies y razas) encontró un hallazgo de gravedad media, cuatro de baja y tres de documentación; el
+usuario aceptó los desvíos de la implementación y pidió corregir los hallazgos en `feature/fase-01-04-especies`, cada uno con un
+test que falle al quitar la protección. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-024).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Baja y alta de paciente simultáneas | La baja de una especie bloquea la especie y sus razas (`lockForUpdate`), y la de una raza, la raza, y revisan el uso dentro de su transacción. El alta y la edición de un paciente toman un `sharedLock` sobre la especie y la raza dentro de la suya y las vuelven a buscar: si una baja terminó antes, 422 en `species_id` o `breed_id` con el mensaje de la regla `exists`. Orden de bloqueo nuevo en `CLAUDE.md` §3: especie → raza → serie | Usuario |
+| Tests de la carrera | Una sola conexión no puede esperar un bloqueo: el test pone el otro pedido en el único momento en que puede terminar sin esperar (el paciente antes del bloqueo de la baja → 409; la baja antes del bloqueo del paciente → 422), y en MySQL exige `for update` y `lock in share mode` en ese orden. El alta dentro del evento `deleting` de la revisión no se reproduce tal cual: con el bloqueo, en una base real ese alta espera | Implementación |
+| Globales | 403 `CATALOG_GLOBAL_NOT_EDITABLE` antes de validar el cuerpo: lo revisa `authorize()` del Form Request de edición; el Service lo sigue revisando | Usuario |
+| Nombre con letras | `CatalogMessages::NAME_REGEX` exige al menos una letra; el mensaje lo dice ("debe tener al menos una letra y solo puede contener…") | Usuario; el texto del mensaje, implementación |
+| Espacios internos | `CatalogName::clean` junta toda serie de espacios (también tabs y espacios duros) en uno y quita los de los extremos. Se aplica al guardar (el nombre en `Species` y `Breed`) y al comparar (`normalize`) | Usuario; el lugar (el modelo), implementación |
+| `insert([])` | `insert` e `insertOrIgnore` de `SharedCatalogBuilder` sin filas no hacen nada, como en Laravel | Usuario |
+| Documentos | `README.md` con 120 permisos; `CLAUDE.md` §6.2 con especie y raza no eliminadas; el handoff con `8a614c5` como el commit de la implementación (un commit no puede llevar su propio hash: el de estas correcciones se informa al subirlo) | Usuario |
+| Postman | La colección de especies suma el nombre sin letras, la global con un cuerpo inválido y la global con dos espacios internos, y comprueba los espacios juntados en un alta (41 requests, 93 aserciones) | Implementación |
+| Validación | Suite en verde en SQLite (577 casos, 6449 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 6465 aserciones). Quince protecciones quitadas de a una, cada una con un test que falla. Newman: especies dos veces seguidas sin recrear la base, y clientes y pacientes, todo en verde | Implementación |
+
+**Qué cambió en la API.** Rutas, permisos, `error_code` y contrato de respuesta, sin cambios. Cambian: una global con un cuerpo
+inválido responde 403 (antes, 422); un nombre sin letras responde 422; los espacios internos repetidos se guardan como uno y
+cuentan para el nombre repetido; un alta o edición de paciente simultánea con la baja de su especie o raza responde 422.
