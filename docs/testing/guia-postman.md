@@ -103,3 +103,5 @@ Endpoints ya presentes en el paquete base; la guía se valida al cerrar la FASE 
 | 9 | `PATCH /api/patients/{id}` con `client_id` | | 422 `VALIDATION_ERROR` |
 | 10 | `DELETE /api/clients/{id}` con pacientes | | 409 `CLIENT_IN_USE` |
 | 11 | `GET /api/clients?search=Toby` | | 200, encuentra a Ana por su mascota |
+| 12 | `POST /api/clients` con un RUC y el dígito verificador equivocado: el número de la fila 2 (`99999905`) con `-3` | Como el de la fila 1, con otro email | 422 `VALIDATION_ERROR`, `errors.document_number` = "El RUC no es válido: revisá el número y el dígito verificador." (entrega 1.2) |
+| 13 | `PATCH /api/clients/{id}` de Ana con `{"kind":"company"}`, sin `business_name` | | 422 `VALIDATION_ERROR`, `errors.business_name` = "La razón social es obligatoria para una empresa." (entrega 1.2) |

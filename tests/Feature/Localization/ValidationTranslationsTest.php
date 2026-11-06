@@ -5,6 +5,7 @@ namespace Tests\Feature\Localization;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Rules\RucCheckDigit;
 use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Routing\Route;
@@ -56,17 +57,55 @@ class ValidationTranslationsTest extends TestCase
         }
     }
 
-    public function test_every_line_keeps_the_placeholders_of_the_original(): void
+    /**
+     * Los mismos marcadores que el original, ni uno más ni uno menos: un marcador
+     * cambiado (":values" por ":value") o inventado llegaría crudo al usuario
+     * (deuda 10).
+     */
+    public function test_every_line_keeps_exactly_the_placeholders_of_the_original(): void
     {
         $spanish = $this->messageLines($this->spanishLines());
 
         foreach ($this->messageLines($this->frameworkLines()) as $key => $line) {
-            preg_match_all('/:[a-z_]+/', $line, $placeholders);
+            $this->assertSame([], $this->placeholderDifferences($line, $spanish[$key] ?? ''), "validation.{$key} cambió sus marcadores.");
+        }
+    }
 
-            foreach (array_unique($placeholders[0]) as $placeholder) {
-                $this->assertStringContainsString($placeholder, $spanish[$key] ?? '', "validation.{$key} perdió {$placeholder}.");
+    public function test_a_changed_or_invented_placeholder_is_detected(): void
+    {
+        $original = 'The :attribute field must be greater than :value.';
+
+        $this->assertSame([], $this->placeholderDifferences($original, 'El campo :attribute debe ser mayor que :value.'));
+        $this->assertSame(['falta :value', 'sobra :values'], $this->placeholderDifferences($original, 'El campo :attribute debe ser mayor que :values.'));
+        $this->assertSame(['sobra :atributo'], $this->placeholderDifferences($original, 'El campo :attribute (:atributo) debe ser mayor que :value.'));
+        $this->assertSame(['falta :attribute'], $this->placeholderDifferences($original, 'El campo debe ser mayor que :value.'));
+
+
+        $this->assertSame([':attribute', ':value'], $this->placeholders('The :attribute field must be greater than :value.'));
+        $this->assertSame([':attribute', ':values'], $this->placeholders('El campo :attribute debe ser mayor que :values.'));
+        $this->assertSame([':atributo', ':attribute'], $this->placeholders('El campo :attribute (:atributo) es obligatorio.'));
+        $this->assertSame([':Attribute', ':attribute'], $this->placeholders(':Attribute es obligatorio: el campo :attribute.'));
+        $this->assertSame([], $this->placeholders('Formato: hh:mm, a las 10:30.'));
+    }
+
+    /**
+     * Toda validación de un pedido va en un Form Request, también la de los
+     * filtros de los listados: así los tests de este archivo revisan su mensaje y
+     * el nombre en español de cada campo (deuda 11).
+     */
+    public function test_controllers_do_not_validate_outside_form_requests(): void
+    {
+        $found = [];
+
+        foreach ((new Finder())->files()->in(app_path('Http/Controllers'))->name('*.php') as $file) {
+            foreach (file($file->getPathname()) as $number => $line) {
+                if (preg_match('/->validate(WithBag)?\s*\(|\bvalidator\s*\(|Validator::make\s*\(/', $line)) {
+                    $found[] = $file->getRelativePathname() . ':' . ($number + 1) . ' ' . trim($line);
+                }
             }
         }
+
+        $this->assertSame([], $found, 'Validación fuera de un Form Request.');
     }
 
     public function test_the_application_loads_the_spanish_lines(): void
@@ -240,7 +279,9 @@ class ValidationTranslationsTest extends TestCase
                 $rule instanceof ProhibitedIf => [['prohibited']],
                 $rule instanceof In => [['in']],
                 $rule instanceof NotIn => [['not_in']],
-                $rule instanceof Password => array_map(fn (string $key) => [$key], ['min', 'password.letters', 'password.mixed', 'password.numbers', 'password.symbols', 'password.uncompromised']),
+                // Trae su propio mensaje (RucCheckDigit::MESSAGE); VoseoTest lo revisa.
+                $rule instanceof RucCheckDigit => [],
+                $rule instanceof Password =>array_map(fn (string $key) => [$key], ['min', 'password.letters', 'password.mixed', 'password.numbers', 'password.symbols', 'password.uncompromised']),
                 default => $this->fail("{$where}: regla sin clasificar (" . get_debug_type($rule) . '); agregala a messageKeys().'),
             });
         }
@@ -274,5 +315,38 @@ class ValidationTranslationsTest extends TestCase
     private function messageLines(array $lines): array
     {
         return Arr::dot(Arr::except($lines, ['custom', 'attributes']));
+    }
+
+    /**
+     * Los marcadores que faltan o sobran en la traducción, frente al original.
+     *
+     * @return list<string>
+     */
+    private function placeholderDifferences(string $original, string $translation): array
+    {
+        $expected = $this->placeholders($original);
+        $actual = $this->placeholders($translation);
+
+        return [
+            ...array_map(fn (string $p) => "falta {$p}", array_values(array_diff($expected, $actual))),
+            ...array_map(fn (string $p) => "sobra {$p}", array_values(array_diff($actual, $expected))),
+        ];
+    }
+
+    /**
+     * Los marcadores de una línea (":attribute", ":Attribute", ":value"…), sin
+     * repetir y ordenados. No cuenta los dos puntos dentro de una palabra o una
+     * hora ("hh:mm", "10:30").
+     *
+     * @return list<string>
+     */
+    private function placeholders(string $line): array
+    {
+        preg_match_all('/(?<![\p{L}\d]):[a-zA-Z_]+/u', $line, $matches);
+
+        $placeholders = array_values(array_unique($matches[0]));
+        sort($placeholders);
+
+        return $placeholders;
     }
 }

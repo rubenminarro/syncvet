@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangePatientOwnerRequest;
+use App\Http\Requests\IndexPatientRequest;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientResource;
 use App\Http\Resources\ShowPatientResource;
@@ -11,7 +12,6 @@ use App\Models\Client;
 use App\Models\Patient;
 use App\Services\PatientService;
 use App\Traits\ApiResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
@@ -35,13 +35,8 @@ class PatientController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(Request $request)
+    public function index(IndexPatientRequest $request)
     {
-        $request->validate([
-            'species_id' => ['nullable', 'integer'],
-            'include_deceased' => ['nullable', 'boolean'],
-        ]);
-
         $patients = Patient::query()
             ->with(['species', 'breed', 'client'])
             ->when(! $request->boolean('include_deceased'), fn ($q) => $q->whereNull('deceased_at'))

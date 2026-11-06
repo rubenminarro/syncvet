@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\ClientKind;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\ClientMessages;
+use App\Http\Requests\IndexClientRequest;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
@@ -12,11 +11,8 @@ use App\Http\Resources\ShowClientResource;
 use App\Models\Client;
 use App\Services\ClientService;
 use App\Traits\ApiResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 
 class ClientController extends Controller implements HasMiddleware
 {
@@ -38,13 +34,8 @@ class ClientController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(Request $request)
+    public function index(IndexClientRequest $request)
     {
-        $request->validate(
-            ['kind' => ['nullable', Rule::enum(ClientKind::class)]],
-            ['kind.' . Enum::class => ClientMessages::all()['kind'][Enum::class]]
-        );
-
         $clients = Client::query()
             ->when($request->filled('kind'), fn ($query) => $query->where('kind', $request->kind))
             ->when($request->filled('search'), function ($query) use ($request) {

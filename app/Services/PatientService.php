@@ -7,6 +7,7 @@ use App\Exceptions\PatientException;
 use App\Models\Breed;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Support\DeletedSuffix;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -76,7 +77,9 @@ class PatientService
 
         DB::transaction(function () use ($patient) {
             if ($patient->microchip) {
-                $patient->microchip = substr($patient->microchip . '//deleted_' . now()->timestamp, 0, 30);
+                // La columna tiene 30 caracteres hasta la entrega 1.3, que la amplía:
+                // un chip ISO de 15 conserva entero un id de hasta 5 dígitos.
+                $patient->microchip = substr($patient->microchip . DeletedSuffix::for($patient), 0, 30);
                 $patient->save();
             }
 

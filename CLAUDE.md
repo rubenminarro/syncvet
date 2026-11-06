@@ -20,7 +20,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
-* **Base de datos:** MySQL 8. Esquema del MVP completo (28 migraciones). Una base compartida por todas las clínicas, con
+* **Base de datos:** MySQL 8. Esquema del MVP completo (29 migraciones). Una base compartida por todas las clínicas, con
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entrega 1.1
@@ -50,6 +50,16 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 En fases nuevas: primero diseño funcional y de datos (con las preguntas de negocio, en `docs/fases/`), después código. Ninguna
 entrega empieza sin autorización del usuario y ninguna fase se declara cerrada sin evidencia (código + tests).
 
+### Ritmo de las entregas
+
+Para que una entrega no tarde más de lo necesario:
+
+* En la implementación, mutaciones solo de las protecciones críticas de la entrega (alrededor de 5); la revisión hace las suyas.
+* En cada mutación se corren solo los tests relacionados; la suite completa, al final.
+* MySQL (`syncvet_test_mysql`) una vez por entrega, antes del cierre, salvo que la entrega toque migraciones, concurrencia,
+  búsquedas de texto o autenticación: entonces también durante el trabajo.
+* Si una entrega junta temas distintos, proponer dividirla en el diseño.
+
 ### Documentación por cambio
 
 Cada entrega actualiza, en la misma rama, lo que indica la tabla **Mantenimiento** de [`docs/README.md`](docs/README.md). La skill
@@ -72,9 +82,12 @@ empezar una sesión.
 * Errores de negocio: excepción de dominio (`ClientException`, `PatientException`…) con `error_code` y `422` (o `409` en
   conflictos). Nunca `500` ni trazas.
 * Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
-  `error_code` en inglés. `VoseoTest` rechaza las formas de tú y de usted. Los mensajes de validación sin mensaje propio salen
-  de `lang/es/validation.php`, con las mismas claves que el del framework; todo campo de un Form Request lleva su nombre en
-  `attributes` (`ValidationTranslationsTest`).
+  `error_code` en inglés. `VoseoTest` rechaza las palabras de tú y de usted, los imperativos de tú y de usted de sus verbos
+  (un verbo nuevo en un mensaje se agrega a su lista) y los mensajes en inglés. Los mensajes de validación sin mensaje propio
+  salen de `lang/es/validation.php`, con las mismas claves y los mismos marcadores que el del framework; todo campo de un
+  Form Request lleva su nombre en `attributes` (`ValidationTranslationsTest`).
+* Toda validación de un pedido va en un **Form Request**, también la de los filtros de un listado; un Controller no llama a
+  `validate()` (`ValidationTranslationsTest`).
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
@@ -88,7 +101,9 @@ empezar una sesión.
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
   **inmutables**: solo se anulan o se corrigen con otro registro.
-* Datos maestros con `SoftDeletes`; al eliminar se agrega `//deleted_<timestamp>` a sus campos únicos para liberarlos.
+* Datos maestros con `SoftDeletes`; al eliminar se agrega `//deleted_<id>_<timestamp>` (`App\Support\DeletedSuffix`) a sus
+  campos únicos para liberarlos. El id evita el choque de dos bajas del mismo valor en el mismo segundo; la columna deja lugar
+  al sufijo entero.
   Un dato maestro ya usado no se elimina (`409 …_IN_USE`).
 * **Clínica:** todo modelo de negocio usa `BelongsToClinic`. Nunca filtrar por `clinic_id` a mano ni saltear el scope sin un
   motivo registrado. Toda regla `unique` o `exists` filtra por la clínica actual. Jobs y comandos fijan la clínica con
@@ -127,9 +142,9 @@ empezar una sesión.
 ### Entorno
 
 * Zona horaria `America/Asuncion`; la API envía las fechas con hora en UTC (`Z`).
-* Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) en la revisión, antes de cada
-  cierre y siempre que se toquen migraciones, búsquedas de texto, concurrencia o autenticación
-  (`DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`).
+* Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) una vez por entrega, antes del
+  cierre, y también durante el trabajo si se tocan migraciones, búsquedas de texto, concurrencia o autenticación (§2, Ritmo de
+  las entregas): `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`.
 
 ---
 
@@ -197,9 +212,14 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 ### 6.1 Clientes
 
 * Persona o empresa (`ClientKind`). Una empresa lleva `business_name` y no `first_name`/`last_name` (`prohibited`); una
-  persona, al revés. El tipo cambia solo si el cliente no tiene facturas (`CLIENT_KIND_NOT_EDITABLE`, 422).
+  persona, al revés. El tipo cambia solo si el cliente no tiene facturas (`CLIENT_KIND_NOT_EDITABLE`, 422); al cambiarlo,
+  los campos del tipo nuevo son obligatorios y los del anterior se vacían.
 * Nombre para mostrar: siempre `Client::display_name`, nunca concatenando nombre y apellido.
-* `document_number` y `email` únicos y obligatorios. Teléfono `+?[1-9]\d{7,14}`.
+* `document_number` y `email` únicos en la clínica y obligatorios; el email, en minúsculas. Teléfono `+?[1-9]\d{7,14}`.
+* Un documento con la forma de un RUC (`NNNNNNN-D`) debe tener su dígito verificador correcto (`App\Rules\RucCheckDigit`,
+  con el cálculo de `ClinicService`; R-015). Una cédula sin guion o un documento con letras no se valida.
+* La baja agrega `//deleted_<id>_<timestamp>` entero al documento y al email: `clients.document_number` admite 50
+  caracteres (20 del documento y 21 más el id del sufijo, con ids de hasta 9 dígitos).
 * No se elimina con pacientes, consultas o facturas (`CLIENT_IN_USE`, 409).
 * La búsqueda (`search`) también encuentra al dueño por el nombre o el código de su mascota.
 
@@ -238,7 +258,3 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 8 | `scopeBindings()` sin test: hoy no hay rutas con dos parámetros anidados; se agrega con la primera |
-| 9 | `VoseoTest` con lista cerrada: no detecta formas fuera de ella ni mensajes en inglés (entrega 1.2) |
-| 10 | El test de marcadores no detecta `:values` por `:value` ni marcadores inventados (entrega 1.2) |
-| 11 | Sin test del nombre en español de los campos que solo valida un Controller (entrega 1.2) |
-| 12 | `VoseoTest` rechazaría textos correctos en tercera persona (entrega 1.2) |

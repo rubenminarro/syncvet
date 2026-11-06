@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\ClientKind;
+use App\Rules\RucCheckDigit;
 use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,6 +34,7 @@ class StoreClientRequest extends FormRequest
                 'required', 'string', 'min:5', 'max:20',
                 Rule::unique('clients', 'document_number')->where('clinic_id', CurrentClinic::id()),
                 'regex:/^[a-zA-Z0-9-]+$/',
+                new RucCheckDigit(),
             ],
             'first_name' => [
                 Rule::requiredIf(! $isCompany),

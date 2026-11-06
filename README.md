@@ -9,7 +9,7 @@ Estado: FASE 0 (puesta en marcha) completada; sigue la FASE 1, clientes y pacien
 
 | Carpeta | Contenido |
 |---|---|
-| `database/migrations` | 28 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración y secuencias. `clinic_id` en las tablas de negocio (D1) |
+| `database/migrations` | 29 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias y el documento del cliente ampliado a 50 caracteres (FASE 1, entrega 1.2). `clinic_id` en las tablas de negocio (D1) |
 | `app/Enums` | 34 enums (estados y tipos) con `label()` en español |
 | `app/Models` | 34 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog` |
 | `app/Exceptions` | `AppException`, 14 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
