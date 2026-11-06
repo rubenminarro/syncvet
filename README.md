@@ -41,7 +41,7 @@ Estado: FASE 0 (puesta en marcha) completada; sigue la FASE 1, clientes y pacien
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 28 actuales se verificaron también en MySQL 8.4 en la entrega 0.2 ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 31 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base y el microchip del paciente) se probaron también bajando y volviendo a subir. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: lo reemplazan la verificación en MySQL de la entrega 0.5 y
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.

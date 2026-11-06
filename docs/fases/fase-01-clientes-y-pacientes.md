@@ -499,3 +499,39 @@ corte a 30, falla el chip de 30 con un id de 9 dígitos) y `custom_fields` fuera
 cada colección corrió dos veces seguidas: clientes, 24 requests y 48 aserciones en verde las dos veces; pacientes, 30 requests y 61
 aserciones en verde las dos veces. Una tercera corrida de clientes después de pacientes, también en verde. El log de la API no tiene
 errores.
+
+#### Correcciones de la revisión (R-021)
+
+La revisión de la 1.3 encontró dos hallazgos de gravedad media, cuatro de baja y dos avisos. El usuario pidió corregir los ocho,
+cada uno con un test que falle al quitar la protección. Decisiones en [R-021](../decisions/registro.md).
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Media | Un fallecido no se podía guardar con el formulario completo: `ensureNotDeceased` miraba los nombres de los campos, no si cambiaban | Compara valores con los casts del modelo | `PatientDeceasedTest::test_a_deceased_patient_accepts_the_full_form_with_the_same_values` |
+| 2 | Media | El test del sufijo más largo guardaba un paciente con id 999999999 y corría el autoincremento de MySQL: los pacientes siguientes de la suite tenían ids de 10 dígitos y la baja de un chip de 30 daba 500 | El sufijo se arma con el id como dato; el autoincremento queda en su valor (12 después de `PatientDeleteTest`) | `PatientDeleteTest::test_the_longest_suffix_fits_the_column` (con la columna a 59, en MySQL) y `test_a_30_character_microchip_keeps_the_whole_suffix` |
+| 3 | Baja | Se aceptaba un fallecimiento anterior al nacimiento | 422 en `deceased_at`, comparando el día en la hora de Asunción | `PatientDeceasedTest::test_a_date_before_the_birth_date_is_rejected` y `test_the_birth_date_of_the_request_and_the_local_day_count` |
+| 4 | Baja | `clients/{client}/patients` mostraba a los fallecidos | Los oculta salvo `include_deceased=1` (`IndexClientPatientRequest`) | `PatientDeceasedTest::test_the_client_patients_list_hides_deceased_patients_unless_asked` |
+| 5 | Baja | `README.md` decía "Las 28 actuales" | 31 migraciones | `/validar-docs` compara la cifra |
+| 6 | Baja | El handoff no tenía el hash del checkpoint | Con el hash | — |
+| 7 | Aviso | Las dos colecciones generaban documentos en el mismo rango; la tabla manual de la guía rompía la colección de clientes | Un rango propio por colección; la guía remite a las colecciones | Newman, dos corridas seguidas de cada una |
+| 8 | Aviso | `search=%` devolvía todo y `_` era comodín | `whereContains` con `ESCAPE '!'` en los dos listados | `ClientSearchTest` y `PatientSearchTest::test_wildcards_are_searched_literally` |
+
+**Archivos.** Nuevos: `app/Support/SearchTerm.php` y `app/Http/Requests/IndexClientPatientRequest.php`. Cambiados:
+`AppServiceProvider` (macros `whereContains` y `orWhereContains`), `ClientController` y `PatientController` (búsqueda literal),
+`ClientPatientController` (fallecidos), `UpdatePatientRequest` y `PatientMessages` (fallecimiento y nacimiento), `PatientService`
+(comparación de valores); los tests `PatientDeceasedTest`, `PatientDeleteTest`, `PatientSearchTest`, `ClientSearchTest` y
+`ValidationTranslationsTest`; las dos colecciones; `CLAUDE.md` §1, §3 y §6.2, `README.md`, la guía de Postman, el registro y los
+documentos de estado.
+
+**Tests.** Suite del 2026-11-06: 449 casos con los *data providers*; en SQLite, 5626 aserciones con 2 omitidos (solo de MySQL);
+contra MySQL 8.4.3 (`syncvet_test_mysql`), 5642 aserciones sin omitidos. Frente al cierre de la 1.3: 15 casos y 47 aserciones más
+en las dos bases. Clases cambiadas (SQLite): `PatientDeceasedTest` 13 casos y 59 aserciones, `PatientDeleteTest` 9 y 30,
+`PatientSearchTest` 19 y 54, `ClientSearchTest` 18 y 53, `ValidationTranslationsTest` 10 y 1011.
+
+**Protecciones quitadas de a una.** Seis, cada una hace fallar al menos un test: la comparación de valores del fallecido, el
+error del fallecimiento anterior al nacimiento, el día en la hora de Asunción, el filtro de fallecidos del listado del cliente, el
+escape de los comodines y la columna de 60 (a 59, en MySQL).
+
+**Validación con Postman (Newman).** Sobre `syncvet` con el `DemoSeeder`, sin recrear la base: clientes, 24 requests y 48
+aserciones en verde dos veces seguidas; pacientes, 30 requests y 61 aserciones en verde dos veces seguidas. El log de la API no
+tiene errores.

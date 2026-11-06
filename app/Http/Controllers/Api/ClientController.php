@@ -43,15 +43,16 @@ class ClientController extends Controller implements HasMiddleware
                 $search = $request->search;
 
                 $query->where(function ($q) use ($search) {
-                    $q->where('document_number', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('business_name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
+                    // Búsqueda literal: "%" y "_" no son comodines (R-021).
+                    $q->whereContains('document_number', $search)
+                        ->orWhereContains('first_name', $search)
+                        ->orWhereContains('last_name', $search)
+                        ->orWhereContains('business_name', $search)
+                        ->orWhereContains('phone', $search)
+                        ->orWhereContains('email', $search)
                         // También encuentra al dueño por el nombre o el código de su mascota.
-                        ->orWhereHas('patients', fn ($p) => $p->where('name', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%"));
+                        ->orWhereHas('patients', fn ($p) => $p->whereContains('name', $search)
+                            ->orWhereContains('code', $search));
                 });
             })
             ->latest()

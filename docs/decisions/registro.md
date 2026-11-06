@@ -367,3 +367,24 @@ detalle está en el [resultado de la entrega](../fases/fase-01-clientes-y-pacien
 
 **Qué no cambió.** Rutas, permisos, `error_code` y el contrato de respuesta, salvo `custom_fields` fuera del detalle del paciente
 y `code` en el alta, que ahora responde 422.
+
+# R-021 Revisión de la entrega 1.3 de la FASE 1: correcciones (2026-11-06)
+
+La revisión de la entrega 1.3 (pacientes) encontró dos hallazgos de gravedad media, cuatro de baja y dos avisos; el usuario pidió
+corregir los ocho en `feature/fase-01-03-pacientes`, cada uno con un test que falle al quitar la protección. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-021).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Fallecido con el formulario completo | `ensureNotDeceased` compara valores, no nombres de campo: los campos bloqueados pueden llegar con el valor que ya tienen (con los casts del modelo: "12.5" y "12.50" son iguales); se rechaza solo si cambian. Regla en `CLAUDE.md` §6.2 | Usuario |
+| Test del sufijo más largo | No guarda un paciente con id 999999999: en MySQL el autoincremento no vuelve atrás con la transacción del test, y los pacientes siguientes de la suite recibían ids de 10 dígitos (la baja de un chip de 30 daba 500). El sufijo se arma con el id como dato, y el valor de 60 caracteres se guarda en una fila existente | Usuario |
+| Fallecimiento anterior al nacimiento | 422 en `deceased_at` con "La fecha de fallecimiento no puede ser anterior a la fecha de nacimiento.", contra la fecha de nacimiento del pedido o la del paciente, comparando el día en la hora de Asunción (`UpdatePatientRequest::after`). Regla nueva en `CLAUDE.md` §6.2 | Usuario |
+| Listado de los pacientes de un cliente | `clients/{client}/patients` oculta a los fallecidos salvo `include_deceased=1`, validado en `IndexClientPatientRequest`, como el listado general. Regla aclarada en `CLAUDE.md` §6.2 | Usuario |
+| Búsqueda literal | `search=%` devolvía todo el listado. `whereContains`/`orWhereContains` (`App\Support\SearchTerm`) escapan `%` y `_` con `ESCAPE '!'`, el mismo en SQLite y MySQL; la barra invertida queda como un carácter más. En los listados de clientes y de pacientes. Regla en `CLAUDE.md` §3 | Usuario; el carácter de escape, implementación |
+| Postman | Cada colección genera sus documentos en un rango propio (clientes, corrida de 500000 a 749998; pacientes, de 750000 a 999998). La guía remite a las colecciones y ya no tiene tablas de pasos propias: la tabla manual de la FASE 1 creaba a Toby en la clínica A y rompía la colección de clientes | Usuario |
+| Documentos | `README.md` con las 31 migraciones actuales; el handoff con el hash del checkpoint | Usuario |
+| Validación | Suite en verde en SQLite (449 casos, 5626 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 5642 aserciones). Newman: cada colección dos veces seguidas sin recrear la base, todo en verde | Implementación |
+
+**Qué no cambió.** Rutas, permisos y `error_code`. Cambian: un fallecido acepta el formulario completo sin cambios; un fallecimiento
+anterior al nacimiento responde 422; `clients/{client}/patients` oculta a los fallecidos (antes los mostraba) y acepta
+`include_deceased`; `search` con `%` o `_` ya no funciona como comodín.

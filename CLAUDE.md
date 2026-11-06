@@ -24,7 +24,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está en desarrollo: diseño aprobado (R-016) y entregas 1.1
-  (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019) y 1.3 (pacientes, R-020) cerradas; sigue la
+  (traducciones, voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019) y 1.3 (pacientes, R-020 y R-021) cerradas; sigue la
   1.4 (especies y razas).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
@@ -92,6 +92,8 @@ empezar una sesión.
 * Toda validación de un pedido va en un **Form Request**, también la de los filtros de un listado; un Controller no llama a
   `validate()` (`ValidationTranslationsTest`). Los listados validan además los filtros comunes de `ListFilters`: `search`
   texto de hasta 100, `per_page` de 1 a 100 (10 por defecto) y `page` desde 1; un filtro mal formado responde 422, nunca 500.
+  `search` es literal: se busca con `whereContains`/`orWhereContains` (`App\Support\SearchTerm`), que escapan `%` y `_` y dejan
+  la barra invertida como un carácter más, nunca con `like` y el texto sin escapar (R-021).
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
@@ -246,9 +248,13 @@ Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 * El dueño se cambia solo con `POST patients/{patient}/change-owner` (`client_id` es `prohibited` en el PATCH); el mismo
   dueño → `PATIENT_SAME_OWNER` (422). Las consultas guardan el dueño de ese momento (`consultations.client_id`). El dueño
   de un paciente fallecido también se cambia (corrige errores de carga).
-* Paciente fallecido (`deceased_at`): solo se editan la fecha de fallecimiento y las notas (`PATIENT_DECEASED`, 422). El
-  listado los oculta salvo `include_deceased=1`. `deceased_at` llega en UTC (o con su desplazamiento) y se guarda en la hora
-  de `America/Asuncion` (`PatientService`; deuda 13).
+* Paciente fallecido (`deceased_at`): solo cambian la fecha de fallecimiento y las notas (`PATIENT_DECEASED`, 422). Los
+  demás campos pueden llegar con el valor que ya tienen (el frontend manda el formulario completo): se rechaza solo si
+  cambian, comparados con los casts del modelo (R-021). Los dos listados, `patients` y `clients/{client}/patients`, los
+  ocultan salvo `include_deceased=1`. `deceased_at` llega en UTC (o con su desplazamiento) y se guarda en la hora de
+  `America/Asuncion` (`PatientService`; deuda 13).
+* `deceased_at` no es anterior a `birth_date` (la que llega en el pedido o la que el paciente ya tiene), comparando el día en
+  la hora de Asunción; si lo es, 422 en `deceased_at` (R-021).
 * No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento.
 * `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
   `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).

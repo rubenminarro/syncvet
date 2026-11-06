@@ -96,8 +96,9 @@
                         "type": "text/javascript",
                         "exec": [
                             "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
-                            "// Documentos ficticios 99xxxxxx (R-011), lejos de los del DemoSeeder (991… y 992…) y de los fijos de esta colección (993…).",
-                            "const run = 500000 + Math.floor(Math.random() * 499998);",
+                            "// Documentos ficticios 99xxxxxx (R-011) con la corrida entre 500000 y 749998: un rango propio de esta colección,",
+                            "// lejos de los del DemoSeeder (991… y 992…), de los fijos de la colección de clientes (993…) y de los de la colección de pacientes (750000 a 999998).",
+                            "const run = 500000 + Math.floor(Math.random() * 249998);",
                             "const dv = (number) => {",
                             "    let total = 0;",
                             "    let factor = 2;",

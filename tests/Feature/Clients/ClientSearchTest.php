@@ -126,4 +126,32 @@ class ClientSearchTest extends TestCase
             array_column($response->json('data'), 'display_name')
         );
     }
+
+    /**
+     * "%" y "_" son caracteres comunes, no comodines (R-021): "%" no devuelve todo y
+     * "_" solo encuentra un email que lo tiene.
+     */
+    #[DataProvider('literalSearches')]
+    public function test_wildcards_are_searched_literally(string $search, array $expected): void
+    {
+        $this->clientIn($this->clinic, [
+            'first_name' => 'Ana', 'last_name' => 'Ríos', 'document_number' => '99400012',
+            'email' => 'ana_rios@example.com', 'phone' => '983000111',
+        ]);
+
+        $response = $this->getJson('/api/clients?search=' . urlencode($search))->assertOk();
+
+        $this->assertEqualsCanonicalizing($expected, array_column($response->json('data'), 'display_name'));
+    }
+
+    public static function literalSearches(): array
+    {
+        return [
+            'porcentaje' => ['%', []],
+            'guion bajo' => ['_', ['Ana Ríos']],
+            'guion bajo en medio' => ['ana_r', ['Ana Ríos']],
+            'barra invertida' => ['\\', []],
+            'carácter de escape' => ['!', []],
+        ];
+    }
 }

@@ -186,6 +186,7 @@ class ValidationTranslationsTest extends TestCase
 
         $requests[] = ['GET', '/api/clients?kind=x', []];
         $requests[] = ['GET', '/api/patients?species_id=x&include_deceased=x', []];
+        $requests[] = ['GET', "/api/clients/{$client->id}/patients?include_deceased=x", []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();

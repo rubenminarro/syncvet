@@ -6,6 +6,8 @@ use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\User;
 use App\Support\CurrentClinic;
+use App\Support\DeletedSuffix;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
@@ -101,30 +103,41 @@ class PatientDeleteTest extends TestCase
     }
 
     /**
-     * El caso más largo: un chip de 30 y un id de 9 dígitos llenan los 60
-     * caracteres de la columna sin cortar el sufijo (en MySQL, un valor más largo
-     * falla).
+     * Un chip de 30 conserva el sufijo entero: con el corte a 30 de antes, se
+     * perdía todo el sufijo.
      */
-    public function test_the_longest_suffix_fits_without_being_cut(): void
+    public function test_a_30_character_microchip_keeps_the_whole_suffix(): void
     {
         $this->freezeTime();
         $clinic = $this->createClinic();
-        $client = $this->clientIn($clinic);
         $chip = str_repeat('9', 30);
-        $patient = CurrentClinic::run($clinic, fn () => $client->patients()->forceCreate([
-            'id' => 999999999,
-            'code' => 'TST-999999',
-            'name' => 'Largo',
-            'species_id' => $this->globalSpeciesId(),
-            'microchip' => $chip,
-        ]));
+        $patient = $this->patientOf($this->clientIn($clinic), ['microchip' => $chip]);
         $this->actAsDeleter($clinic);
 
         $this->deleteJson("/api/patients/{$patient->id}")->assertOk();
 
-        $expected = "{$chip}//deleted_999999999_" . now()->timestamp;
-        $this->assertSame(60, strlen($expected));
-        $this->assertSame($expected, $this->trashedMicrochip($clinic, $patient));
+        $this->assertSame("{$chip}//deleted_{$patient->id}_" . now()->timestamp, $this->trashedMicrochip($clinic, $patient));
+    }
+
+    /**
+     * El caso más largo, un chip de 30 con un id de 9 dígitos, llena los 60
+     * caracteres de la columna. El id es un dato del sufijo, no un paciente
+     * guardado: forzar el id 999999999 corría el autoincremento de MySQL (que no
+     * vuelve atrás con la transacción del test) y los pacientes siguientes de la
+     * suite recibían ids de 10 dígitos (R-021). En MySQL, un valor de más de 60
+     * caracteres falla al guardar.
+     */
+    public function test_the_longest_suffix_fits_the_column(): void
+    {
+        $this->freezeTime();
+        $clinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($clinic));
+
+        $longest = str_repeat('9', 30) . DeletedSuffix::for((new Patient)->forceFill(['id' => 999999999]));
+        $this->assertSame(60, strlen($longest));
+
+        DB::table('patients')->where('id', $patient->id)->update(['microchip' => $longest]);
+        $this->assertSame($longest, DB::table('patients')->where('id', $patient->id)->value('microchip'));
     }
 
     public function test_the_receptionist_cannot_delete(): void

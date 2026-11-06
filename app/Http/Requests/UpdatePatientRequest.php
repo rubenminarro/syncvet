@@ -5,8 +5,10 @@ namespace App\Http\Requests;
 use App\Enums\PatientSex;
 use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Validator;
 
 /**
  * PATCH. El dueño no se cambia aquí: POST patients/{patient}/change-owner.
@@ -47,6 +49,32 @@ class UpdatePatientRequest extends FormRequest
     public function messages(): array
     {
         return PatientMessages::all();
+    }
+
+    /**
+     * La fecha de fallecimiento no es anterior a la de nacimiento (la que llega o la
+     * que el paciente ya tiene; revisión de la entrega 1.3, R-021). Se compara el día
+     * en la hora de Asunción: deceased_at llega en UTC y birth_date es una fecha local.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($validator->errors()->hasAny(['deceased_at', 'birth_date']) || ! $this->filled('deceased_at')) {
+                    return;
+                }
+
+                $birthDate = $this->has('birth_date')
+                    ? $this->input('birth_date')
+                    : $this->route('patient')->birth_date?->toDateString();
+
+                $deceasedOn = Date::parse($this->input('deceased_at'))->setTimezone(config('app.timezone'))->toDateString();
+
+                if ($birthDate !== null && $deceasedOn < $birthDate) {
+                    $validator->errors()->add('deceased_at', PatientMessages::DECEASED_BEFORE_BIRTH);
+                }
+            },
+        ];
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Models\Client;
 use App\Models\Patient;
 use App\Support\DeletedSuffix;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
@@ -116,11 +117,21 @@ class PatientService
     }
 
     /**
-     * Un paciente fallecido solo admite corregir la fecha de fallecimiento o quitarla.
+     * Un paciente fallecido solo admite cambiar la fecha de fallecimiento (o quitarla)
+     * y las notas. Los demás campos pueden llegar si no cambian: el frontend manda el
+     * formulario completo (revisión de la entrega 1.3, R-021). Se comparan con los
+     * casts del modelo, así "12.5" y "12.50" o "male" y PatientSex::MALE son iguales.
      */
     private function ensureNotDeceased(Patient $patient, array $data): void
     {
-        if ($patient->deceased_at && array_diff(array_keys($data), ['deceased_at', 'notes']) !== []) {
+        if (! $patient->deceased_at) {
+            return;
+        }
+
+        $probe = clone $patient;
+        $probe->fill(Arr::except($data, ['deceased_at', 'notes']));
+
+        if ($probe->isDirty()) {
             throw new PatientException(
                 'El paciente figura como fallecido: solo se pueden editar la fecha de fallecimiento y las notas.',
                 422,

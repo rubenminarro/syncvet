@@ -109,4 +109,27 @@ class PatientSearchTest extends TestCase
             ->assertJsonPath('data.0.name', 'Bobby')
             ->assertJsonPath('data.1.name', 'Firulais');
     }
+
+    /**
+     * "%", "_" y la barra invertida son caracteres comunes, no comodines (R-021):
+     * ninguno devuelve todo el listado.
+     */
+    #[DataProvider('literalSearches')]
+    public function test_wildcards_are_searched_literally(string $search): void
+    {
+        $this->getJson('/api/patients?search=' . urlencode($search))
+            ->assertOk()
+            ->assertJsonPath('meta.pagination.total', 0);
+    }
+
+    public static function literalSearches(): array
+    {
+        return [
+            'porcentaje' => ['%'],
+            'guion bajo' => ['_'],
+            'barra invertida' => ['\\'],
+            'carácter de escape' => ['!'],
+            'patrón' => ['F%s'],
+        ];
+    }
 }

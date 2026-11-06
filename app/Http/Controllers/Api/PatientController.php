@@ -46,14 +46,15 @@ class PatientController extends Controller implements HasMiddleware
                 $search = $request->search;
 
                 $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('code', 'like', "%{$search}%")
-                        ->orWhere('microchip', 'like', "%{$search}%")
-                        ->orWhereHas('client', fn ($c) => $c->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('business_name', 'like', "%{$search}%")
-                            ->orWhere('document_number', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%"));
+                    // Búsqueda literal: "%" y "_" no son comodines (R-021).
+                    $q->whereContains('name', $search)
+                        ->orWhereContains('code', $search)
+                        ->orWhereContains('microchip', $search)
+                        ->orWhereHas('client', fn ($c) => $c->whereContains('first_name', $search)
+                            ->orWhereContains('last_name', $search)
+                            ->orWhereContains('business_name', $search)
+                            ->orWhereContains('document_number', $search)
+                            ->orWhereContains('phone', $search));
                 });
             })
             ->orderBy('name')

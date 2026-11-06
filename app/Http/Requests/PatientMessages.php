@@ -9,6 +9,11 @@ use Illuminate\Validation\Rules\Enum;
  */
 class PatientMessages
 {
+    /**
+     * Fallecimiento anterior al nacimiento (UpdatePatientRequest::after).
+     */
+    public const DECEASED_BEFORE_BIRTH = 'La fecha de fallecimiento no puede ser anterior a la fecha de nacimiento.';
+
     public static function all(): array
     {
         return [
