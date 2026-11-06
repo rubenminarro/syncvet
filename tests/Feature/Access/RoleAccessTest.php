@@ -58,10 +58,14 @@ class RoleAccessTest extends TestCase
         $this->clinic = $this->createClinic();
         $client = $this->clientIn($this->clinic);
         $patient = $this->patientOf($client);
+        // Propias: una global respondería 403 CATALOG_GLOBAL_NOT_EDITABLE al editarla.
+        [$species, $breed] = $this->ownSpeciesWithBreed($this->clinic, 'Hurón');
 
         $this->parameters = [
             'client' => (string) $client->id,
             'patient' => (string) $patient->id,
+            'species' => (string) $species,
+            'breed' => (string) $breed,
         ];
     }
 

@@ -206,11 +206,15 @@ return [
         'allergies' => 'alergias',
         'deceased_at' => 'fecha de fallecimiento',
 
+        // Especies y razas
+        'is_active' => 'activo',
+
         // Autenticación
         'password' => 'contraseña',
 
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
+        'include_inactive' => 'incluir inactivas',
         'search' => 'búsqueda',
         'per_page' => 'resultados por página',
         'page' => 'página',

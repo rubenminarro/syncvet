@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\PatientController;
@@ -27,6 +28,8 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::apiResource('patients', PatientController::class)->only(['index', 'show', 'update', 'destroy']);
     Route::post('patients/{patient}/change-owner', [PatientController::class, 'changeOwner'])->name('patients.change-owner');
 
-    // Catálogos
-    Route::get('species', [SpeciesController::class, 'index'])->name('species.index');
+    // Catálogos: especies y sus razas (FASE 1, entrega 1.4). Las razas usan los
+    // permisos de especie (R-015); scopeBindings() da 404 a una raza de otra especie.
+    Route::apiResource('species', SpeciesController::class)->except(['show']);
+    Route::apiResource('species.breeds', BreedController::class)->except(['show']);
 });

@@ -26,8 +26,8 @@ class StorePatientRequest extends FormRequest
         return [
             'code' => ['prohibited'],
             'name' => ['required', 'string', 'min:1', 'max:100', 'regex:/^[\pL\pN\s.\-\']+$/u'],
-            'species_id' => ['required', 'integer', Rule::exists('species', 'id')->where('is_active', true)->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))],
-            'breed_id' => ['nullable', 'integer', Rule::exists('breeds', 'id')->where('is_active', true)->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))],
+            'species_id' => ['required', 'integer', Rule::exists('species', 'id')->whereNull('deleted_at')->where('is_active', true)->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))],
+            'breed_id' => ['nullable', 'integer', Rule::exists('breeds', 'id')->whereNull('deleted_at')->where('is_active', true)->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))],
             'sex' => ['sometimes', Rule::enum(PatientSex::class)],
             'is_neutered' => ['sometimes', 'boolean'],
             'birth_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],

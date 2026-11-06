@@ -88,7 +88,7 @@ clínica B (login con `admin-b@example.com`):
 
 ## FASE 1 — Clientes y pacientes
 
-Se valida con dos colecciones de Postman, que son la fuente de verdad de los pasos: cada request lleva su nombre (con el código HTTP
+Se valida con tres colecciones de Postman, que son la fuente de verdad de los pasos: cada request lleva su nombre (con el código HTTP
 esperado), sus encabezados, su body y un test que verifica el código HTTP y el dato clave. Esta guía no repite sus pasos ni tiene
 requests propios para la FASE 1: una tabla aparte quedaba desactualizada y, si se seguía a mano, creaba datos que hacían fallar las
 colecciones (R-021).
@@ -97,9 +97,13 @@ colecciones (R-021).
 |---|---|---|
 | [`postman/syncvet-fase-01-clientes.postman_collection.json`](postman/syncvet-fase-01-clientes.postman_collection.json) | 1.2 (R-018); repetible desde la 1.3 (R-020) | Alta de persona y de empresa, RUC con el dígito verificador equivocado, documento repetido como cédula, con un cero o como RUC, edición, cambio de tipo, email en minúsculas, búsqueda por mascota, aislamiento entre clínicas, filtros mal formados, baja con pacientes (409) y sin ellos, y el documento liberado |
 | [`postman/syncvet-fase-01-pacientes.postman_collection.json`](postman/syncvet-fase-01-pacientes.postman_collection.json) | 1.3 (R-020) | Alta bajo un cliente (el dueño sale de la URL, sin `custom_fields`), `code` prohibido, raza de otra especie, microchip repetido, peso, dueño en la edición, cambio de dueño (también de un fallecido y el 403 del veterinario), búsquedas, listado del cliente, fallecimiento en UTC, edición de un fallecido, listados sin y con fallecidos, baja y microchip liberado |
+| [`postman/syncvet-fase-01-especies.postman_collection.json`](postman/syncvet-fase-01-especies.postman_collection.json) | 1.4 (R-023) | Listado con y sin inactivas (forma de la respuesta e `is_global`), alta de especie propia, nombre repetido en mayúsculas y sin acento o de una global, alta inactiva, cambio de nombre, global no editable (403), razas propias en una especie propia y en una global, nombre repetido dentro de la especie, raza de otra especie en la URL (404), `species_id` prohibido, el recepcionista lista pero no escribe, especie y raza en uso por un paciente (se inactivan, el paciente las sigue mostrando, un alta nueva no las acepta, la baja da 409), baja de una global (403), baja de una raza y de una especie sin uso con su raza, y el nombre liberado |
 
 **Preparación.** Una base con el `DemoSeeder` y las migraciones al día (ver **Datos**, al comienzo): la primera vez, o después de
-cambiar a una rama con migraciones nuevas, recrearla o correr `php artisan migrate`. Levantar el servidor en el puerto 8001:
+cambiar a una rama con migraciones nuevas, recrearla o correr `php artisan migrate`. Si la rama cambia los permisos de un rol (la
+1.4 le suma al veterinario `species.store`, `species.update` y `species.destroy`) y la base no se recrea, volver a sembrar los
+roles: `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos). Sin eso, el veterinario recibe 403 `FORBIDDEN`
+en la colección de especies. Levantar el servidor en el puerto 8001:
 
 ```bash
 php artisan serve --port=8001
@@ -119,14 +123,15 @@ tienen prioridad sobre las de la colección, así que la contraseña se guarda u
 
 1. **Environments** (barra lateral) → **+** (o **Create Environment**) y llamarlo `SyncVet local`.
 2. Agregar la variable `demo_password`, de tipo **secret**, con la `DEMO_PASSWORD` del `.env` como valor, y guardar (**Save**).
-3. Elegirlo en el selector de entornos antes de correr cualquiera de las dos colecciones.
+3. Elegirlo en el selector de entornos antes de correr cualquiera de las colecciones.
 
 No exportar el Environment al repositorio ni completar `demo_password` en la colección antes de exportarla: la contraseña quedaría
 en el archivo. Si cambia la `DEMO_PASSWORD` del `.env`, actualizar el valor en el Environment.
 
 **Se corren más de una vez sin recrear la base.** El primer request de cada colección genera un número de corrida y, con él, los
 documentos (cédulas ficticias `99xxxxxx`, R-011, y su RUC con el dígito verificador), los emails y el microchip de esa corrida. Cada
-colección usa un rango propio que no se cruza con el de la otra: clientes, de 500000 a 749998; pacientes, de 750000 a 999998. Los
+colección usa un rango propio que no se cruza con el de las otras: clientes, de 500000 a 749998; pacientes, de 750000 a 999998;
+especies, de 400000 a 499998 (su documento queda en `994…`, y los nombres de especies y razas de la corrida llevan el número). Los
 logins guardan los tokens y los pasos guardan los ids que usan los siguientes: no hay que copiar nada a mano.
 
 Los emails nuevos usan `mailinator.com`: con `EMAIL_DNS_CHECK=true` (el valor del `.env`), la validación consulta el MX del dominio y
@@ -138,13 +143,14 @@ clínica B. Para probar algo a mano, no crear en la clínica A otro paciente lla
 encontrar un solo Firulais y ningún Toby en esa clínica.
 
 **Lo que no está en las colecciones.** `PATIENT_IN_USE` (409): la API todavía no crea consultas, aplicaciones ni turnos; lo prueba
-`PatientDeleteTest`. La especie o raza inactiva: no hay ABM de especies hasta la 1.4; lo prueban `PatientStoreTest` y
-`PatientUpdateTest`.
+`PatientDeleteTest`. La baja de una especie usada solo por un paciente eliminado (409), la concurrencia de dos altas del mismo nombre y las altas
+masivas del builder: lo prueban `CatalogDeleteTest`, `CatalogLockTest` y `SharedCatalogInsertTest`.
 
-**Con Newman.** Las dos colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
+**Con Newman.** Las tres colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
 que tiene prioridad sobre la de la colección):
 
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-01-clientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 npx newman run docs/testing/postman/syncvet-fase-01-pacientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/testing/postman/syncvet-fase-01-especies.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```

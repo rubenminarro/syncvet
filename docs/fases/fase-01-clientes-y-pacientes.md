@@ -19,7 +19,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 | 1.1 | Traducciones de validación (`lang/es`), voseo de los mensajes existentes, `PUT` y `PATCH` con la misma semántica | Nueva (R-015) | COMPLETADO (R-017) |
 | 1.2 | Clientes: tests de cada regla de `CLAUDE.md` 6.1 y dígito verificador del RUC | 1.1 | COMPLETADO (R-018, R-019) |
 | 1.3 | Pacientes: tests de cada regla de `CLAUDE.md` 6.2 y cambio de dueño; sin `custom_fields` en la API | 1.2 | COMPLETADO (R-020, R-021, R-022) |
-| 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | PENDIENTE |
+| 1.4 | ABM de especies y razas: `is_active`, `SoftDeletes`, nombres únicos, Resource, `insert()`/`upsert()` y deuda 8 | 1.3 | IMPLEMENTADA, en revisión (R-023) |
 | 1.5 | Foto del paciente en disco privado | 1.4 | PENDIENTE |
 
 ## Preguntas de negocio
@@ -304,7 +304,7 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 ## Resultado
 
 Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
-aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2 y 1.3. Pendientes: 1.4 y 1.5.
+aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2 y 1.3. Implementada, sin cerrar: 1.4. Pendiente: 1.5.
 
 ### Entrega 1.1
 
@@ -549,3 +549,74 @@ clientes, 24 requests y 48 aserciones; pacientes, 30 requests y 61 aserciones; t
 
 **Guía de Postman.** Suma cómo guardar `demo_password` en un Environment de Postman ("SyncVet local"), para que no se borre al
 reimportar las colecciones.
+
+### Entrega 1.4
+
+Implementación en `feature/fase-01-04-especies`, creada desde `feature/fase-01-03-pacientes`. Falta la revisión y la validación del
+usuario: esta sección se completa en el cierre. Decisiones en [R-023](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | Migración `2026_11_06_000001_add_soft_deletes_to_species_and_breeds` (`deleted_at`; nombres a 90 y 110); `BreedController`; `StoreSpeciesRequest`, `UpdateSpeciesRequest`, `StoreBreedRequest`, `UpdateBreedRequest`, `IndexCatalogRequest` y `CatalogMessages`; `SpeciesResource` y `BreedResource`; `SpeciesService`, `BreedService` y `CatalogLock`; `App\Support\CatalogName`; `tests/Feature/Catalog` (`SpeciesIndexTest`, `SpeciesWriteTest`, `BreedWriteTest`, `CatalogDeleteTest`, `NestedBindingTest`, `PatientCatalogTest`, `CatalogLockTest`), `tests/Feature/Tenancy/SharedCatalogInsertTest`, `tests/Unit/SpeciesSeederTest` y `tests/Concerns/InteractsWithCatalog`; `docs/testing/postman/syncvet-fase-01-especies.postman_collection.json` |
+| Cambiados | `SpeciesController` (ABM con Resource), `routes/api.php` (`apiResource` de especies y de razas, sin `show`), `Species` y `Breed` (`SoftDeletes`, `Auditable`, `is_active` por defecto), `SharedCatalog` (`ensureNotGlobal()` público), `SharedCatalogBuilder` (altas masivas), `StorePatientRequest` y `UpdatePatientRequest` (sin especies ni razas eliminadas), `RolesAndPermissionsSeeder` (`species.destroy`; el veterinario administra el catálogo), `lang/es/validation.php` (`is_active`, `include_inactive`) |
+| Tests cambiados | `SharedCatalogTest` (la baja masiva es un `deleted_at`: las globales siguen sin él), `RoleAccessTest` (parámetros `species` y `breed`, propios), `ValidationTranslationsTest` (pedidos inválidos al catálogo), `InteractsWithApiRoutes` (las cuatro rutas de razas con los permisos de especie), `VoseoTest` (verbo `inactivar`), `tests/Fixtures/clinic-roles.json` |
+| Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo y altas masivas), §6.3 nueva (las pendientes de diseño pasan a §6.4) y §7; `README.md` (32 migraciones); la guía de Postman; este documento, el registro (R-023), la deuda técnica (8 resuelta), el handoff y los documentos de estado |
+
+**Endpoints.**
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| GET | `species` | `species.index` | 200, activas con sus razas activas; `include_inactive=1`, todas | 422 |
+| POST | `species` | `species.store` | 201 | 422 |
+| PATCH/PUT | `species/{species}` | `species.update` | 200 | 403 `CATALOG_GLOBAL_NOT_EDITABLE`; 404; 422 |
+| DELETE | `species/{species}` | `species.destroy` | 200 | 403; 404; 409 `SPECIES_IN_USE` |
+| GET | `species/{species}/breeds` | `species.index` | 200 | 404; 422 |
+| POST | `species/{species}/breeds` | `species.store` | 201 | 404; 422 |
+| PATCH/PUT | `species/{species}/breeds/{breed}` | `species.update` | 200 | 403; 404 (también de otra especie); 422 |
+| DELETE | `species/{species}/breeds/{breed}` | `species.destroy` | 200 | 403; 404; 409 `BREED_IN_USE` |
+
+**Tests.** Suite del 2026-11-06: 557 casos con los *data providers*; en SQLite, 6330 aserciones con 2 omitidos (solo de MySQL);
+contra MySQL 8.4.3 (`syncvet_test_mysql`), 6346 aserciones sin omitidos. Frente a la 1.3: 108 casos y 704 aserciones más en las
+dos bases. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `SpeciesIndexTest` | 8 | 47 | Por defecto, activas con razas activas; `include_inactive=1` trae todas; forma de la respuesta (la anterior más `is_active` e `is_global`); ni las de otra clínica ni las eliminadas; razas de una especie; especie de otra clínica → 404; filtro inválido → 422; el recepcionista lista pero no escribe |
+| `SpeciesWriteTest` | 17 | 88 | Alta propia (sin espacios en los extremos) y alta inactiva; nombre de una global con otras mayúsculas, sin acento o con espacios → 422; propia repetida → 422; otra clínica puede usar el nombre; largo y formato; cambio de nombre e inactivación (`PATCH` y `PUT`); conservar el propio nombre con otras mayúsculas; vacío → solo "es obligatorio"; global → 403 antes que el nombre repetido; especie de otra clínica → 404; el recepcionista → 403; auditoría |
+| `BreedWriteTest` | 10 | 68 | Raza propia en una especie global y en una propia; la especie sale de la URL; única dentro de su especie ("Siamés" libre en Canino); largo; cambio de nombre e inactivación; `species_id` → 422; global → 403; raza de otra clínica → 404 y fuera del listado; el recepcionista → 403 |
+| `CatalogDeleteTest` | 12 | 68 | Especie sin uso: se elimina con sus razas y libera los nombres; en uso por un paciente, por uno eliminado (con y sin raza) o por su raza → 409; inactivar en uso sí, eliminar no; raza sin uso y en uso; globales → 403; nombres más largos con el sufijo entero; el sufijo con un id de 9 dígitos llena las columnas; auditoría |
+| `NestedBindingTest` | 2 | 15 | Raza de otra especie (propia o global) en la URL → 404 y no se toca; falla sin `scopeBindings()` (deuda 8) |
+| `PatientCatalogTest` | 4 | 40 | El paciente sigue mostrando su especie y raza inactivas; alta con una inactiva → 422; alta o edición con una eliminada → 422; el recepcionista usa una especie y una raza nuevas |
+| `CatalogLockTest` | 3 | 17 | El alta y el cambio de nombre de especies y razas bloquean la clínica antes de leer los nombres, dentro de la transacción |
+| `SharedCatalogInsertTest` | 49 | 56 | Cada alta masiva (`insert` de una y de varias filas, `insertOrIgnore`, `insertGetId`, los tres `fillAndInsert…`, `upsert` con y sin columnas) fija la clínica, acepta la propia, rechaza otra o un global y falla sin clínica; `upsert` no cambia `clinic_id` ni usa el id; `insertUsing` e `insertOrIgnoreUsing` fallan |
+| `SpeciesSeederTest` | 3 | 15 | El catálogo global no repite nombres de especie ni de raza dentro de su especie con la comparación de la regla |
+
+**Protecciones quitadas de a una.** Ocho, cada una hace fallar un test: `scopeBindings()`, la normalización del nombre, el
+`withTrashed` del uso de la especie (el primer intento sobrevivía: el paciente eliminado también usaba la raza; se agregó el caso
+sin raza), la clínica en `insert`, el bloqueo en el alta de especie y en el cambio de nombre de una raza (el primer intento
+sobrevivía en SQLite: tomaba la lectura de la clínica del middleware; el test ahora mira solo la transacción del Service), el 403
+de la global antes del nombre y el rechazo del id en `upsert`.
+
+**Migración.** Probada en MySQL 8.4.3 (`syncvet_test_mysql`): subir (nombres a 90 y 110, `deleted_at`), bajar (80 y 100, sin
+`deleted_at`) y subir, con los índices únicos `species_clinic_id_name_unique` y `breeds_clinic_id_species_id_name_unique`
+intactos.
+
+**Desvíos del diseño.**
+
+| Desvío | Motivo | Quién |
+|---|---|---|
+| Migración `2026_11_06_000001_…`, no `2026_11_05_000001_…` | Ese nombre ya lo usa la del número base del documento (1.2) | Implementación |
+| Columnas de nombre a 90 y 110 (el diseño las dejaba en 80 y 100) | El sufijo de baja lleva el id desde la 1.2 (21 caracteres más el id): con 80 y 100 no entraba entero | Implementación |
+| El nombre repetido lo informa el Service, no el Form Request | Tiene que leerse con la clínica bloqueada para que dos altas simultáneas no pasen las dos | Implementación |
+| Formato del nombre (letras, números, espacios, `.`, `-`, `'`, paréntesis) | El diseño no lo fijaba; sin `/`, que es del sufijo de baja | Implementación |
+| `upsert` con el id rechazado | Un upsert por id alcanzaría un global o un registro de otra clínica | Implementación |
+| La baja de una especie también revisa el uso de sus razas | Un paciente con una raza de la especie y otra especie (dato viejo) dejaría la raza eliminada | Implementación |
+| Concurrencia: orden de las consultas, no dos pedidos simultáneos | PHPUnit usa una sola conexión dentro de la transacción de `RefreshDatabase`; el test corre en las dos bases y exige `for update` en MySQL | Implementación |
+| `species_id` en el alta de una raza se ignora (en la edición, 422) | Como el `client_id` del alta de un paciente: la especie sale de la URL | Implementación |
+
+**Validación con Postman (Newman).** Sobre `syncvet` con el `DemoSeeder`, la migración nueva aplicada y los roles sembrados otra
+vez (sin recrear la base): la colección de especies corrió dos veces seguidas, 38 requests y 84 aserciones en verde cada vez. Antes
+de re-sembrar los roles, el veterinario recibía 403 `FORBIDDEN` (lo anota la guía). Las de clientes (24 requests, 48 aserciones) y
+pacientes (30 requests, 61 aserciones) corrieron otra vez después, en verde.

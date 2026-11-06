@@ -164,7 +164,8 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update']);
+        [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
 
         $clientFields = ['kind', 'business_name', 'document_number', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'notifications_enabled', 'notes'];
         $patientFields = ['name', 'species_id', 'breed_id', 'sex', 'is_neutered', 'birth_date', 'birth_date_estimated', 'color', 'weight_kg', 'microchip', 'allergies', 'notes', 'code'];
@@ -182,11 +183,17 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['PATCH', "/api/patients/{$patient->id}", [...$patientPayload, 'client_id' => $value, 'deceased_at' => $value]];
             $requests[] = ['POST', "/api/patients/{$patient->id}/change-owner", ['client_id' => $value]];
             $requests[] = ['POST', '/api/login', ['email' => $value, 'password' => $value]];
+            $requests[] = ['POST', '/api/species', ['name' => $value, 'is_active' => $value]];
+            $requests[] = ['PATCH', "/api/species/{$species}", ['name' => $value, 'is_active' => $value]];
+            $requests[] = ['POST', "/api/species/{$species}/breeds", ['name' => $value, 'is_active' => $value]];
+            $requests[] = ['PATCH', "/api/species/{$species}/breeds/{$breed}", ['name' => $value, 'is_active' => $value, 'species_id' => $value]];
         }
 
         $requests[] = ['GET', '/api/clients?kind=x', []];
         $requests[] = ['GET', '/api/patients?species_id=x&include_deceased=x', []];
         $requests[] = ['GET', "/api/clients/{$client->id}/patients?include_deceased=x", []];
+        $requests[] = ['GET', '/api/species?include_inactive=x', []];
+        $requests[] = ['GET', "/api/species/{$species}/breeds?include_inactive=x", []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();

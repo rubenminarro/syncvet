@@ -40,11 +40,11 @@ trait SharedCatalog
         });
 
         static::updating(function (Model $model): void {
-            self::ensureNotGlobal($model);
+            $model->ensureNotGlobal();
             ClinicIdGuard::ensureUnchanged($model);
         });
 
-        static::deleting(fn (Model $model) => self::ensureNotGlobal($model));
+        static::deleting(fn (Model $model) => $model->ensureNotGlobal());
     }
 
     /**
@@ -60,9 +60,13 @@ trait SharedCatalog
         return $this->getRawOriginal('clinic_id') === null;
     }
 
-    protected static function ensureNotGlobal(Model $model): void
+    /**
+     * Un global no se edita ni se elimina desde una clínica (403). Los Services lo
+     * revisan antes de validar el nombre, para responder 403 y no 422.
+     */
+    public function ensureNotGlobal(): void
     {
-        if ($model->isGlobal()) {
+        if ($this->isGlobal()) {
             throw new CatalogException(
                 'Este registro es del catálogo común: no se puede modificar ni eliminar.',
                 403,

@@ -46,7 +46,7 @@ class VoseoTest extends TestCase
         'guardar', 'presionar', 'aceptar', 'cancelar', 'actualizar', 'iniciar', 'asignar', 'eliminar', 'borrar',
         'editar', 'modificar', 'informar', 'avisar', 'solicitar', 'llamar', 'anotar', 'pagar', 'anular', 'descargar',
         'especificar', 'proporcionar', 'rellenar', 'llenar', 'olvidar', 'aguardar', 'escribir', 'subir',
-        'abrir', 'añadir', 'emitir', 'imprimir', 'definir', 'acudir', 'leer', 'responder',
+        'abrir', 'añadir', 'emitir', 'imprimir', 'definir', 'acudir', 'leer', 'responder', 'inactivar',
     ];
 
     /**

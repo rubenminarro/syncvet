@@ -128,9 +128,10 @@ class SharedCatalogTest extends TestCase
             Breed::query()->forceDelete();
         });
 
-        $this->assertTrue(DB::table('species')->whereNull('clinic_id')->where('name', 'Reptil')->exists(), 'Se eliminó la especie global.');
-        $this->assertSame($globalBreeds, DB::table('breeds')->whereNull('clinic_id')->count(), 'Se eliminaron razas globales.');
-        $this->assertSame(0, DB::table('species')->where('clinic_id', $own->id)->count(), 'No se eliminó la especie propia.');
+        // Con SoftDeletes, la baja masiva es un update de deleted_at: también limitado a los propios.
+        $this->assertTrue(DB::table('species')->whereNull('clinic_id')->where('name', 'Reptil')->whereNull('deleted_at')->exists(), 'Se eliminó la especie global.');
+        $this->assertSame($globalBreeds, DB::table('breeds')->whereNull('clinic_id')->whereNull('deleted_at')->count(), 'Se eliminaron razas globales.');
+        $this->assertSame(0, DB::table('species')->where('clinic_id', $own->id)->whereNull('deleted_at')->count(), 'No se eliminó la especie propia.');
         $this->assertSame(0, DB::table('breeds')->where('clinic_id', $own->id)->count(), 'No se eliminó la raza propia.');
     }
 

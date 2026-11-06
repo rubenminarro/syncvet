@@ -406,3 +406,31 @@ Cierre de la entrega 1.3 (pacientes). Commits `fd2334f` (implementación, R-020)
 | Siguiente | Entrega 1.4: especies y razas, con autorización del usuario | Diseño (R-016) |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-023 Entrega 1.4 de la FASE 1: especies y razas (2026-11-06)
+
+Implementación de la entrega 1.4 en `feature/fase-01-04-especies` (creada desde `feature/fase-01-03-pacientes`). Falta la revisión
+y la validación del usuario: no es el cierre. El detalle está en el
+[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-14).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| ABM | `species` y `species/{species}/breeds` con alta, edición (`PATCH`/`PUT` parciales), inactivación y baja; sin detalle (`show`). `SpeciesController` reescrito con `SpeciesResource`; `BreedController` y `BreedResource` nuevos | Diseño (R-016) |
+| Baja | `is_active` oculta de las altas nuevas; `SoftDeletes` solo sin uso (pacientes, también eliminados): 409 `SPECIES_IN_USE` o `BREED_IN_USE`. La baja de una especie se lleva sus razas | Usuario (R-015, pregunta 18) |
+| Nombre único | Sin mayúsculas, acentos ni espacios de los extremos (`App\Support\CatalogName`), comparado en la aplicación; la especie frente a las globales y a las propias, la raza dentro de su especie. 422 `VALIDATION_ERROR` en `name`, desde el Service, con la fila de la clínica bloqueada (`CatalogLock`; orden de bloqueo clínica → catálogo) | Usuario (preguntas 9 y 10) |
+| Globales | No se editan, no se inactivan ni se eliminan (403 `CATALOG_GLOBAL_NOT_EDITABLE`, antes que el nombre repetido); no se ocultan por clínica | Usuario (pregunta 11) |
+| Permisos | `species.destroy` nuevo (119 → 120). El veterinario suma `species.store`, `species.update` y `species.destroy`; el recepcionista, solo `species.index`. Las cuatro rutas de razas, en `ROUTES_WITH_ANOTHER_PERMISSION` con los permisos de especie. Foto de roles actualizada | Usuario (pregunta 6) |
+| `SharedCatalogBuilder` | Las altas masivas fijan la clínica en contexto en cada fila y rechazan otra o un global explícito; `upsert` no actualiza `clinic_id`; `insertUsing` e `insertOrIgnoreUsing` fallan siempre; sin clínica, fallo cerrado | Diseño (R-016) |
+| `upsert` con el id | Rechazado (en las filas o en la clave de unicidad): `ON DUPLICATE KEY UPDATE` no admite un filtro por clínica y un upsert por id actualizaría un global o un registro de otra clínica | Implementación |
+| Largo del nombre | Se valida hasta 60 (especie) y 80 (raza), como el diseño; las columnas pasan a 90 y 110 (no quedan en 80 y 100) para el sufijo de baja con el id (`//deleted_<id>_<timestamp>`, R-021) | Implementación |
+| Formato del nombre | Letras, números, espacios, puntos, guiones, apóstrofos y paréntesis; sin `/`, que es del sufijo de baja | Implementación |
+| Deuda 8 | Resuelta: `NestedBindingTest` pide una raza de otra especie de la misma clínica y espera 404; falla sin `scopeBindings()` | Diseño (R-016) |
+| Concurrencia | `CatalogLockTest` verifica que el alta y el cambio de nombre bloquean la clínica (`for update` en MySQL) antes de leer los nombres, dentro de la transacción del Service. No simula dos pedidos simultáneos: PHPUnit corre con una sola conexión dentro de la transacción de `RefreshDatabase` | Implementación |
+| Postman | Colección de especies y razas, repetible, con su propio rango de corrida (400000 a 499998). En una base que no se recrea hay que volver a sembrar los roles (`RolesAndPermissionsSeeder`) | Usuario |
+| Validación | Suite en verde en SQLite (557 casos, 6330 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 557 casos, 6346 aserciones). Migración probada en MySQL: subir, bajar y subir. Newman: la colección de especies dos veces seguidas sin recrear la base (38 requests y 84 aserciones cada vez), y las de clientes y pacientes otra vez, todo en verde | Implementación |
+| Siguiente | Revisión y validación de la 1.4; después, la 1.5 con autorización del usuario | Diseño (R-016) |
+
+**Qué cambió en la API.** Rutas nuevas: `POST species`, `PATCH`/`PUT`/`DELETE species/{species}` y las cuatro de
+`species/{species}/breeds`. `GET species` conserva su forma (`id`, `name`, `breeds[].id`, `breeds[].name`) y suma `is_active`,
+`is_global` y, en cada raza, `species_id`, `is_active` e `is_global`; acepta `include_inactive`. El alta y la edición de pacientes
+rechazan una especie o raza eliminada (422). Sin cambios en los `error_code` existentes ni en el contrato de respuesta.

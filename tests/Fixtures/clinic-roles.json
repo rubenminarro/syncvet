@@ -102,6 +102,7 @@
         "services.show",
         "services.store",
         "services.update",
+        "species.destroy",
         "species.index",
         "species.store",
         "species.update",
@@ -211,7 +212,10 @@
         "schedules.show",
         "services.index",
         "services.show",
+        "species.destroy",
         "species.index",
+        "species.store",
+        "species.update",
         "veterinarians.index"
     ]
 }

@@ -83,6 +83,7 @@ class UpdatePatientRequest extends FormRequest
     private function activeOrCurrent(string $table, ?int $currentId): Exists
     {
         return Rule::exists($table, 'id')
+            ->whereNull('deleted_at')
             ->where(fn ($q) => $q->whereNull('clinic_id')->orWhere('clinic_id', CurrentClinic::id()))
             ->where(fn ($q) => $q->where('is_active', true)->when($currentId !== null, fn ($q) => $q->orWhere('id', $currentId)));
     }

@@ -1,0 +1,2164 @@
+{
+    "info": {
+        "name": "SyncVet — FASE 1: validación de especies y razas",
+        "description": "Validación manual de especies y razas (FASE 1, entrega 1.4). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera los nombres, el documento y el email de la corrida (rango propio, 400000 a 499998). La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/testing/guia-postman.md.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "01a Login del recepcionista (clínica A)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
+                            "// La corrida, entre 400000 y 499998: un rango propio de esta colección. El documento ficticio 99xxxxxx (R-011)",
+                            "// queda en 994…, lejos de los del DemoSeeder (991… y 992…), de los fijos de la colección de clientes (993…) y de",
+                            "// las corridas de las colecciones de clientes (500000 a 749998) y de pacientes (750000 a 999998).",
+                            "const run = 400000 + Math.floor(Math.random() * 99998);",
+                            "pm.collectionVariables.set('run', String(run));",
+                            "pm.collectionVariables.set('owner_doc', `99${run}`);",
+                            "pm.collectionVariables.set('owner_email', `marta.benitez.${run}@mailinator.com`);"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01b Login del veterinario (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token_vet', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"vet-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "02 Listado de especies",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const canino = json.data.find((s) => s.name === 'Canino');",
+                            "pm.test('Canino es global y activa', () => { pm.expect(canino.is_global).to.eql(true); pm.expect(canino.is_active).to.eql(true); });",
+                            "pm.test('Forma de la especie', () => pm.expect(Object.keys(canino)).to.eql(['id', 'name', 'is_active', 'is_global', 'breeds']));",
+                            "pm.test('Forma de la raza', () => pm.expect(Object.keys(canino.breeds[0])).to.eql(['id', 'species_id', 'name', 'is_active', 'is_global']));",
+                            "pm.collectionVariables.set('canino_id', canino.id);",
+                            "pm.collectionVariables.set('felino_id', json.data.find((s) => s.name === 'Felino').id);",
+                            "pm.collectionVariables.set('labrador_id', canino.breeds.find((b) => b.name === 'Labrador Retriever').id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "description": "Activas con sus razas activas. Guarda los ids de Canino y Felino y de la raza global Labrador Retriever.",
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 Alta de una especie propia (Hurón)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Propia y activa', () => { pm.expect(json.data.is_global).to.eql(false); pm.expect(json.data.is_active).to.eql(true); });",
+                            "pm.test('Sin razas', () => pm.expect(json.data.breeds).to.eql([]));",
+                            "pm.collectionVariables.set('huron_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "description": "Guarda el id en huron_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Hurón {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Mismo nombre en mayúsculas y sin acento → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('errors.name: Ya existe una especie con ese nombre.', () => pm.expect(json.errors.name[0]).to.eql('Ya existe una especie con ese nombre.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"HURON {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05 Nombre de una especie global → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('errors.name: Ya existe una especie con ese nombre.', () => pm.expect(json.errors.name[0]).to.eql('Ya existe una especie con ese nombre.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"canino\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Nombre de un carácter → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en name', () => pm.expect(json.errors).to.have.property('name'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"H\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "07 Alta de una especie inactiva (Erizo)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Inactiva', () => pm.expect(json.data.is_active).to.eql(false));",
+                            "pm.collectionVariables.set('erizo_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "description": "Guarda el id en erizo_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Erizo {{run}}\",\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "08 El listado oculta la inactiva",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const ids = json.data.map((s) => s.id);",
+                            "pm.test('Trae el Hurón', () => pm.expect(ids).to.include(Number(pm.collectionVariables.get('huron_id'))));",
+                            "pm.test('No trae el Erizo', () => pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('erizo_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 include_inactive=1 trae la inactiva",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const erizo = json.data.find((s) => s.id === Number(pm.collectionVariables.get('erizo_id')));",
+                            "pm.test('Trae el Erizo inactivo', () => pm.expect(erizo.is_active).to.eql(false));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species?include_inactive=1",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ],
+                    "query": [
+                        {
+                            "key": "include_inactive",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 Cambio de nombre de la especie propia",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Nombre nuevo', () => pm.expect(json.data.name).to.eql(`Hurón doméstico ${pm.collectionVariables.get('run')}`));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Hurón doméstico {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 Una especie global no se edita → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code CATALOG_GLOBAL_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CATALOG_GLOBAL_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "12 Alta de una raza en la especie propia (Albino)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('De la especie de la URL', () => pm.expect(json.data.species_id).to.eql(Number(pm.collectionVariables.get('huron_id'))));",
+                            "pm.test('Propia', () => pm.expect(json.data.is_global).to.eql(false));",
+                            "pm.collectionVariables.set('albino_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}",
+                        "breeds"
+                    ]
+                },
+                "description": "Guarda el id en albino_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Albino\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13 La misma raza en minúsculas → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('errors.name: Ya existe una raza con ese nombre en esta especie.', () => pm.expect(json.errors.name[0]).to.eql('Ya existe una raza con ese nombre en esta especie.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}",
+                        "breeds"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"albino\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "14 Raza propia en una especie global (Fila Paraguayo)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('En Canino', () => pm.expect(json.data.species_id).to.eql(Number(pm.collectionVariables.get('canino_id'))));",
+                            "pm.collectionVariables.set('fila_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}",
+                        "breeds"
+                    ]
+                },
+                "description": "Guarda el id en fila_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Fila Paraguayo {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15 Nombre de una raza global de la especie → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('errors.name: Ya existe una raza con ese nombre en esta especie.', () => pm.expect(json.errors.name[0]).to.eql('Ya existe una raza con ese nombre en esta especie.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}",
+                        "breeds"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"labrador retriever\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16 Razas de Canino: globales y la propia",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const names = json.data.map((b) => b.name);",
+                            "pm.test('Trae Labrador Retriever', () => pm.expect(names).to.include('Labrador Retriever'));",
+                            "pm.test('Trae la propia', () => pm.expect(names).to.include(`Fila Paraguayo ${pm.collectionVariables.get('run')}`));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}",
+                        "breeds"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "17 Raza de otra especie en la URL → 404",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                            "pm.test('error_code RESOURCE_NOT_FOUND', () => pm.expect(pm.response.json().error_code).to.eql('RESOURCE_NOT_FOUND'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{erizo_id}}/breeds/{{albino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{erizo_id}}",
+                        "breeds",
+                        "{{albino_id}}"
+                    ]
+                },
+                "description": "scopeBindings(): Albino es del Hurón, no del Erizo.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Otro\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "18 La especie de una raza no se cambia → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en species_id', () => pm.expect(json.errors).to.have.property('species_id'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}/breeds/{{albino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}",
+                        "breeds",
+                        "{{albino_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"species_id\": \"{{erizo_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "19 Una raza global no se edita → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code CATALOG_GLOBAL_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CATALOG_GLOBAL_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}/breeds/{{labrador_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}",
+                        "breeds",
+                        "{{labrador_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Labrador\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "20 El recepcionista ve el catálogo",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21 El recepcionista no da de alta una especie → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Chinchilla {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22 Alta de una dueña (Marta Benítez)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('owner_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients"
+                    ]
+                },
+                "description": "Guarda el id en owner_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"document_number\": \"{{owner_doc}}\",\n    \"first_name\": \"Marta\",\n    \"last_name\": \"Benítez\",\n    \"email\": \"{{owner_email}}\",\n    \"phone\": \"+595981450001\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23 Paciente con la especie y la raza propias",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('patient_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{owner_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{owner_id}}",
+                        "patients"
+                    ]
+                },
+                "description": "Guarda el id en patient_id.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Pelusa\",\n    \"species_id\": \"{{huron_id}}\",\n    \"breed_id\": \"{{albino_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Inactivar la raza en uso",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Inactiva', () => pm.expect(json.data.is_active).to.eql(false));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}/breeds/{{albino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}",
+                        "breeds",
+                        "{{albino_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25 Inactivar la especie en uso",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Inactiva y con el mismo nombre', () => { pm.expect(json.data.is_active).to.eql(false); pm.expect(json.data.name).to.eql(`Hurón doméstico ${pm.collectionVariables.get('run')}`); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 El paciente sigue mostrando la especie y la raza inactivas",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Especie', () => pm.expect(json.data.species.name).to.eql(`Hurón doméstico ${pm.collectionVariables.get('run')}`));",
+                            "pm.test('Raza', () => pm.expect(json.data.breed.name).to.eql('Albino'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "27 Un paciente nuevo no usa una especie inactiva → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "const json = pm.response.json();",
+                            "pm.test('Error en species_id', () => pm.expect(json.errors).to.have.property('species_id'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{owner_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{owner_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Copito\",\n    \"species_id\": \"{{huron_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "28 Baja de la especie en uso → 409",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "pm.test('error_code SPECIES_IN_USE', () => pm.expect(pm.response.json().error_code).to.eql('SPECIES_IN_USE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "29 Baja de la raza en uso → 409",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "pm.test('error_code BREED_IN_USE', () => pm.expect(pm.response.json().error_code).to.eql('BREED_IN_USE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}/breeds/{{albino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}",
+                        "breeds",
+                        "{{albino_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30 Baja de una especie global → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code CATALOG_GLOBAL_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CATALOG_GLOBAL_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{felino_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{felino_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "31 Baja de la raza propia sin uso",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Sin datos', () => pm.expect(json.data).to.eql(null));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{canino_id}}/breeds/{{fila_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{canino_id}}",
+                        "breeds",
+                        "{{fila_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "32 Alta de una raza en la especie sin uso (Púas)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('puas_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{erizo_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{erizo_id}}",
+                        "breeds"
+                    ]
+                },
+                "description": "Guarda el id en puas_id; la baja del Erizo se la lleva.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Púas\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "33 Baja de la especie sin uso, con su raza",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{erizo_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{erizo_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "34 La especie eliminada ya no está",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const ids = json.data.map((s) => s.id);",
+                            "pm.test('No trae el Erizo', () => pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('erizo_id'))));",
+                            "const canino = json.data.find((s) => s.name === 'Canino');",
+                            "pm.test('Canino no trae la raza eliminada', () => pm.expect(canino.breeds.map((b) => b.id)).to.not.include(Number(pm.collectionVariables.get('fila_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species?include_inactive=1",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ],
+                    "query": [
+                        {
+                            "key": "include_inactive",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "35 Su raza tampoco: la especie da 404",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                            "pm.test('error_code RESOURCE_NOT_FOUND', () => pm.expect(pm.response.json().error_code).to.eql('RESOURCE_NOT_FOUND'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{erizo_id}}/breeds",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{erizo_id}}",
+                        "breeds"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36 El nombre eliminado queda libre",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('erizo_id', json.data.id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ]
+                },
+                "description": "Guarda el id en erizo_id y lo elimina en el paso siguiente.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Erizo {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "37 Baja de la especie nueva",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{erizo_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{erizo_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8001/api",
+            "type": "string"
+        },
+        {
+            "key": "demo_password",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_vet",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "owner_doc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "owner_email",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "canino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "felino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "labrador_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "huron_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "erizo_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "albino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "fila_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "puas_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "owner_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "patient_id",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}
