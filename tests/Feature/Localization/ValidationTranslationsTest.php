@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Rules\RucCheckDigit;
 use App\Rules\UniqueClientDocument;
@@ -140,7 +141,12 @@ class ValidationTranslationsTest extends TestCase
     {
         foreach ($this->formRequests() as $class => [$rules]) {
             foreach (array_keys($rules) as $field) {
-                $this->assertTrue(Lang::has("validation.attributes.{$field}"), "{$class}: el campo {$field} no tiene nombre en español.");
+                // Un elemento de una lista ("roles.*") lleva su comodín en la clave, como lo
+                // busca el validador: Arr::dot de los nombres (FASE 2, entrega 2.2a).
+                $this->assertTrue(
+                    Lang::has("validation.attributes.{$field}") || array_key_exists($field, Arr::dot(Lang::get('validation.attributes'))),
+                    "{$class}: el campo {$field} no tiene nombre en español."
+                );
             }
         }
     }
@@ -166,7 +172,7 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update']);
         [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
         [$branch, $warehouse] = CurrentClinic::run($clinic, function () {
             $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
@@ -175,6 +181,8 @@ class ValidationTranslationsTest extends TestCase
         });
         $branchFields = ['code', 'name', 'establishment', 'address', 'phone', 'is_default', 'is_active', 'warehouse_code', 'warehouse_name'];
         $warehouseFields = ['code', 'name', 'is_default', 'is_active', 'branch_id'];
+        $colleague = User::factory()->for($clinic)->create();
+        $userFields = ['first_name', 'last_name', 'email', 'password', 'roles', 'branch_ids'];
 
         $clientFields = ['kind', 'business_name', 'document_number', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'notifications_enabled', 'notes'];
         $patientFields = ['name', 'species_id', 'breed_id', 'sex', 'is_neutered', 'birth_date', 'birth_date_estimated', 'color', 'weight_kg', 'microchip', 'allergies', 'notes', 'code'];
@@ -200,6 +208,9 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['PATCH', "/api/branches/{$branch->id}", array_fill_keys($branchFields, $value)];
             $requests[] = ['POST', "/api/branches/{$branch->id}/warehouses", array_fill_keys($warehouseFields, $value)];
             $requests[] = ['PATCH', "/api/warehouses/{$warehouse->id}", array_fill_keys($warehouseFields, $value)];
+            $requests[] = ['POST', '/api/users', array_fill_keys($userFields, $value)];
+            $requests[] = ['POST', '/api/users', [...array_fill_keys($userFields, $value), 'roles' => [$value, $value], 'branch_ids' => [$value, $value]]];
+            $requests[] = ['PATCH', "/api/users/{$colleague->id}", array_fill_keys($userFields, $value)];
         }
 
         $requests[] = ['GET', '/api/clients?kind=x', []];
@@ -209,6 +220,8 @@ class ValidationTranslationsTest extends TestCase
         $requests[] = ['GET', "/api/species/{$species}/breeds?include_inactive=x", []];
         $requests[] = ['GET', '/api/branches?include_inactive=x&per_page=0', []];
         $requests[] = ['GET', "/api/branches/{$branch->id}/warehouses?include_inactive=x&page=0", []];
+        $requests[] = ['GET', '/api/users?role=x&branch_id=x', []];
+        $requests[] = ['GET', '/api/users?branch_id=999999&per_page=0', []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();

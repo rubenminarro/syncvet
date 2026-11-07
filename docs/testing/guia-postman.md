@@ -185,6 +185,9 @@ pasos, y la preparación, el Environment **SyncVet local** y la forma de correrl
 | Colección | Entrega | Qué valida |
 |---|---|---|
 | [`postman/syncvet-fase-02-sucursales.postman_collection.json`](postman/syncvet-fase-02-sucursales.postman_collection.json) | 2.1 (R-030 y R-031) | Listado con inactivas y detalle de la sucursal por defecto con su depósito, alta de una sucursal con su depósito por defecto, código repetido en minúsculas, nombre repetido en mayúsculas y sin acento, establecimiento mal formado o en uso y teléfono inválido (422), cambio de la sucursal por defecto (la anterior deja de serlo), quitar la por defecto sin marcar otra (422), inactivar la por defecto (409), cambio del establecimiento sin facturas con `PUT` parcial, alta de depósitos (un `branch_id` del cuerpo se ignora; código en uso y nombre repetido, 422), cambio del depósito por defecto, inactivar el depósito por defecto (409), `branch_id` al editar un depósito (422), listado de depósitos sin el inactivo, sucursal inactivada (no suma depósitos: 422 en `branch`; no pasa a ser la por defecto: 422), listados con y sin inactivas, sucursal de otra clínica (404), y el recepcionista que lista y no crea (403) |
+| [`postman/syncvet-fase-02-usuarios.postman_collection.json`](postman/syncvet-fase-02-usuarios.postman_collection.json) | 2.2a (R-032 y R-033) | Roles que se asignan, alta de un usuario con roles y sucursales (email repetido con otras mayúsculas, contraseña débil, rol inexistente y sin sucursales: 422), detalle, cambio de roles y de sucursales (la actual sale de la lista y pasa a ser la primera), login del usuario nuevo y `me`, cambio de su contraseña por el administrador (el token anterior queda revocado: 401; login con la nueva), el administrador no cambia su propia contraseña por `users/{user}` (422), quitar el rol al último administrador (409) y, con otro administrador, quitarlo (200), listado con `search`, `role` y `branch_id`, filtros mal formados (422), usuario de otra clínica (404 al verlo y al editarlo), y el recepcionista que no lista, no da de alta ni ve los roles (403) |
+
+#### Sucursales (2.1)
 
 **Volver a sembrar los roles.** La 2.1 suma `branches.index` al recepcionista y al veterinario. Si la base no se recrea, correr
 `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos) antes de la colección: sin eso, "31 El recepcionista
@@ -206,4 +209,30 @@ actual (entrega 2.2b). La concurrencia y el orden de los bloqueos. Lo prueban `B
 
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-02-sucursales.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Usuarios (2.2a)
+
+**Necesita internet.** Los emails de la corrida son `@mailinator.com`, y la validación del email consulta su registro MX
+(`EMAIL_DNS_CHECK`, como la de los clientes): sin conexión, el alta responde 422 en `email`. No hace falta volver a sembrar los
+roles: la 2.2a no cambia permisos.
+
+**Se corre más de una vez sin recrear la base.** Su rango de corrida es de 200000 a 299998, que no usa ninguna otra colección; el
+número va en el email y en la contraseña del usuario de la corrida. La primera corrida crea la sucursal `SUC-USR` y las siguientes
+la reusan (si quedó inactiva, la activan); ocupa un código de establecimiento. Los usuarios todavía no se eliminan (la baja es de la
+2.2b): cada corrida deja uno, y ninguno queda como administrador.
+
+**Un solo administrador en la clínica A.** El pedido 16 (409 `USER_LAST_ADMIN`) necesita que `admin-a@example.com` sea el único
+administrador de la clínica A. Si se agregó otro a mano, el pedido 15 lo avisa: sacarle el rol antes de correrla.
+
+**Usuarios.** `admin-a@example.com` (`{{token_admin}}`), `recepcion-a@example.com` (`{{token}}`) y `admin-b@example.com`
+(`{{token_b}}`, para tomar un usuario de la clínica B).
+
+**Lo que no está en la colección.** La concurrencia y el orden de los bloqueos (`UserLockTest`), el email tomado entre el chequeo y
+el guardado (`UserStoreTest`), y el usuario sin sucursal actual que recibe sucursales (`UserUpdateTest`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-usuarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```

@@ -628,3 +628,54 @@ detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correccio
 
 **Qué cambió en la API.** Crear un depósito en una sucursal inactiva responde 422 en `branch` (antes, 201). Rutas, permisos,
 `error_code` y contrato de respuesta, sin otros cambios.
+
+# R-032 Entrega 2.2a de la FASE 2: usuarios (2026-11-07)
+
+Implementación de la entrega 2.2a en `feature/fase-02-02a-usuarios` (creada desde `feature/fase-02-01-sucursales`), con los
+desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-22a).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Cinco: `users` (listado, alta, detalle y edición, sin baja hasta la 2.2b) y `roles` (listado). 33 → 38 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123): `users.*` y `roles.index` ya existían. Solo el administrador (P2) | Diseño (R-029) |
+| Bloqueo de la clínica | En toda alta y edición, no solo en la edición que toca los roles: se ordenan con la inactivación de una sucursal (clínica → sucursal → usuario, R-030), y el Service vuelve a leer las sucursales con la clínica bloqueada (una inactivada entre la validación y el guardado → 422) | Implementación (desvío 1); aceptado por el usuario |
+| Sucursal actual | "La primera" es la primera activa de la lista; sin ninguna activa (solo una inactiva que el usuario ya tenía), queda sin sucursal actual. Ampliada en R-033 para el usuario que no tiene una | Implementación (desvío 2); aceptado por el usuario |
+| Email único | Lo revisa el Service, no una regla `unique` del Form Request: dos altas simultáneas en clínicas distintas que chocan con el índice reciben 422, no un 500 | Implementación (desvío 3); aceptado por el usuario |
+| Revocación de tokens | Cualquier `password` enviado revoca los tokens del usuario, aunque sea igual a la anterior | Implementación (desvío 4); aceptado por el usuario |
+| Auditoría de sucursales | El cambio de sucursales queda como `updated`, con `branch_ids` antes y después (el diseño solo pedía `ROLES_SYNCED` para los roles) | Implementación (desvío 5); aceptado por el usuario |
+| `roles` en `UserResource` | Lista de `{name, label}`, la misma forma que `GET roles`, desde el Enum `UserRole`; un test exige que el Enum coincida con los roles del seeder | Implementación (desvío 6); aceptado por el usuario |
+| Último administrador activo | En la 2.2a, "activo" es no eliminado: `is_active` llega con la 2.2b. No cuentan los de otra clínica. **Aceptado con una condición:** la 2.2b cuenta solo los administradores con `is_active` y lo prueba con un test | Implementación (desvío 7); aceptado por el usuario con esa condición |
+| Validación del email | Sigue `EMAIL_DNS_CHECK`, como la de los clientes: en desarrollo rechaza `example.com`, y la colección de Postman usa `@mailinator.com` (necesita internet). Los usuarios del `DemoSeeder` no se tocan | Implementación (desvío 8); aceptado por el usuario |
+| Orden del listado | Por apellido, nombre e id (el diseño no lo fijaba) | Implementación (desvío 9); aceptado por el usuario |
+| Deuda 2 | `User` revisado contra la tabla y las claves foráneas: casts (`password` → `hashed`) y relaciones (`clinic`, `currentBranch`, `branches`, `veterinarian`) correctos, sin cambios | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las cinco de usuarios y roles. `error_code` nuevo: `USER_LAST_ADMIN` (409). Rutas,
+permisos y contratos existentes, sin cambios (login, `me` y logout incluidos).
+
+# R-033 Revisión, correcciones y cierre de la entrega 2.2a de la FASE 2 (2026-11-07)
+
+La revisión de la entrega 2.2a, en una sesión de Claude Code aparte de la implementación, no encontró errores en el código: encontró
+dos puntos de diseño (el administrador que cambia su propia contraseña cierra su propia sesión, y el usuario sin sucursal actual que
+recibe sucursales sigue sin una), tests que faltaban y un test inestable. El usuario decidió cada punto y pidió corregirlos, sumó el
+cambio de los nombres de personas y validó la entrega. Implementación (R-032), correcciones y cierre van en un solo commit en
+`feature/fase-02-02a-usuarios`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-033) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-033).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Contraseña propia | `PATCH`/`PUT users/{user}` con `password` sobre el usuario autenticado → 422 en `password`, "Para cambiar tu contraseña usá tu perfil." (también vacía o nula). La propia se cambia con `PATCH me/password` (2.2b), que pide la actual y conserva el token en uso | Usuario |
+| Sucursal actual | Un usuario sin sucursal actual que recibe `branch_ids` toma una con la regla del alta (la por defecto si está en la lista; si no, la primera activa) | Usuario |
+| Nombres de personas | **Desvío que cambia una regla de la FASE 1** (§6.1): nombre y apellido de clientes y de usuarios aceptan el apóstrofo y el guion entre letras (D'Alessandro, Ana-María), nunca al principio, al final ni repetidos; los clientes suman la `ü`, que los usuarios ya aceptaban. Una sola regla, `App\Support\PersonName::REGEX`. El mensaje pasa a "… solo puede contener letras y espacios, y apóstrofos o guiones entre letras." | Usuario; el lugar de la regla (`App\Support`, porque la usan clientes y usuarios), usuario |
+| Tests faltantes | Un administrador real (rol `administrador`, con token) que se quita su propio rol: solo, 409; con otro, 200. La revocación con tokens reales: el usuario editado pierde los suyos y el administrador conserva el suyo. La contraseña y su hash fuera de la auditoría de la edición. Los nombres, en clientes y usuarios | Usuario |
+| Test inestable | `UserIndexTest` dependía del apellido al azar del usuario que hace el pedido, que a veces se ordenaba primero: `actAsUserManager` le fija nombre, apellido y email | Revisión |
+| Postman | La colección de usuarios suma el pedido 16b (el administrador cambia su propia contraseña → 422): 30 requests | Usuario |
+| Validación | El usuario corrió la colección en Postman (Collection Runner, una iteración): 0 errores. Número de pruebas: PENDIENTE DE VERIFICACIÓN (el usuario lo informó como "XX de XX"). Entrega validada | Usuario, el 2026-11-07 |
+| Suite del cierre | Sobre el código del commit (después de las correcciones y de mover la regla de nombres a `App\Support\PersonName`): 706 casos; en SQLite, 8277 aserciones con 2 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 8293 aserciones. La mutación del chequeo de la contraseña propia hace fallar su test | Cierre |
+| Deuda 2 | Sigue abierta: revisada en `Branch`, `Warehouse` y `User`; faltan `Veterinarian`, `Service` y `AuditLog` | Cierre |
+| Siguiente | Entrega 2.2b (usuarios inactivos, baja, sucursal actual y contraseña propia), en `feature/fase-02-02b-usuarios`, creada desde `feature/fase-02-02a-usuarios`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** `password` sobre el propio usuario en `users/{user}` responde 422. Clientes: nombre y apellido aceptan el
+apóstrofo, el guion y la `ü` (antes, 422), con otro mensaje de error. Rutas, permisos, `error_code` y contrato de respuesta, sin
+otros cambios.

@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entrega 2.1 cerrada (R-030 y R-031); sigue la 2.2a. El estado vigente de
+Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031) y 2.2a (R-032 y R-033) cerradas; sigue la 2.2b. El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -17,7 +17,7 @@ asignan a sucursales, y divide los usuarios en dos (R-029). Cada entrega recorre
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
 | 2.1 | Sucursales y depósitos: ABM sin baja, sucursal y depósito por defecto, `establishment` | 2.2 | COMPLETADO (R-030, R-031) |
-| 2.2a | Usuarios: alta, edición, detalle y listado; roles y sucursales; último administrador | 2.1 | PENDIENTE |
+| 2.2a | Usuarios: alta, edición, detalle y listado; roles y sucursales; último administrador | 2.1 | COMPLETADO (R-032, R-033) |
 | 2.2b | Usuarios: inactivos (migración, login, tokens), baja sin uso, sucursal actual y contraseña propia | 2.1 | PENDIENTE |
 | 2.3 | Veterinarios (`VET-`): uno por usuario, restauración, inactivación en uso | 2.3 | PENDIENTE |
 | 2.4 | Catálogo de servicios (`SRV-`): nombre fijo una vez usado, baja sin uso | 2.4 | PENDIENTE |
@@ -609,3 +609,83 @@ El 2026-11-07 el usuario corrió en Postman (Collection Runner, una iteración) 
 pedido 24b de las correcciones: 107 de 107 pruebas en verde, sin errores (37 requests). Suite sobre el mismo código: la de las
 correcciones (664 casos; 7525 aserciones en SQLite con 2 omitidos y 7541 en MySQL 8.4.3). Con este cierre el módulo de sucursales
 y depósitos queda COMPLETADO; la FASE 2 sigue con la 2.2a (usuarios).
+
+### Entrega 2.2a
+
+Implementación en `feature/fase-02-02a-usuarios`, creada desde `feature/fase-02-01-sucursales`, revisada en una sesión de Claude
+Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-033)) y validada por el
+usuario ([validación del usuario](#validación-del-usuario-r-033)). Implementación, correcciones y cierre van en un solo commit.
+Decisiones en [R-032](../decisions/registro.md) y R-033.
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `UserController` y `RoleController`; `IndexUserRequest`, `StoreUserRequest`, `UpdateUserRequest` y `UserMessages`; `UserResource`, `ShowUserResource` y `RoleResource`; `UserService`; `UserException`; `App\Enums\UserRole`; `App\Support\PersonName` (R-033); `tests/Feature/Users` (`UserStoreTest`, `UserUpdateTest`, `UserIndexTest`, `UserLockTest`, `RolesIndexTest`) y `tests/Concerns/InteractsWithUsers`; `docs/testing/postman/syncvet-fase-02-usuarios.postman_collection.json` |
+| Cambiados | `routes/api.php` (`apiResource` de usuarios sin `destroy` y `GET roles`), `lang/es/validation.php` (`roles`, `roles.*`, `role`, `branch_ids`, `branch_ids.*`), `StoreClientRequest`, `UpdateClientRequest` y `ClientMessages` (nombres de personas, R-033), `.gitignore` (`*.code-workspace`) |
+| Tests cambiados | `RoleAccessTest` (parámetro `user`), `RouteBindingTest` (usuario de otra clínica → 404 en `GET`, `PATCH` y `PUT`, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas; el nombre de un campo con comodín, `roles.*`, se busca como lo hace el validador), `ClientStoreTest` y `ClientUpdateTest` (nombres con apóstrofo y guion) |
+| Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo clínica → usuario), §6.1 (nombres de personas) y §6.5 nueva, usuarios (las pendientes de diseño pasan a §6.6); la guía de Postman; este documento, el registro (R-032 y R-033), la deuda técnica (2, revisada en `User`), el handoff y los documentos de estado |
+
+**Endpoints.** Las rutas pasan de 33 a 38; los permisos siguen en 123.
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| GET | `users` | `users.index` | 200, paginado; `search`, `role` y `branch_id` | 422 |
+| POST | `users` | `users.store` | 201, `ShowUserResource` | 422 |
+| GET | `users/{user}` | `users.show` | 200, `ShowUserResource` | 404 (también de otra clínica) |
+| PATCH/PUT | `users/{user}` | `users.update` | 200 | 404; 409 `USER_LAST_ADMIN`; 422 (también `password` sobre el propio usuario) |
+| GET | `roles` | `roles.index` | 200, los tres roles con `name` y `label`, sin paginar | — |
+
+**Tests.** Suite del 2026-11-07, después de las correcciones: 706 casos con los *data providers*; en SQLite, 8277 aserciones con 2
+omitidos (solo de MySQL); contra MySQL (`syncvet_test_mysql`), 8293 aserciones sin omitidos. Frente al cierre de la 2.1 (664 casos;
+7525 y 7541 aserciones): 42 casos y 752 aserciones más en las dos bases. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `UserStoreTest` | 13 | 131 | Alta con roles y sucursales (email en minúsculas, la por defecto como sucursal actual, sin tokens); la contraseña y su hash fuera de la auditoría y `ROLES_SYNCED`; la primera activa si la por defecto no está; email ASCII y de hasta 150; email único en toda la base, también de otra clínica o eliminado, sin intentar guardar; el email tomado entre el chequeo y el guardado → 422; contraseña débil o filtrada; sucursal de otra clínica, inactiva o inexistente; roles válidos y sin repetir; el mensaje de una lista vacía; nombres con apóstrofo y guion; `clinic_id` del cuerpo ignorado; el recepcionista y el veterinario → 403 en las 5 rutas |
+| `UserUpdateTest` | 15 | 114 | `ROLES_SYNCED` (sin otro registro si no cambian); el último administrador → 409, con un eliminado y uno de otra clínica que no cuentan, sin cambios a medias; con otro administrador → 200; un administrador real que se quita su propio rol (solo, 409; con otro, 200); la sucursal actual que sale de la lista y la del usuario que no tiene una; la sucursal inactiva que ya tiene; el cambio de contraseña revoca los tokens del usuario y no los de otro; con tokens reales, el del administrador sigue y la contraseña no llega a la auditoría; la propia → 422 (también vacía o nula) y la sesión sigue; email único; `PATCH` y `PUT` parciales; listas vacías y nulos → 422; el detalle sin secretos |
+| `UserIndexTest` | 5 | 42 | Solo los de la clínica y sin eliminados; `search` literal en nombre, apellido y email; `role` y `branch_id` (también una sucursal inactiva); filtros mal formados y sucursal de otra clínica → 422; paginación |
+| `UserLockTest` | 2 | 11 | La edición bloquea la clínica y después el usuario antes de contar los administradores; el alta, la clínica antes de leer las sucursales |
+| `RolesIndexTest` | 2 | 7 | Los tres roles con su etiqueta; el Enum coincide con los roles del seeder |
+
+En `tests/Feature/Clients`, `ClientStoreTest` y `ClientUpdateTest` suman un test cada uno (nombres con apóstrofo y guion, R-033).
+
+**Mutaciones.** Las cinco del diseño, en la implementación (R-032), cada una con un test que falla: quitar el chequeo del último
+administrador, el bloqueo de la clínica al contar, `withTrashed()` del email único, el filtro de clínica del `exists` de las
+sucursales y la revocación de tokens. En las correcciones, quitar el chequeo de la contraseña propia hace fallar
+`test_the_administrator_does_not_change_the_own_password_here` (200 en lugar de 422).
+
+**Deuda 2.** `User` revisado contra la tabla y las claves foráneas: casts (`password` → `hashed`) y relaciones (`clinic`,
+`currentBranch`, `branches`, `veterinarian`) correctos, sin cambios.
+
+**Desvíos del diseño.** Los nueve de la implementación, aceptados por el usuario (R-032): el bloqueo de la clínica en toda alta y
+edición (1), la primera sucursal activa como actual (2), el email único en el Service (3), la revocación con cualquier `password`
+(4), el cambio de sucursales en la auditoría (5), `roles` como `{name, label}` (6), "administrador activo" como no eliminado hasta
+la 2.2b (7), `EMAIL_DNS_CHECK` en el email (8) y el orden del listado (9). **El 7 queda condicionado:** la 2.2b cuenta solo los
+administradores con `is_active` y lo prueba con un test (un administrador inactivo no evita el 409). Las correcciones suman uno que
+cambia una regla de la FASE 1: los nombres de personas (R-033).
+
+#### Correcciones de la revisión (R-033)
+
+La revisión no encontró errores en el código. Lo que el usuario decidió corregir:
+
+| # | Gravedad | Hallazgo | Corrección | Test |
+|---|---|---|---|---|
+| 1 | Media | El administrador que cambiaba su propia contraseña por `users/{user}` revocaba también el token en uso (el pedido siguiente, 401), al revés que el `PATCH me/password` de la 2.2b | `password` sobre el propio usuario → 422, "Para cambiar tu contraseña usá tu perfil.", también vacía o nula | `UserUpdateTest::test_the_administrator_does_not_change_the_own_password_here` |
+| 2 | Baja | Un usuario sin sucursal actual que recibía sucursales seguía sin una | La regla del alta también cuando no tiene sucursal actual | `UserUpdateTest::test_a_user_without_current_branch_gets_one_with_the_rule_of_the_store` |
+| 3 | Baja | Sin test con un administrador real que se quita su propio rol | Test nuevo | `UserUpdateTest::test_a_real_administrator_removes_the_own_role` |
+| 4 | Baja | La revocación se probaba sin tokens guardados para quien hace el cambio, y la auditoría de la contraseña solo en el alta | Test con tokens reales y la auditoría de la edición | `UserUpdateTest::test_a_password_change_keeps_the_token_of_the_administrator_and_stays_out_of_the_audit` |
+| 5 | Baja | `UserIndexTest` fallaba a veces: el apellido al azar del usuario que hace el pedido podía ordenarse primero | `actAsUserManager` le fija nombre, apellido y email | `UserIndexTest` |
+| 6 | — | Nombres de personas (pedido del usuario; cambia la FASE 1) | Apóstrofo y guion entre letras y la `ü` en clientes, con `App\Support\PersonName` | `ClientStoreTest`, `ClientUpdateTest` y `UserStoreTest::test_person_names_take_an_apostrophe_or_a_hyphen_between_letters` |
+
+La revisión confirmó además: la lógica en los Services; los Controllers con `HasMiddleware` y permisos que existen en el seeder;
+errores con `UserException` o 422 de validación, sin 500; el orden de bloqueo clínica → usuario; la contraseña con
+`#[\SensitiveParameter]`, fuera de las respuestas y de la auditoría; login, `me` y logout sin cambios; un usuario de otra clínica no
+aparece en el listado ni cuenta como administrador; el recepcionista y el veterinario reciben 403 en las 5 rutas.
+
+#### Validación del usuario (R-033)
+
+El 2026-11-07 el usuario corrió en Postman (Collection Runner, una iteración) la colección `syncvet-fase-02-usuarios`, con el pedido
+16b de las correcciones (30 requests): sin errores. Número de pruebas: PENDIENTE DE VERIFICACIÓN (informado como "XX de XX"). Suite
+sobre el mismo código: la del cierre (706 casos; 8277 aserciones en SQLite con 2 omitidos y 8293 en MySQL). La FASE 2 sigue con la
+2.2b (usuarios inactivos, baja, sucursal actual y contraseña propia).

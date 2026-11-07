@@ -8,7 +8,9 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SpeciesController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -47,4 +49,8 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::apiResource('branches', BranchController::class)->except(['destroy']);
     Route::apiResource('branches.warehouses', BranchWarehouseController::class)->only(['index', 'store']);
     Route::apiResource('warehouses', WarehouseController::class)->only(['update']);
+
+    // Usuarios (FASE 2, entrega 2.2a): solo el administrador. La baja y los inactivos son de la 2.2b.
+    Route::apiResource('users', UserController::class)->except(['destroy']);
+    Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
 });

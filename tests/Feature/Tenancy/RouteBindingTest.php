@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\CurrentClinic;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -134,6 +135,36 @@ class RouteBindingTest extends TestCase
         }
 
         $this->assertSame('Principal', CurrentClinic::run($foreign->clinic, fn () => Warehouse::find($warehouse->id)?->name));
+    }
+
+    /**
+     * Usuarios (FASE 2, entrega 2.2a): User no tiene el scope de la clínica; su route
+     * binding (inClinic()) da 404 a un usuario de otra clínica en cada ruta, y no lo
+     * cambia.
+     */
+    public static function userRoutes(): array
+    {
+        return [
+            'GET users/{user}' => ['get'],
+            'PATCH users/{user}' => ['patch'],
+            'PUT users/{user}' => ['put'],
+        ];
+    }
+
+    #[DataProvider('userRoutes')]
+    public function test_user_of_another_clinic_is_not_found(string $method): void
+    {
+        $own = $this->createClinic();
+        $foreign = User::factory()->for($this->createClinic())->create(['first_name' => 'Ajena']);
+        $foreign->syncRoles(['recepcionista']);
+
+        $this->actingIn($own, ['users.show', 'users.update']);
+
+        $response = $this->json($method, "/api/users/{$foreign->id}", ['first_name' => 'Cambiada', 'roles' => ['veterinario'], 'password' => 'Otra-Clave-2026!']);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame('Ajena', $foreign->fresh()->first_name);
+        $this->assertSame(['recepcionista'], $foreign->fresh()->getRoleNames()->all());
     }
 
     public function test_own_records_are_found(): void

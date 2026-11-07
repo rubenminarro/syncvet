@@ -26,17 +26,19 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está completada (R-028): entregas 1.1 (traducciones,
   voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
-  (datos maestros) está en desarrollo: diseño aprobado (R-029) y entrega 2.1, sucursales y depósitos, cerrada (R-030 y R-031,
-  validada por el usuario con Postman); sigue la entrega 2.2a, usuarios.
+  (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), y 2.2a,
+  usuarios (R-032 y R-033), cerradas y validadas por el usuario con Postman; sigue la entrega 2.2b, usuarios inactivos, baja,
+  sucursal actual y contraseña propia.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
-  clientes, de pacientes, del catálogo y de sucursales y depósitos (`tests/Feature/Clients`, `tests/Feature/Patients`,
-  `tests/Feature/Catalog`, `tests/Feature/Branches`).
-  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, y sucursales y depósitos, con las colecciones de Postman de `docs/testing/postman`, que
+  clientes, de pacientes, del catálogo, de sucursales y depósitos y de usuarios (`tests/Feature/Clients`, `tests/Feature/Patients`,
+  `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`).
+  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, y usuarios, con las colecciones de Postman de `docs/testing/postman`, que
   se pueden correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes (con su foto: subir, ver y
-  borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), y sucursales y sus depósitos
-  (alta, edición e inactivación, sin baja).
+  borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
+  (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle y listado) y el listado de
+  roles.
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
@@ -112,7 +114,8 @@ empezar una sesión.
   baja de una especie o una raza, con `lockForUpdate` antes de revisar si está en uso; el alta y la edición de un paciente,
   con `sharedLock` sobre la especie y la raza que usa, antes de la serie); clínica → sucursal → depósito o usuario (el alta y
   la edición de sucursales y depósitos: `CatalogLock`, después la sucursal con `lockForUpdate`, después el depósito o los
-  usuarios que la tienen como actual).
+  usuarios que la tienen como actual); clínica → usuario (el alta y la edición de usuarios: `CatalogLock`, después el usuario con
+  `lockForUpdate` antes de contar los administradores).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -239,6 +242,9 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
   persona, al revés. El tipo cambia solo si el cliente no tiene facturas (`CLIENT_KIND_NOT_EDITABLE`, 422); al cambiarlo,
   los campos del tipo nuevo son obligatorios y los del anterior se vacían.
 * Nombre para mostrar: siempre `Client::display_name`, nunca concatenando nombre y apellido.
+* `first_name` y `last_name` de 2 a 100, con la regla de nombres de personas que comparten clientes y usuarios
+  (`App\Support\PersonName`, R-033): letras (también `ñ`, vocales con tilde y `ü`) separadas por espacios, o por un apóstrofo o un
+  guion entre letras (D'Alessandro, Ana-María); el apóstrofo y el guion, nunca al principio, al final ni repetidos.
 * `document_number` y `email` únicos en la clínica y obligatorios; el email, en minúsculas. Teléfono `+?[1-9]\d{7,14}`.
 * El documento es único por su **número base** (`clients.document_base`, `App\Support\DocumentBase`, R-018): los dígitos
   antes del guion, sin ceros adelante. En Paraguay el RUC de una persona es su cédula más el dígito verificador, así que
@@ -341,7 +347,38 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
   tenían como actual; su asignación (`branch_user`) y sus depósitos no cambian.
 * Listados paginados con `ListFilters`: solo los activos, salvo `include_inactive=1`; `search` en código y nombre.
 
-### 6.5 Pendientes de diseño (reglas a definir antes de programar)
+### 6.5 Usuarios
+
+* Alta, edición, detalle y listado (`users`) y el listado de roles (`roles`, sin paginar): solo el administrador (P2; permisos
+  `users.index`, `users.store`, `users.show`, `users.update` y `roles.index`). El recepcionista y el veterinario reciben 403. Un
+  usuario de otra clínica → 404. `clinic_id` no se recibe: lo fija `UserService`. Sin baja ni inactivos hasta la 2.2b.
+* `first_name` y `last_name` de 2 a 100, con la regla de nombres de personas (`App\Support\PersonName`, §6.1); `name` lo arma el
+  Service (`first_name last_name`).
+* Email obligatorio, solo ASCII, en minúsculas, hasta 150 (deja lugar al sufijo de baja), con la validación de los clientes
+  (`EMAIL_DNS_CHECK`), y **único en toda la base**, también entre usuarios eliminados (es el login, R-029): lo revisa el Service, no
+  una regla `unique`; el índice único es el respaldo de dos altas simultáneas en clínicas distintas. Repetido → 422 "Ya hay un
+  usuario con ese email."
+* Contraseña con `UserPassword` (R-009): obligatoria en el alta, opcional al editar. Si llega al editar a otro usuario, se cambia y se
+  revocan todos los tokens de ese usuario (aunque sea la misma); el token de quien hace el cambio sigue. La propia no se cambia por
+  `users/{user}`: 422 en `password`, "Para cambiar tu contraseña usá tu perfil.", también vacía o nula (se cambia con
+  `PATCH me/password`, 2.2b, que pide la actual y conserva el token en uso; R-033).
+* `roles`: 1 o más de `administrador`, `recepcionista` y `veterinario` (`App\Enums\UserRole`, P3), sin repetidos; `syncRoles`, y el
+  cambio queda en la auditoría como `ROLES_SYNCED`. La respuesta los muestra como `{name, label}`, igual que `GET roles`.
+* `branch_ids`: 1 o más sucursales activas de la clínica, sin repetidas; al editar se acepta también una inactiva que el usuario ya
+  tiene. El Service las vuelve a leer con la clínica bloqueada (una inactivada entre la validación y el guardado → 422). El cambio
+  queda en la auditoría como `updated` con `branch_ids` antes y después.
+* Sucursal actual (`current_branch_id`): en el alta, la por defecto si está en `branch_ids`; si no, la primera activa de la lista;
+  sin ninguna activa, ninguna. Al editar `branch_ids`, si el usuario no tiene sucursal actual o la actual sale de la lista, se elige
+  con la misma regla (R-033).
+* Último administrador (P4): quitarle el rol `administrador` al último administrador de la clínica → 409 `USER_LAST_ADMIN`, "La
+  clínica tiene que tener al menos un administrador activo.", también cuando se lo quita a sí mismo. Cuentan los administradores no
+  eliminados de la clínica; desde la 2.2b, solo los activos (`is_active`, condición del desvío 7, R-032).
+* Listado paginado con `ListFilters`: los usuarios de la clínica (`inClinic()`), sin eliminados; `search` en nombre, apellido y
+  email; `role` y `branch_id` (una sucursal de la clínica, activa o no); orden por apellido, nombre e id.
+* Concurrencia: el alta y la edición bloquean la clínica (`CatalogLock`) y, al editar, después el usuario (`lockForUpdate`), antes
+  de contar los administradores (§3).
+
+### 6.6 Pendientes de diseño (reglas a definir antes de programar)
 
 * **Turnos:** sin superposición en la misma agenda (validar con `lockForUpdate` sobre la agenda); transiciones de
   `AppointmentStatus`; un turno fichado abre la consulta.

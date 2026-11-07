@@ -6,6 +6,7 @@ use App\Enums\ClientKind;
 use App\Rules\RucCheckDigit;
 use App\Rules\UniqueClientDocument;
 use App\Support\CurrentClinic;
+use App\Support\PersonName;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -52,12 +53,12 @@ class UpdateClientRequest extends FormRequest
             'first_name' => [
                 ...(! $isCompany ? $ownKind : $otherKind),
                 'string', 'min:2', 'max:100',
-                'regex:/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/u',
+                'regex:' . PersonName::REGEX,
             ],
             'last_name' => [
                 ...(! $isCompany ? $ownKind : $otherKind),
                 'string', 'min:2', 'max:100',
-                'regex:/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/u',
+                'regex:' . PersonName::REGEX,
             ],
             'email' => [
                 'sometimes', 'required',

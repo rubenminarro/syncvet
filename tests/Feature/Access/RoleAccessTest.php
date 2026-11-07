@@ -89,6 +89,8 @@ class RoleAccessTest extends TestCase
             'breed' => (string) $breed,
             'branch' => (string) $branch->id,
             'warehouse' => (string) $warehouse->id,
+            // Un compañero de la clínica (FASE 2, entrega 2.2a): editarlo sin cuerpo responde 200.
+            'user' => (string) User::factory()->for($this->clinic)->create()->id,
         ];
     }
 

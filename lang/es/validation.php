@@ -220,6 +220,13 @@ return [
         // Autenticación
         'password' => 'contraseña',
 
+        // Usuarios (los elementos de una lista, con su comodín)
+        'roles' => 'roles',
+        'roles.*' => 'rol',
+        'role' => 'rol',
+        'branch_ids' => 'sucursales',
+        'branch_ids.*' => 'sucursal',
+
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
         'include_inactive' => 'incluir inactivas',
