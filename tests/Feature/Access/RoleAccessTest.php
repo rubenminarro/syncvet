@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Access;
 
+use App\Models\Branch;
 use App\Models\Clinic;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Services\PatientPhotoService;
+use App\Support\CurrentClinic;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -71,11 +74,21 @@ class RoleAccessTest extends TestCase
         // Propias: una global respondería 403 CATALOG_GLOBAL_NOT_EDITABLE al editarla.
         [$species, $breed] = $this->ownSpeciesWithBreed($this->clinic, 'Hurón');
 
+        // La sucursal por defecto con su depósito, como los crea clinic:create (ClinicFactory
+        // crea solo la clínica). Editarlos sin cuerpo responde 200.
+        [$branch, $warehouse] = CurrentClinic::run($this->clinic, function () {
+            $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
+
+            return [$branch, Warehouse::create(['branch_id' => $branch->id, 'code' => 'DEP-01', 'name' => 'Principal', 'is_default' => true])];
+        });
+
         $this->parameters = [
             'client' => (string) $client->id,
             'patient' => (string) $patient->id,
             'species' => (string) $species,
             'breed' => (string) $breed,
+            'branch' => (string) $branch->id,
+            'warehouse' => (string) $warehouse->id,
         ];
     }
 

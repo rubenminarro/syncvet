@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\BranchWarehouseController;
 use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\SpeciesController;
+use App\Http\Controllers\Api\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
 // Autenticación. login es público; logout y me exigen token (middleware de AuthController).
@@ -38,4 +41,10 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     // permisos de especie (R-015); scopeBindings() da 404 a una raza de otra especie.
     Route::apiResource('species', SpeciesController::class)->except(['show']);
     Route::apiResource('species.breeds', BreedController::class)->except(['show']);
+
+    // Sucursales y depósitos (FASE 2, entrega 2.1): sin baja, se inactivan. Los depósitos se
+    // crean y se listan en su sucursal y se editan fuera de ella (no cambian de sucursal).
+    Route::apiResource('branches', BranchController::class)->except(['destroy']);
+    Route::apiResource('branches.warehouses', BranchWarehouseController::class)->only(['index', 'store']);
+    Route::apiResource('warehouses', WarehouseController::class)->only(['update']);
 });

@@ -580,3 +580,51 @@ decidir solo están al final de ese documento.
 | Aprobación del diseño | El usuario aprueba el diseño de la FASE 2 tal como está ([`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md)), con las siete entregas y las preguntas 16 a 31 del diseño según la propuesta de cada una (códigos de sucursal y depósito escritos por el administrador, depósito por defecto en el alta de la sucursal, `PATCH me/password`, precio entero, claves de `system_settings`, RUC no editable, logo de hasta 2 MB, limpieza a las 24 horas, matrícula a 60 caracteres, `USER_IS_VETERINARIAN`, entre otras). Sigue la entrega 2.1 en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno` | Usuario, el 2026-11-06 |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code` y contrato de respuesta: el diseño y su aprobación solo documentan.
+
+# R-030 Entrega 2.1 de la FASE 2: sucursales y depósitos (2026-11-07)
+
+Implementación de la entrega 2.1 en `feature/fase-02-01-sucursales` (creada desde `docs/fase-02-diseno`), con los desvíos del
+diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-21).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Siete: `branches` (listado, alta, detalle y edición, sin baja), `branches/{branch}/warehouses` (listado y alta) y `warehouses/{warehouse}` (edición). 26 → 33 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123). El recepcionista y el veterinario suman `branches.index` | Usuario (pregunta 19) |
+| `is_default: false` | 422 solo en la sucursal o el depósito que es el por defecto; en otro no cambia nada (el frontend manda el formulario completo) | Implementación (desvío 1); aceptado por el usuario |
+| Primera por defecto | Si la clínica no tiene sucursal por defecto, la que se crea pasa a serlo; igual el primer depósito de una sucursal sin depósito por defecto | Implementación (desvío 2); aceptado por el usuario |
+| Únicos | Código, nombre y establecimiento los revisa el Service con la clínica bloqueada (`CatalogLock`), no reglas `unique` del Form Request: dos altas simultáneas no terminan en un 500 por el índice único. Misma respuesta, 422 `VALIDATION_ERROR` | Implementación (desvío 3); aceptado por el usuario |
+| Mismo `establishment` | Con facturas, reenviar el mismo valor responde 200: no es un cambio | Implementación (desvío 4); aceptado por el usuario |
+| Listado de depósitos | Paginado, con `ListFilters` e `include_inactive` | Implementación (desvío 5); aceptado por el usuario |
+| Nombres | `CatalogMessages::NAME_REGEX`: al menos una letra, como especies y razas | Implementación (desvío 6); aceptado por el usuario |
+| Depósito en sucursal inactiva | Se podía crear: el diseño no lo mencionaba. **Rechazado**: 422 en `branch`, "La sucursal está inactiva." (corregido en R-031) | Implementación (desvío 7); rechazado por el usuario |
+| Orden de bloqueo | Nuevo: clínica → sucursal → usuario. Inactivar una sucursal vacía `current_branch_id` usuario por usuario, para la auditoría. `CLAUDE.md` §3: clínica → sucursal → depósito o usuario | Implementación (desvío 8); aceptado por el usuario |
+| Deuda 2 | `Branch` y `Warehouse` revisados: casts y relaciones correctos; suman valores por defecto, el código en mayúsculas, el nombre limpio y `Branch::invoices()` | Implementación |
+| Validación | Suite en verde en SQLite (662 casos, 7505 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 7521 aserciones). Las cinco protecciones del diseño quitadas de a una, cada una con un test que falla | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las siete de sucursales y depósitos. `error_code` nuevos: `BRANCH_DEFAULT_NOT_DEACTIVATABLE`,
+`BRANCH_ESTABLISHMENT_NOT_EDITABLE` y `WAREHOUSE_DEFAULT_NOT_DEACTIVATABLE`. El recepcionista y el veterinario suman
+`branches.index`. Rutas, permisos y contratos existentes, sin cambios.
+
+# R-031 Revisión, correcciones y cierre de la entrega 2.1 de la FASE 2 (2026-11-07)
+
+La revisión de la entrega 2.1, en una sesión de Claude Code aparte de la implementación, encontró un hallazgo de gravedad media
+(el desvío 7, rechazado por el usuario) y cuatro de baja (tests que pasaban con la regla rota). El usuario pidió corregirlos y
+validó la entrega. Implementación (R-030), correcciones y cierre van en un solo commit en `feature/fase-02-01-sucursales`. El
+detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-031) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-031).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Sucursal inactiva | `WarehouseService::create()` revisa `is_active` sobre la sucursal ya bloqueada: 422 en `branch`, "La sucursal está inactiva." Reactivada, el alta vuelve a responder 201 | Usuario |
+| Tests faltantes | La búsqueda de depósitos por código, la sucursal nueva sin usuarios en `branch_user` y el orden clínica → sucursal → usuario al inactivar | Usuario |
+| Voseo | `VoseoTest` suma el verbo `crear`. La descripción de `clinic:create` pasa de "Crea una clínica…" (tercera persona, que el test marcaba) a "Alta de una clínica…" | Usuario; el cambio de la descripción, implementación |
+| Postman | La colección de sucursales suma el pedido 24b (depósito en la sucursal recién inactivada → 422): 37 requests y 107 pruebas | Usuario |
+| Validación | El usuario corrió la colección en Postman (Collection Runner, una iteración): 107 de 107 pruebas, sin errores. Entrega validada | Usuario, el 2026-11-07 |
+| Suite del cierre | La de las correcciones, sobre el mismo código: 664 casos; en SQLite, 7525 aserciones con 2 omitidos (solo de MySQL); en MySQL 8.4.3 (`syncvet_test_mysql`), 7541 aserciones. La mutación del chequeo de la sucursal inactiva hace fallar su test | Cierre |
+| Sucursales y depósitos | El módulo pasa a COMPLETADO: la 2.1 era su única entrega en el diseño (R-029) | Cierre |
+| Deuda 2 | Sigue abierta: revisada en `Branch` y `Warehouse`; faltan `User`, `Veterinarian`, `Service` y `AuditLog` en las entregas siguientes | Cierre |
+| Siguiente | Entrega 2.2a (usuarios), en `feature/fase-02-02a-usuarios`, creada desde `feature/fase-02-01-sucursales`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Crear un depósito en una sucursal inactiva responde 422 en `branch` (antes, 201). Rutas, permisos,
+`error_code` y contrato de respuesta, sin otros cambios.

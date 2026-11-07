@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Warehouse;
 use App\Support\CurrentClinic;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Tests\Concerns\InteractsWithClinics;
+use Tests\Concerns\InteractsWithBranches;
 use Tests\TestCase;
 
 /**
@@ -15,7 +17,7 @@ use Tests\TestCase;
  */
 class RouteBindingTest extends TestCase
 {
-    use InteractsWithClinics;
+    use InteractsWithBranches;
 
     private const PERMISSIONS = [
         'clients.show', 'clients.update', 'clients.destroy',
@@ -82,6 +84,58 @@ class RouteBindingTest extends TestCase
         });
     }
 
+    /**
+     * Sucursales y depósitos (FASE 2, entrega 2.1): una sucursal o un depósito de otra
+     * clínica responde 404 en cada ruta y no cambia.
+     */
+    public static function branchRoutes(): array
+    {
+        return [
+            'GET branches/{branch}' => ['get', '/api/branches/%d'],
+            'PATCH branches/{branch}' => ['patch', '/api/branches/%d'],
+            'PUT branches/{branch}' => ['put', '/api/branches/%d'],
+            'GET branches/{branch}/warehouses' => ['get', '/api/branches/%d/warehouses'],
+            'POST branches/{branch}/warehouses' => ['post', '/api/branches/%d/warehouses'],
+        ];
+    }
+
+    #[DataProvider('branchRoutes')]
+    public function test_branch_of_another_clinic_is_not_found(string $method, string $uri): void
+    {
+        $own = $this->createClinic();
+        $this->defaultBranchIn($own);
+        $foreign = $this->branchIn($this->createClinic(), ['name' => 'Ajena']);
+
+        $this->actAsBranchManager($own);
+
+        $response = $this->json($method, sprintf($uri, $foreign->id), ['name' => 'Cambiada', 'code' => 'DEP-99', 'is_default' => true]);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreign->clinic, function () use ($foreign) {
+            $branch = Branch::find($foreign->id);
+
+            $this->assertSame('Ajena', $branch?->name, 'La sucursal ajena cambió.');
+            $this->assertSame(1, Warehouse::count());
+        });
+    }
+
+    public function test_warehouse_of_another_clinic_is_not_found(): void
+    {
+        $own = $this->createClinic();
+        $this->defaultBranchIn($own);
+        $foreign = $this->defaultBranchIn($this->createClinic());
+        $warehouse = CurrentClinic::run($foreign->clinic, fn () => Warehouse::firstOrFail());
+
+        $this->actAsBranchManager($own);
+
+        foreach (['patch', 'put'] as $method) {
+            $this->assertErrorCode($this->json($method, "/api/warehouses/{$warehouse->id}", ['name' => 'Cambiado']), 404, 'RESOURCE_NOT_FOUND');
+        }
+
+        $this->assertSame('Principal', CurrentClinic::run($foreign->clinic, fn () => Warehouse::find($warehouse->id)?->name));
+    }
+
     public function test_own_records_are_found(): void
     {
         $own = $this->createClinic();
@@ -92,5 +146,11 @@ class RouteBindingTest extends TestCase
         $this->getJson("/api/clients/{$patient->client_id}")->assertOk();
         $this->getJson("/api/clients/{$patient->client_id}/patients")->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/patients/{$patient->id}")->assertOk();
+
+        $branch = $this->defaultBranchIn($own);
+        $this->actAsBranchManager($own);
+
+        $this->getJson("/api/branches/{$branch->id}")->assertOk();
+        $this->getJson("/api/branches/{$branch->id}/warehouses")->assertOk()->assertJsonCount(1, 'data');
     }
 }

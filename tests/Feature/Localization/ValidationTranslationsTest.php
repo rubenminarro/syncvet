@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Localization;
 
+use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\Warehouse;
 use App\Rules\RucCheckDigit;
 use App\Rules\UniqueClientDocument;
 use App\Support\CurrentClinic;
@@ -164,8 +166,15 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update']);
         [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
+        [$branch, $warehouse] = CurrentClinic::run($clinic, function () {
+            $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
+
+            return [$branch, Warehouse::create(['branch_id' => $branch->id, 'code' => 'DEP-01', 'name' => 'Principal', 'is_default' => true])];
+        });
+        $branchFields = ['code', 'name', 'establishment', 'address', 'phone', 'is_default', 'is_active', 'warehouse_code', 'warehouse_name'];
+        $warehouseFields = ['code', 'name', 'is_default', 'is_active', 'branch_id'];
 
         $clientFields = ['kind', 'business_name', 'document_number', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'notifications_enabled', 'notes'];
         $patientFields = ['name', 'species_id', 'breed_id', 'sex', 'is_neutered', 'birth_date', 'birth_date_estimated', 'color', 'weight_kg', 'microchip', 'allergies', 'notes', 'code'];
@@ -187,6 +196,10 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['PATCH', "/api/species/{$species}", ['name' => $value, 'is_active' => $value]];
             $requests[] = ['POST', "/api/species/{$species}/breeds", ['name' => $value, 'is_active' => $value]];
             $requests[] = ['PATCH', "/api/species/{$species}/breeds/{$breed}", ['name' => $value, 'is_active' => $value, 'species_id' => $value]];
+            $requests[] = ['POST', '/api/branches', array_fill_keys($branchFields, $value)];
+            $requests[] = ['PATCH', "/api/branches/{$branch->id}", array_fill_keys($branchFields, $value)];
+            $requests[] = ['POST', "/api/branches/{$branch->id}/warehouses", array_fill_keys($warehouseFields, $value)];
+            $requests[] = ['PATCH', "/api/warehouses/{$warehouse->id}", array_fill_keys($warehouseFields, $value)];
         }
 
         $requests[] = ['GET', '/api/clients?kind=x', []];
@@ -194,6 +207,8 @@ class ValidationTranslationsTest extends TestCase
         $requests[] = ['GET', "/api/clients/{$client->id}/patients?include_deceased=x", []];
         $requests[] = ['GET', '/api/species?include_inactive=x', []];
         $requests[] = ['GET', "/api/species/{$species}/breeds?include_inactive=x", []];
+        $requests[] = ['GET', '/api/branches?include_inactive=x&per_page=0', []];
+        $requests[] = ['GET', "/api/branches/{$branch->id}/warehouses?include_inactive=x&page=0", []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();

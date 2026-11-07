@@ -105,6 +105,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.change-owner',
                     'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
                     'species.index',
+                    // Pregunta 19 de la FASE 2: la agenda (FASE 3) necesita las sucursales.
+                    'branches.index',
                     'veterinarians.index', 'services.index', 'services.show',
                     'schedules.index', 'schedules.show',
                     'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
@@ -127,6 +129,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'patients.index', 'patients.store', 'patients.show', 'patients.update',
                     'patients.upload-photo', 'patients.show-photo', 'patients.delete-photo',
                     'species.index', 'species.store', 'species.update', 'species.destroy',
+                    'branches.index',
                     'veterinarians.index', 'services.index', 'services.show',
                     'schedules.index', 'schedules.show',
                     'appointments.index', 'appointments.show', 'appointments.check-in',

@@ -47,6 +47,8 @@ class VoseoTest extends TestCase
         'editar', 'modificar', 'informar', 'avisar', 'solicitar', 'llamar', 'anotar', 'pagar', 'anular', 'descargar',
         'especificar', 'proporcionar', 'rellenar', 'llenar', 'olvidar', 'aguardar', 'escribir', 'subir',
         'abrir', 'añadir', 'emitir', 'imprimir', 'definir', 'acudir', 'leer', 'responder', 'inactivar',
+        // "Crea" al comienzo también es tercera persona: la descripción de clinic:create dice "Alta de…".
+        'crear',
     ];
 
     /**

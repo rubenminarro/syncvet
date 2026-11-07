@@ -210,6 +210,13 @@ return [
         // Especies y razas
         'is_active' => 'activo',
 
+        // Sucursales y depósitos
+        'establishment' => 'código de establecimiento',
+        'is_default' => 'por defecto',
+        'warehouse_code' => 'código del depósito',
+        'warehouse_name' => 'nombre del depósito',
+        'branch_id' => 'sucursal',
+
         // Autenticación
         'password' => 'contraseña',
 
