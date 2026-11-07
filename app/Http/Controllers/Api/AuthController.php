@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\UpdateCurrentBranchRequest;
+use App\Http\Requests\UpdateOwnPasswordRequest;
 use App\Http\Resources\MeResource;
 use App\Services\AuthService;
 use App\Traits\ApiResponse;
@@ -12,7 +14,8 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
 /**
- * Login, logout y usuario autenticado. Sin permisos de Spatie: cualquier usuario
+ * Login, logout, usuario autenticado, su sucursal actual y su contraseña (las dos
+ * últimas, FASE 2, entrega 2.2b). Sin permisos de Spatie: cualquier usuario
  * autenticado (ROUTES_WITHOUT_PERMISSION en ClinicRolesTest).
  */
 class AuthController extends Controller implements HasMiddleware
@@ -60,5 +63,23 @@ class AuthController extends Controller implements HasMiddleware
     public function me(Request $request)
     {
         return $this->successResponse('Datos del usuario.', new MeResource($this->authService->profile($request->user())));
+    }
+
+    public function updateCurrentBranch(UpdateCurrentBranchRequest $request)
+    {
+        $user = $this->authService->setCurrentBranch($request->user(), $request->integer('branch_id'));
+
+        return $this->successResponse('Sucursal actual actualizada.', new MeResource($user));
+    }
+
+    public function updatePassword(UpdateOwnPasswordRequest $request)
+    {
+        $this->authService->changeOwnPassword(
+            $request->user(),
+            $request->validated('current_password'),
+            $request->validated('password')
+        );
+
+        return $this->successResponse('Contraseña actualizada.');
     }
 }

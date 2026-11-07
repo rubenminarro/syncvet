@@ -24,6 +24,8 @@ trait InteractsWithApiRoutes
         'POST api/login' => 'Público: es la forma de obtener un token',
         'POST api/logout' => 'Cualquier usuario autenticado cierra su propia sesión',
         'GET|HEAD api/me' => 'Cualquier usuario autenticado ve sus propios datos',
+        'PATCH api/me/current-branch' => 'Cualquier usuario autenticado elige su sucursal actual (FASE 2, entrega 2.2b)',
+        'PATCH api/me/password' => 'Cualquier usuario autenticado cambia su propia contraseña (FASE 2, entrega 2.2b)',
     ];
 
     /**

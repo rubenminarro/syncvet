@@ -12,11 +12,13 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
 use App\Traits\ApiResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
 /**
- * Usuarios de la clínica (FASE 2, entrega 2.2a). Solo el administrador (P2). User no
+ * Usuarios de la clínica (FASE 2, entregas 2.2a y 2.2b). Solo el administrador (P2).
+ * El listado muestra solo los activos, salvo include_inactive=1. User no
  * tiene el scope de la clínica: el listado filtra con inClinic() y el route binding
  * de {user} responde 404 a un usuario de otra clínica.
  */
@@ -38,6 +40,7 @@ class UserController extends Controller implements HasMiddleware
             new Middleware('permission:users.store', only: ['store']),
             new Middleware('permission:users.show', only: ['show']),
             new Middleware('permission:users.update', only: ['update']),
+            new Middleware('permission:users.destroy', only: ['destroy']),
         ];
     }
 
@@ -46,6 +49,7 @@ class UserController extends Controller implements HasMiddleware
         $users = User::query()
             ->inClinic()
             ->with(self::RELATIONS)
+            ->when(! $request->boolean('include_inactive'), fn ($query) => $query->active())
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->search;
 
@@ -93,8 +97,15 @@ class UserController extends Controller implements HasMiddleware
 
     public function update(UpdateUserRequest $request, User $user)
     {
-        $user = $this->userService->update($user, $request->validated());
+        $user = $this->userService->update($user, $request->validated(), $request->user());
 
         return $this->successResponse('Usuario actualizado correctamente.', new ShowUserResource($user->load(self::RELATIONS)), 200);
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        $this->userService->delete($user, $request->user());
+
+        return $this->successResponse('Usuario eliminado correctamente.', null, 200);
     }
 }

@@ -116,6 +116,7 @@ class UserStoreTest extends TestCase
         User::factory()->for($clinic)->create(['email' => 'eliminado@example.com'])->delete();
         User::factory()->for($clinic)->create(['email' => 'propio@example.com']);
         $this->actAsUserManager($clinic);
+        $users = User::withTrashed()->count();
 
         // El chequeo corre antes de escribir: el índice único es solo el respaldo de dos
         // altas simultáneas (abajo), no la regla.
@@ -133,7 +134,8 @@ class UserStoreTest extends TestCase
 
         $this->assertSame(0, $inserts, 'Se intentó guardar un usuario con un email tomado.');
 
-        $this->assertSame(0, User::withTrashed()->where('first_name', 'Lucía')->count());
+        // Ningún usuario nuevo (no por el nombre: la factory, en es_ES, puede generar otra "Lucía").
+        $this->assertSame($users, User::withTrashed()->count());
     }
 
     /**
@@ -199,7 +201,8 @@ class UserStoreTest extends TestCase
             $this->postJson('/api/users', $this->userPayload([], ['branch_ids' => $branchIds]))->assertUnprocessable();
         }
 
-        $this->assertSame(0, User::where('first_name', 'Lucía')->count());
+        // Por el email del pedido, no por el nombre: la factory, en es_ES, puede generar otra "Lucía".
+        $this->assertSame(0, User::withTrashed()->where('email', 'lucia.benitez@example.com')->count());
     }
 
     public function test_the_roles_are_one_or_more_valid_roles_without_repetition(): void

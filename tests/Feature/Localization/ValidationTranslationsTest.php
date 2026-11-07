@@ -182,7 +182,7 @@ class ValidationTranslationsTest extends TestCase
         $branchFields = ['code', 'name', 'establishment', 'address', 'phone', 'is_default', 'is_active', 'warehouse_code', 'warehouse_name'];
         $warehouseFields = ['code', 'name', 'is_default', 'is_active', 'branch_id'];
         $colleague = User::factory()->for($clinic)->create();
-        $userFields = ['first_name', 'last_name', 'email', 'password', 'roles', 'branch_ids'];
+        $userFields = ['first_name', 'last_name', 'email', 'password', 'roles', 'branch_ids', 'is_active'];
 
         $clientFields = ['kind', 'business_name', 'document_number', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'notifications_enabled', 'notes'];
         $patientFields = ['name', 'species_id', 'breed_id', 'sex', 'is_neutered', 'birth_date', 'birth_date_estimated', 'color', 'weight_kg', 'microchip', 'allergies', 'notes', 'code'];
@@ -211,6 +211,8 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['POST', '/api/users', array_fill_keys($userFields, $value)];
             $requests[] = ['POST', '/api/users', [...array_fill_keys($userFields, $value), 'roles' => [$value, $value], 'branch_ids' => [$value, $value]]];
             $requests[] = ['PATCH', "/api/users/{$colleague->id}", array_fill_keys($userFields, $value)];
+            $requests[] = ['PATCH', '/api/me/current-branch', ['branch_id' => $value]];
+            $requests[] = ['PATCH', '/api/me/password', ['current_password' => $value, 'password' => $value]];
         }
 
         $requests[] = ['GET', '/api/clients?kind=x', []];
@@ -222,6 +224,7 @@ class ValidationTranslationsTest extends TestCase
         $requests[] = ['GET', "/api/branches/{$branch->id}/warehouses?include_inactive=x&page=0", []];
         $requests[] = ['GET', '/api/users?role=x&branch_id=x', []];
         $requests[] = ['GET', '/api/users?branch_id=999999&per_page=0', []];
+        $requests[] = ['GET', '/api/users?include_inactive=x', []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();

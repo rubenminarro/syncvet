@@ -30,6 +30,7 @@ class UserResource extends JsonResource
                 'name' => $branch->name,
             ]),
             'current_branch_id' => $this->current_branch_id,
+            'is_active' => (bool) $this->is_active,
         ];
     }
 }

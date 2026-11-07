@@ -148,6 +148,7 @@ class RouteBindingTest extends TestCase
             'GET users/{user}' => ['get'],
             'PATCH users/{user}' => ['patch'],
             'PUT users/{user}' => ['put'],
+            'DELETE users/{user}' => ['delete'],
         ];
     }
 
@@ -158,13 +159,14 @@ class RouteBindingTest extends TestCase
         $foreign = User::factory()->for($this->createClinic())->create(['first_name' => 'Ajena']);
         $foreign->syncRoles(['recepcionista']);
 
-        $this->actingIn($own, ['users.show', 'users.update']);
+        $this->actingIn($own, ['users.show', 'users.update', 'users.destroy']);
 
         $response = $this->json($method, "/api/users/{$foreign->id}", ['first_name' => 'Cambiada', 'roles' => ['veterinario'], 'password' => 'Otra-Clave-2026!']);
 
         $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
         $this->assertSame('Ajena', $foreign->fresh()->first_name);
         $this->assertSame(['recepcionista'], $foreign->fresh()->getRoleNames()->all());
+        $this->assertFalse($foreign->fresh()->trashed());
     }
 
     public function test_own_records_are_found(): void

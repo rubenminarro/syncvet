@@ -219,6 +219,7 @@ return [
 
         // Autenticación
         'password' => 'contraseña',
+        'current_password' => 'contraseña actual',
 
         // Usuarios (los elementos de una lista, con su comodín)
         'roles' => 'roles',

@@ -679,3 +679,47 @@ cambio de los nombres de personas y validó la entrega. Implementación (R-032),
 **Qué cambió en la API.** `password` sobre el propio usuario en `users/{user}` responde 422. Clientes: nombre y apellido aceptan el
 apóstrofo, el guion y la `ü` (antes, 422), con otro mensaje de error. Rutas, permisos, `error_code` y contrato de respuesta, sin
 otros cambios.
+
+# R-034 Entrega 2.2b de la FASE 2: usuarios inactivos, baja, sucursal actual y contraseña propia (2026-11-07)
+
+Implementación de la entrega 2.2b en `feature/fase-02-02b-usuarios` (creada desde `feature/fase-02-02a-usuarios`), con los
+desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-22b).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Tres: `DELETE users/{user}` (`users.destroy`), `PATCH me/current-branch` (`auth.current-branch`) y `PATCH me/password` (`auth.password`), las dos de `me` sin permiso (`ROUTES_WITHOUT_PERMISSION`). 38 → 41 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123): `users.destroy` ya existía. La baja, solo el administrador (P2) | Diseño (R-029) |
+| Migración | `2026_11_07_000000_add_is_active_to_users`: `is_active` booleano, no nulo, por defecto `true`, después de `password`; sin índice. 32 → 33. Probada en MySQL durante la implementación: sube, baja y vuelve a subir (`tinyint(1)`, por defecto 1) | Diseño (R-029); prueba, implementación |
+| Último administrador | Regla generalizada: si un administrador activo deja de serlo (pierde el rol, se inactiva o se da de baja), tiene que quedar otro administrador activo de la clínica. Quitarle el rol a un administrador ya inactivo responde 200: no cambia la cantidad de activos | Implementación (desvío 1); aceptado por el usuario |
+| Bloqueo de `me/current-branch` | Clínica → sucursal → usuario, el mismo orden que la inactivación de una sucursal (R-030). Una sucursal inactivada entre la validación y el guardado → 422 | Implementación (desvío 2); aceptado por el usuario |
+| Intentos de `me/password` | Los errores de validación (una contraseña nueva débil, por ejemplo) responden 422 antes del límite y no cuentan: solo cuenta lo que llega a verificar la contraseña actual | Implementación (desvío 3); aceptado por el usuario |
+| Auditoría de la baja | Dos registros: `updated` (el email con el sufijo de baja) y `deleted` | Implementación (desvío 4); aceptado por el usuario |
+| `RoleAccessTest` | Las dos rutas de `me` sin cuerpo responden 422 `VALIDATION_ERROR` en lugar de 200: el test lo acepta solo para esas dos; `me` y `logout` siguen exigiendo 200 | Implementación (desvío 5); aceptado por el usuario |
+| Tests inestables de la 2.2a | Dos aserciones de `UserStoreTest` contaban usuarios por `first_name = 'Lucía'`, que la factory (`es_ES`) puede generar al azar: ahora cuentan el total y el email | Implementación (desvío 6); aceptado por el usuario |
+| Claves foráneas en MySQL | `test_usage_covers_every_foreign_key_to_users` traía en MySQL las tablas de las otras bases del servidor: limitado al esquema actual | Implementación (desvío 7); aceptado por el usuario |
+| Límite de `me/password` | **Agregado al diseño:** 5 intentos por minuto por usuario, contados antes de verificar la contraseña actual, como el login; el sexto responde 429 `AUTH_TOO_MANY_ATTEMPTS` con `Retry-After` aunque la actual sea correcta; un cambio correcto limpia el contador. El contador es del usuario: el de otro no se afecta | Usuario |
+| Condición del desvío 7 de la 2.2a (R-032) | Cumplida: `USER_LAST_ADMIN` cuenta solo los administradores con `is_active`; lo prueba `UserDeactivateTest::test_an_inactive_administrator_does_not_count` (un administrador inactivo no evita el 409, ni al quitar el rol ni al inactivar) y `UserDeleteTest::test_the_last_active_administrator_is_not_deleted` | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las tres de arriba. `error_code` nuevos: `USER_INACTIVE` (403), `USER_SELF_ACTION` (409) y
+`USER_IN_USE` (409). `users/{user}` acepta `is_active`; `GET users` acepta `include_inactive` y por defecto muestra solo los activos;
+`UserResource` y `ShowUserResource` suman `is_active`. Login, `me` y logout sin otros cambios: un usuario inactivo recibe 403
+`USER_INACTIVE` en el login con la contraseña correcta y en `me` con un token vigente, y puede hacer logout.
+
+# R-035 Revisión, correcciones y cierre de la entrega 2.2b de la FASE 2 (2026-11-07)
+
+La revisión de la entrega 2.2b, en una sesión de Claude Code aparte de la implementación, no encontró errores en el código: encontró
+reglas sin test o con tests que pasarían con la regla rota, y una referencia vieja en un comentario. El usuario pidió corregir los
+cinco hallazgos y validó la entrega. Implementación (R-034), correcciones y cierre van en un solo commit en
+`feature/fase-02-02b-usuarios`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-035) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-035).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Hallazgos 1 a 5 | Corregidos: tests del inactivo en las rutas del perfil, del login del inactivo con la contraseña incorrecta, del uso por `created_by` y por una segunda columna, de la asignación revisada en el Service y del orden de bloqueo de `me/current-branch`, y el comentario de `UserService::USAGE`. Cada test nuevo, con la mutación que lo hace fallar | Usuario |
+| Validación | El usuario corrió la colección `syncvet-fase-02-usuarios` en Postman (Collection Runner, una iteración): 53 requests, 130 de 130 pruebas, 0 errores. Entrega validada | Usuario, el 2026-11-07 |
+| Suite del cierre | Sobre el código después de las correcciones: 742 casos; en SQLite, 8642 aserciones con 2 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 8658 aserciones | Cierre |
+| Siguiente | Entrega 2.3 (veterinarios), en `feature/fase-02-03-veterinarios`, creada desde `feature/fase-02-02b-usuarios`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Nada más que lo de R-034: las correcciones son tests y un comentario.

@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031) y 2.2a (R-032 y R-033) cerradas; sigue la 2.2b. El estado vigente de
+Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033) y 2.2b (R-034 y R-035) cerradas; sigue la 2.3. El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -18,7 +18,7 @@ asignan a sucursales, y divide los usuarios en dos (R-029). Cada entrega recorre
 |---|---|---|---|
 | 2.1 | Sucursales y depósitos: ABM sin baja, sucursal y depósito por defecto, `establishment` | 2.2 | COMPLETADO (R-030, R-031) |
 | 2.2a | Usuarios: alta, edición, detalle y listado; roles y sucursales; último administrador | 2.1 | COMPLETADO (R-032, R-033) |
-| 2.2b | Usuarios: inactivos (migración, login, tokens), baja sin uso, sucursal actual y contraseña propia | 2.1 | PENDIENTE |
+| 2.2b | Usuarios: inactivos (migración, login, tokens), baja sin uso, sucursal actual y contraseña propia | 2.1 | COMPLETADO (R-034, R-035) |
 | 2.3 | Veterinarios (`VET-`): uno por usuario, restauración, inactivación en uso | 2.3 | PENDIENTE |
 | 2.4 | Catálogo de servicios (`SRV-`): nombre fijo una vez usado, baja sin uso | 2.4 | PENDIENTE |
 | 2.5 | Datos y configuración de la clínica (`system_settings`), logo y limpieza de archivos huérfanos (deuda 14) | 2.5 | PENDIENTE |
@@ -689,3 +689,87 @@ El 2026-11-07 el usuario corrió en Postman (Collection Runner, una iteración) 
 16b de las correcciones (30 requests): sin errores. Número de pruebas: 78 de 78 pruebas, en 30 requests (cifra tomada de Newman: la colección corrida otra vez el 2026-11-07 contra la base de desarrollo, con `SUC-USR` ya creada, sin fallas; el Collection Runner del usuario no informó la cifra). Suite
 sobre el mismo código: la del cierre (706 casos; 8277 aserciones en SQLite con 2 omitidos y 8293 en MySQL). La FASE 2 sigue con la
 2.2b (usuarios inactivos, baja, sucursal actual y contraseña propia).
+
+### Entrega 2.2b
+
+Implementación en `feature/fase-02-02b-usuarios`, creada desde `feature/fase-02-02a-usuarios`, revisada en una sesión de Claude
+Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-035)) y validada por el
+usuario ([validación del usuario](#validación-del-usuario-r-035)). Implementación, correcciones y cierre van en un solo commit.
+Decisiones en [R-034](../decisions/registro.md) y R-035.
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `database/migrations/2026_11_07_000000_add_is_active_to_users.php`; `UpdateCurrentBranchRequest` y `UpdateOwnPasswordRequest`; `tests/Feature/Users` (`UserDeactivateTest`, `UserDeleteTest`) y `tests/Feature/Auth` (`LoginInactiveUserTest`, `InactiveUserTokenTest`, `CurrentBranchTest`, `OwnPasswordTest`) |
+| Cambiados | `User` (`is_active` activo por defecto, revocación de tokens al inactivar, scope `active()`); `UserService` (inactivación, baja con `USAGE`, `USER_SELF_ACTION` y el último administrador activo); `AuthService` (login del inactivo, `setCurrentBranch()` y `changeOwnPassword()` con su límite de intentos); `SetCurrentClinic` (token de un inactivo → 403); `AuthController` y `UserController`; `UpdateUserRequest`, `IndexUserRequest` y `UserMessages` (`is_active`, `include_inactive`); `UserResource` y `ShowUserResource` (`is_active`); `routes/api.php` (`destroy` de usuarios y las dos rutas de `me`); `lang/es/validation.php` (`current_password`); la colección de Postman de usuarios (30 → 53 requests) |
+| Tests cambiados | `InteractsWithApiRoutes` (las dos rutas de `me` en `ROUTES_WITHOUT_PERMISSION`), `InteractsWithUsers` (`users.destroy`), `RoleAccessTest` (desvío 5), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas), `RouteBindingTest` (`DELETE` de un usuario de otra clínica → 404), `UserLockTest` (orden de la baja, de la inactivación y de `me/current-branch`), `UserStoreTest` (desvío 6) |
+| Documentación | `CLAUDE.md` §1, §3 (usuarios inactivos y orden de bloqueo de `me/current-branch`, de la inactivación y de la baja), §4 (`USER_INACTIVE`, `USER_SELF_ACTION`, `USER_IN_USE`) y §6.5; la guía de Postman; este documento, el registro (R-034 y R-035), el handoff y los documentos de estado. La deuda 6 sigue igual |
+
+**Endpoints.** Las rutas pasan de 38 a 41; los permisos siguen en 123; las migraciones, de 32 a 33.
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| DELETE | `users/{user}` | `users.destroy` | 200, `data: null` | 404 (también de otra clínica); 409 `USER_IN_USE`, `USER_SELF_ACTION`, `USER_LAST_ADMIN` |
+| PATCH | `me/current-branch` | Sin permiso (`auth.current-branch`) | 200, `MeResource` | 401; 403 `USER_INACTIVE`; 422 |
+| PATCH | `me/password` | Sin permiso (`auth.password`) | 200, `data: null` | 401; 403 `USER_INACTIVE`; 422; 429 `AUTH_TOO_MANY_ATTEMPTS` |
+
+Además: `PATCH`/`PUT users/{user}` acepta `is_active` (409 `USER_SELF_ACTION` o `USER_LAST_ADMIN`); `GET users`, `include_inactive`;
+`POST login` responde 403 `USER_INACTIVE` a un inactivo con la contraseña correcta, y toda ruta con `clinic`, a su token vigente.
+
+**Migración.** `is_active` booleano, no nulo, por defecto `true`, después de `password`, sin índice. Probada en MySQL durante la
+implementación: sube, baja y vuelve a subir (`tinyint(1)`, por defecto 1).
+
+**Tests.** Suite del 2026-11-07, después de las correcciones: 742 casos con los *data providers*; en SQLite, 8642 aserciones con 2
+omitidos (solo de MySQL); contra MySQL (`syncvet_test_mysql`), 8658 aserciones sin omitidos. Frente al cierre de la 2.2a (706 casos;
+8277 y 8293 aserciones): 36 casos y 365 aserciones más en las dos bases. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `UserDeactivateTest` | 7 | 46 | Inactivar revoca todos los tokens (el viejo, 401) y no los de otros; reactivar no los devuelve; `is_active: true` sin cambio conserva los tokens; a sí mismo → 409 (reenviar `true` no lo es); el último administrador activo → 409 sin cambios a medias; un administrador inactivo no cuenta (condición del desvío 7 de la 2.2a); el listado sin inactivos salvo `include_inactive=1`; `is_active` booleano y en la auditoría |
+| `UserDeleteTest` | 8 | 38 | Baja sin uso: sufijo en el email (libre para un alta nueva), tokens revocados, `branch_user` conservado, 404 después; con ficha de veterinario (también eliminada), con `cash_registers.user_id`, con `schedule_blocks.created_by` y con `cash_movements.cancelled_by` (segunda columna) → 409 sin revocar tokens; a sí mismo → 409; el último administrador activo → 409; `USAGE` cubre toda clave foránea a `users`; el recepcionista y el veterinario → 403 |
+| `LoginInactiveUserTest` | 5 | 37 | Con la contraseña correcta, 403 `USER_INACTIVE` sin token y `LOGIN_FAILED` con el motivo; con una incorrecta, 422 `INVALID_CREDENTIALS`; con la incorrecta, la misma respuesta completa que un activo en 6 intentos (el sexto, 429 con `Retry-After`) y la auditoría sin el motivo; el inactivo con la correcta no cuenta para el límite; la clínica suspendida se revisa antes |
+| `InactiveUserTokenTest` | 2 | 19 | Un token vigente de un inactivo → 403 en `me`, `clients` y `branches`, y en `me/password` y `me/current-branch` sin cambiar la contraseña ni la sucursal actual; `logout` funciona |
+| `CurrentBranchTest` | 5 | 39 | Sucursal asignada y activa → 200 con `MeResource`; no asignada, inactiva, de otra clínica, inexistente o mal formada → 422; el Service rechaza una inactivada después de la validación y una no asignada sin pasar por el Request; sin token → 401 |
+| `OwnPasswordTest` | 5 | 53 | Con tokens reales: conserva el token en uso, revoca los demás del usuario y no los de otro, login con la nueva, la contraseña y su hash fuera de la auditoría; la actual incorrecta → 422; la nueva débil, filtrada, vacía o igual a la actual → 422; el sexto intento en un minuto → 429 con `Retry-After` (el contador es del usuario); un cambio correcto limpia el contador |
+| `UserLockTest` | 5 | 35 | Suma tres a los de la 2.2a: la baja y la inactivación bloquean la clínica y después el usuario antes de contar los administradores y de revisar el uso; `me/current-branch`, clínica → sucursal → usuario |
+
+**Mutaciones.** Nueve en la implementación (R-034), cada una con un test que falla: quitar la revocación de tokens al inactivar, el
+chequeo de `is_active` del login, revisarlo antes de verificar la contraseña, el chequeo de `SetCurrentClinic`, el chequeo de uso de
+la baja, los dos chequeos de "a sí mismo" (baja e inactivación), contar también los administradores inactivos y el límite de
+intentos de la contraseña propia; sacar una tabla de `USAGE` hace fallar `test_usage_covers_every_foreign_key_to_users`. En las
+correcciones, siete más: sacar `updatePassword` o `updateCurrentBranch` del middleware `clinic`, guardar el motivo en el intento
+fallido de un inactivo, no contar ese intento, cortar el bucle de `isInUse` en la primera columna, quitar el `whereHas` de
+`setCurrentBranch` y bloquear el usuario antes que la sucursal.
+
+**Desvíos del diseño.** Los siete de la implementación, aceptados por el usuario (R-034): el último administrador generalizado (1),
+el bloqueo clínica → sucursal → usuario de `me/current-branch` (2), los errores de validación de `me/password` sin contar intentos
+(3), los dos registros de auditoría de la baja (4), el 422 de las rutas de `me` sin cuerpo en `RoleAccessTest` (5), dos tests
+inestables de la 2.2a (6) y el esquema actual en el test de las claves foráneas en MySQL (7). Además, un agregado al diseño pedido
+por el usuario: el límite de 5 intentos por minuto en `me/password`. **La condición del desvío 7 de la 2.2a (R-032) quedó cumplida:**
+`USER_LAST_ADMIN` cuenta solo los administradores con `is_active`, con su test.
+
+#### Correcciones de la revisión (R-035)
+
+La revisión no encontró errores en el código: el comportamiento cumplía el diseño en todo lo probado. Lo que el usuario decidió
+corregir:
+
+| # | Gravedad | Hallazgo | Corrección | Test |
+|---|---|---|---|---|
+| 1 | Media | Ningún test probaba que un inactivo no usa `me/password` ni `me/current-branch`: sacarlas del middleware `clinic` no hacía fallar la suite | Test con un token vigente de un inactivo en las dos rutas | `InactiveUserTokenTest::test_an_inactive_user_does_not_change_the_own_password_nor_the_current_branch` |
+| 2 | Baja | El login de un inactivo con la contraseña incorrecta se probaba con un intento, solo el código y el mensaje | La respuesta completa frente a un activo en 6 intentos, el 429 en los dos y la auditoría sin el motivo | `LoginInactiveUserTest::test_with_a_wrong_password_an_inactive_user_looks_like_an_active_one` |
+| 3 | Baja | `USAGE` se probaba solo con tablas de una columna: revisar solo la primera no hacía fallar la suite | Uso por `created_by` y por `cancelled_by` (segunda columna) | `UserDeleteTest::test_a_created_by_or_a_second_column_is_usage` |
+| 4 | Baja | La asignación que revisa `setCurrentBranch` y su orden de bloqueo, sin test | Test del Service sin el Request y del orden clínica → sucursal → usuario | `CurrentBranchTest::test_a_branch_not_assigned_is_rejected_by_the_service` y `UserLockTest::test_choosing_the_current_branch_locks_the_clinic_then_the_branch_then_the_user` |
+| 5 | Baja | El comentario de `UserService::USAGE` nombraba `UserUsageTest`, que no existe | Nombra `UserDeleteTest::test_usage_covers_every_foreign_key_to_users` | — |
+
+La revisión confirmó además: la lógica en los Services; errores con `UserException`, `AuthException` o 422 de validación, sin 500;
+los bloqueos en el orden clínica → sucursal → usuario; la contraseña actual y la nueva con `#[\SensitiveParameter]`, fuera de las
+respuestas y de la auditoría; la migración; login, `me` y logout sin cambios fuera del 403 `USER_INACTIVE`, y el logout de un
+inactivo; la baja que libera el email; `USAGE` igual a las claves foráneas de las migraciones; el 429 con `Retry-After` y el contador
+por usuario; el recepcionista y el veterinario, 403 en `DELETE users/{user}` y 200 en `me/current-branch` y `me/password`.
+
+#### Validación del usuario (R-035)
+
+El 2026-11-07 el usuario corrió en Postman (Collection Runner, una iteración) la colección `syncvet-fase-02-usuarios`: 53 requests,
+130 de 130 pruebas, 0 errores. Suite sobre el mismo código: la del cierre (742 casos; 8642 aserciones en SQLite con 2 omitidos y 8658
+en MySQL). La FASE 2 sigue con la 2.3 (veterinarios).

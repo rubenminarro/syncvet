@@ -31,6 +31,58 @@ class UserLockTest extends TestCase
         $this->assertBefore($queries, $this->lockOf('users'), $this->administratorCount(), 'Se contaron los administradores antes de bloquear el usuario.');
     }
 
+    /**
+     * La baja (2.2b): la clínica, después el usuario, y recién entonces el conteo de los
+     * administradores activos y el uso.
+     */
+    public function test_deleting_a_user_locks_the_clinic_and_the_user_before_counting_and_checking_the_usage(): void
+    {
+        $clinic = $this->createClinic();
+        $admin = $this->userWithRoles($clinic, ['administrador']);
+        $this->userWithRoles($clinic, ['administrador']);
+        $this->actAsUserManager($clinic);
+
+        $queries = $this->queriesOf(fn () => $this->deleteJson("/api/users/{$admin->id}")->assertOk());
+
+        $this->assertBefore($queries, $this->lockOf('clinics'), $this->lockOf('users'), 'El usuario se bloqueó antes que la clínica.');
+        $this->assertBefore($queries, $this->lockOf('users'), $this->administratorCount(), 'Se contaron los administradores antes de bloquear el usuario.');
+        $this->assertBefore($queries, $this->lockOf('users'), fn (string $sql) => str_contains($sql, 'from "veterinarians"') || str_contains($sql, 'from `veterinarians`'), 'Se revisó el uso antes de bloquear el usuario.');
+    }
+
+    /**
+     * Inactivar (2.2b) cuenta los administradores con la clínica y el usuario bloqueados.
+     */
+    public function test_deactivating_an_administrator_locks_the_clinic_and_the_user_before_counting(): void
+    {
+        $clinic = $this->createClinic();
+        $admin = $this->userWithRoles($clinic, ['administrador']);
+        $this->userWithRoles($clinic, ['administrador']);
+        $this->actAsUserManager($clinic);
+
+        $queries = $this->queriesOf(fn () => $this->patchJson("/api/users/{$admin->id}", ['is_active' => false])->assertOk());
+
+        $this->assertBefore($queries, $this->lockOf('clinics'), $this->lockOf('users'), 'El usuario se bloqueó antes que la clínica.');
+        $this->assertBefore($queries, $this->lockOf('users'), $this->administratorCount(), 'Se contaron los administradores antes de bloquear el usuario.');
+    }
+
+    /**
+     * La sucursal actual (me/current-branch, 2.2b): la clínica, después la sucursal y
+     * después el usuario, como la inactivación de una sucursal.
+     */
+    public function test_choosing_the_current_branch_locks_the_clinic_then_the_branch_then_the_user(): void
+    {
+        $clinic = $this->createClinic();
+        $default = $this->defaultBranchIn($clinic);
+        $north = $this->branchIn($clinic, ['code' => 'SUC-02']);
+        $user = $this->userWithRoles($clinic, ['veterinario'], [$default, $north], ['current_branch_id' => $default->id]);
+        $this->actingAs($user, 'sanctum');
+
+        $queries = $this->queriesOf(fn () => $this->patchJson('/api/me/current-branch', ['branch_id' => $north->id])->assertOk());
+
+        $this->assertBefore($queries, $this->lockOf('clinics'), $this->lockOf('branches'), 'La sucursal se bloqueó antes que la clínica.');
+        $this->assertBefore($queries, $this->lockOf('branches'), $this->lockOf('users'), 'El usuario se bloqueó antes que la sucursal.');
+    }
+
     public function test_creating_a_user_locks_the_clinic_before_reading_the_branches(): void
     {
         $clinic = $this->createClinic();

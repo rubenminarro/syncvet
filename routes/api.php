@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('login', [AuthController::class, 'login'])->name('auth.login');
 Route::post('logout', [AuthController::class, 'logout'])->name('auth.logout');
 Route::get('me', [AuthController::class, 'me'])->name('auth.me');
+// Perfil (FASE 2, entrega 2.2b): la sucursal actual y la contraseña propia, con token y clínica.
+Route::patch('me/current-branch', [AuthController::class, 'updateCurrentBranch'])->name('auth.current-branch');
+Route::patch('me/password', [AuthController::class, 'updatePassword'])->name('auth.password');
 
 // 'clinic' (SetCurrentClinic) fija la clínica del usuario antes del route model binding.
 Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function () {
@@ -50,7 +53,7 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::apiResource('branches.warehouses', BranchWarehouseController::class)->only(['index', 'store']);
     Route::apiResource('warehouses', WarehouseController::class)->only(['update']);
 
-    // Usuarios (FASE 2, entrega 2.2a): solo el administrador. La baja y los inactivos son de la 2.2b.
-    Route::apiResource('users', UserController::class)->except(['destroy']);
+    // Usuarios (FASE 2, entregas 2.2a y 2.2b): solo el administrador. La baja, solo sin uso.
+    Route::apiResource('users', UserController::class);
     Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
 });

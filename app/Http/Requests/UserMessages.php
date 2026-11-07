@@ -143,6 +143,9 @@ class UserMessages
                 'array' => 'Las sucursales deben ser una lista.',
                 'min' => 'Elegí al menos una sucursal.',
             ],
+            'is_active' => [
+                'boolean' => 'El campo activo debe ser verdadero o falso.',
+            ],
             'branch_ids.*' => [
                 'required' => self::BRANCH_NOT_AVAILABLE,
                 'integer' => self::BRANCH_NOT_AVAILABLE,

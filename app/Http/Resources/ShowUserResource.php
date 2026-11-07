@@ -5,8 +5,8 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 
 /**
- * Detalle de un usuario (FASE 2, entrega 2.2a). Con la 2.3 suma su ficha de
- * veterinario; con la 2.2b, is_active.
+ * Detalle de un usuario (FASE 2, entrega 2.2a; is_active desde la 2.2b, en
+ * UserResource). Con la 2.3 suma su ficha de veterinario.
  */
 class ShowUserResource extends UserResource
 {

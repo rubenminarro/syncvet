@@ -15,7 +15,7 @@ trait InteractsWithUsers
 {
     use InteractsWithBranches;
 
-    protected const USER_PERMISSIONS = ['users.index', 'users.store', 'users.show', 'users.update', 'roles.index'];
+    protected const USER_PERMISSIONS = ['users.index', 'users.store', 'users.show', 'users.update', 'users.destroy', 'roles.index'];
 
     /**
      * Contraseña válida para la regla del proyecto (R-009); el Have I Been Pwned

@@ -185,7 +185,7 @@ pasos, y la preparación, el Environment **SyncVet local** y la forma de correrl
 | Colección | Entrega | Qué valida |
 |---|---|---|
 | [`postman/syncvet-fase-02-sucursales.postman_collection.json`](postman/syncvet-fase-02-sucursales.postman_collection.json) | 2.1 (R-030 y R-031) | Listado con inactivas y detalle de la sucursal por defecto con su depósito, alta de una sucursal con su depósito por defecto, código repetido en minúsculas, nombre repetido en mayúsculas y sin acento, establecimiento mal formado o en uso y teléfono inválido (422), cambio de la sucursal por defecto (la anterior deja de serlo), quitar la por defecto sin marcar otra (422), inactivar la por defecto (409), cambio del establecimiento sin facturas con `PUT` parcial, alta de depósitos (un `branch_id` del cuerpo se ignora; código en uso y nombre repetido, 422), cambio del depósito por defecto, inactivar el depósito por defecto (409), `branch_id` al editar un depósito (422), listado de depósitos sin el inactivo, sucursal inactivada (no suma depósitos: 422 en `branch`; no pasa a ser la por defecto: 422), listados con y sin inactivas, sucursal de otra clínica (404), y el recepcionista que lista y no crea (403) |
-| [`postman/syncvet-fase-02-usuarios.postman_collection.json`](postman/syncvet-fase-02-usuarios.postman_collection.json) | 2.2a (R-032 y R-033) | Roles que se asignan, alta de un usuario con roles y sucursales (email repetido con otras mayúsculas, contraseña débil, rol inexistente y sin sucursales: 422), detalle, cambio de roles y de sucursales (la actual sale de la lista y pasa a ser la primera), login del usuario nuevo y `me`, cambio de su contraseña por el administrador (el token anterior queda revocado: 401; login con la nueva), el administrador no cambia su propia contraseña por `users/{user}` (422), quitar el rol al último administrador (409) y, con otro administrador, quitarlo (200), listado con `search`, `role` y `branch_id`, filtros mal formados (422), usuario de otra clínica (404 al verlo y al editarlo), y el recepcionista que no lista, no da de alta ni ve los roles (403) |
+| [`postman/syncvet-fase-02-usuarios.postman_collection.json`](postman/syncvet-fase-02-usuarios.postman_collection.json) | 2.2a y 2.2b (R-032 a R-035) | Roles que se asignan, alta de un usuario con roles y sucursales (email repetido con otras mayúsculas, contraseña débil, rol inexistente y sin sucursales: 422), detalle, cambio de roles y de sucursales (la actual sale de la lista y pasa a ser la primera), login del usuario nuevo y `me`, cambio de su contraseña por el administrador (el token anterior queda revocado: 401; login con la nueva), el administrador no cambia su propia contraseña por `users/{user}` (422), quitar el rol al último administrador (409) y, con otro administrador, quitarlo (200), listado con `search`, `role` y `branch_id`, filtros mal formados (422), usuario de otra clínica (404 al verlo y al editarlo), y el recepcionista que no lista, no da de alta ni ve los roles (403). Con la 2.2b: sucursal actual con `me/current-branch` (inexistente o no asignada, 422), contraseña propia con `me/password` (la actual incorrecta, 422; el cambio correcto conserva el token en uso), el administrador no se inactiva a sí mismo (409), inactivar al usuario (su token, 401; login con la contraseña correcta, 403 `USER_INACTIVE`; con una incorrecta, 422 `INVALID_CREDENTIALS`), listado sin el inactivo salvo `include_inactive`, reactivarlo, baja de un usuario con uso (409 `USER_IN_USE`), el recepcionista que no da de baja (403), baja sin uso (404 al buscarlo y su email libre para un alta nueva) y la baja del usuario nuevo |
 
 #### Sucursales (2.1)
 
@@ -202,8 +202,9 @@ un código de establecimiento (hay 999).
 (`{{token_b}}`, para tomar una sucursal de la clínica B).
 
 **Lo que no está en la colección.** El establecimiento de una sucursal con facturas (422 `BRANCH_ESTABLISHMENT_NOT_EDITABLE`): la
-API todavía no crea facturas. Los usuarios que pierden la sucursal actual al inactivarla: la API todavía no elige la sucursal
-actual (entrega 2.2b). La concurrencia y el orden de los bloqueos. Lo prueban `BranchUpdateTest` y `BranchLockTest`.
+API todavía no crea facturas. Los usuarios que pierden la sucursal actual al inactivarla (elegir otra con `PATCH me/current-branch`
+está en la colección de usuarios, desde la 2.2b). La concurrencia y el orden de los bloqueos. Lo prueban `BranchUpdateTest` y
+`BranchLockTest`.
 
 **Con Newman.**
 
@@ -211,25 +212,34 @@ actual (entrega 2.2b). La concurrencia y el orden de los bloqueos. Lo prueban `B
 npx newman run docs/testing/postman/syncvet-fase-02-sucursales.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
-#### Usuarios (2.2a)
+#### Usuarios (2.2a y 2.2b)
 
 **Necesita internet.** Los emails de la corrida son `@mailinator.com`, y la validación del email consulta su registro MX
 (`EMAIL_DNS_CHECK`, como la de los clientes): sin conexión, el alta responde 422 en `email`. No hace falta volver a sembrar los
-roles: la 2.2a no cambia permisos.
+roles: la 2.2a y la 2.2b no cambian permisos.
+
+**Migrar la base antes de correrla.** La 2.2b suma la columna `users.is_active`: en una base creada antes, correr
+`php artisan migrate` (no hace falta recrearla). Sin la columna, los pedidos de la 2.2b fallan.
+
+**53 requests.** La primera corrida en una base suma uno (54): crea la sucursal `SUC-USR`.
 
 **Se corre más de una vez sin recrear la base.** Su rango de corrida es de 200000 a 299998, que no usa ninguna otra colección; el
 número va en el email y en la contraseña del usuario de la corrida. La primera corrida crea la sucursal `SUC-USR` y las siguientes
-la reusan (si quedó inactiva, la activan); ocupa un código de establecimiento. Los usuarios todavía no se eliminan (la baja es de la
-2.2b): cada corrida deja uno, y ninguno queda como administrador.
+la reusan (si quedó inactiva, la activan); ocupa un código de establecimiento. No deja usuarios: la corrida da de baja a los dos que crea (pedidos 47 y 50).
 
 **Un solo administrador en la clínica A.** El pedido 16 (409 `USER_LAST_ADMIN`) necesita que `admin-a@example.com` sea el único
-administrador de la clínica A. Si se agregó otro a mano, el pedido 15 lo avisa: sacarle el rol antes de correrla.
+administrador activo de la clínica A. Si se agregó otro a mano, el pedido 15 lo avisa: sacarle el rol antes de correrla.
+
+**Un veterinario con ficha.** La baja con uso (pedido 45) usa a `vet-a@example.com`, que tiene ficha de veterinario porque la crea
+el `DemoSeeder`.
 
 **Usuarios.** `admin-a@example.com` (`{{token_admin}}`), `recepcion-a@example.com` (`{{token}}`) y `admin-b@example.com`
 (`{{token_b}}`, para tomar un usuario de la clínica B).
 
 **Lo que no está en la colección.** La concurrencia y el orden de los bloqueos (`UserLockTest`), el email tomado entre el chequeo y
-el guardado (`UserStoreTest`), y el usuario sin sucursal actual que recibe sucursales (`UserUpdateTest`).
+el guardado (`UserStoreTest`), el usuario sin sucursal actual que recibe sucursales (`UserUpdateTest`), el límite de intentos de
+`me/password` (`OwnPasswordTest`), el token vigente de un usuario inactivo (`InactiveUserTokenTest`), la baja con un registro a su
+nombre en una tabla de negocio (`UserDeleteTest`) y el límite de intentos del login de un inactivo (`LoginInactiveUserTest`).
 
 **Con Newman.**
 

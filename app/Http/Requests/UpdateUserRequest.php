@@ -10,7 +10,8 @@ use Illuminate\Foundation\Http\FormRequest;
  * validan los campos enviados. La contraseña es opcional; si llega, se cambia y se
  * revocan los tokens del usuario (pregunta 20). La propia no se cambia por aquí: el
  * usuario la cambia desde su perfil (PATCH me/password, 2.2b), que pide la actual y
- * conserva el token en uso. El último administrador lo revisa UserService.
+ * conserva el token en uso. El último administrador y la inactivación de sí mismo
+ * los revisa UserService.
  */
 class UpdateUserRequest extends FormRequest
 {
@@ -38,6 +39,9 @@ class UpdateUserRequest extends FormRequest
             'roles.*' => $roles['roles.*'],
             'branch_ids' => ['sometimes', 'required', ...$branches['branch_ids']],
             'branch_ids.*' => $branches['branch_ids.*'],
+            // Inactivar (2.2b): revoca sus tokens; a sí mismo o al último administrador
+            // activo, 409 (UserService).
+            'is_active' => ['sometimes', 'boolean'],
         ];
     }
 

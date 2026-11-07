@@ -225,7 +225,14 @@ class RoleAccessTest extends TestCase
                 $user = User::factory()->for($this->clinic)->create();
                 $response = $this->send($user, $routes[$key], $method);
 
-                $this->assertSame(200, $response->getStatusCode(), "{$method} {$routes[$key]['uri']} respondió {$response->getStatusCode()}");
+                // Las del perfil (2.2b) piden un cuerpo: sin él pasan la autorización y la
+                // validación las rechaza (422 VALIDATION_ERROR).
+                $expected = in_array($key, ['PATCH api/me/current-branch', 'PATCH api/me/password'], true) ? 422 : 200;
+                $this->assertSame($expected, $response->getStatusCode(), "{$method} {$routes[$key]['uri']} respondió {$response->getStatusCode()}");
+
+                if ($expected === 422) {
+                    $this->assertSame('VALIDATION_ERROR', $response->json('error_code'));
+                }
             }
         }
     }

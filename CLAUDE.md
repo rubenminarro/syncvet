@@ -20,25 +20,26 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
-* **Base de datos:** MySQL 8. Esquema del MVP completo (32 migraciones). Una base compartida por todas las clínicas, con
-  `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros R-002, R-004 y R-007).
+* **Base de datos:** MySQL 8. Esquema del MVP completo (33 migraciones: las 32 del MVP y `users.is_active`, de la 2.2b). Una
+  base compartida por todas las clínicas, con `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros
+  R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está completada (R-028): entregas 1.1 (traducciones,
   voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
-  (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), y 2.2a,
-  usuarios (R-032 y R-033), cerradas y validadas por el usuario con Postman; sigue la entrega 2.2b, usuarios inactivos, baja,
-  sucursal actual y contraseña propia.
+  (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), 2.2a,
+  usuarios (R-032 y R-033), y 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), cerradas y
+  validadas por el usuario con Postman; sigue la entrega 2.3, veterinarios.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos y de usuarios (`tests/Feature/Clients`, `tests/Feature/Patients`,
   `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, y usuarios, con las colecciones de Postman de `docs/testing/postman`, que
   se pueden correr más de una vez sin recrear la base.
-* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas); clientes, pacientes (con su foto: subir, ver y
+* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
-  (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle y listado) y el listado de
-  roles.
+  (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso) y el
+  listado de roles.
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
@@ -114,8 +115,9 @@ empezar una sesión.
   baja de una especie o una raza, con `lockForUpdate` antes de revisar si está en uso; el alta y la edición de un paciente,
   con `sharedLock` sobre la especie y la raza que usa, antes de la serie); clínica → sucursal → depósito o usuario (el alta y
   la edición de sucursales y depósitos: `CatalogLock`, después la sucursal con `lockForUpdate`, después el depósito o los
-  usuarios que la tienen como actual); clínica → usuario (el alta y la edición de usuarios: `CatalogLock`, después el usuario con
-  `lockForUpdate` antes de contar los administradores).
+  usuarios que la tienen como actual; también `PATCH me/current-branch`: `CatalogLock`, después la sucursal elegida y después el
+  usuario, los dos con `lockForUpdate`); clínica → usuario (el alta, la edición, la inactivación y la baja de usuarios:
+  `CatalogLock`, después el usuario con `lockForUpdate` antes de contar los administradores y, en la baja, de revisar el uso).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -137,6 +139,12 @@ empezar una sesión.
   usuarios fuera del login filtra por `clinic_id` de forma explícita, y el *route binding* de un usuario de otra clínica
   responde 404. Los usuarios se eliminan siempre modelo por modelo (`$user->delete()`), nunca con un borrado masivo
   (`User::where(...)->delete()`): el borrado masivo no dispara el evento `deleted` y sus tokens seguirían vigentes.
+* **Usuarios inactivos** (`users.is_active`, 2.2b): inactivar revoca todos sus tokens (evento `updated` de `User`, como el
+  `deleted`; reactivar no los devuelve), así que `is_active` se cambia modelo por modelo, nunca con una actualización masiva. Un
+  inactivo no entra: con la contraseña correcta, 403 `USER_INACTIVE` (después de la clínica suspendida, sin contar como intento
+  fallido); con una incorrecta, el 422 `INVALID_CREDENTIALS` de siempre, para no revelar que la cuenta existe. Un token vigente de
+  un inactivo recibe 403 `USER_INACTIVE` en toda ruta con `clinic` (`SetCurrentClinic`), también `me`, `me/password` y
+  `me/current-branch`; `logout` sigue funcionando. Los conteos de administradores usan `User::active()`.
 * **Contraseñas:** la regla vive en `App\Support\UserPassword` (`Password::defaults()`, R-009): al menos 12 caracteres, con
   mayúsculas, minúsculas, números y símbolos, y no filtrada (Have I Been Pwned). Toda función propia que reciba una contraseña
   lleva `#[\SensitiveParameter]`; la aplicación oculta los argumentos de las trazas (R-010). Los tests no salen a la red: Have I
@@ -221,6 +229,15 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | 503 | `SERVICE_UNAVAILABLE` | Servicio no disponible |
 | Otro 4xx | `HTTP_ERROR` | Error HTTP sin código propio; conserva su estado |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
+
+`error_code` de autenticación y usuarios que no son de un solo módulo (2.2a y 2.2b):
+
+| HTTP | `error_code` | Excepción | Cuándo |
+|---|---|---|---|
+| 403 | `USER_INACTIVE` | `AuthException` | Login de un usuario inactivo con la contraseña correcta, o su token vigente en una ruta con `clinic` (§3) |
+| 409 | `USER_SELF_ACTION` | `UserException` | El administrador se inactiva o se da de baja a sí mismo |
+| 409 | `USER_IN_USE` | `UserException` | Baja de un usuario con registros a su nombre (`UserService::USAGE`): se inactiva |
+| 409 | `USER_LAST_ADMIN` | `UserException` | La clínica se queda sin un administrador activo (§6.5) |
 
 ---
 
@@ -350,8 +367,8 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 ### 6.5 Usuarios
 
 * Alta, edición, detalle y listado (`users`) y el listado de roles (`roles`, sin paginar): solo el administrador (P2; permisos
-  `users.index`, `users.store`, `users.show`, `users.update` y `roles.index`). El recepcionista y el veterinario reciben 403. Un
-  usuario de otra clínica → 404. `clinic_id` no se recibe: lo fija `UserService`. Sin baja ni inactivos hasta la 2.2b.
+  `users.index`, `users.store`, `users.show`, `users.update`, `users.destroy` y `roles.index`). El recepcionista y el veterinario
+  reciben 403. Un usuario de otra clínica → 404. `clinic_id` no se recibe: lo fija `UserService`.
 * `first_name` y `last_name` de 2 a 100, con la regla de nombres de personas (`App\Support\PersonName`, §6.1); `name` lo arma el
   Service (`first_name last_name`).
 * Email obligatorio, solo ASCII, en minúsculas, hasta 150 (deja lugar al sufijo de baja), con la validación de los clientes
@@ -361,7 +378,22 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 * Contraseña con `UserPassword` (R-009): obligatoria en el alta, opcional al editar. Si llega al editar a otro usuario, se cambia y se
   revocan todos los tokens de ese usuario (aunque sea la misma); el token de quien hace el cambio sigue. La propia no se cambia por
   `users/{user}`: 422 en `password`, "Para cambiar tu contraseña usá tu perfil.", también vacía o nula (se cambia con
-  `PATCH me/password`, 2.2b, que pide la actual y conserva el token en uso; R-033).
+  `PATCH me/password`, que pide la actual y conserva el token en uso; R-033).
+* Inactivar (`is_active` en `UpdateUserRequest`, 2.2b): revoca todos los tokens del usuario; reactivar no los devuelve (§3). El
+  administrador no se inactiva ni se da de baja a sí mismo: 409 `USER_SELF_ACTION`, "No podés inactivarte ni darte de baja a vos
+  mismo." (reenviar `is_active: true` a sí mismo no es inactivarse).
+* Baja (`DELETE users/{user}`, P1): solo sin uso. Uso: la ficha de veterinario (también eliminada) o cualquier fila de una tabla
+  de negocio que lo referencie (`UserService::USAGE`, todas las claves foráneas a `users` salvo `audit_logs` y `branch_user`; un
+  test exige que la lista las cubra). Con uso → 409 `USER_IN_USE`, "El usuario tiene registros a su nombre y no se puede eliminar:
+  inactivalo." Al eliminar: `//deleted_<id>_<timestamp>` en el email (queda libre para un alta nueva), tokens revocados y
+  `branch_user` conservado; la auditoría guarda `updated` (el email) y `deleted`.
+* Perfil (2.2b; cualquier usuario autenticado y activo, sin permiso: `ROUTES_WITHOUT_PERMISSION`):
+  * `PATCH me/current-branch` con `branch_id`: una sucursal activa de la clínica asignada al usuario (si no, 422 en `branch_id`); el
+    Service la vuelve a revisar con la clínica bloqueada (§3). Responde `MeResource`.
+  * `PATCH me/password` con `current_password` (incorrecta → 422 en `current_password`) y `password` (`UserPassword`, distinta de la
+    actual). Conserva el token del pedido y revoca los demás del usuario. Límite: 5 intentos por minuto por usuario, contados antes
+    de verificar la actual (el sexto, 429 `AUTH_TOO_MANY_ATTEMPTS` con `Retry-After`, aunque sea correcta); los errores de
+    validación no cuentan y un cambio correcto limpia el contador (R-034).
 * `roles`: 1 o más de `administrador`, `recepcionista` y `veterinario` (`App\Enums\UserRole`, P3), sin repetidos; `syncRoles`, y el
   cambio queda en la auditoría como `ROLES_SYNCED`. La respuesta los muestra como `{name, label}`, igual que `GET roles`.
 * `branch_ids`: 1 o más sucursales activas de la clínica, sin repetidas; al editar se acepta también una inactiva que el usuario ya
@@ -370,13 +402,14 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 * Sucursal actual (`current_branch_id`): en el alta, la por defecto si está en `branch_ids`; si no, la primera activa de la lista;
   sin ninguna activa, ninguna. Al editar `branch_ids`, si el usuario no tiene sucursal actual o la actual sale de la lista, se elige
   con la misma regla (R-033).
-* Último administrador (P4): quitarle el rol `administrador` al último administrador de la clínica → 409 `USER_LAST_ADMIN`, "La
-  clínica tiene que tener al menos un administrador activo.", también cuando se lo quita a sí mismo. Cuentan los administradores no
-  eliminados de la clínica; desde la 2.2b, solo los activos (`is_active`, condición del desvío 7, R-032).
-* Listado paginado con `ListFilters`: los usuarios de la clínica (`inClinic()`), sin eliminados; `search` en nombre, apellido y
-  email; `role` y `branch_id` (una sucursal de la clínica, activa o no); orden por apellido, nombre e id.
-* Concurrencia: el alta y la edición bloquean la clínica (`CatalogLock`) y, al editar, después el usuario (`lockForUpdate`), antes
-  de contar los administradores (§3).
+* Último administrador (P4): si un administrador activo deja de serlo (pierde el rol, se inactiva o se da de baja) y no queda otro
+  administrador activo de la clínica → 409 `USER_LAST_ADMIN`, "La clínica tiene que tener al menos un administrador activo.",
+  también cuando se quita el rol a sí mismo. Cuentan solo los administradores activos (`is_active`) y no eliminados de la clínica
+  (R-034); quitarle el rol a un administrador inactivo no cambia nada (200).
+* Listado paginado con `ListFilters`: los usuarios activos de la clínica (`inClinic()`), sin eliminados, salvo
+  `include_inactive=1`; `search` en nombre, apellido y email; `role` y `branch_id` (una sucursal de la clínica, activa o no); orden por apellido, nombre e id.
+* Concurrencia: el alta, la edición, la inactivación y la baja bloquean la clínica (`CatalogLock`) y, salvo el alta, después el
+  usuario (`lockForUpdate`), antes de contar los administradores; la baja revisa el uso dentro de su transacción (§3).
 
 ### 6.6 Pendientes de diseño (reglas a definir antes de programar)
 
