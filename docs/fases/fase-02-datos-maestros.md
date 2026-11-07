@@ -686,6 +686,6 @@ aparece en el listado ni cuenta como administrador; el recepcionista y el veteri
 #### Validación del usuario (R-033)
 
 El 2026-11-07 el usuario corrió en Postman (Collection Runner, una iteración) la colección `syncvet-fase-02-usuarios`, con el pedido
-16b de las correcciones (30 requests): sin errores. Número de pruebas: PENDIENTE DE VERIFICACIÓN (informado como "XX de XX"). Suite
+16b de las correcciones (30 requests): sin errores. Número de pruebas: 78 de 78 pruebas, en 30 requests (cifra tomada de Newman: la colección corrida otra vez el 2026-11-07 contra la base de desarrollo, con `SUC-USR` ya creada, sin fallas; el Collection Runner del usuario no informó la cifra). Suite
 sobre el mismo código: la del cierre (706 casos; 8277 aserciones en SQLite con 2 omitidos y 8293 en MySQL). La FASE 2 sigue con la
 2.2b (usuarios inactivos, baja, sucursal actual y contraseña propia).
