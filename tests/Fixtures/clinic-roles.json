@@ -109,7 +109,11 @@
         "species.index",
         "species.store",
         "species.update",
+        "system-settings.delete-logo",
+        "system-settings.show",
+        "system-settings.show-logo",
         "system-settings.update",
+        "system-settings.upload-logo",
         "users.destroy",
         "users.index",
         "users.show",
@@ -177,6 +181,8 @@
         "services.index",
         "services.show",
         "species.index",
+        "system-settings.show",
+        "system-settings.show-logo",
         "veterinarians.index"
     ],
     "veterinario": [
@@ -227,6 +233,8 @@
         "species.index",
         "species.store",
         "species.update",
+        "system-settings.show",
+        "system-settings.show-logo",
         "veterinarians.index"
     ]
 }

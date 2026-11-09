@@ -6,11 +6,13 @@ use App\Http\Controllers\Api\BranchWarehouseController;
 use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
+use App\Http\Controllers\Api\ClinicLogoController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SpeciesController;
+use App\Http\Controllers\Api\SystemSettingsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VeterinarianController;
 use App\Http\Controllers\Api\WarehouseController;
@@ -66,4 +68,12 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     // Servicios (FASE 2, entrega 2.4): el catálogo con código SRV-. Un servicio usado no cambia de
     // nombre ni se elimina: se inactiva.
     Route::apiResource('services', ServiceController::class);
+
+    // Configuración de la clínica (FASE 2, entrega 2.5): sus datos, las claves de system_settings y
+    // el logo (disco privado; la descarga es el archivo, como la foto del paciente).
+    Route::get('system-settings', [SystemSettingsController::class, 'show'])->name('system-settings.show');
+    Route::match(['put', 'patch'], 'system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
+    Route::post('system-settings/logo', [ClinicLogoController::class, 'store'])->name('system-settings.upload-logo');
+    Route::get('system-settings/logo', [ClinicLogoController::class, 'show'])->name('system-settings.show-logo');
+    Route::delete('system-settings/logo', [ClinicLogoController::class, 'destroy'])->name('system-settings.delete-logo');
 });

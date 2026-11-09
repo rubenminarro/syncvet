@@ -1,0 +1,277 @@
+<?php
+
+namespace Tests\Feature\Settings;
+
+use App\Models\Clinic;
+use App\Models\Patient;
+use App\Models\SystemSetting;
+use App\Services\ClinicLogoService;
+use App\Services\PatientPhotoService;
+use App\Support\CurrentClinic;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Tests\Concerns\InteractsWithClinics;
+use Tests\TestCase;
+
+/**
+ * files:prune-orphans (FASE 2, entrega 2.5; deuda 14, P15 y pregunta 26): borra las
+ * fotos de pacientes y los logos de más de 24 horas que no son el photo_path de ningún
+ * paciente (también eliminado) ni el logo_path de su clínica. Solo mira la carpeta de
+ * fotos y la del logo de cada clínica: nunca borra fuera de ellas, aunque una ruta de la
+ * base apunte a otro lugar. --dry-run informa lo mismo que borraría.
+ */
+class PruneOrphanFilesTest extends TestCase
+{
+    use InteractsWithClinics;
+
+    private Clinic $clinic;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake(PatientPhotoService::DISK);
+        Storage::fake(ClinicLogoService::DISK);
+        $this->clinic = $this->createClinic();
+    }
+
+    /**
+     * Borra los huérfanos viejos de fotos y del logo; conserva la foto de un paciente,
+     * la de un paciente eliminado, el logo vigente y los archivos de menos de 24 horas.
+     */
+    public function test_old_orphans_are_deleted_and_the_used_and_recent_files_are_kept(): void
+    {
+        $patient = $this->patientOf($this->clientIn($this->clinic));
+        $deleted = $this->patientOf($this->clientIn($this->clinic));
+        $photo = $this->photo($patient, hoursAgo: 48);
+        $deletedPhoto = $this->photo($deleted, hoursAgo: 48);
+        $this->setPhotoPath($patient, $photo);
+        $this->setPhotoPath($deleted, $deletedPhoto);
+        CurrentClinic::run($this->clinic, fn () => Patient::findOrFail($deleted->id)->delete());
+        $logo = $this->logo($this->clinic, hoursAgo: 48);
+        CurrentClinic::run($this->clinic, fn () => SystemSetting::create(['key' => 'logo_path', 'value' => $logo]));
+
+        $orphanPhoto = $this->photo($patient, hoursAgo: 25);
+        $orphanLogo = $this->logo($this->clinic, hoursAgo: 25);
+        $recentPhoto = $this->photo($patient, hoursAgo: 23);
+        $recentLogo = $this->logo($this->clinic, hoursAgo: 23);
+        Log::spy();
+
+        $this->artisan('files:prune-orphans')
+            ->expectsOutput('Borrado: patient_photos/' . $orphanPhoto)
+            ->expectsOutput('Borrado: clinic_logos/' . $orphanLogo)
+            ->expectsOutput('Archivos huérfanos borrados: 2 de 2.')
+            ->assertExitCode(0);
+
+        $this->assertSame([$photo, $deletedPhoto, $recentPhoto], $this->files(PatientPhotoService::DISK, [$photo, $deletedPhoto, $recentPhoto, $orphanPhoto]));
+        $this->assertSame([$logo, $recentLogo], $this->files(ClinicLogoService::DISK, [$logo, $recentLogo, $orphanLogo]));
+        Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context) => $message === 'Archivo huérfano borrado.' && $context['path'] === $orphanPhoto)->once();
+        Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context) => $message === 'Archivo huérfano borrado.' && $context['path'] === $orphanLogo)->once();
+    }
+
+    /**
+     * --dry-run no borra nada e informa exactamente lo que borra la corrida real.
+     */
+    public function test_the_dry_run_reports_the_same_files_that_are_deleted(): void
+    {
+        $patient = $this->patientOf($this->clientIn($this->clinic));
+        $this->setPhotoPath($patient, $this->photo($patient, hoursAgo: 48));
+        $orphans = [
+            'patient_photos/' . $this->photo($patient, hoursAgo: 30),
+            'patient_photos/' . $this->photo($this->patientOf($this->clientIn($this->clinic)), hoursAgo: 72),
+            'clinic_logos/' . $this->logo($this->clinic, hoursAgo: 30),
+        ];
+        $before = $this->allFiles();
+
+        // Artisan::output() vacía el buffer: se lee una sola vez.
+        Artisan::call('files:prune-orphans', ['--dry-run' => true]);
+        $output = Artisan::output();
+        $dryRun = $this->reported($output, 'Se borraría: ');
+
+        $this->assertSame($before, $this->allFiles(), '--dry-run borró archivos.');
+        $this->assertStringContainsString('Archivos huérfanos que se borrarían: 3 (--dry-run, no se borró nada).', $output);
+
+        Artisan::call('files:prune-orphans');
+        $deleted = $this->reported(Artisan::output(), 'Borrado: ');
+
+        sort($orphans);
+        $this->assertSame($orphans, $dryRun);
+        $this->assertSame($dryRun, $deleted);
+        $this->assertSame(array_values(array_diff($before, $orphans)), $this->allFiles());
+    }
+
+    /**
+     * Nunca borra fuera de la carpeta de fotos (clinics/{id}/patients/) ni de la del logo
+     * (clinics/{id}/logo/) de cada clínica: ni otras carpetas de la clínica, ni la raíz
+     * del disco, ni la carpeta de una clínica que no existe, aunque los archivos sean
+     * viejos y ninguna ruta de la base los nombre. Una ruta de la base que apunta a otro
+     * lugar tampoco hace borrar nada allí.
+     */
+    public function test_nothing_is_deleted_outside_the_photo_and_logo_folders(): void
+    {
+        $patient = $this->patientOf($this->clientIn($this->clinic));
+        $outside = [
+            PatientPhotoService::DISK => [
+                "clinics/{$this->clinic->id}/otra/" . Str::uuid() . '.png',
+                Str::uuid() . '.png',
+                'clinics/999999/patients/1/' . Str::uuid() . '.png',
+                "clinics/{$this->clinic->id}/logo/" . Str::uuid() . '.png',
+            ],
+            ClinicLogoService::DISK => [
+                "clinics/{$this->clinic->id}/otra/" . Str::uuid() . '.png',
+                Str::uuid() . '.png',
+                'clinics/999999/logo/' . Str::uuid() . '.png',
+                "clinics/{$this->clinic->id}/patients/" . Str::uuid() . '.png',
+            ],
+        ];
+
+        foreach ($outside as $disk => $paths) {
+            foreach ($paths as $path) {
+                $this->putOld($disk, $path, hoursAgo: 72);
+            }
+        }
+
+        // Rutas de la base que apuntan fuera de las carpetas: no cambian nada.
+        $this->setPhotoPath($patient, $outside[PatientPhotoService::DISK][0]);
+        CurrentClinic::run($this->clinic, fn () => SystemSetting::create(['key' => 'logo_path', 'value' => '../' . $outside[ClinicLogoService::DISK][1]]));
+
+        foreach (['--dry-run' => true, '' => false] as $option => $value) {
+            Artisan::call('files:prune-orphans', $value ? [$option => true] : []);
+            $this->assertStringContainsString($value ? 'que se borrarían: 0' : 'borrados: 0 de 0', Artisan::output());
+        }
+
+        foreach ($outside as $disk => $paths) {
+            foreach ($paths as $path) {
+                Storage::disk($disk)->assertExists($path);
+            }
+        }
+    }
+
+    /**
+     * Cada clínica con su propia carpeta: la foto que usa un paciente de otra clínica, en
+     * la carpeta de esa clínica, se conserva; su huérfano viejo se borra.
+     */
+    public function test_each_clinic_keeps_the_files_its_patients_use(): void
+    {
+        $other = $this->createClinic();
+        $foreign = $this->patientOf($this->clientIn($other));
+        $used = $this->photo($foreign, hoursAgo: 48);
+        $this->setPhotoPath($foreign, $used);
+        $orphan = $this->photo($foreign, hoursAgo: 48);
+
+        $this->artisan('files:prune-orphans')->assertExitCode(0);
+
+        Storage::disk(PatientPhotoService::DISK)->assertExists($used);
+        Storage::disk(PatientPhotoService::DISK)->assertMissing($orphan);
+    }
+
+    /**
+     * Un borrado que falla queda en el log, la salida lo dice y el comando termina con 1.
+     */
+    public function test_a_failed_delete_is_logged_and_the_command_fails(): void
+    {
+        $patient = $this->patientOf($this->clientIn($this->clinic));
+        $orphan = $this->photo($patient, hoursAgo: 48);
+        $fake = Storage::disk(PatientPhotoService::DISK);
+        Storage::set(PatientPhotoService::DISK, new class($fake->getDriver(), $fake->getAdapter(), $fake->getConfig()) extends FilesystemAdapter {
+            public function delete($paths)
+            {
+                return false;
+            }
+        });
+        Log::spy();
+
+        $this->artisan('files:prune-orphans')
+            ->expectsOutput('No se pudo borrar: patient_photos/' . $orphan)
+            ->expectsOutput('Archivos huérfanos borrados: 0 de 1.')
+            ->assertExitCode(1);
+
+        Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $message === 'No se pudo borrar un archivo huérfano.' && $context['path'] === $orphan)->once();
+    }
+
+    public function test_it_is_scheduled_daily_at_3(): void
+    {
+        $events = array_filter(app(Schedule::class)->events(), fn ($event) => str_contains($event->command ?? '', 'files:prune-orphans'));
+
+        $this->assertCount(1, $events);
+        $this->assertSame('0 3 * * *', array_values($events)[0]->expression);
+    }
+
+    private function photo(Patient $patient, int $hoursAgo): string
+    {
+        return $this->putOld(PatientPhotoService::DISK, PatientPhotoService::folder($patient) . Str::uuid() . '.png', $hoursAgo);
+    }
+
+    private function logo(Clinic $clinic, int $hoursAgo): string
+    {
+        return $this->putOld(ClinicLogoService::DISK, ClinicLogoService::folder($clinic->id) . Str::uuid() . '.png', $hoursAgo);
+    }
+
+    /**
+     * Un archivo con su fecha de modificación de hace $hoursAgo horas.
+     */
+    private function putOld(string $disk, string $path, int $hoursAgo): string
+    {
+        Storage::disk($disk)->put($path, 'png');
+        touch(Storage::disk($disk)->path($path), now()->subHours($hoursAgo)->getTimestamp());
+
+        return $path;
+    }
+
+    private function setPhotoPath(Patient $patient, string $path): void
+    {
+        DB::table('patients')->where('id', $patient->id)->update(['photo_path' => $path]);
+    }
+
+    /**
+     * Los de la lista que siguen en el disco, en el mismo orden.
+     *
+     * @param list<string> $paths
+     * @return list<string>
+     */
+    private function files(string $disk, array $paths): array
+    {
+        return array_values(array_filter($paths, fn (string $path) => Storage::disk($disk)->exists($path)));
+    }
+
+    /**
+     * @return list<string> disco/ruta de todo archivo de los dos discos, ordenados
+     */
+    private function allFiles(): array
+    {
+        $files = [];
+
+        foreach ([PatientPhotoService::DISK, ClinicLogoService::DISK] as $disk) {
+            foreach (Storage::disk($disk)->allFiles() as $path) {
+                $files[] = "{$disk}/{$path}";
+            }
+        }
+
+        sort($files);
+
+        return $files;
+    }
+
+    /**
+     * @return list<string> los archivos que informa la salida con ese prefijo, ordenados
+     */
+    private function reported(string $output, string $prefix): array
+    {
+        $files = [];
+
+        foreach (preg_split('/\R/', $output) as $line) {
+            if (str_starts_with($line, $prefix)) {
+                $files[] = substr($line, strlen($prefix));
+            }
+        }
+
+        sort($files);
+
+        return $files;
+    }
+}

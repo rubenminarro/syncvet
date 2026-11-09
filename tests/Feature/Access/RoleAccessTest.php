@@ -5,9 +5,11 @@ namespace Tests\Feature\Access;
 use App\Models\Branch;
 use App\Models\Clinic;
 use App\Models\Service;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
+use App\Services\ClinicLogoService;
 use App\Services\PatientPhotoService;
 use App\Support\CurrentClinic;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -73,6 +75,12 @@ class RoleAccessTest extends TestCase
         $photo = "clinics/{$this->clinic->id}/patients/{$patient->id}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png";
         Storage::disk(PatientPhotoService::DISK)->put($photo, 'png');
         DB::table('patients')->where('id', $patient->id)->update(['photo_path' => $photo]);
+        // Con logo (FASE 2, entrega 2.5), en la carpeta de la clínica: sin él, ver o borrar el logo
+        // respondería 404 CLINIC_LOGO_NOT_FOUND.
+        Storage::fake(ClinicLogoService::DISK);
+        $logo = ClinicLogoService::folder($this->clinic->id) . 'aaaaaaaa-bbbb-4ccc-8ddd-ffffffffffff.png';
+        Storage::disk(ClinicLogoService::DISK)->put($logo, 'png');
+        CurrentClinic::run($this->clinic, fn () => SystemSetting::create(['key' => 'logo_path', 'value' => $logo]));
         // Propias: una global respondería 403 CATALOG_GLOBAL_NOT_EDITABLE al editarla.
         [$species, $breed] = $this->ownSpeciesWithBreed($this->clinic, 'Hurón');
 

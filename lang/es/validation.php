@@ -242,6 +242,17 @@ return [
         'standard_price' => 'precio',
         'tax_rate' => 'tasa de IVA',
 
+        // Configuración de la clínica (FASE 2, entrega 2.5)
+        'legal_name' => 'razón social',
+        'ruc' => 'RUC',
+        'ruc_dv' => 'dígito verificador del RUC',
+        'settings' => 'configuración',
+        'settings.contact_email' => 'correo de contacto',
+        'settings.contact_phone' => 'teléfono de contacto',
+        'settings.website' => 'sitio web',
+        'settings.document_footer' => 'pie de recetas y comprobantes',
+        'logo' => 'logo',
+
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
         'include_inactive' => 'incluir los inactivos',

@@ -36,7 +36,7 @@ class MeTest extends TestCase
             ->assertJsonPath('data.first_name', $user->first_name)
             ->assertJsonPath('data.last_name', $user->last_name)
             ->assertJsonPath('data.name', $user->name)
-            ->assertJsonPath('data.clinic', ['id' => $clinic->id, 'name' => 'Veterinaria Sur'])
+            ->assertJsonPath('data.clinic', ['id' => $clinic->id, 'name' => 'Veterinaria Sur', 'has_logo' => false])
             ->assertJsonPath('data.current_branch', ['id' => $branch->id, 'code' => 'SUC-01', 'name' => 'Casa central'])
             ->assertJsonPath('data.roles', ['recepcionista'])
             ->assertJsonPath('data.veterinarian', null);

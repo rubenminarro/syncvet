@@ -14,8 +14,12 @@ use App\Support\CurrentClinic;
  */
 final class CatalogLock
 {
-    public static function forCurrentClinic(): void
+    /**
+     * La clínica, bloqueada (la configuración la usa para editar sus datos; FASE 2,
+     * entrega 2.5).
+     */
+    public static function forCurrentClinic(): Clinic
     {
-        Clinic::query()->whereKey(CurrentClinic::id())->lockForUpdate()->firstOrFail();
+        return Clinic::query()->whereKey(CurrentClinic::id())->lockForUpdate()->firstOrFail();
     }
 }

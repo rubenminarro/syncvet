@@ -24,7 +24,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
         /* configuración */
         'branches.index', 'branches.store', 'branches.show', 'branches.update',
-        'system-settings.update',
+        // FASE 2, entrega 2.5: la configuración y el logo de la clínica.
+        'system-settings.show', 'system-settings.update',
+        'system-settings.upload-logo', 'system-settings.show-logo', 'system-settings.delete-logo',
         'audit-logs.index', 'audit-logs.show',
 
         /* clientes y pacientes */
@@ -108,6 +110,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     // Pregunta 19 de la FASE 2: la agenda (FASE 3) necesita las sucursales.
                     'branches.index',
                     'veterinarians.index', 'services.index', 'services.show',
+                    // FASE 2, entrega 2.5: los documentos y recibos llevan los datos y el logo de la clínica.
+                    'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
                     'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
                     'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
@@ -131,6 +135,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     'species.index', 'species.store', 'species.update', 'species.destroy',
                     'branches.index',
                     'veterinarians.index', 'services.index', 'services.show',
+                    // FASE 2, entrega 2.5: los documentos y recibos llevan los datos y el logo de la clínica.
+                    'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
                     'appointments.index', 'appointments.show', 'appointments.check-in',
                     'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',

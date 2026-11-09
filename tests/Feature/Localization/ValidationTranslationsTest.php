@@ -175,7 +175,7 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update', 'services.index', 'services.store', 'services.update']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update', 'services.index', 'services.store', 'services.update', 'system-settings.update', 'system-settings.upload-logo']);
         [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
         [$branch, $warehouse] = CurrentClinic::run($clinic, function () {
             $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
@@ -222,6 +222,9 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['PATCH', "/api/veterinarians/{$veterinarian->id}", array_fill_keys($veterinarianFields, $value)];
             $requests[] = ['POST', '/api/services', array_fill_keys($serviceFields, $value)];
             $requests[] = ['PATCH', "/api/services/{$service->id}", array_fill_keys($serviceFields, $value)];
+            $requests[] = ['PATCH', '/api/system-settings', [...array_fill_keys(['name', 'legal_name', 'ruc', 'ruc_dv'], $value), 'settings' => array_fill_keys(['contact_email', 'contact_phone', 'website', 'document_footer', 'logo_path', 'x'], $value)]];
+            $requests[] = ['PATCH', '/api/system-settings', ['settings' => $value, 'ruc' => $value]];
+            $requests[] = ['POST', '/api/system-settings/logo', ['logo' => $value]];
             $requests[] = ['PATCH', '/api/me/current-branch', ['branch_id' => $value]];
             $requests[] = ['PATCH', '/api/me/password', ['current_password' => $value, 'password' => $value]];
         }
@@ -277,7 +280,8 @@ class ValidationTranslationsTest extends TestCase
         foreach ((new Finder())->files()->in(app_path('Http/Requests'))->name('*.php') as $file) {
             $class = 'App\\Http\\Requests\\' . $file->getBasename('.php');
 
-            if (! is_subclass_of($class, FormRequest::class)) {
+            // Una base abstracta (PrivateImageRequest, FASE 2, entrega 2.5) se revisa en sus subclases.
+            if (! is_subclass_of($class, FormRequest::class) || (new \ReflectionClass($class))->isAbstract()) {
                 continue;
             }
 

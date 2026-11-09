@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\User;
+use App\Services\ClinicLogoService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Spatie\Permission\Models\Permission;
@@ -26,6 +27,8 @@ class MeResource extends JsonResource
             'clinic' => [
                 'id' => $this->clinic->id,
                 'name' => $this->clinic->name,
+                // FASE 2, entrega 2.5 (P12): el logo se muestra después del login; su ruta nunca sale.
+                'has_logo' => app(ClinicLogoService::class)->hasLogo($this->clinic),
             ],
             'current_branch' => $this->currentBranch ? [
                 'id' => $this->currentBranch->id,
