@@ -178,7 +178,8 @@ class ServiceCatalogService
 
     /**
      * El índice único (clinic_id, name) es el respaldo: si lo frena, el mismo 422 en
-     * lugar de un 500. Otra violación (el código, en el alta) sigue su camino.
+     * lugar de un 500. Otra violación sigue su camino: la del código, en el alta,
+     * llega a DocumentSequenceService.
      *
      * @param Closure(): Service $save
      */
@@ -187,11 +188,25 @@ class ServiceCatalogService
         try {
             return $save();
         } catch (UniqueConstraintViolationException $e) {
-            if (str_contains($e->getMessage(), 'name')) {
+            if ($this->isNameViolation($e)) {
                 throw ValidationException::withMessages(['name' => ServiceMessages::NAME_TAKEN]);
             }
 
             throw $e;
         }
+    }
+
+    /**
+     * Por el índice concreto, no por la palabra "name": el mensaje de la excepción trae
+     * el SQL, que siempre nombra la columna (revisión de la entrega 2.4). Así el choque
+     * del código llega a DocumentSequenceService (409 DOCUMENT_CODE_CONFLICT).
+     */
+    private function isNameViolation(UniqueConstraintViolationException $e): bool
+    {
+        $message = $e->getMessage();
+
+        // SQLite: "UNIQUE constraint failed: services.clinic_id, services.name";
+        // MySQL: "Duplicate entry '…' for key 'services.services_clinic_id_name_unique'".
+        return str_contains($message, 'services.name') || str_contains($message, 'services_clinic_id_name_unique');
     }
 }

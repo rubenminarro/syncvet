@@ -110,10 +110,20 @@ class ServiceUpdateTest extends TestCase
         $this->assertSame('Consulta general', DB::table('services')->where('id', $service->id)->value('name'));
         $this->assertEquals(150000, DB::table('services')->where('id', $service->id)->value('standard_price'), 'El 422 dejó cambios a medias.');
 
-        $this->patchJson("/api/services/{$service->id}", ['name' => ' Consulta  general ', 'standard_price' => 200000, 'status' => 'inactive'])
+        $this->patchJson("/api/services/{$service->id}", [
+            'name' => ' Consulta  general ',
+            'standard_price' => 200000,
+            'tax_rate' => 5,
+            'duration_minutes' => 45,
+            'category' => 'surgery',
+            'status' => 'inactive',
+        ])
             ->assertOk()
             ->assertJsonPath('data.name', 'Consulta general')
             ->assertJsonPath('data.standard_price', '200000.00')
+            ->assertJsonPath('data.tax_rate', 5)
+            ->assertJsonPath('data.duration_minutes', 45)
+            ->assertJsonPath('data.category', ['value' => 'surgery', 'label' => 'Cirugía'])
             ->assertJsonPath('data.status.value', 'inactive');
     }
 }

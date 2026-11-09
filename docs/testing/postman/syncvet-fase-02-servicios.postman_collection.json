@@ -1339,6 +1339,107 @@
                     ]
                 }
             }
+        },
+        {
+            "name": "25 Alta con \"/\" en el nombre",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('El nombre conserva la barra', () => pm.expect(json.data.name).to.eql('Castración macho/hembra ' + pm.collectionVariables.get('run')));",
+                            "pm.collectionVariables.set('slash_service_id', String(json.data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Castración macho/hembra {{run}}\",\n    \"category\": \"surgery\",\n    \"standard_price\": 350000\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 Baja del servicio con \"/\" (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services/{{slash_service_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services",
+                        "{{slash_service_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
         }
     ],
     "variable": [
@@ -1379,6 +1480,11 @@
         },
         {
             "key": "second_service_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "slash_service_id",
             "value": "",
             "type": "string"
         }

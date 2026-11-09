@@ -3,8 +3,10 @@
 namespace Tests\Feature\Services;
 
 use App\Models\Service;
+use App\Services\DocumentSequenceService;
 use App\Support\CurrentClinic;
 use Illuminate\Support\Facades\DB;
+use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithServices;
 use Tests\TestCase;
@@ -18,7 +20,9 @@ class ServiceStoreTest extends TestCase
 {
     use InteractsWithServices;
 
-    private const PRICE_MESSAGE = 'El precio debe ser un número entero, sin decimales, de 0 a 999.999.999.999.';
+    private const NAME_REGEX_MESSAGE = 'El nombre del servicio debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, comas, guiones, apóstrofos, paréntesis, barras, "+" y "%", sin dos barras seguidas.';
+
+    private const PRICE_MESSAGE ='El precio debe ser un número entero, sin decimales, de 0 a 999.999.999.999.';
 
     public function test_creates_services_with_correlative_srv_codes(): void
     {
@@ -94,6 +98,67 @@ class ServiceStoreTest extends TestCase
         $this->postJson('/api/services', ['name' => 'Consulta', 'category' => 'consultation', 'standard_price' => 1, 'code' => 'SRV-999999'])
             ->assertUnprocessable()
             ->assertJsonPath('errors.code.0', 'El código del servicio se asigna automáticamente.');
+    }
+
+    /**
+     * Un código ya usado (algo que lo cargó sin pasar por la serie) llega a
+     * DocumentSequenceService: 409 DOCUMENT_CODE_CONFLICT, no el 422 del nombre
+     * (revisión de la entrega 2.4: el mensaje de la excepción trae el SQL, que nombra la
+     * columna name).
+     */
+    public function test_a_repeated_code_answers_409_and_not_the_name_error(): void
+    {
+        $clinic = $this->createClinic();
+        $this->serviceIn($clinic, ['name' => 'Existente']);
+        $this->actAsServiceManager($clinic);
+
+        $sequences = Mockery::mock(DocumentSequenceService::class)->makePartial();
+        $sequences->shouldReceive('next')->andReturn('SRV-000001');
+        $this->app->instance(DocumentSequenceService::class, $sequences);
+
+        $response = $this->postJson('/api/services', ['name' => 'Otro servicio', 'category' => 'other', 'standard_price' => 1]);
+
+        $this->assertErrorCode($response, 409, 'DOCUMENT_CODE_CONFLICT');
+        $response->assertJsonPath('errors', null);
+        $this->assertSame(1, DB::table('services')->count());
+    }
+
+    /**
+     * Dos pedidos simultáneos con el mismo nombre pasan la revisión del Service: el índice
+     * (clinic_id, name) frena al segundo, con el mismo 422, en el alta y en el cambio de
+     * nombre. El otro se carga en el evento del modelo, después de leer los nombres.
+     */
+    public function test_the_unique_index_backs_up_the_name_with_the_same_422(): void
+    {
+        $clinic = $this->createClinic();
+        $service = $this->serviceIn($clinic, ['name' => 'Consulta general']);
+        $this->actAsServiceManager($clinic);
+        $code = 900;
+
+        $concurrent = function (Service $model) use ($clinic, &$code) {
+            DB::table('services')->insert([
+                'clinic_id' => $clinic->id,
+                'code' => 'SRV-' . $code++,
+                'name' => $model->name,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        };
+        Service::creating($concurrent);
+        Service::updating($concurrent);
+
+        foreach ([
+            ['POST', '/api/services', ['name' => 'Ecografía', 'category' => 'imaging', 'standard_price' => 1]],
+            ['PATCH', "/api/services/{$service->id}", ['name' => 'Radiografía']],
+        ] as [$method, $uri, $payload]) {
+            $this->json($method, $uri, $payload)
+                ->assertUnprocessable()
+                ->assertJsonPath('error_code', 'VALIDATION_ERROR')
+                ->assertJsonPath('errors.name.0', 'Ya hay un servicio con ese nombre.');
+        }
+
+        // Cada transacción se revirtió entera: también la fila del pedido simultáneo simulado.
+        $this->assertSame(['Consulta general'], DB::table('services')->pluck('name')->all());
     }
 
     public static function invalidPrices(): array
@@ -215,9 +280,27 @@ class ServiceStoreTest extends TestCase
             'vacío' => ['', 'El nombre del servicio es obligatorio.'],
             'una letra' => ['A', 'El nombre del servicio debe tener al menos 2 caracteres.'],
             'más de 120' => [str_repeat('a', 121), 'El nombre del servicio no debe tener más de 120 caracteres.'],
-            'sin letras' => ['--', 'El nombre del servicio debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.'],
-            'con barra' => ['Consulta/urgencia', 'El nombre del servicio debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.'],
+            'sin letras' => ['12/5+%', self::NAME_REGEX_MESSAGE],
+            'con dos barras seguidas' => ['Consulta//urgencia', self::NAME_REGEX_MESSAGE],
+            'con el sufijo de baja' => ['Consulta//deleted_1_2', self::NAME_REGEX_MESSAGE],
+            'con otro símbolo' => ['Consulta #1', self::NAME_REGEX_MESSAGE],
         ];
+    }
+
+    /**
+     * Desvío 3 (revisión de la entrega 2.4): los servicios aceptan además "/", ",", "+" y
+     * "%", con los puntos, guiones, apóstrofos y paréntesis de los demás catálogos.
+     */
+    public function test_the_name_accepts_slashes_commas_plus_and_percent(): void
+    {
+        $clinic = $this->createClinic();
+        $this->actAsServiceManager($clinic);
+
+        foreach (['Castración macho/hembra', 'Vacuna 5+1', 'Consulta, control', 'Análisis 100%', 'Rx tórax (2 proyecciones)', "Dr. O'Brien - control"] as $name) {
+            $this->postJson('/api/services', ['name' => $name, 'category' => 'other', 'standard_price' => 1])
+                ->assertCreated()
+                ->assertJsonPath('data.name', $name);
+        }
     }
 
     #[DataProvider('invalidNames')]

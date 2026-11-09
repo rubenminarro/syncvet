@@ -56,6 +56,7 @@ class ServiceIndexTest extends TestCase
         $this->getJson('/api/services?include_inactive=0')->assertOk()->assertJsonPath('data.*.name', ['Consulta general', 'Corte de pelo']);
         // status manda sobre include_inactive.
         $this->getJson('/api/services?include_inactive=1&status=active')->assertOk()->assertJsonPath('data.*.name', ['Consulta general', 'Corte de pelo']);
+        $this->getJson('/api/services?include_inactive=1&status=inactive')->assertOk()->assertJsonPath('data.*.name', ['Baño']);
         $this->getJson('/api/services?category=grooming')->assertOk()->assertJsonPath('data.*.name', ['Corte de pelo']);
         $this->getJson('/api/services?category=grooming&include_inactive=1')->assertOk()->assertJsonPath('data.*.name', ['Baño', 'Corte de pelo']);
 

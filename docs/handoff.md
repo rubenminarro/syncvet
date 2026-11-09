@@ -36,7 +36,7 @@ maestros, está en desarrollo: diseño aprobado (R-029) y entregas 2.1, sucursal
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | FASE 2, entrega 2.4: servicios (`SRV-`; nombre fijo una vez usado, baja sin uso) ([diseño](fases/fase-02-datos-maestros.md#24-servicios), aprobado en R-029). Se implementa en `feature/fase-02-04-servicios`, creada desde `feature/fase-02-03-veterinarios`, con el prompt de implementación de la fase (paso 4) | Autorización del usuario para empezar la implementación |
+| 1 | FASE 2, entrega 2.4: servicios (`SRV-`; nombre fijo una vez usado, baja sin uso) ([diseño](fases/fase-02-datos-maestros.md#24-servicios), aprobado en R-029). Se implementa en `feature/fase-02-04-servicios`, creada desde `feature/fase-02-03-veterinarios`, con el prompt de implementación de la fase (paso 4). Implementada (WIP), revisada en una sesión aparte y corregida (WIP "correcciones de la revisión"). Para el cierre: hallazgo 5 de la revisión, informativo y sin cambios (el valor anterior de `standard_price` en la auditoría sale de `getRawOriginal`: en SQLite, un número, `150000`; en MySQL, texto, `"150000.00"`; sin floats); y `VeterinarianService::withUniqueLicense` detecta la matrícula buscando `license_number` en el mensaje de la excepción, que trae el SQL (el mismo error que se corrigió en servicios), pendiente de decisión del usuario | Validación del usuario con Postman y cierre |
 | — | Merge de la FASE 2 a `main` | Al final de la fase, con autorización del usuario |
 | 2 | Opcional: ver en el Collection Runner el detalle del "Errors 1" de la validación de la 1.2 (PENDIENTE DE VERIFICACIÓN; Newman no lo reproduce) | Ninguno |
 

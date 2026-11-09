@@ -24,6 +24,16 @@ class ServiceMessages
     public const NAME_TAKEN = 'Ya hay un servicio con ese nombre.';
 
     /**
+     * Más amplio que CatalogMessages::NAME_REGEX (revisión de la entrega 2.4, desvío 3):
+     * letras (con acentos), números, espacios y . , - ' ( ) / + %, con al menos una
+     * letra: "Castración macho/hembra", "Rx tórax (2 proyecciones)", "Vacuna 5+1". Sin
+     * "//", el comienzo del sufijo de baja (DeletedSuffix): un nombre con
+     * "//deleted_<id>_<timestamp>" podría chocar en el índice (clinic_id, name) con el de
+     * una baja. El "%" no es un problema: la búsqueda es literal (R-021).
+     */
+    public const NAME_REGEX = '/^(?=[^\pL]*\pL)(?!.*\/\/)[\pL\pN\s.,\-\'()\/+%]+$/su';
+
+    /**
      * Los datos del servicio. En la edición, cada uno con "sometimes" delante.
      *
      * @return array<string, array<int, mixed>>
@@ -32,7 +42,7 @@ class ServiceMessages
     {
         return [
             'code' => ['prohibited'],
-            'name' => ['required', 'string', 'min:2', 'max:' . self::NAME_MAX, 'regex:' . CatalogMessages::NAME_REGEX],
+            'name' => ['required', 'string', 'min:2', 'max:' . self::NAME_MAX, 'regex:' . self::NAME_REGEX],
             'category' => ['required', Rule::enum(ServiceCategory::class)],
             'description' => ['nullable', 'string', 'max:1000'],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:720', 'multiple_of:5'],
@@ -51,7 +61,7 @@ class ServiceMessages
             'name.string' => 'El nombre del servicio debe tener el formato correcto.',
             'name.min' => 'El nombre del servicio debe tener al menos 2 caracteres.',
             'name.max' => 'El nombre del servicio no debe tener más de ' . self::NAME_MAX . ' caracteres.',
-            'name.regex' => 'El nombre del servicio debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, guiones, apóstrofos y paréntesis.',
+            'name.regex' => 'El nombre del servicio debe tener al menos una letra y solo puede contener letras, números, espacios, puntos, comas, guiones, apóstrofos, paréntesis, barras, "+" y "%", sin dos barras seguidas.',
             'category.required' => 'La categoría es obligatoria.',
             'category.' . Enum::class => 'La categoría no es válida: debe ser una de ' . implode(', ', ServiceCategory::values()) . '.',
             'description.string' => 'La descripción debe tener el formato correcto.',
