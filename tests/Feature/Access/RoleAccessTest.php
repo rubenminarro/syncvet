@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Access;
 
+use App\Enums\AuditEvent;
+use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\Clinic;
 use App\Models\Service;
@@ -112,6 +114,12 @@ class RoleAccessTest extends TestCase
             'service' => (string) CurrentClinic::run($this->clinic, fn () => Service::create([
                 'code' => 'SRV-000001',
                 'name' => 'Consulta general',
+            ])->id),
+            // Un registro de auditoría de la clínica (FASE 2, entrega 2.6): solo se consulta.
+            'auditLog' => (string) CurrentClinic::run($this->clinic, fn () => AuditLog::create([
+                'clinic_id' => $this->clinic->id,
+                'event' => AuditEvent::LOGIN,
+                'created_at' => now(),
             ])->id),
         ];
     }

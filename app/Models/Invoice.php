@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\InvoiceCondition;
 use App\Enums\InvoicePaymentStatus;
@@ -75,11 +76,11 @@ class Invoice extends Model
             'payment_status' => InvoicePaymentStatus::class,
             'balance' => 'decimal:2',
             'sifen_status' => SifenStatus::class,
-            'sifen_sent_at' => 'datetime',
-            'sifen_approved_at' => 'datetime',
+            'sifen_sent_at' => AppDateTime::class,
+            'sifen_approved_at' => AppDateTime::class,
             'issue_date' => 'date',
-            'issued_at' => 'datetime',
-            'cancelled_at' => 'datetime',
+            'issued_at' => AppDateTime::class,
+            'cancelled_at' => AppDateTime::class,
         ];
     }
 

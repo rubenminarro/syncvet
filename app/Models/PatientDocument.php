@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\DocumentTemplateType;
 use App\Enums\PatientDocumentStatus;
@@ -39,8 +40,8 @@ class PatientDocument extends Model
             'type' => DocumentTemplateType::class,
             'data' => 'array',
             'status' => PatientDocumentStatus::class,
-            'issued_at' => 'datetime',
-            'cancelled_at' => 'datetime',
+            'issued_at' => AppDateTime::class,
+            'cancelled_at' => AppDateTime::class,
         ];
     }
 

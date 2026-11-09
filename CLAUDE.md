@@ -66,6 +66,9 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 6. Verificar que no cambien contratos, permisos, `error_code` ni códigos HTTP existentes.
 7. Informar archivos modificados, tests ejecutados y resultados.
 
+Los informes, resúmenes y mensajes al usuario van siempre en español (voseo), aunque el código y los comentarios técnicos estén en
+inglés.
+
 En fases nuevas: primero diseño funcional y de datos (con las preguntas de negocio, en `docs/fases/`), después código. Ninguna
 entrega empieza sin autorización del usuario y ninguna fase se declara cerrada sin evidencia (código + tests).
 

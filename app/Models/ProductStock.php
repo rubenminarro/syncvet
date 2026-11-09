@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,7 +24,7 @@ class ProductStock extends Model
         return [
             'quantity_on_hand' => 'decimal:2',
             'average_cost' => 'decimal:2',
-            'last_movement_at' => 'datetime',
+            'last_movement_at' => AppDateTime::class,
         ];
     }
 

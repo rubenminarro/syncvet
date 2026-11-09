@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Enums\AuditEvent;
 use App\Exceptions\AuditException;
 use App\Models\Scopes\ClinicScope;
@@ -10,9 +11,42 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Registro de auditoría. Inmutable: no se modifica ni se elimina.
+ *
+ * auditable_type es el tipo corto del modelo (Auditable::auditType(): "patient",
+ * "system_setting"), no la clase: no hay relación morphTo. La consulta por la API
+ * (FASE 2, entrega 2.6) filtra por los tipos de AUDITABLE_TYPES.
  */
 class AuditLog extends Model
 {
+    /**
+     * Los tipos de los modelos con Auditable: la lista cerrada del filtro auditable_type
+     * (FASE 2, entrega 2.6). AuditableTypesTest exige que coincida con los modelos.
+     */
+    public const AUDITABLE_TYPES = [
+        'appointment',
+        'branch',
+        'breed',
+        'cash_register',
+        'client',
+        'clinic',
+        'consultation',
+        'consultation_item',
+        'document_template',
+        'invoice',
+        'invoice_stamp',
+        'patient',
+        'patient_application',
+        'patient_document',
+        'payment',
+        'product',
+        'service',
+        'species',
+        'system_setting',
+        'user',
+        'veterinarian',
+        'warehouse',
+    ];
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -34,7 +68,7 @@ class AuditLog extends Model
             'event' => AuditEvent::class,
             'old_values' => 'array',
             'new_values' => 'array',
-            'created_at' => 'datetime',
+            'created_at' => AppDateTime::class,
         ];
     }
 

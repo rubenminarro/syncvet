@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ReminderStatus;
 use App\Enums\ReminderType;
@@ -31,7 +32,7 @@ class Reminder extends Model
         return [
             'type' => ReminderType::class,
             'due_date' => 'date',
-            'notify_at' => 'datetime',
+            'notify_at' => AppDateTime::class,
             'status' => ReminderStatus::class,
         ];
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\BranchWarehouseController;
@@ -76,4 +77,8 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::post('system-settings/logo', [ClinicLogoController::class, 'store'])->name('system-settings.upload-logo');
     Route::get('system-settings/logo', [ClinicLogoController::class, 'show'])->name('system-settings.show-logo');
     Route::delete('system-settings/logo', [ClinicLogoController::class, 'destroy'])->name('system-settings.delete-logo');
+
+    // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
+    // un registro de otra clínica o sin clínica responde 404.
+    Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show'])->parameters(['audit-logs' => 'auditLog']);
 });

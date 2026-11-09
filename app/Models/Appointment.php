@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\AppointmentSource;
 use App\Enums\AppointmentStatus;
@@ -38,13 +39,13 @@ class Appointment extends Model
     protected function casts(): array
     {
         return [
-            'starts_at' => 'datetime',
-            'ends_at' => 'datetime',
+            'starts_at' => AppDateTime::class,
+            'ends_at' => AppDateTime::class,
             'status' => AppointmentStatus::class,
             'source' => AppointmentSource::class,
-            'confirmed_at' => 'datetime',
-            'checked_in_at' => 'datetime',
-            'cancelled_at' => 'datetime',
+            'confirmed_at' => AppDateTime::class,
+            'checked_in_at' => AppDateTime::class,
+            'cancelled_at' => AppDateTime::class,
         ];
     }
 

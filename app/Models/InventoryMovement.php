@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\InventoryMovementType;
 use App\Exceptions\InventoryException;
@@ -41,7 +42,7 @@ class InventoryMovement extends Model
             'total_cost' => 'decimal:2',
             'balance_after' => 'decimal:2',
             'average_cost_after' => 'decimal:2',
-            'created_at' => 'datetime',
+            'created_at' => AppDateTime::class,
         ];
     }
 

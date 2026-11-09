@@ -175,7 +175,7 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update', 'services.index', 'services.store', 'services.update', 'system-settings.update', 'system-settings.upload-logo']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update', 'services.index', 'services.store', 'services.update', 'system-settings.update', 'system-settings.upload-logo', 'audit-logs.index']);
         [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
         [$branch, $warehouse] = CurrentClinic::run($clinic, function () {
             $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
@@ -243,6 +243,8 @@ class ValidationTranslationsTest extends TestCase
         $requests[] = ['GET', '/api/veterinarians?branch_id=999999&per_page=0', []];
         $requests[] = ['GET', '/api/veterinarians?include_inactive=x', []];
         $requests[] = ['GET', '/api/services?category=x&status=x&include_inactive=x', []];
+        $requests[] = ['GET', '/api/audit-logs?from=x&to=x&user_id=x&event=x&auditable_type=x&auditable_id=x', []];
+        $requests[] = ['GET', '/api/audit-logs?from=2026-11-09&to=2026-11-08&user_id=999999&auditable_id=1', []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();

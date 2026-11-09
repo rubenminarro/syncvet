@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\PatientSex;
 use App\Traits\Auditable;
@@ -54,8 +55,22 @@ class Patient extends Model
             'birth_date_estimated' => 'boolean',
             'weight_kg' => 'decimal:2',
             'custom_fields' => 'array',
-            'deceased_at' => 'datetime',
+            'deceased_at' => AppDateTime::class,
         ];
+    }
+
+    /**
+     * La ruta de la foto (photo_path) nunca queda en la auditoría: en su lugar,
+     * "(archivo)", como el logo de la clínica (FASE 2, entrega 2.6; R-041). null queda
+     * null: dice que no tiene foto.
+     */
+    public function auditValues(array $values): array
+    {
+        if (($values['photo_path'] ?? null) !== null) {
+            $values['photo_path'] = SystemSetting::AUDIT_FILE;
+        }
+
+        return $values;
     }
 
     /**

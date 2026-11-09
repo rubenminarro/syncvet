@@ -259,6 +259,13 @@ return [
         'search' => 'búsqueda',
         'per_page' => 'resultados por página',
         'page' => 'página',
+
+        // Filtros de la auditoría (FASE 2, entrega 2.6)
+        'from' => 'desde',
+        'to' => 'hasta',
+        'event' => 'evento',
+        'auditable_type' => 'tipo de registro',
+        'auditable_id' => 'id del registro',
     ],
 
 ];
