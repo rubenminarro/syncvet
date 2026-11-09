@@ -202,8 +202,9 @@ class DemoSeeder extends Seeder
             ['email' => $email, 'first_name' => $firstName, 'last_name' => $lastName, 'password' => $password]
         );
 
-        // Sin modelo de system_settings todavía: query builder con clinic_id explícito
-        // (R-010), dentro de la transacción de la clínica.
+        // Query builder con clinic_id explícito (R-010), dentro de la transacción de la
+        // clínica: el seeder no fija la clínica en contexto, que el modelo SystemSetting
+        // (BelongsToClinic) necesita. La marca no se audita.
         DB::table('system_settings')->insert([
             'clinic_id' => $clinic->id,
             'key' => self::MARKER,

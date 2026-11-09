@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * las reglas de la foto del paciente (PrivateImageStore): la imagen vuelta a codificar
  * por el Form Request, el anterior borrado después del commit, el nuevo borrado si la
  * transacción falla, y una ruta fuera de la carpeta o sin archivo → 404
- * CLINIC_LOGO_NOT_FOUND con un aviso en el log.
+ * CLINIC_LOGO_NOT_FOUND con un aviso en el log al verlo. Al borrarlo, esa ruta se limpia
+ * (200) sin tocar ningún archivo.
  *
  * La ruta va en la clave interna logo_path de system_settings y nunca sale de la API:
  * has_logo en la configuración y en `me`. La subida y el borrado bloquean la fila de la
@@ -48,6 +49,12 @@ class ClinicLogoService
         });
     }
 
+    /**
+     * Sin logo → 404. Con un logo_path que no es un archivo de la carpeta de la clínica,
+     * se limpia la referencia (logo_path a null, 200) sin tocar ningún archivo, con el
+     * aviso de owns(): si no, el administrador no podría sacar un logo roto (corrección
+     * de la 2.5). La foto del paciente tiene el mismo caso (deuda 15).
+     */
     public function delete(): void
     {
         $clinicId = CurrentClinic::id();
@@ -55,12 +62,15 @@ class ClinicLogoService
         DB::transaction(function () use ($clinicId) {
             $previous = $this->lockedLogoPath();
 
-            if ($previous === null || ! $this->store()->owns(self::folder($clinicId), $previous, $this->context($clinicId))) {
+            if ($previous === null) {
                 throw $this->notFound();
             }
 
             $this->settings->put(SystemSettingKey::LOGO_PATH, null);
-            $this->store()->deleteAfterCommit($previous, $this->context($clinicId));
+
+            if ($this->store()->owns(self::folder($clinicId), $previous, $this->context($clinicId))) {
+                $this->store()->deleteAfterCommit($previous, $this->context($clinicId));
+            }
         });
     }
 

@@ -22,10 +22,41 @@ class SystemSetting extends Model
         'value',
     ];
 
+    /**
+     * El valor que guarda la auditoría en lugar de la ruta del logo.
+     */
+    public const AUDIT_FILE = '(archivo)';
+
     protected function casts(): array
     {
         return [
             'key' => SystemSettingKey::class,
         ];
+    }
+
+    /**
+     * La clave, siempre (corrección de la 2.5): sin ella, un cambio de valor quedaría en la
+     * auditoría como {"value": …}, sin saber de qué clave es. Se lee sin el cast, para
+     * no fallar con una clave que no está en el enum.
+     */
+    public function auditContext(): array
+    {
+        return ['key' => $this->getAttributes()['key'] ?? null];
+    }
+
+    /**
+     * La ruta del logo (logo_path) nunca queda en la auditoría: en su lugar, "(archivo)",
+     * en el alta, la modificación y la baja (corrección de la 2.5).
+     */
+    public function auditValues(array $values): array
+    {
+        // Sin distinguir mayúsculas: una fila LOGO_PATH que put() normaliza (MySQL).
+        $isLogo = strcasecmp((string) ($values['key'] ?? ''), SystemSettingKey::LOGO_PATH->value) === 0;
+
+        if ($isLogo && ($values['value'] ?? null) !== null) {
+            $values['value'] = self::AUDIT_FILE;
+        }
+
+        return $values;
     }
 }

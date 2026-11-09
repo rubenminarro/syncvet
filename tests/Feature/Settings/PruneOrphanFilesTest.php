@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Tests\Concerns\InteractsWithClinics;
 use Tests\TestCase;
 
@@ -153,21 +154,98 @@ class PruneOrphanFilesTest extends TestCase
     }
 
     /**
-     * Cada clínica con su propia carpeta: la foto que usa un paciente de otra clínica, en
-     * la carpeta de esa clínica, se conserva; su huérfano viejo se borra.
+     * Cada clínica conserva solo lo que usan sus pacientes, en su carpeta. Las clínicas X y
+     * X0 (como 1 y 10: "clinics/X" es el comienzo de "clinics/X0") no se mezclan. Un
+     * paciente de A con un photo_path dentro de la carpeta de B no protege ese archivo: es
+     * un huérfano de B y se borra. Falla si la limpieza deja de filtrar por la clínica
+     * (Patient::withoutGlobalScopes()).
      */
-    public function test_each_clinic_keeps_the_files_its_patients_use(): void
+    public function test_each_clinic_keeps_only_the_files_its_own_patients_use(): void
     {
+        $a = $this->clinic;
+        $b = $this->createClinic(['id' => $a->id * 10]);
+        $this->assertStringStartsWith("clinics/{$a->id}", "clinics/{$b->id}/");
+
+        $patientA = $this->patientOf($this->clientIn($a));
+        $otherA = $this->patientOf($this->clientIn($a));
+        $patientB = $this->patientOf($this->clientIn($b));
+
+        $usedA = $this->photo($otherA, hoursAgo: 48);
+        $this->setPhotoPath($otherA, $usedA);
+        $usedB = $this->photo($patientB, hoursAgo: 48);
+        $this->setPhotoPath($patientB, $usedB);
+        // En la carpeta de B, pero solo lo nombra un paciente de A.
+        $crossed = $this->photo($patientB, hoursAgo: 48);
+        $this->setPhotoPath($patientA, $crossed);
+        $orphanA = $this->photo($otherA, hoursAgo: 48);
+        $logoA = $this->logo($a, hoursAgo: 48);
+        CurrentClinic::run($a, fn () => SystemSetting::create(['key' => 'logo_path', 'value' => $logoA]));
+        $orphanLogoB = $this->logo($b, hoursAgo: 48);
+
+        $this->artisan('files:prune-orphans')
+            ->expectsOutput('Archivos huérfanos borrados: 3 de 3.')
+            ->assertExitCode(0);
+
+        $disk = Storage::disk(PatientPhotoService::DISK);
+        $disk->assertExists($usedA);
+        $disk->assertExists($usedB);
+        $disk->assertMissing($crossed);
+        $disk->assertMissing($orphanA);
+        Storage::disk(ClinicLogoService::DISK)->assertExists($logoA);
+        Storage::disk(ClinicLogoService::DISK)->assertMissing($orphanLogoB);
+    }
+
+    /**
+     * Si la revisión de una clínica falla (por ejemplo, un enlace simbólico en su carpeta:
+     * el disco lanza una excepción al listarla), queda en el log, no se borra nada en esa
+     * clínica, ni sus fotos ni su logo, y se sigue con las demás. El comando termina con 1,
+     * también con --dry-run.
+     */
+    public function test_a_clinic_that_fails_is_skipped_and_the_others_are_cleaned(): void
+    {
+        $failing = $this->clinic;
         $other = $this->createClinic();
-        $foreign = $this->patientOf($this->clientIn($other));
-        $used = $this->photo($foreign, hoursAgo: 48);
-        $this->setPhotoPath($foreign, $used);
-        $orphan = $this->photo($foreign, hoursAgo: 48);
+        $failingPhoto = $this->photo($this->patientOf($this->clientIn($failing)), hoursAgo: 48);
+        $failingLogo = $this->logo($failing, hoursAgo: 48);
+        $otherPhoto = $this->photo($this->patientOf($this->clientIn($other)), hoursAgo: 48);
 
-        $this->artisan('files:prune-orphans')->assertExitCode(0);
+        $fake = Storage::disk(PatientPhotoService::DISK);
+        $failingFolder = "clinics/{$failing->id}/patients";
+        Storage::set(PatientPhotoService::DISK, new class($fake->getDriver(), $fake->getAdapter(), $fake->getConfig(), $failingFolder) extends FilesystemAdapter {
+            public function __construct($driver, $adapter, $config, private string $failingFolder)
+            {
+                parent::__construct($driver, $adapter, $config);
+            }
 
-        Storage::disk(PatientPhotoService::DISK)->assertExists($used);
-        Storage::disk(PatientPhotoService::DISK)->assertMissing($orphan);
+            public function allFiles($directory = null)
+            {
+                if ($directory === $this->failingFolder) {
+                    throw new RuntimeException('Enlace simbólico en la carpeta.');
+                }
+
+                return parent::allFiles($directory);
+            }
+        });
+        Log::spy();
+
+        $this->artisan('files:prune-orphans', ['--dry-run' => true])
+            ->expectsOutput('Se borraría: patient_photos/' . $otherPhoto)
+            ->expectsOutput("No se pudo revisar la clínica {$failing->id}: no se borró nada en ella.")
+            ->assertExitCode(1);
+        Storage::disk(PatientPhotoService::DISK)->assertExists($otherPhoto);
+
+        $this->artisan('files:prune-orphans')
+            ->expectsOutput('Borrado: patient_photos/' . $otherPhoto)
+            ->expectsOutput("No se pudo revisar la clínica {$failing->id}: no se borró nada en ella.")
+            ->expectsOutput('Archivos huérfanos borrados: 1 de 1.')
+            ->assertExitCode(1);
+
+        Storage::disk(PatientPhotoService::DISK)->assertExists($failingPhoto);
+        Storage::disk(ClinicLogoService::DISK)->assertExists($failingLogo);
+        Storage::disk(PatientPhotoService::DISK)->assertMissing($otherPhoto);
+        Log::shouldHaveReceived('error')->withArgs(
+            fn (string $message, array $context) => str_contains($message, 'no se borró nada') && $context['clinic_id'] === $failing->id && $context['exception'] instanceof RuntimeException
+        )->twice();
     }
 
     /**

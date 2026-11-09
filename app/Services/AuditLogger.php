@@ -105,6 +105,10 @@ class AuditLogger
             $new = $new !== null ? [...$context, ...$new] : null;
         }
 
+        // Valores que el modelo reemplaza (una ruta interna; FASE 2, entrega 2.5).
+        $old = $old !== null ? $model->auditValues($old) : null;
+        $new = $new !== null ? $model->auditValues($new) : null;
+
         $this->record($event, $model, $old, $new);
     }
 

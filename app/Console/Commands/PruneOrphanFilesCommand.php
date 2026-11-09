@@ -12,6 +12,9 @@ use Illuminate\Console\Command;
  * de fotos y de logos de cada clínica (OrphanFileService). Con --dry-run informa lo
  * mismo que borraría, sin borrar.
  *
+ * Termina con 1 si un borrado falló o si una clínica no se pudo revisar (en esa no se
+ * borra nada; las demás siguen).
+ *
  * Programado a diario a las 03:00 (routes/console.php); en producción necesita el cron
  * del scheduler (FASE 10).
  */
@@ -37,16 +40,19 @@ class PruneOrphanFilesCommand extends Command
             });
         }
 
+        // Una clínica que no se pudo revisar: no se borró nada en ella (el detalle, en el log).
+        foreach ($result['failed_clinics'] as $clinicId) {
+            $this->error("No se pudo revisar la clínica {$clinicId}: no se borró nada en ella.");
+        }
+
         $count = count($result['orphans']);
 
         if ($dryRun) {
             $this->info("Archivos huérfanos que se borrarían: {$count} (--dry-run, no se borró nada).");
-
-            return self::SUCCESS;
+        } else {
+            $this->info('Archivos huérfanos borrados: ' . ($count - count($failed)) . " de {$count}.");
         }
 
-        $this->info('Archivos huérfanos borrados: ' . ($count - count($failed)) . " de {$count}.");
-
-        return $failed === [] ? self::SUCCESS : self::FAILURE;
+        return $failed === [] && $result['failed_clinics'] === [] ? self::SUCCESS : self::FAILURE;
     }
 }

@@ -42,6 +42,27 @@ maestros, está en desarrollo: diseño aprobado (R-029) y entregas 2.1, sucursal
 
 Ninguna entrega empieza sin autorización del usuario.
 
+### Notas para el cierre de la 2.5
+
+Implementada y revisada (commits WIP en `feature/fase-02-05-configuracion`); falta la validación del usuario con Postman y
+el cierre (`/cerrar-entrega`). Para el registro del cierre:
+
+* **Causa del 500 de la validación con Postman** (`GET system-settings` en la base de desarrollo): el `DemoSeeder` marca sus
+  clínicas con la clave `demo_data` en `system_settings` (R-010), que no estaba en `SystemSettingKey`, y el cast `key` del
+  modelo lanzaba un `ValueError` al leer todas las filas. Corrección: la lectura toma las filas sin el modelo.
+* **Desvíos del diseño aceptados por el usuario:** (1) `demo_data` es una clave interna de `SystemSettingKey`, como
+  `logo_path`: no se edita ni sale en la respuesta; (2) una clave desconocida en la base se ignora al leer, con un aviso en el
+  log, y no se borra.
+* **Decisiones de la revisión:**
+  * La auditoría de `system_settings` lleva siempre la clave (`SystemSetting::auditContext()`), y la fila `logo_path` guarda
+    `"(archivo)"` en lugar de la ruta (`auditValues()`, un gancho nuevo de `Auditable`). La 2.6 no necesita ocultarla.
+  * `DELETE system-settings/logo` con un `logo_path` fuera de la carpeta de la clínica limpia la referencia (200) sin tocar
+    ningún archivo; el diseño decía 404. `has_logo` sigue como `has_photo`. La foto del paciente queda como deuda 15.
+  * Una fila con la clave en otras mayúsculas (MySQL no las distingue): la edición la toma y le pone la clave del enum; la
+    lectura la ignora.
+  * `files:prune-orphans`: una clínica que no se puede revisar queda en el log, no se borra nada en ella y se sigue con las
+    demás; el comando termina con 1.
+
 ## Decisiones técnicas que hay que tener presentes
 
 | Tema | Decisión |

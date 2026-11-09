@@ -7,6 +7,7 @@ use App\Models\Clinic;
 use App\Models\SystemSetting;
 use App\Support\CurrentClinic;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -98,7 +99,7 @@ class SystemSettingsService
      */
     public function put(SystemSettingKey $key, ?string $value): void
     {
-        $setting = SystemSetting::query()->where('key', $key->value)->first();
+        $setting = $this->row($key);
 
         if ($value === null) {
             $setting?->delete();
@@ -106,16 +107,46 @@ class SystemSettingsService
             return;
         }
 
-        $setting ??= new SystemSetting(['key' => $key]);
+        $setting ??= new SystemSetting();
+        // Una fila con la clave en otras mayúsculas queda con la del enum (ver row()).
+        $setting->key = $key;
         $setting->value = $value;
         $setting->save();
     }
 
     /**
-     * El valor de una clave en la clínica en contexto (sin bloqueo).
+     * El valor de una clave en la clínica en contexto (sin bloqueo). La clave se compara
+     * exacta, como al leer la configuración (knownValues): una fila en otras mayúsculas
+     * no es esa clave.
      */
     public function get(SystemSettingKey $key): ?string
     {
-        return SystemSetting::query()->where('key', $key->value)->value('value');
+        return $this->rowsOf($key)->first(fn (object $row) => $row->key === $key->value)?->value;
+    }
+
+    /**
+     * La fila de la clave, para escribirla: la exacta o, si no hay, una con la clave en
+     * otras mayúsculas (corrección de la 2.5). En MySQL la comparación y el índice único
+     * (clinic_id, key) no distinguen mayúsculas: "WEBSITE" ocupa el lugar de "website",
+     * y un alta chocaría con el índice (un 500). Se toma esa fila y put() le pone la
+     * clave del enum. En SQLite la consulta no la trae y se crea la fila exacta.
+     */
+    private function row(SystemSettingKey $key): ?SystemSetting
+    {
+        $rows = $this->rowsOf($key);
+        $row = $rows->first(fn (object $row) => $row->key === $key->value) ?? $rows->first();
+
+        return $row !== null ? SystemSetting::query()->find($row->id) : null;
+    }
+
+    /**
+     * Las filas que la base considera de la clave, sin el modelo (el cast de `key` no
+     * acepta otras mayúsculas).
+     *
+     * @return Collection<int, object{id: int, key: string, value: ?string}>
+     */
+    private function rowsOf(SystemSettingKey $key): Collection
+    {
+        return SystemSetting::query()->toBase()->where('key', $key->value)->orderBy('id')->get(['id', 'key', 'value']);
     }
 }

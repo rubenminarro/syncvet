@@ -157,6 +157,23 @@ class ClinicLogoTest extends TestCase
         $this->assertCount(1, Storage::disk(ClinicLogoService::DISK)->allFiles());
     }
 
+    /**
+     * PHP corta el archivo antes de Laravel (upload_max_filesize: llega con error), como
+     * en la foto del paciente: 413 con el mensaje en logo, y no se guarda nada.
+     */
+    public function test_a_file_cut_by_php_answers_413(): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'logo');
+        file_put_contents($tmp, '');
+
+        $response = $this->upload(new UploadedFile($tmp, 'enorme.png', null, UPLOAD_ERR_INI_SIZE, true));
+
+        $this->assertErrorCode($response, 413, 'PAYLOAD_TOO_LARGE');
+        $response->assertJsonPath('errors.logo.0', UploadClinicLogoRequest::TOO_LARGE);
+        $this->assertNull($this->logoPath());
+        $this->assertSame([], Storage::disk(ClinicLogoService::DISK)->allFiles());
+    }
+
     public function test_replacing_the_logo_deletes_the_previous_file(): void
     {
         $this->upload($this->file('foto.jpg'))->assertOk();
@@ -268,14 +285,18 @@ class ClinicLogoTest extends TestCase
 
     /**
      * logo_path solo se usa si es un archivo de la carpeta de la clínica: otro valor (de
-     * otra clínica, con "..", la carpeta misma, otro nombre) → 404 con un aviso en el log,
-     * y el archivo ajeno no se toca, tampoco al reemplazar el logo.
+     * otra clínica, con "..", la carpeta misma, otro nombre) → 404 al verlo, con un aviso
+     * en el log. Borrarlo limpia la referencia (200, has_logo false) sin tocar ningún
+     * archivo (corrección de la 2.5). El archivo ajeno tampoco se toca al reemplazar.
      */
     public function test_a_logo_path_outside_the_clinic_folder_is_not_used(): void
     {
         $other = $this->createClinic();
         $foreign = $this->logoIn($other->id);
         $folder = ClinicLogoService::folder($this->clinic->id);
+        // Un archivo en la carpeta de la clínica con otro nombre: tampoco se borra.
+        Storage::disk(ClinicLogoService::DISK)->put("{$folder}logo.png", 'png');
+        $files = Storage::disk(ClinicLogoService::DISK)->allFiles();
         $paths = [
             $foreign,
             "{$folder}../../{$other->id}/logo/" . basename($foreign),
@@ -288,9 +309,15 @@ class ClinicLogoTest extends TestCase
             Log::spy();
 
             $this->assertErrorCode($this->get(self::URL, ['Accept' => 'application/json']), 404, 'CLINIC_LOGO_NOT_FOUND');
-            $this->assertErrorCode($this->deleteJson(self::URL), 404, 'CLINIC_LOGO_NOT_FOUND');
-
             $this->assertSame($path, $this->logoPath());
+
+            $this->deleteJson(self::URL)
+                ->assertOk()
+                ->assertJsonPath('message', 'Logo de la clínica eliminado correctamente.')
+                ->assertJsonPath('data.has_logo', false);
+
+            $this->assertNull($this->logoPath());
+            $this->assertSame($files, Storage::disk(ClinicLogoService::DISK)->allFiles());
             Log::shouldHaveReceived('warning')->withArgs(
                 fn (string $message, array $context) => str_contains($message, 'fuera de su carpeta') && $context['logo_path'] === $path
             )->twice();
@@ -363,13 +390,28 @@ class ClinicLogoTest extends TestCase
         }
     }
 
-    public function test_the_change_is_audited(): void
+    /**
+     * La subida, el reemplazo y el borrado quedan en la auditoría con la clave y el valor
+     * "(archivo)": la ruta del logo nunca se guarda (corrección de la 2.5).
+     */
+    public function test_the_change_is_audited_without_the_path(): void
     {
         $this->upload($this->file('foto.png'))->assertOk();
+        $this->upload($this->file('foto.jpg'))->assertOk();
         $this->deleteJson(self::URL)->assertOk();
 
-        $events = DB::table('audit_logs')->where('auditable_type', 'system_setting')->where('clinic_id', $this->clinic->id)->orderBy('id')->pluck('event')->all();
-        $this->assertSame(['created', 'deleted'], $events);
+        $logs = DB::table('audit_logs')->where('auditable_type', 'system_setting')->where('clinic_id', $this->clinic->id)->orderBy('id')->get();
+        $values = fn (?string $json) => $json === null ? null : array_intersect_key(json_decode($json, true), array_flip(['key', 'value']));
+        $logo = ['key' => 'logo_path', 'value' => SystemSetting::AUDIT_FILE];
+
+        $this->assertSame(['created', 'updated', 'deleted'], $logs->pluck('event')->all());
+        $this->assertSame([null, $logo], [$values($logs[0]->old_values), $values($logs[0]->new_values)]);
+        $this->assertSame([$logo, $logo], [$values($logs[1]->old_values), $values($logs[1]->new_values)]);
+        $this->assertSame([$logo, null], [$values($logs[2]->old_values), $values($logs[2]->new_values)]);
+        // Ninguna fila de la auditoría tiene una ruta (el JSON guarda la barra como "\/").
+        foreach (DB::table('audit_logs')->get() as $log) {
+            $this->assertStringNotContainsString('clinics/', stripslashes((string) $log->old_values . $log->new_values));
+        }
     }
 
     private function upload(UploadedFile $file): TestResponse

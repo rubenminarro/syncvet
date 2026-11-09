@@ -5,8 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Configuración general del sistema por clave (p. ej. logo_path, la ruta del
- * logo en el disco public).
+ * Configuración de cada clínica por clave (App\Enums\SystemSettingKey; p. ej.
+ * logo_path, la ruta del logo en el disco privado clinic_logos).
  */
 return new class extends Migration
 {

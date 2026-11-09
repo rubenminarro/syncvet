@@ -293,19 +293,49 @@ class SystemSettingsTest extends TestCase
         $this->assertSame('1', DB::table('system_settings')->where('clinic_id', $this->clinic->id)->where('key', 'demo_data')->value('value'));
     }
 
+    /**
+     * Corrección de la 2.5: una fila con la clave en otras mayúsculas (cargada sin la API).
+     * En MySQL la comparación y el índice (clinic_id, key) no distinguen mayúsculas: antes,
+     * el PATCH escribía el valor en la fila WEBSITE, que la lectura ignora (el valor se
+     * perdía), y un alta de website habría chocado con el índice. Ahora la fila pasa a ser
+     * website; en SQLite queda aparte y se crea la exacta. En los dos motores: 200, el valor
+     * se ve y null lo borra. Corre en SQLite y en MySQL.
+     */
+    public function test_a_key_stored_in_other_case_does_not_break_the_edition(): void
+    {
+        DB::table('system_settings')->insert(['clinic_id' => $this->clinic->id, 'key' => 'WEBSITE', 'value' => 'https://viejo.example.com', 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($this->userWithRole($this->clinic, 'administrador'));
+        $exact = fn () => DB::table('system_settings')->where('clinic_id', $this->clinic->id)->get(['key', 'value'])->first(fn ($row) => $row->key === 'website');
+
+        $this->patchJson('/api/system-settings', ['settings' => ['website' => 'https://nuevo.example.com']])
+            ->assertOk()
+            ->assertJsonPath('data.settings.website', 'https://nuevo.example.com');
+        $this->getJson('/api/system-settings')->assertOk()->assertJsonPath('data.settings.website', 'https://nuevo.example.com');
+        $this->assertSame('https://nuevo.example.com', $exact()?->value);
+        $this->assertSame(1, DB::table('system_settings')->where('clinic_id', $this->clinic->id)->get(['key'])->filter(fn ($row) => $row->key === 'website')->count());
+
+        $this->patchJson('/api/system-settings', ['settings' => ['website' => null]])->assertOk()->assertJsonPath('data.settings.website', null);
+        $this->assertNull($exact());
+    }
+
+    /**
+     * La auditoría de una clave lleva siempre la clave (SystemSetting::auditContext), también
+     * en una modificación, que solo cambia el valor.
+     */
+    public function test_the_audit_of_a_key_always_has_the_key(): void
+    {
+        $this->setting('website', 'https://norte.example.com');
+        Sanctum::actingAs($this->userWithRole($this->clinic, 'administrador'));
+
+        $this->patchJson('/api/system-settings', ['settings' => ['website' => 'https://sur.example.com']])->assertOk();
+
+        $log = DB::table('audit_logs')->where('auditable_type', 'system_setting')->where('event', 'updated')->sole();
+        $this->assertSame(['key' => 'website', 'value' => 'https://norte.example.com'], json_decode($log->old_values, true));
+        $this->assertSame(['key' => 'website', 'value' => 'https://sur.example.com'], json_decode($log->new_values, true));
+    }
+
     private function setting(string $key, string $value): void
     {
         CurrentClinic::run($this->clinic, fn () => SystemSetting::create(['key' => $key, 'value' => $value]));
-    }
-}
-
-/**
- * Rutas de ejemplo con el nombre que les da ClinicLogoService.
- */
-final class ClinicPaths
-{
-    public static function logo(int $clinicId): string
-    {
-        return "clinics/{$clinicId}/logo/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png";
     }
 }
