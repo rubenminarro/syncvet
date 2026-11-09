@@ -64,8 +64,65 @@ class VeterinarianRestoreTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('errors.license_number.0', 'Ya hay un veterinario con esa matrícula.');
 
+        // Normalizada antes de validar (desvío 7): en minúsculas también choca.
+        $this->postJson('/api/veterinarians', ['user_id' => $user->id, 'license_number' => ' mv-1001'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.license_number.0', 'Ya hay un veterinario con esa matrícula.');
+
         $this->assertTrue(CurrentClinic::run($clinic, fn () => Veterinarian::withTrashed()->findOrFail($veterinarian->id)->trashed()));
         $this->assertSame(0, DB::table('audit_logs')->where('auditable_id', $veterinarian->id)->where('auditable_type', 'veterinarian')->where('event', 'restored')->count());
+
+        // Con otra, la restauración la guarda normalizada.
+        $this->postJson('/api/veterinarians', ['user_id' => $user->id, 'license_number' => 'mv-2002 '])
+            ->assertCreated()
+            ->assertJsonPath('data.id', $veterinarian->id)
+            ->assertJsonPath('data.license_number', 'MV-2002');
+    }
+
+    /**
+     * Revisión de la 2.3: la ficha eliminada de un usuario de otra clínica no se restaura
+     * desde esta (422 en user_id) y sigue eliminada.
+     */
+    public function test_the_deleted_profile_of_a_user_of_another_clinic_is_not_restored(): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreignUser = $this->veterinarianUser($foreignClinic);
+        $foreign = $this->veterinarianOf($foreignUser, ['license_number' => 'MV-1001']);
+        CurrentClinic::run($foreignClinic, fn () => $foreign->delete());
+        $this->actAsVeterinarianManager($this->createClinic());
+
+        $this->postJson('/api/veterinarians', ['user_id' => $foreignUser->id])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.user_id.0', 'El usuario no existe o está inactivo.');
+
+        $this->assertNotNull(DB::table('veterinarians')->where('id', $foreign->id)->value('deleted_at'));
+        $this->assertSame(0, DB::table('audit_logs')->where('auditable_type', 'veterinarian')->where('auditable_id', $foreign->id)->where('event', 'restored')->count());
+    }
+
+    /**
+     * El Service vuelve a revisar la clínica con el usuario bloqueado, aunque se lo llame
+     * sin el Form Request: un usuario de otra clínica → 422 y nada cambia.
+     */
+    public function test_the_service_rejects_a_user_of_another_clinic(): void
+    {
+        $clinic = $this->createClinic();
+        $foreignClinic = $this->createClinic();
+        $foreignUser = $this->veterinarianUser($foreignClinic);
+        $deletedUser = $this->veterinarianUser($foreignClinic);
+        $deleted = $this->veterinarianOf($deletedUser);
+        CurrentClinic::run($foreignClinic, fn () => $deleted->delete());
+
+        foreach ([$foreignUser, $deletedUser] as $user) {
+            try {
+                CurrentClinic::run($clinic, fn () => app(\App\Services\VeterinarianService::class)->create(['user_id' => $user->id]));
+                $this->fail('El Service aceptó un usuario de otra clínica.');
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $this->assertSame(['El usuario no existe o está inactivo.'], $e->errors()['user_id'] ?? null);
+            }
+        }
+
+        $this->assertSame(1, DB::table('veterinarians')->count());
+        $this->assertNotNull(DB::table('veterinarians')->where('id', $deleted->id)->value('deleted_at'));
     }
 
     /**

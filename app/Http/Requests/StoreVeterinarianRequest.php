@@ -18,6 +18,11 @@ class StoreVeterinarianRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge(VeterinarianMessages::normalizedInput($this->all()));
+    }
+
     public function rules(): array
     {
         $data = VeterinarianMessages::dataRules();

@@ -69,6 +69,15 @@ class VeterinarianUpdateTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('errors.license_number.0', 'Ya hay un veterinario con esa matrícula.');
 
+        // Normalizada antes de validar (desvío 7): en minúsculas también choca, en SQLite también.
+        $this->patchJson("/api/veterinarians/{$veterinarian->id}", ['license_number' => ' mv-1001 '])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.license_number.0', 'Ya hay un veterinario con esa matrícula.');
+
+        $this->patchJson("/api/veterinarians/{$veterinarian->id}", ['license_number' => 'mv-3003'])
+            ->assertOk()
+            ->assertJsonPath('data.license_number', 'MV-3003');
+
         $this->patchJson("/api/veterinarians/{$veterinarian->id}", ['commission_percentage' => 101, 'status' => 'x'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['commission_percentage', 'status']);

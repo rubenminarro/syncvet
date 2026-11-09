@@ -237,7 +237,7 @@ return [
 
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
-        'include_inactive' => 'incluir inactivas',
+        'include_inactive' => 'incluir los inactivos',
         'search' => 'búsqueda',
         'per_page' => 'resultados por página',
         'page' => 'página',

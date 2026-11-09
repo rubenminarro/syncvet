@@ -17,6 +17,11 @@ class UpdateVeterinarianRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge(VeterinarianMessages::normalizedInput($this->all()));
+    }
+
     public function rules(): array
     {
         $veterinarian = $this->route('veterinarian');

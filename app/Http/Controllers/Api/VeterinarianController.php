@@ -18,8 +18,9 @@ use Illuminate\Routing\Controllers\Middleware;
 
 /**
  * Veterinarios (FASE 2, entrega 2.3). Los administra el administrador; la recepción y
- * el veterinario solo listan (veterinarians.index). El listado trae los activos, salvo
- * status=inactive.
+ * el veterinario solo listan (veterinarians.index); el detalle es del administrador.
+ * El listado trae los activos; status filtra por un estado (y manda), e
+ * include_inactive=1 sin status trae activos e inactivos, como sucursales y usuarios.
  */
 class VeterinarianController extends Controller implements HasMiddleware
 {
@@ -45,11 +46,13 @@ class VeterinarianController extends Controller implements HasMiddleware
 
     public function index(IndexVeterinarianRequest $request)
     {
-        $status = $request->enum('status', VeterinarianStatus::class) ?? VeterinarianStatus::ACTIVE;
+        // status manda; sin status, solo los activos, salvo include_inactive=1.
+        $status = $request->enum('status', VeterinarianStatus::class)
+            ?? ($request->boolean('include_inactive') ? null : VeterinarianStatus::ACTIVE);
 
         $veterinarians = Veterinarian::query()
             ->with(self::RELATIONS)
-            ->where('status', $status->value)
+            ->when($status !== null, fn ($query) => $query->where('status', $status->value))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->search;
 

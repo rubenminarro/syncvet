@@ -29,6 +29,36 @@ class VeterinarianMessages
     public const LICENSE_TAKEN = 'Ya hay un veterinario con esa matrícula.';
 
     /**
+     * La matrícula como se guarda y se compara: en mayúsculas y sin espacios en los
+     * extremos ("mv-1001" es la misma que "MV-1001" en SQLite y en MySQL). Vacía, nula.
+     * Otro tipo de valor llega igual a la validación, que lo rechaza.
+     */
+    public static function normalizeLicense(mixed $license): mixed
+    {
+        if (! is_string($license)) {
+            return $license;
+        }
+
+        $license = mb_strtoupper(trim($license));
+
+        return $license === '' ? null : $license;
+    }
+
+    /**
+     * El pedido con la matrícula normalizada, para que unique compare el valor que se
+     * guarda (alta, restauración y edición).
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    public static function normalizedInput(array $input): array
+    {
+        return array_key_exists('license_number', $input)
+            ? ['license_number' => self::normalizeLicense($input['license_number'])]
+            : [];
+    }
+
+    /**
      * Los datos de la ficha. En la edición, cada uno con "sometimes" delante.
      *
      * @return array<string, array<int, mixed>>

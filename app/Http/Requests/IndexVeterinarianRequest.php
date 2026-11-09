@@ -10,8 +10,9 @@ use Illuminate\Validation\Rules\Enum;
 
 /**
  * Filtros del listado de veterinarios (FASE 2, entrega 2.3): los de ListFilters
- * (search en código, nombre del usuario y matrícula), status (por defecto, solo los
- * activos) y branch_id (una sucursal de la clínica, activa o no: las de su usuario, P5).
+ * (search en código, nombre del usuario y matrícula), status (manda; sin él, solo los
+ * activos, salvo include_inactive=1) y branch_id (una sucursal de la clínica, activa o
+ * no: las de su usuario, P5).
  */
 class IndexVeterinarianRequest extends FormRequest
 {
@@ -25,6 +26,7 @@ class IndexVeterinarianRequest extends FormRequest
         return [
             ...ListFilters::rules(),
             'status' => ['nullable', Rule::enum(VeterinarianStatus::class)],
+            'include_inactive' => ['nullable', 'boolean'],
             'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')->where('clinic_id', CurrentClinic::id())],
         ];
     }

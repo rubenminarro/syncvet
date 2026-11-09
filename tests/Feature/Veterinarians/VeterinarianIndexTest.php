@@ -31,7 +31,9 @@ class VeterinarianIndexTest extends TestCase
             ->assertJsonPath('message', 'Veterinarios obtenidos correctamente.')
             ->assertJsonPath('data.0.code', 'VET-000001')
             ->assertJsonPath('data.0.branches.0.code', 'SUC-01')
+            // La comisión y las notas, solo en el detalle (del administrador).
             ->assertJsonMissingPath('data.0.commission_percentage')
+            ->assertJsonMissingPath('data.0.notes')
             ->assertJsonPath('meta.pagination.total', 2)
             ->assertJsonPath('meta.pagination.perPage', 1)
             ->assertJsonPath('meta.pagination.lastPage', 2);
@@ -39,6 +41,30 @@ class VeterinarianIndexTest extends TestCase
         $this->getJson('/api/veterinarians?status=inactive')
             ->assertOk()
             ->assertJsonPath('data.*.code', ['VET-000003']);
+    }
+
+    /**
+     * Revisión de la 2.3 (desvío 5), como sucursales y usuarios: include_inactive=1 sin
+     * status trae activos e inactivos (nunca los eliminados); status manda; un valor
+     * inválido → 422.
+     */
+    public function test_include_inactive_brings_active_and_inactive_and_status_prevails(): void
+    {
+        $clinic = $this->createClinic();
+        $this->veterinarianOf($this->veterinarianUser($clinic));
+        $this->veterinarianOf($this->veterinarianUser($clinic), ['status' => 'inactive']);
+        $deleted = $this->veterinarianOf($this->veterinarianUser($clinic));
+        $this->actAsVeterinarianManager($clinic);
+        $this->deleteJson("/api/veterinarians/{$deleted->id}")->assertOk();
+
+        $this->getJson('/api/veterinarians?include_inactive=1')->assertOk()->assertJsonPath('data.*.code', ['VET-000001', 'VET-000002']);
+        $this->getJson('/api/veterinarians?include_inactive=0')->assertOk()->assertJsonPath('data.*.code', ['VET-000001']);
+        $this->getJson('/api/veterinarians?include_inactive=1&status=active')->assertOk()->assertJsonPath('data.*.code', ['VET-000001']);
+        $this->getJson('/api/veterinarians?include_inactive=0&status=inactive')->assertOk()->assertJsonPath('data.*.code', ['VET-000002']);
+
+        $this->getJson('/api/veterinarians?include_inactive=x')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.include_inactive.0', 'El campo incluir los inactivos debe ser verdadero o falso.');
     }
 
     public function test_search_finds_by_code_user_name_and_license_number_literally(): void

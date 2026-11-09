@@ -35,7 +35,7 @@ class Veterinarian extends Model
      * Los valores por defecto de las columnas: una ficha recién creada ya los muestra.
      */
     protected $attributes = [
-        'status' => 'active',
+        'status' => VeterinarianStatus::ACTIVE->value,
         'commission_percentage' => '0.00',
     ];
 

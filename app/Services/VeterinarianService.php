@@ -81,7 +81,7 @@ class VeterinarianService
                 'commission_percentage' => '0.00',
                 'status' => VeterinarianStatus::ACTIVE,
                 'notes' => null,
-                ...Arr::only($data, self::FIELDS),
+                ...$this->fields($data),
             ];
 
             if ($existing !== null) {
@@ -112,7 +112,7 @@ class VeterinarianService
     {
         return DB::transaction(function () use ($veterinarian, $data) {
             $veterinarian = Veterinarian::query()->whereKey($veterinarian->getKey())->lockForUpdate()->firstOrFail();
-            $veterinarian->fill(Arr::only($data, self::FIELDS));
+            $veterinarian->fill($this->fields($data));
 
             return $this->withUniqueLicense(function () use ($veterinarian) {
                 $veterinarian->save();
@@ -146,6 +146,25 @@ class VeterinarianService
 
             $veterinarian->delete();
         });
+    }
+
+    /**
+     * Los datos de la ficha que llegan, con la matrícula normalizada como la compara la
+     * validación (mayúsculas, sin espacios en los extremos): así se guarda aunque el
+     * Service se llame sin el Form Request.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function fields(array $data): array
+    {
+        $fields = Arr::only($data, self::FIELDS);
+
+        if (array_key_exists('license_number', $fields)) {
+            $fields['license_number'] = VeterinarianMessages::normalizeLicense($fields['license_number']);
+        }
+
+        return $fields;
     }
 
     /**

@@ -345,6 +345,75 @@
             }
         },
         {
+            "name": "05b Alta con la matrícula de vet-a en minúsculas → 422",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// La matrícula se normaliza (mayúsculas, sin espacios en los extremos) antes de validar.",
+                            "pm.collectionVariables.set('demo_license_lower', ' ' + pm.collectionVariables.get('demo_license').toLowerCase() + ' ');"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('VALIDATION_ERROR', () => pm.expect(json.error_code).to.eql('VALIDATION_ERROR'));",
+                            "pm.test('Mensaje', () => pm.expect(json.errors.license_number[0]).to.eql('Ya hay un veterinario con esa matrícula.'));",
+                            "pm.test('Solo la matrícula', () => pm.expect(Object.keys(json.errors)).to.eql(['license_number']));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": \"{{vet_user_id}}\",\n    \"license_number\": \"{{demo_license_lower}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "06 Alta del veterinario (código VET-)",
             "event": [
                 {
@@ -932,6 +1001,169 @@
                         {
                             "key": "status",
                             "value": "inactive"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16b Con include_inactive=1, también el inactivo",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('El inactivo', () => { pm.expect(json.meta.pagination.total).to.eql(1); pm.expect(json.data[0].status.value).to.eql('inactive'); });",
+                            "pm.test('Sin comisión ni notas en el listado', () => { pm.expect(json.data[0]).to.not.have.property('commission_percentage'); pm.expect(json.data[0]).to.not.have.property('notes'); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?search=MP-{{run}}&include_inactive=1",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "MP-{{run}}"
+                        },
+                        {
+                            "key": "include_inactive",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16c status manda sobre include_inactive",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Ninguno activo', () => pm.expect(json.meta.pagination.total).to.eql(0));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?search=MP-{{run}}&include_inactive=1&status=active",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "MP-{{run}}"
+                        },
+                        {
+                            "key": "include_inactive",
+                            "value": "1"
+                        },
+                        {
+                            "key": "status",
+                            "value": "active"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16d include_inactive inválido → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Mensaje', () => pm.expect(json.errors.include_inactive[0]).to.eql('El campo incluir los inactivos debe ser verdadero o falso.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?include_inactive=x",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "include_inactive",
+                            "value": "x"
                         }
                     ]
                 },
@@ -1541,6 +1773,11 @@
         },
         {
             "key": "demo_license",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "demo_license_lower",
             "value": "",
             "type": "string"
         },

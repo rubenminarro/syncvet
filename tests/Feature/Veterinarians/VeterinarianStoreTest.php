@@ -153,6 +153,38 @@ class VeterinarianStoreTest extends TestCase
             ->assertCreated();
     }
 
+    /**
+     * Revisión de la 2.3 (desvío 7): la matrícula se guarda en mayúsculas y sin espacios
+     * en los extremos, y se compara así: "mv-1001" choca con "MV-1001" también en SQLite.
+     */
+    public function test_the_license_number_is_normalized_before_validating_and_saving(): void
+    {
+        $clinic = $this->createClinic();
+        $this->veterinarianOf($this->veterinarianUser($clinic), ['license_number' => 'MV-1001']);
+        $this->actAsVeterinarianManager($clinic);
+
+        $userId = $this->veterinarianUser($clinic)->id;
+        $writes = [];
+        DB::listen(function ($query) use (&$writes) {
+            if (preg_match('/^\s*(insert|update)\b/i', $query->sql)) {
+                $writes[] = $query->sql;
+            }
+        });
+
+        $this->postJson('/api/veterinarians', ['user_id' => $userId, 'license_number' => 'mv-1001'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.license_number.0', 'Ya hay un veterinario con esa matrícula.');
+
+        // Lo rechaza la validación (unique con el valor normalizado), no el índice único al guardar.
+        $this->assertSame([], $writes, "La matrícula llegó al guardado:\n" . implode("\n", $writes));
+
+        $this->postJson('/api/veterinarians', ['user_id' => $this->veterinarianUser($clinic)->id, 'license_number' => '  mv-2002 '])
+            ->assertCreated()
+            ->assertJsonPath('data.license_number', 'MV-2002');
+
+        $this->assertSame(['MV-1001', 'MV-2002'], DB::table('veterinarians')->orderBy('id')->pluck('license_number')->all());
+    }
+
     public static function invalidCommissions(): array
     {
         return [
@@ -201,7 +233,10 @@ class VeterinarianStoreTest extends TestCase
         foreach (['recepcionista', 'veterinario'] as $role) {
             $this->actingAs($this->userWithRoles($clinic, [$role]), 'sanctum');
 
-            $this->getJson('/api/veterinarians')->assertOk()->assertJsonCount(1, 'data');
+            // El listado no muestra la comisión ni las notas (decisión del usuario en la revisión).
+            $this->getJson('/api/veterinarians')->assertOk()->assertJsonCount(1, 'data')
+                ->assertJsonMissingPath('data.0.commission_percentage')
+                ->assertJsonMissingPath('data.0.notes');
             $this->assertErrorCode($this->postJson('/api/veterinarians', ['user_id' => $this->veterinarianUser($clinic)->id]), 403, 'FORBIDDEN');
             $this->assertErrorCode($this->getJson("/api/veterinarians/{$veterinarian->id}"), 403, 'FORBIDDEN');
             $this->assertErrorCode($this->patchJson("/api/veterinarians/{$veterinarian->id}", ['status' => 'inactive']), 403, 'FORBIDDEN');
