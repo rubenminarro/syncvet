@@ -327,6 +327,43 @@ class UserUpdateTest extends TestCase
             ->assertJsonPath('data.branches.0.code', 'SUC-01')
             ->assertJsonStructure(['data' => ['created_at', 'updated_at']])
             ->assertJsonMissingPath('data.password')
-            ->assertJsonMissingPath('data.remember_token');
+            ->assertJsonMissingPath('data.remember_token')
+            // Sin ficha de veterinario (2.3).
+            ->assertJsonPath('data.veterinarian', null);
+    }
+
+    /**
+     * Entrega 2.3 (pregunta 30): con una ficha de veterinario no eliminada, el usuario no
+     * pierde el rol veterinario (409 USER_IS_VETERINARIAN, sin cambios a medias); con la
+     * ficha eliminada, sí. El detalle muestra la ficha.
+     */
+    public function test_a_user_with_a_veterinarian_profile_keeps_the_veterinarian_role(): void
+    {
+        $clinic = $this->createClinic();
+        $user = $this->userWithRoles($clinic, ['veterinario']);
+        $id = DB::table('veterinarians')->insertGetId([
+            'clinic_id' => $clinic->id, 'user_id' => $user->id, 'code' => 'VET-000001',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->actAsUserManager($clinic);
+
+        $this->getJson("/api/users/{$user->id}")->assertOk()->assertJsonPath('data.veterinarian', ['id' => $id, 'code' => 'VET-000001']);
+
+        $response = $this->patchJson("/api/users/{$user->id}", ['roles' => ['recepcionista'], 'first_name' => 'Otra']);
+
+        $this->assertErrorCode($response, 409, 'USER_IS_VETERINARIAN');
+        $response->assertJsonPath('message', 'El usuario tiene una ficha de veterinario: eliminala antes de quitarle el rol.');
+        $this->assertSame(['veterinario'], $user->fresh()->getRoleNames()->all());
+        $this->assertNotSame('Otra', $user->fresh()->first_name, 'El 409 dejó cambios a medias.');
+
+        // Sumarle otro rol sin quitarle el de veterinario, sí.
+        $this->patchJson("/api/users/{$user->id}", ['roles' => ['veterinario', 'recepcionista']])->assertOk();
+
+        // Con la ficha eliminada, el rol se quita.
+        DB::table('veterinarians')->where('id', $id)->update(['deleted_at' => now()]);
+        $this->patchJson("/api/users/{$user->id}", ['roles' => ['recepcionista']])
+            ->assertOk()
+            ->assertJsonPath('data.roles.*.name', ['recepcionista'])
+            ->assertJsonPath('data.veterinarian', null);
     }
 }

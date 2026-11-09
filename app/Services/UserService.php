@@ -26,7 +26,8 @@ use Illuminate\Validation\ValidationException;
  * (CatalogLock) y después, al editar, el usuario. Así se ordenan con la
  * inactivación de una sucursal (clínica → sucursal → usuario, R-030), y dos
  * ediciones simultáneas no dejan la clínica sin administrador (P4). Orden de
- * bloqueo: clínica → sucursal → usuario (CLAUDE.md §3).
+ * bloqueo: clínica → sucursal → usuario (CLAUDE.md §3), y clínica → usuario →
+ * veterinario → serie con el alta de una ficha de veterinario (entrega 2.3).
  *
  * User no tiene el scope de la clínica: toda consulta filtra por la clínica en
  * contexto (inClinic()), salvo el email, que es único en toda la base (R-029).
@@ -115,6 +116,10 @@ class UserService
                     $data['roles'] ?? $user->getRoleNames()->all(),
                     (bool) ($data['is_active'] ?? $user->is_active)
                 );
+            }
+
+            if (array_key_exists('roles', $data)) {
+                $this->ensureVeterinarianKeepsTheRole($user, $data['roles']);
             }
 
             if (array_key_exists('email', $data)) {
@@ -232,6 +237,27 @@ class UserService
                 'USER_LAST_ADMIN'
             );
         }
+    }
+
+    /**
+     * Entrega 2.3 (pregunta 30): un usuario con una ficha de veterinario no eliminada
+     * conserva el rol veterinario; para quitárselo, antes se elimina la ficha (si está en
+     * uso, se inactiva el usuario). El usuario ya está bloqueado: el alta de una ficha
+     * (VeterinarianService) bloquea la misma fila (clínica → usuario → veterinario).
+     *
+     * @param list<string> $roles los roles que el usuario tendrá
+     */
+    private function ensureVeterinarianKeepsTheRole(User $user, array $roles): void
+    {
+        if (in_array(UserRole::VETERINARIAN->value, $roles, true) || ! $user->veterinarian()->exists()) {
+            return;
+        }
+
+        throw new UserException(
+            'El usuario tiene una ficha de veterinario: eliminala antes de quitarle el rol.',
+            409,
+            'USER_IS_VETERINARIAN'
+        );
     }
 
     /**

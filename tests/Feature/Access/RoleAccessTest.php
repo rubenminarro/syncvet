@@ -5,6 +5,7 @@ namespace Tests\Feature\Access;
 use App\Models\Branch;
 use App\Models\Clinic;
 use App\Models\User;
+use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Services\PatientPhotoService;
 use App\Support\CurrentClinic;
@@ -91,6 +92,12 @@ class RoleAccessTest extends TestCase
             'warehouse' => (string) $warehouse->id,
             // Un compañero de la clínica (FASE 2, entrega 2.2a): editarlo sin cuerpo responde 200.
             'user' => (string) User::factory()->for($this->clinic)->create()->id,
+            // Un veterinario sin uso (FASE 2, entrega 2.3): editarlo sin cuerpo responde 200 y la
+            // baja, 200 (cada pedido se revierte).
+            'veterinarian' => (string) CurrentClinic::run($this->clinic, fn () => Veterinarian::create([
+                'user_id' => User::factory()->for($this->clinic)->create()->id,
+                'code' => 'VET-000001',
+            ])->id),
         ];
     }
 

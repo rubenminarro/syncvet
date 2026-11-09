@@ -1,0 +1,1563 @@
+{
+    "info": {
+        "name": "SyncVet — FASE 2: validación de veterinarios",
+        "description": "Validación manual de veterinarios (FASE 2, entrega 2.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día (la 2.3 amplía veterinarians.license_number a 60). Necesita internet: el email del usuario de la corrida es @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (rango propio, 300000 a 399998), que va en el email y la contraseña del usuario de la corrida y en la matrícula de su ficha. La corrida crea su propio usuario con el rol veterinario y su ficha; al final elimina la ficha e inactiva al usuario: el usuario no se puede eliminar, porque la ficha eliminada cuenta como uso (USER_IN_USE, pedido 26). El pedido 03 necesita la ficha de vet-a con su matrícula (la crea el DemoSeeder). La baja con uso (409 VETERINARIAN_IN_USE) no está: ninguna ficha de la demo tiene uso y la API todavía no crea agendas, turnos ni consultas (ver docs/testing/guia-postman.md). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "01a Login del administrador (clínica A)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
+                            "// La corrida, entre 300000 y 399998: un rango propio de esta colección, fuera de los de las demás",
+                            "// (foto: 000000 a 099998; sucursales: 100000 a 199998; usuarios: 200000 a 299998; especies: 400000 a",
+                            "// 499998; clientes: 500000 a 749998; pacientes: 750000 a 999998). Va en el email del usuario de la",
+                            "// corrida, en su contraseña y en la matrícula de su ficha.",
+                            "const run = 300000 + Math.floor(Math.random() * 99998);",
+                            "pm.collectionVariables.set('run', String(run));"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token_admin', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01b Login del recepcionista (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token', json.data.token);",
+                            "// El recepcionista es el usuario sin el rol veterinario del pedido 05.",
+                            "pm.collectionVariables.set('receptionist_id', String(json.data.user.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "02 Sucursal por defecto",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const branch = json.data.find(b => b.is_default);",
+                            "pm.test('Hay una sucursal por defecto', () => pm.expect(branch).to.be.an('object'));",
+                            "pm.collectionVariables.set('default_branch_id', String(branch.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/branches?per_page=100",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "branches"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "100"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 La ficha de vet-a (DemoSeeder), para la matrícula repetida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "const vet = json.data.find(v => v.user.email === 'vet-a@example.com');",
+                            "pm.test('vet-a tiene ficha con matrícula', () => { pm.expect(vet).to.be.an('object'); pm.expect(vet.license_number).to.be.a('string').and.not.empty; });",
+                            "pm.collectionVariables.set('demo_license', vet.license_number);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?search=Acosta",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "Acosta"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Alta del usuario de la corrida con el rol veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Con el rol veterinario y sin ficha', () => { pm.expect(json.data.roles.map(r => r.name)).to.eql(['veterinario']); pm.expect(json.data.veterinarian).to.eql(null); });",
+                            "pm.collectionVariables.set('vet_user_id', String(json.data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"first_name\": \"Valeria\",\n    \"last_name\": \"Postman\",\n    \"email\": \"veterinario{{run}}@mailinator.com\",\n    \"password\": \"Clave-Vet-{{run}}!\",\n    \"roles\": [\n        \"veterinario\"\n    ],\n    \"branch_ids\": [\n        \"{{default_branch_id}}\"\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05 Alta con un usuario sin el rol (el recepcionista) → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('VALIDATION_ERROR', () => pm.expect(json.error_code).to.eql('VALIDATION_ERROR'));",
+                            "pm.test('Mensaje', () => pm.expect(json.errors.user_id[0]).to.eql('El usuario no tiene el rol veterinario.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": \"{{receptionist_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Alta del veterinario (código VET-)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Código VET-', () => pm.expect(json.data.code).to.match(/^VET-\\d{6}$/));",
+                            "pm.test('Datos', () => { pm.expect(json.data.license_number).to.eql('MP-' + pm.collectionVariables.get('run')); pm.expect(json.data.commission_percentage).to.eql('10.50'); pm.expect(json.data.status.value).to.eql('active'); });",
+                            "pm.test('Su usuario y las sucursales de su usuario', () => { pm.expect(String(json.data.user.id)).to.eql(pm.collectionVariables.get('vet_user_id')); pm.expect(json.data.user.is_active).to.eql(true); pm.expect(json.data.branches.map(b => String(b.id))).to.eql([pm.collectionVariables.get('default_branch_id')]); });",
+                            "pm.collectionVariables.set('vet_id', String(json.data.id));",
+                            "pm.collectionVariables.set('vet_code', json.data.code);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": \"{{vet_user_id}}\",\n    \"license_number\": \"MP-{{run}}\",\n    \"specialty\": \"Clínica de pequeños animales\",\n    \"commission_percentage\": 10.5,\n    \"notes\": \"Ficha de la corrida de Postman.\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "07 El mismo usuario otra vez → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Mensaje', () => pm.expect(json.errors.user_id[0]).to.eql('Ese usuario ya es veterinario.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": \"{{vet_user_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "08 Matrícula repetida (la de vet-a) → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('VALIDATION_ERROR', () => pm.expect(json.error_code).to.eql('VALIDATION_ERROR'));",
+                            "pm.test('Mensaje', () => pm.expect(json.errors.license_number[0]).to.eql('Ya hay un veterinario con esa matrícula.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"license_number\": \"{{demo_license}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Código en el cuerpo y comisión fuera de rango → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('code', () => pm.expect(json.errors.code[0]).to.eql('El código del veterinario se asigna automáticamente.'));",
+                            "pm.test('commission_percentage', () => pm.expect(json.errors.commission_percentage[0]).to.eql('La comisión debe estar entre 0 y 100.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"code\": \"VET-999999\",\n    \"commission_percentage\": 100.5\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 Detalle del veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Mismo código', () => pm.expect(json.data.code).to.eql(pm.collectionVariables.get('vet_code')));",
+                            "pm.test('Con comisión, notas y fechas', () => { pm.expect(json.data.commission_percentage).to.eql('10.50'); pm.expect(json.data.notes).to.eql('Ficha de la corrida de Postman.'); pm.expect(json.data.created_at).to.be.a('string'); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 Listado: search por la matrícula y branch_id",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Uno, el de la corrida', () => { pm.expect(json.meta.pagination.total).to.eql(1); pm.expect(json.data[0].code).to.eql(pm.collectionVariables.get('vet_code')); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?search=MP-{{run}}&branch_id={{default_branch_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "MP-{{run}}"
+                        },
+                        {
+                            "key": "branch_id",
+                            "value": "{{default_branch_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "12 El detalle del usuario muestra su ficha",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('veterinarian', () => pm.expect(json.data.veterinarian.code).to.eql(pm.collectionVariables.get('vet_code')));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{vet_user_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{vet_user_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13 Quitarle el rol veterinario al usuario → 409",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "const json = pm.response.json();",
+                            "pm.test('USER_IS_VETERINARIAN', () => pm.expect(json.error_code).to.eql('USER_IS_VETERINARIAN'));",
+                            "pm.test('Mensaje', () => pm.expect(json.message).to.eql('El usuario tiene una ficha de veterinario: eliminala antes de quitarle el rol.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{vet_user_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{vet_user_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"roles\": [\n        \"recepcionista\"\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "14 Inactivar la ficha",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Inactivo', () => pm.expect(json.data.status.value).to.eql('inactive'));",
+                            "pm.test('Lo demás no cambia', () => pm.expect(json.data.license_number).to.eql('MP-' + pm.collectionVariables.get('run')));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"status\": \"inactive\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15 El listado no muestra al inactivo",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Ninguno', () => pm.expect(json.meta.pagination.total).to.eql(0));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?search=MP-{{run}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "MP-{{run}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16 Con status=inactive, sí",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Uno', () => pm.expect(json.meta.pagination.total).to.eql(1));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?search=MP-{{run}}&status=inactive",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "search",
+                            "value": "MP-{{run}}"
+                        },
+                        {
+                            "key": "status",
+                            "value": "inactive"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "17 Filtros mal formados → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('Los tres filtros', () => pm.expect(Object.keys(json.errors)).to.have.members(['status', 'branch_id', 'per_page']));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians?status=retirado&branch_id=x&per_page=0",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ],
+                    "query": [
+                        {
+                            "key": "status",
+                            "value": "retirado"
+                        },
+                        {
+                            "key": "branch_id",
+                            "value": "x"
+                        },
+                        {
+                            "key": "per_page",
+                            "value": "0"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "18 El recepcionista lista veterinarios",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "19 El recepcionista no da de alta un veterinario → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "const json = pm.response.json();",
+                            "pm.test('FORBIDDEN', () => pm.expect(json.error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": \"{{vet_user_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "20 El recepcionista no edita un veterinario → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "const json = pm.response.json();",
+                            "pm.test('FORBIDDEN', () => pm.expect(json.error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"status\": \"active\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21 El recepcionista no da de baja un veterinario → 403",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "const json = pm.response.json();",
+                            "pm.test('FORBIDDEN', () => pm.expect(json.error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22 Baja sin uso",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Mensaje', () => pm.expect(json.message).to.eql('Veterinario eliminado correctamente.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23 La ficha eliminada no se encuentra → 404",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                            "const json = pm.response.json();",
+                            "pm.test('RESOURCE_NOT_FOUND', () => pm.expect(json.error_code).to.eql('RESOURCE_NOT_FOUND'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Restauración: alta del mismo usuario (misma ficha y mismo código)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const json = pm.response.json();",
+                            "pm.test('Misma ficha y mismo código', () => { pm.expect(String(json.data.id)).to.eql(pm.collectionVariables.get('vet_id')); pm.expect(json.data.code).to.eql(pm.collectionVariables.get('vet_code')); });",
+                            "pm.test('Con los datos del pedido', () => { pm.expect(json.data.specialty).to.eql('Cirugía'); pm.expect(json.data.license_number).to.eql('MP-' + pm.collectionVariables.get('run')); });",
+                            "pm.test('Lo que no llega, con su valor por defecto', () => { pm.expect(json.data.commission_percentage).to.eql('0.00'); pm.expect(json.data.notes).to.eql(null); pm.expect(json.data.status.value).to.eql('active'); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": \"{{vet_user_id}}\",\n    \"license_number\": \"MP-{{run}}\",\n    \"specialty\": \"Cirugía\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25 Baja de la ficha restaurada (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 La baja del usuario de la corrida → 409 (la ficha eliminada es uso)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "const json = pm.response.json();",
+                            "pm.test('USER_IN_USE', () => pm.expect(json.error_code).to.eql('USER_IN_USE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{vet_user_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{vet_user_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "27 Inactivar al usuario de la corrida (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Inactivo', () => pm.expect(json.data.is_active).to.eql(false));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{vet_user_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{vet_user_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8001/api",
+            "type": "string"
+        },
+        {
+            "key": "demo_password",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_admin",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "receptionist_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "default_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "demo_license",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_user_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_code",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

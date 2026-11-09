@@ -9,6 +9,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Ficha del veterinario (FASE 2, entrega 2.3): una por usuario (veterinarians.user_id
+ * es único en toda la base, también entre eliminadas), con el rol veterinario. Sus
+ * sucursales son las de su usuario (P5). Un alta del mismo usuario restaura la ficha
+ * eliminada y conserva su código VET- (P6).
+ *
+ * user_id y code no cambian al editar: los fija VeterinarianService.
+ */
 class Veterinarian extends Model
 {
     use BelongsToClinic, Auditable, SoftDeletes;
@@ -23,6 +31,14 @@ class Veterinarian extends Model
         'notes',
     ];
 
+    /**
+     * Los valores por defecto de las columnas: una ficha recién creada ya los muestra.
+     */
+    protected $attributes = [
+        'status' => 'active',
+        'commission_percentage' => '0.00',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -31,6 +47,9 @@ class Veterinarian extends Model
         ];
     }
 
+    /**
+     * El usuario, también eliminado: la ficha eliminada lo conserva.
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class)->withTrashed();

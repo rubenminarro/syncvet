@@ -228,6 +228,13 @@ return [
         'branch_ids' => 'sucursales',
         'branch_ids.*' => 'sucursal',
 
+        // Veterinarios
+        'user_id' => 'usuario',
+        'license_number' => 'matrícula',
+        'specialty' => 'especialidad',
+        'commission_percentage' => 'comisión',
+        'status' => 'estado',
+
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
         'include_inactive' => 'incluir inactivas',

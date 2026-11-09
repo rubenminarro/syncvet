@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\VeterinarianController;
 use App\Http\Controllers\Api\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -56,4 +57,8 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     // Usuarios (FASE 2, entregas 2.2a y 2.2b): solo el administrador. La baja, solo sin uso.
     Route::apiResource('users', UserController::class);
     Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+
+    // Veterinarios (FASE 2, entrega 2.3): uno por usuario con el rol veterinario. La baja, solo sin
+    // uso; un alta del mismo usuario restaura la ficha eliminada.
+    Route::apiResource('veterinarians', VeterinarianController::class);
 });

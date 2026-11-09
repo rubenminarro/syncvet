@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
 use App\Models\User;
+use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Support\CurrentClinic;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -167,6 +168,44 @@ class RouteBindingTest extends TestCase
         $this->assertSame('Ajena', $foreign->fresh()->first_name);
         $this->assertSame(['recepcionista'], $foreign->fresh()->getRoleNames()->all());
         $this->assertFalse($foreign->fresh()->trashed());
+    }
+
+    /**
+     * Veterinarios (FASE 2, entrega 2.3): una ficha de otra clínica responde 404 en cada
+     * ruta y no cambia. Un usuario de otra clínica en el alta responde 422 (VeterinarianStoreTest).
+     */
+    public static function veterinarianRoutes(): array
+    {
+        return [
+            'GET veterinarians/{veterinarian}' => ['get'],
+            'PATCH veterinarians/{veterinarian}' => ['patch'],
+            'PUT veterinarians/{veterinarian}' => ['put'],
+            'DELETE veterinarians/{veterinarian}' => ['delete'],
+        ];
+    }
+
+    #[DataProvider('veterinarianRoutes')]
+    public function test_veterinarian_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreign = CurrentClinic::run($foreignClinic, fn () => Veterinarian::create([
+            'user_id' => User::factory()->for($foreignClinic)->create()->id,
+            'code' => 'VET-000001',
+            'license_number' => 'MV-1001',
+        ]));
+
+        $this->actingIn($this->createClinic(), ['veterinarians.show', 'veterinarians.update', 'veterinarians.destroy']);
+
+        $response = $this->json($method, "/api/veterinarians/{$foreign->id}", ['license_number' => 'MV-9999', 'status' => 'inactive']);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreignClinic, function () use ($foreign) {
+            $veterinarian = Veterinarian::find($foreign->id);
+
+            $this->assertSame('MV-1001', $veterinarian?->license_number, 'La ficha ajena cambió o se eliminó.');
+            $this->assertSame('active', $veterinarian->status->value);
+        });
     }
 
     public function test_own_records_are_found(): void

@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
 use App\Models\User;
+use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Rules\RucCheckDigit;
 use App\Rules\UniqueClientDocument;
@@ -172,7 +173,7 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update']);
         [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
         [$branch, $warehouse] = CurrentClinic::run($clinic, function () {
             $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
@@ -183,6 +184,8 @@ class ValidationTranslationsTest extends TestCase
         $warehouseFields = ['code', 'name', 'is_default', 'is_active', 'branch_id'];
         $colleague = User::factory()->for($clinic)->create();
         $userFields = ['first_name', 'last_name', 'email', 'password', 'roles', 'branch_ids', 'is_active'];
+        $veterinarian = CurrentClinic::run($clinic, fn () => Veterinarian::create(['user_id' => $colleague->id, 'code' => 'VET-000001']));
+        $veterinarianFields = ['user_id', 'code', 'license_number', 'specialty', 'commission_percentage', 'status', 'notes'];
 
         $clientFields = ['kind', 'business_name', 'document_number', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'notifications_enabled', 'notes'];
         $patientFields = ['name', 'species_id', 'breed_id', 'sex', 'is_neutered', 'birth_date', 'birth_date_estimated', 'color', 'weight_kg', 'microchip', 'allergies', 'notes', 'code'];
@@ -211,6 +214,8 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['POST', '/api/users', array_fill_keys($userFields, $value)];
             $requests[] = ['POST', '/api/users', [...array_fill_keys($userFields, $value), 'roles' => [$value, $value], 'branch_ids' => [$value, $value]]];
             $requests[] = ['PATCH', "/api/users/{$colleague->id}", array_fill_keys($userFields, $value)];
+            $requests[] = ['POST', '/api/veterinarians', array_fill_keys($veterinarianFields, $value)];
+            $requests[] = ['PATCH', "/api/veterinarians/{$veterinarian->id}", array_fill_keys($veterinarianFields, $value)];
             $requests[] = ['PATCH', '/api/me/current-branch', ['branch_id' => $value]];
             $requests[] = ['PATCH', '/api/me/password', ['current_password' => $value, 'password' => $value]];
         }
@@ -225,6 +230,8 @@ class ValidationTranslationsTest extends TestCase
         $requests[] = ['GET', '/api/users?role=x&branch_id=x', []];
         $requests[] = ['GET', '/api/users?branch_id=999999&per_page=0', []];
         $requests[] = ['GET', '/api/users?include_inactive=x', []];
+        $requests[] = ['GET', '/api/veterinarians?status=x&branch_id=x', []];
+        $requests[] = ['GET', '/api/veterinarians?branch_id=999999&per_page=0', []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();
