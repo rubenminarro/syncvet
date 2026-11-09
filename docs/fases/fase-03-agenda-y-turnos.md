@@ -23,6 +23,11 @@ veterinario con uso (409 `VETERINARIAN_IN_USE`): la API todavía no crea agendas
 implementar las agendas, sumar a la colección de Postman de esta fase la baja de un veterinario con una agenda → 409, sin tocar el
 `DemoSeeder`.
 
+**Pendiente de la FASE 2 (entrega 2.4).** La colección de Postman de servicios (`syncvet-fase-02-servicios`) tampoco prueba un
+servicio usado: la baja (409 `SERVICE_IN_USE`) ni el cambio de nombre (422 `SERVICE_NAME_NOT_EDITABLE`). Los cubren los tests
+(`ServiceDeleteTest` y `ServiceUpdateTest`). Al implementar las agendas o los turnos, sumar a la colección de Postman de esta fase
+los dos casos con un servicio usado por una agenda o un turno.
+
 ## Preguntas de negocio
 
 Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).

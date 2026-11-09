@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VeterinarianController;
@@ -61,4 +62,8 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     // Veterinarios (FASE 2, entrega 2.3): uno por usuario con el rol veterinario. La baja, solo sin
     // uso; un alta del mismo usuario restaura la ficha eliminada.
     Route::apiResource('veterinarians', VeterinarianController::class);
+
+    // Servicios (FASE 2, entrega 2.4): el catálogo con código SRV-. Un servicio usado no cambia de
+    // nombre ni se elimina: se inactiva.
+    Route::apiResource('services', ServiceController::class);
 });

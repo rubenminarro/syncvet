@@ -4,6 +4,7 @@ namespace Tests\Feature\Access;
 
 use App\Models\Branch;
 use App\Models\Clinic;
+use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
@@ -97,6 +98,12 @@ class RoleAccessTest extends TestCase
             'veterinarian' => (string) CurrentClinic::run($this->clinic, fn () => Veterinarian::create([
                 'user_id' => User::factory()->for($this->clinic)->create()->id,
                 'code' => 'VET-000001',
+            ])->id),
+            // Un servicio sin uso (FASE 2, entrega 2.4): editarlo sin cuerpo responde 200 y la baja,
+            // 200 (cada pedido se revierte).
+            'service' => (string) CurrentClinic::run($this->clinic, fn () => Service::create([
+                'code' => 'SRV-000001',
+                'name' => 'Consulta general',
             ])->id),
         ];
     }

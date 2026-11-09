@@ -235,6 +235,13 @@ return [
         'commission_percentage' => 'comisión',
         'status' => 'estado',
 
+        // Servicios
+        'category' => 'categoría',
+        'description' => 'descripción',
+        'duration_minutes' => 'duración',
+        'standard_price' => 'precio',
+        'tax_rate' => 'tasa de IVA',
+
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
         'include_inactive' => 'incluir los inactivos',

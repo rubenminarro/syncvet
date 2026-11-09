@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
@@ -205,6 +206,44 @@ class RouteBindingTest extends TestCase
 
             $this->assertSame('MV-1001', $veterinarian?->license_number, 'La ficha ajena cambió o se eliminó.');
             $this->assertSame('active', $veterinarian->status->value);
+        });
+    }
+
+    /**
+     * Servicios (FASE 2, entrega 2.4): un servicio de otra clínica responde 404 en cada
+     * ruta y no cambia.
+     */
+    public static function serviceRoutes(): array
+    {
+        return [
+            'GET services/{service}' => ['get'],
+            'PATCH services/{service}' => ['patch'],
+            'PUT services/{service}' => ['put'],
+            'DELETE services/{service}' => ['delete'],
+        ];
+    }
+
+    #[DataProvider('serviceRoutes')]
+    public function test_service_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreign = CurrentClinic::run($foreignClinic, fn () => Service::create([
+            'code' => 'SRV-000001',
+            'name' => 'Consulta general',
+            'standard_price' => '150000.00',
+        ]));
+
+        $this->actingIn($this->createClinic(), ['services.show', 'services.update', 'services.destroy']);
+
+        $response = $this->json($method, "/api/services/{$foreign->id}", ['standard_price' => 1, 'status' => 'inactive']);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreignClinic, function () use ($foreign) {
+            $service = Service::find($foreign->id);
+
+            $this->assertSame('150000.00', $service?->standard_price, 'El servicio ajeno cambió o se eliminó.');
+            $this->assertSame('active', $service->status->value);
         });
     }
 
