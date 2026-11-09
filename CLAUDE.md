@@ -30,22 +30,26 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
   (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), 2.2a,
   usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), 2.3,
-  veterinarios (R-036 y R-037), y 2.4, servicios (R-038 y R-039), cerradas y validadas por el usuario con Postman; sigue la
-  entrega 2.5, configuración de la clínica, logo y archivos huérfanos.
+  veterinarios (R-036 y R-037), 2.4, servicios (R-038 y R-039), y 2.5, configuración de la clínica, logo y archivos huérfanos
+  (R-040 y R-041), cerradas y validadas por el usuario con Postman; sigue la entrega 2.6, auditoría (y deuda 13).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
-  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios y de servicios (`tests/Feature/Clients`,
-  `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`, `tests/Feature/Veterinarians`,
-  `tests/Feature/Services`).
-  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios y servicios, con las colecciones de Postman de `docs/testing/postman`, que
-  se pueden correr más de una vez sin recrear la base.
+  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios y de la configuración
+  (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`,
+  `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`).
+  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
+  servicios y la configuración con el logo, con las colecciones de Postman de `docs/testing/postman`, que se pueden correr más de
+  una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
   (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso), el
   listado de roles, los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso) y el catálogo de
-  servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado).
-* **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
-  `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
+  servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado), y la configuración de la
+  clínica (sus datos, las claves de `system_settings` y el logo: subir, ver y borrar).
+* **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API), el
+  `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`) y `php artisan files:prune-orphans` (fotos y logos
+  huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
+  *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
   caja, facturación SIFEN y pagos.
 * **Frontend:** repositorio aparte, React 19 + TypeScript + Vite + Tabler.
@@ -132,7 +136,8 @@ empezar una sesión.
   serie `VET-` al final, solo en un alta nueva); veterinario (la baja: la ficha con `lockForUpdate` antes de revisar el uso;
   las fases 3 y 4 tomarán un `sharedLock` sobre el veterinario al usarlo); clínica → servicio → serie (el alta y el cambio de
   nombre de un servicio: `CatalogLock` antes de leer los nombres; la edición y la baja: el servicio con `lockForUpdate` antes de
-  revisar el uso; la serie `SRV-` al final; las fases 3 y 4 tomarán un `sharedLock` sobre el servicio al usarlo).
+  revisar el uso; la serie `SRV-` al final; las fases 3 y 4 tomarán un `sharedLock` sobre el servicio al usarlo); clínica →
+  configuración (editar los datos y las claves, y subir o borrar el logo: `CatalogLock` antes de leer las claves o `logo_path`).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -222,9 +227,10 @@ Controller (HasMiddleware) → Form Request → Service → Model/Eloquent → A
 
 Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
 
-La única respuesta exitosa sin `ApiResponse` es la descarga de un archivo (`GET patients/{patient}/photo`): el cuerpo es el
-archivo, con `Content-Type` según el tipo guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none';
-sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
+Las únicas respuestas exitosas sin `ApiResponse` son las descargas de un archivo (`GET patients/{patient}/photo` y
+`GET system-settings/logo`, las dos con `PrivateImageStore`): el cuerpo es el archivo, con `Content-Type` según el tipo guardado,
+`X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox` y `Cache-Control: private, no-store`. Sus
+errores sí usan el contrato.
 
 `error_code` genéricos (`bootstrap/app.php`; los de negocio salen de cada excepción de dominio):
 
@@ -237,7 +243,7 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | 405 | `METHOD_NOT_ALLOWED` | Método HTTP no admitido en la ruta |
 | 406 | `NOT_ACCEPTABLE` | Formato de respuesta no aceptable |
 | 409 | `CONFLICT` | `abort(409)` u otro conflicto HTTP sin excepción de dominio |
-| 413 | `PAYLOAD_TOO_LARGE` | El pedido supera `post_max_size` de PHP (`development/setup.md`); la foto de más de 5 MB responde lo mismo, con `errors.photo` |
+| 413 | `PAYLOAD_TOO_LARGE` | El pedido supera `post_max_size` de PHP (`development/setup.md`); la foto de más de 5 MB y el logo de más de 2 MB responden lo mismo, con `errors.photo` o `errors.logo` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Tipo de contenido no soportado |
 | 422 | `VALIDATION_ERROR` | Falla un Form Request (`errors` trae los campos) |
 | 429 | `TOO_MANY_REQUESTS` | Límite de pedidos (conserva `Retry-After`) |
@@ -245,7 +251,8 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | Otro 4xx | `HTTP_ERROR` | Error HTTP sin código propio; conserva su estado |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
 
-`error_code` de autenticación, usuarios, veterinarios y servicios que no son de un solo módulo (2.2a, 2.2b, 2.3 y 2.4):
+`error_code` de autenticación, usuarios, veterinarios, servicios y la configuración que no son de un solo módulo (2.2a, 2.2b, 2.3,
+2.4 y 2.5):
 
 | HTTP | `error_code` | Excepción | Cuándo |
 |---|---|---|---|
@@ -257,6 +264,7 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | 409 | `VETERINARIAN_IN_USE` | `VeterinarianException` | Baja de un veterinario con registros (`VeterinarianService::USAGE`): se inactiva (§6.6) |
 | 422 | `SERVICE_NAME_NOT_EDITABLE` | `ServiceException` | Cambio de nombre de un servicio usado (`ServiceCatalogService::USAGE`): se crea otro y se inactiva este (§6.7) |
 | 409 | `SERVICE_IN_USE` | `ServiceException` | Baja de un servicio usado (`ServiceCatalogService::USAGE`): se inactiva (§6.7) |
+| 404 | `CLINIC_LOGO_NOT_FOUND` | `ClinicException` | Ver o borrar el logo de una clínica sin logo; verlo con un `logo_path` fuera de la carpeta de la clínica o sin archivo (§6.8) |
 
 ---
 
@@ -330,11 +338,16 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
   disco tiene `serve`), en `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}` con la extensión del tipo detectado, sin
   redimensionar (`PatientPhotoService`). `photo_path` no es asignable en masa: solo lo cambia el Service. Ver, borrar o
   reemplazar usan `photo_path` solo si es un archivo de la carpeta del paciente; si no, 404 `PATIENT_PHOTO_NOT_FOUND` (al
-  reemplazar, el archivo ajeno no se borra) y un aviso en el log. Reemplazar o borrar lee `photo_path` con la fila del paciente
-  bloqueada y borra el archivo anterior después del commit (si el borrado falla, aviso en el log; deuda 14); si la transacción
-  falla, se borra el nuevo. Sin foto, o con `photo_path` y sin archivo (aviso en el log) → 404 `PATIENT_PHOTO_NOT_FOUND`. Un
-  paciente fallecido también sube y borra la foto (no es un dato clínico). La baja del paciente deja el archivo. La respuesta
-  muestra `has_photo`, nunca `photo_path`.
+  reemplazar, el archivo ajeno no se borra) y un aviso en el log (deuda 15: borrarla no limpia esa referencia). Reemplazar o
+  borrar lee `photo_path` con la fila del paciente bloqueada y borra el archivo anterior después del commit (si el borrado falla,
+  aviso en el log, y lo levanta `files:prune-orphans`, §6.8); si la transacción falla, se borra el nuevo. Sin foto, o con
+  `photo_path` y sin archivo (aviso en el log) → 404 `PATIENT_PHOTO_NOT_FOUND`. Un paciente fallecido también sube y borra la
+  foto (no es un dato clínico). La baja del paciente deja el archivo. La respuesta muestra `has_photo` (`photo_path !== null`),
+  nunca `photo_path`.
+* **Imágenes privadas compartidas** (2.5): lo común de la foto y del logo de la clínica (§6.8) vive en `App\Support\PrivateImageStore`
+  (guardar, reemplazar después del commit, validar la ruta contra la carpeta del dueño y descargar con sus cabeceras) y en
+  `App\Http\Requests\PrivateImageRequest` (tipo por el contenido, 413, megapíxeles y la imagen vuelta a codificar). La foto mantiene
+  sus respuestas, códigos, mensajes y rutas.
 
 ### 6.3 Especies y razas
 
@@ -497,7 +510,48 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 * Concurrencia (§3): el alta y el cambio de nombre bloquean la clínica (`CatalogLock`) antes de leer los nombres; la edición y la
   baja bloquean el servicio antes de revisar el uso; la serie va al final.
 
-### 6.8 Pendientes de diseño (reglas a definir antes de programar)
+### 6.8 Configuración de la clínica, logo y archivos huérfanos
+
+* `system-settings` (`GET`, y `PATCH`/`PUT` con semántica parcial; `SystemSettingsService`): la leen los tres roles
+  (`system-settings.show`) y la edita el administrador (`system-settings.update`; los demás, 403). La respuesta
+  (`SystemSettingsResource`) trae `clinic` (`name`, `legal_name`, `ruc`, `ruc_dv`), `settings` (cada clave editable, `null` sin
+  valor) y `has_logo`.
+* Datos de la clínica: `name` (2 a 100) y `legal_name` (2 a 150), editables; `ruc` y `ruc_dv` se muestran y no se editan (422,
+  `prohibited`).
+* Claves (`App\Enums\SystemSettingKey`, lista cerrada, cada una con su regla): `contact_email` (email en minúsculas, hasta 150),
+  `contact_phone` (la regla de teléfonos de clientes), `website` (URL `https`, hasta 150) y `document_footer` (texto, hasta 500).
+  `settings.<clave>: null` borra la fila; una clave sin valor no tiene fila. Una clave fuera de la lista → 422 en `settings.<clave>`,
+  "La clave … no existe en la configuración.", sin cambios a medias. Dos claves son internas (no se editan ni salen en la respuesta):
+  `logo_path` (la ruta del logo) y `demo_data` (la marca del `DemoSeeder`, R-010).
+* Una fila con una clave que no está en el enum (cargada sin la API) se ignora al leer, con un aviso en el log, y no se borra: la
+  lectura toma las filas sin el modelo, porque el cast de `key` lanzaría un `ValueError` (un 500; R-041). La clave se compara exacta
+  al leer; al escribir, una fila con la clave en otras mayúsculas (MySQL no las distingue, tampoco su índice único) se toma y queda
+  con la clave del enum.
+* **Logo** (`system-settings/logo`: subir con `POST`, ver con `GET`, borrar con `DELETE`; permisos `system-settings.upload-logo`,
+  `system-settings.show-logo` y `system-settings.delete-logo`): lo sube y lo borra el administrador; lo ven los tres roles. Las
+  reglas de la foto del paciente (§6.2, `PrivateImageStore`), con su propio límite: JPG, PNG o WEBP de hasta 2 MB por el contenido
+  (`UploadClinicLogoRequest`), vuelto a codificar sin EXIF y de hasta 25 megapíxeles; más grande → 413 `PAYLOAD_TOO_LARGE` con
+  `errors.logo`. Disco propio `clinic_logos` (`storage/app/private/clinic-logos`, sin `serve`), en
+  `clinics/{clinic_id}/logo/{uuid}.{ext}`. El anterior se borra después del commit; si la transacción falla, se borra el nuevo.
+  Responde `SystemSettingsResource`.
+* La ruta va en la clave interna `logo_path` y nunca sale de la API: `has_logo` (`logo_path !== null`, como `has_photo`) en la
+  configuración y en `me` (`clinic.has_logo`). Tampoco queda en la auditoría: `SystemSetting::auditValues()` guarda `"(archivo)"`
+  en lugar de la ruta en el alta, la modificación y la baja, y `auditContext()` suma siempre la clave (R-041).
+* Ver el logo usa `logo_path` solo si es un archivo de la carpeta de la clínica; si no, o sin archivo, 404
+  `CLINIC_LOGO_NOT_FOUND` ("La clínica no tiene logo.") y un aviso en el log. Borrarlo sin logo → 404; con un `logo_path` fuera de
+  la carpeta, limpia la referencia (200) sin tocar ningún archivo (R-041; la foto no lo hace, deuda 15). Al reemplazar, el
+  archivo ajeno no se borra.
+* Concurrencia (§3): editar la configuración y subir o borrar el logo bloquean la clínica (`CatalogLock`) antes de leer las claves
+  o `logo_path`.
+* **Archivos huérfanos** (`php artisan files:prune-orphans`, con `--dry-run`; `OrphanFileService`; programado a diario a las 03:00
+  en `routes/console.php`, y en producción necesita el cron del *scheduler*, FASE 10): por cada clínica (`CurrentClinic::run`)
+  borra los archivos de `clinics/{id}/patients/` (disco `patient_photos`) y de `clinics/{id}/logo/` (disco `clinic_logos`) que no
+  sean el `photo_path` de un paciente de la clínica (también eliminado) ni su `logo_path`, y que tengan más de 24 horas. Nunca
+  borra fuera de esas carpetas: las rutas de la base solo sirven para conservar. Cada borrado queda en el log. Una clínica que no
+  se puede revisar (un enlace simbólico, un error del disco) queda en el log, no se borra nada en ella y se sigue con las demás.
+  Termina con 1 si una clínica falló o un borrado no se pudo hacer. `--dry-run` informa lo mismo que borraría, sin borrar.
+
+### 6.9 Pendientes de diseño (reglas a definir antes de programar)
 
 * **Turnos:** sin superposición en la misma agenda (validar con `lockForUpdate` sobre la agenda); transiciones de
   `AppointmentStatus`; un turno fichado abre la consulta.
@@ -520,5 +574,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 13 | Fechas con hora de la API: solo `deceased_at` se convierte de UTC a `America/Asuncion`; llevarlo a un lugar común antes de la FASE 3 |
-| 14 | Fotos huérfanas (baja del paciente, proceso que muere antes del commit, borrado que falla): falta una limpieza programada |
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |

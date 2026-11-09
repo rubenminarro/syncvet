@@ -67,10 +67,11 @@ Laragon, que traía la ruta de la máquina donde se armó el instalador (`D:\Pro
    El segundo comando debe mostrar el mensaje de contraseña filtrada, no `NULL`. Con `NULL`, `storage/logs/laravel.log` tiene el aviso
    de Have I Been Pwned con el `curl_error`.
 
-## Tamaño de las subidas (foto del paciente)
+## Tamaño de las subidas (foto del paciente y logo de la clínica)
 
-La foto del paciente admite hasta 5 MB (FASE 1, entrega 1.5). PHP corta antes que Laravel si el archivo o el pedido superan sus
-límites, así que las dos directivas del `php.ini` en uso (`php --ini`) tienen que pasar de 5 MB:
+La foto del paciente admite hasta 5 MB (FASE 1, entrega 1.5) y el logo de la clínica, hasta 2 MB (FASE 2, entrega 2.5). PHP corta
+antes que Laravel si el archivo o el pedido superan sus límites, así que las dos directivas del `php.ini` en uso (`php --ini`)
+tienen que pasar de 5 MB:
 
 ```ini
 upload_max_filesize = 8M
@@ -90,7 +91,28 @@ tiene `serve` (`config/filesystems.php`; R-027): Laravel no publica la ruta `/st
 `storage:link` solo enlaza el disco `public`. La foto se descarga únicamente con `GET api/patients/{patient}/photo`, con token y
 dentro de la clínica.
 
-## GD (foto del paciente)
+El logo de cada clínica va en otro disco, `clinic_logos` (`storage/app/private/clinic-logos`, en `clinics/{clinic_id}/logo/`),
+también sin `serve`: se descarga únicamente con `GET api/system-settings/logo`. Las dos carpetas se crean solas con la primera
+subida; en un respaldo van junto con la base (las rutas guardadas en `patients.photo_path` y en la clave `logo_path` de
+`system_settings` apuntan a ellas).
+
+## Limpieza de archivos huérfanos
+
+`php artisan files:prune-orphans` (FASE 2, entrega 2.5; deuda 14) borra, en las carpetas de fotos y de logos de cada clínica, los
+archivos de más de 24 horas que ninguna fila usa: ni el `photo_path` de un paciente (también eliminado) ni el `logo_path` de su
+clínica. Quedan de un reemplazo cuyo borrado falló o de un proceso que murió antes del commit. Nunca borra fuera de esas carpetas.
+
+```bash
+php artisan files:prune-orphans --dry-run   # lista lo que borraría, sin borrar
+php artisan files:prune-orphans
+```
+
+Cada borrado queda en el log (`storage/logs`). Termina con código 1 si una clínica no se pudo revisar (en esa no borra nada y sigue
+con las demás) o si un borrado falló. Está programado a diario a las 03:00 (`routes/console.php`): en desarrollo no corre solo
+(se puede probar con `php artisan schedule:list` y `php artisan schedule:run`); en producción necesita el cron del *scheduler*
+(`* * * * * php artisan schedule:run`), que se configura en el despliegue (FASE 10, entrega 10.5).
+
+## GD (foto del paciente y logo de la clínica)
 
 Al subir la foto, la imagen se vuelve a codificar con GD en su mismo formato (R-027): así se pierden los metadatos (EXIF, también
 el GPS) y todo lo que venga pegado después de la imagen. La extensión `gd` de PHP es **obligatoria**, con soporte de JPEG, PNG y

@@ -16,10 +16,10 @@ Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; s
 | `app/Services` | `AuthService`, `ClientService`, `PatientService`, `ClinicService`, `DocumentSequenceService`, `AuditLogger` |
 | `app/Http` | Controllers, Requests y Resources de autenticación, clientes, pacientes, y especies y razas; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas) y `PwnedPasswordsVerifier` |
-| `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador |
+| `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
 | `routes/api.php` | Rutas de autenticación (`login`, `logout`, `me`), clientes, pacientes, y especies y razas |
-| `database/seeders` | `RolesAndPermissionsSeeder` (123 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
+| `database/seeders` | `RolesAndPermissionsSeeder` (127 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
 
@@ -47,7 +47,7 @@ Con el código de Laravel 13:
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
-* Los 123 permisos de los Controllers y de los roles existen en el seeder.
+* Los 127 permisos de los Controllers y de los roles existen en el seeder.
 
 La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y de las rutas, y las respuestas de error en JSON
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);

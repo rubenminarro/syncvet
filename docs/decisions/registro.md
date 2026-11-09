@@ -829,3 +829,53 @@ detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correccio
 **Qué cambió en la API.** Frente a R-038: el nombre de un servicio acepta además `,`, `/`, `+` y `%` (sin `//`), y el mensaje de
 `name.regex` cambia; un código repetido en el alta de un servicio o de un veterinario responde 409 `DOCUMENT_CODE_CONFLICT` en lugar
 del 422 del nombre o de la matrícula. Rutas, permisos y `error_code`, sin otros cambios.
+
+# R-040 Entrega 2.5 de la FASE 2: configuración de la clínica, logo y archivos huérfanos (2026-11-09)
+
+Implementación de la entrega 2.5 en `feature/fase-02-05-configuracion` (creada desde `feature/fase-02-04-servicios`). El detalle está
+en el [resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-25).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Cinco: `GET` y `PATCH`/`PUT` `system-settings`, y `POST`, `GET` y `DELETE` `system-settings/logo`. 51 → 56 | Diseño (R-029) |
+| Permisos | Cuatro nuevos, 123 → 127: `system-settings.show`, `.upload-logo`, `.show-logo` y `.delete-logo` (`.update` ya existía). El recepcionista y el veterinario suman `show` y `show-logo` | Diseño (R-029) |
+| Migraciones | Ninguna (34): `clinics` y `system_settings` existían. Modelo nuevo `SystemSetting` (`BelongsToClinic`, `Auditable`) | Diseño (R-029) |
+| Claves | Enum `SystemSettingKey`, lista cerrada con la regla de cada clave: `contact_email`, `contact_phone`, `website` y `document_footer`; `logo_path`, interna. `null` borra la fila | Diseño (R-029, pregunta 23) |
+| Logo | JPG, PNG o WEBP de hasta 2 MB, disco propio `clinic_logos`, la ruta en `logo_path` y nunca en la API (`has_logo` en la configuración y en `me`) | Diseño (R-029, P12 y pregunta 25) |
+| Reutilización | Lo común con la foto del paciente pasa a `App\Support\PrivateImageStore` (guardar, reemplazar después del commit, validar la ruta, descargar) y a `App\Http\Requests\PrivateImageRequest` (tipo por el contenido, 413, megapíxeles, imagen vuelta a codificar). Los tests de la foto no cambian | Diseño (R-029) |
+| Limpieza (deuda 14) | `files:prune-orphans` con `--dry-run` (`OrphanFileService`), programado a diario a las 03:00 | Diseño (R-029, P15 y pregunta 26) |
+| `CatalogLock::forCurrentClinic()` | Devuelve la clínica bloqueada (antes, nada): la edición de los datos la usa | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las cinco de la configuración. `error_code` nuevo: `CLINIC_LOGO_NOT_FOUND` (404), con
+`ClinicException`, que ya existía. `me` (y el login) suma `clinic.has_logo`. Rutas, permisos y contratos existentes, sin otros
+cambios: la foto del paciente responde igual con `PrivateImageStore`.
+
+# R-041 Revisión, correcciones y cierre de la entrega 2.5 de la FASE 2 (2026-11-09)
+
+La primera validación con Postman encontró un 500 en la lectura de la configuración; la revisión, en una sesión de Claude Code aparte
+de la implementación, encontró dos hallazgos de gravedad media y varios menores. El usuario decidió cada uno y validó la entrega. La
+implementación, la corrección del 500 y las correcciones de la revisión quedaron en tres commits WIP (`fe10d2b`, `62b160e` y
+`f0b906a`); el cierre va en un commit aparte en `feature/fase-02-05-configuracion`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-041) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-041).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| El 500 de la primera validación | `GET system-settings` respondía 500 en la base de desarrollo: el `DemoSeeder` marca sus clínicas con la clave `demo_data` (R-010), que no estaba en `SystemSettingKey`, y el cast `key` del modelo lanzaba un `ValueError` al leer todas las filas. La lectura toma las filas sin el modelo. Tests: `SystemSettingsTest::test_an_unknown_key_in_the_database_is_ignored_with_a_warning` y `test_the_demo_seeder_marker_is_an_internal_key` | Usuario |
+| `demo_data` (desvío 1) | Clave interna de `SystemSettingKey`, como `logo_path`: no se edita (422) ni sale en la respuesta; `DemoSeeder::MARKER` la toma del enum | Implementación; aceptado por el usuario |
+| Claves desconocidas (desvío 2) | Una fila con una clave fuera del enum se ignora al leer, con un aviso en el log, y no se borra | Implementación; aceptado por el usuario |
+| Auditoría del logo | La fila `logo_path` nunca guarda la ruta en `audit_logs`: guarda `"(archivo)"` en el alta, la modificación y la baja (`SystemSetting::auditValues()`, un gancho nuevo de `Auditable` que aplica `AuditLogger`). `SystemSetting::auditContext()` suma siempre la clave: una modificación ya no queda como `{"value": …}` sin saber de qué clave es. La 2.6 no necesita ocultar la ruta del logo | Usuario |
+| `has_logo` | Igual que `has_photo`: `logo_path !== null`, sin revisar la ruta | Usuario |
+| Borrar el logo con una ruta inválida | `DELETE system-settings/logo` con un `logo_path` fuera de la carpeta de la clínica limpia la referencia (200) sin tocar ningún archivo, con el aviso en el log; sin logo sigue en 404. El diseño decía 404: sin este cambio, el administrador no podía sacar un logo roto | Usuario |
+| Foto con una ruta inválida | El mismo caso en la foto del paciente queda como deuda 15 (borrarla responde 404 y deja la referencia) | Usuario |
+| Clave en otras mayúsculas | En MySQL (comparación e índice único sin mayúsculas), un `PATCH` de `website` con una fila `WEBSITE` respondía 200 y escribía en esa fila, que la lectura ignora: el valor se perdía (la revisión lo informó como un 500; no lo era). La edición toma esa fila y le pone la clave del enum; la lectura compara exacto. Test en SQLite y en MySQL | Usuario |
+| Limpieza que falla en una clínica | `files:prune-orphans` revisa cada clínica entera antes de borrar en ella; si la revisión falla (un enlace simbólico, un error del disco), queda en el log, no borra nada en esa clínica y sigue con las demás. Termina con 1 | Usuario |
+| Tests | Clínicas con ids X y X0 y un `photo_path` cruzado entre clínicas (falla con `withoutGlobalScopes()`); el 413 del logo cortado por PHP; la clínica que falla; la auditoría sin rutas; la clave en otras mayúsculas | Usuario |
+| Menores | `ClinicPaths` en su propio archivo; comentarios de `DemoSeeder` y de la migración de `system_settings`; `array_flip` en `OrphanFileService` | Usuario |
+| Validación | El usuario corrió en Postman (Collection Runner, una iteración) `syncvet-fase-02-configuracion`: 67 de 67 pruebas, 0 errores; y, por `PrivateImageStore`, la de la foto (`syncvet-fase-01-foto`): 60 de 60, 0 errores. Entrega validada | Usuario, el 2026-11-09 |
+| Suite del cierre | Sobre el código de `f0b906a`: 921 casos; en SQLite, 10477 aserciones con 3 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 10497 aserciones sin omitidos | Cierre |
+| Deuda 14 | Resuelta: `files:prune-orphans`. En producción necesita el cron del *scheduler* (FASE 10, entrega 10.5) | Cierre |
+| Siguiente | Entrega 2.6 (auditoría y deuda 13), en `feature/fase-02-06-auditoria`, creada desde `feature/fase-02-05-configuracion`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Frente a R-040: `DELETE system-settings/logo` con un `logo_path` fuera de la carpeta de la clínica responde
+200 y limpia la referencia (antes, 404 `CLINIC_LOGO_NOT_FOUND`). Rutas, permisos y `error_code`, sin otros cambios.
