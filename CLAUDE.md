@@ -20,7 +20,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
-* **Base de datos:** MySQL 8. Esquema del MVP completo (33 migraciones: las 32 del MVP y `users.is_active`, de la 2.2b). Una
+* **Base de datos:** MySQL 8. Esquema del MVP completo (34 migraciones: las 32 del MVP, `users.is_active`, de la 2.2b, y
+  `veterinarians.license_number` a 60 caracteres, de la 2.3). Una
   base compartida por todas las clínicas, con `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros
   R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
@@ -28,18 +29,18 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
   (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), 2.2a,
-  usuarios (R-032 y R-033), y 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), cerradas y
-  validadas por el usuario con Postman; sigue la entrega 2.3, veterinarios.
+  usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), y 2.3,
+  veterinarios (R-036 y R-037), cerradas y validadas por el usuario con Postman; sigue la entrega 2.4, servicios.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
-  clientes, de pacientes, del catálogo, de sucursales y depósitos y de usuarios (`tests/Feature/Clients`, `tests/Feature/Patients`,
-  `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`).
-  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, y usuarios, con las colecciones de Postman de `docs/testing/postman`, que
+  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios y de veterinarios (`tests/Feature/Clients`,
+  `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`, `tests/Feature/Veterinarians`).
+  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios y veterinarios, con las colecciones de Postman de `docs/testing/postman`, que
   se pueden correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
-  (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso) y el
-  listado de roles.
+  (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso), el
+  listado de roles y los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
@@ -117,7 +118,11 @@ empezar una sesión.
   la edición de sucursales y depósitos: `CatalogLock`, después la sucursal con `lockForUpdate`, después el depósito o los
   usuarios que la tienen como actual; también `PATCH me/current-branch`: `CatalogLock`, después la sucursal elegida y después el
   usuario, los dos con `lockForUpdate`); clínica → usuario (el alta, la edición, la inactivación y la baja de usuarios:
-  `CatalogLock`, después el usuario con `lockForUpdate` antes de contar los administradores y, en la baja, de revisar el uso).
+  `CatalogLock`, después el usuario con `lockForUpdate` antes de contar los administradores y, en la baja, de revisar el uso;
+  quitar el rol `veterinario`, también antes de buscar su ficha); clínica → usuario → veterinario → serie (el alta y la
+  restauración de un veterinario: `CatalogLock`, después el usuario y su ficha, también eliminada, con `lockForUpdate`, y la
+  serie `VET-` al final, solo en un alta nueva); veterinario (la baja: la ficha con `lockForUpdate` antes de revisar el uso;
+  las fases 3 y 4 tomarán un `sharedLock` sobre el veterinario al usarlo).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -230,7 +235,7 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | Otro 4xx | `HTTP_ERROR` | Error HTTP sin código propio; conserva su estado |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
 
-`error_code` de autenticación y usuarios que no son de un solo módulo (2.2a y 2.2b):
+`error_code` de autenticación, usuarios y veterinarios que no son de un solo módulo (2.2a, 2.2b y 2.3):
 
 | HTTP | `error_code` | Excepción | Cuándo |
 |---|---|---|---|
@@ -238,6 +243,8 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | 409 | `USER_SELF_ACTION` | `UserException` | El administrador se inactiva o se da de baja a sí mismo |
 | 409 | `USER_IN_USE` | `UserException` | Baja de un usuario con registros a su nombre (`UserService::USAGE`): se inactiva |
 | 409 | `USER_LAST_ADMIN` | `UserException` | La clínica se queda sin un administrador activo (§6.5) |
+| 409 | `USER_IS_VETERINARIAN` | `UserException` | Se le quita el rol `veterinario` a un usuario con una ficha de veterinario no eliminada (§6.6) |
+| 409 | `VETERINARIAN_IN_USE` | `VeterinarianException` | Baja de un veterinario con registros (`VeterinarianService::USAGE`): se inactiva (§6.6) |
 
 ---
 
@@ -411,7 +418,41 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 * Concurrencia: el alta, la edición, la inactivación y la baja bloquean la clínica (`CatalogLock`) y, salvo el alta, después el
   usuario (`lockForUpdate`), antes de contar los administradores; la baja revisa el uso dentro de su transacción (§3).
 
-### 6.6 Pendientes de diseño (reglas a definir antes de programar)
+### 6.6 Veterinarios
+
+* ABM en `veterinarians` (`apiResource`; permisos `veterinarians.index`, `.store`, `.show`, `.update` y `.destroy`). Lo administra el
+  administrador; el `recepcionista` y el `veterinario` solo listan (`veterinarians.index`): el detalle, con la comisión y las notas,
+  es solo del administrador, y el listado (`VeterinarianResource`) no muestra `commission_percentage` ni `notes` (R-037).
+* Una ficha por usuario (`veterinarians.user_id` es único en toda la base, también entre eliminadas). `user_id` obligatorio en el
+  alta: un usuario activo y no eliminado de la clínica (si no, 422 "El usuario no existe o está inactivo."), con el rol
+  `veterinario` (422 "El usuario no tiene el rol veterinario.") y sin una ficha no eliminada (422 "Ese usuario ya es
+  veterinario."). El Service lo vuelve a revisar con el usuario bloqueado (§3). `user_id` es `prohibited` al editar.
+* Código `VET-` de la serie (`DocumentSeries::VETERINARIAN`); `code` en el alta o en la edición → 422 (`prohibited`).
+* **Restauración** (P6): si el usuario tiene una ficha eliminada, el alta la restaura (misma fila y mismo código, sin usar la serie)
+  con los datos del pedido; los que no llegan vuelven a su valor por defecto, como en un alta. Responde 201, igual que un alta, y la
+  auditoría guarda `updated` (si cambian datos) y `restored`.
+* `license_number` opcional, hasta 30, única en la clínica: se pasa a mayúsculas y sin espacios en los extremos **antes de validar**
+  (vacía, nula), así que `mv-1001` choca con `MV-1001` en SQLite y en MySQL (R-037). Repetida → 422 "Ya hay un veterinario con esa
+  matrícula." (el índice único es el respaldo de dos pedidos simultáneos: el mismo 422). `specialty` hasta 100;
+  `commission_percentage` de 0 a 100 con hasta 2 decimales, 0 por defecto, sin cálculos (P7); `notes` hasta 1000; `status`
+  `active` o `inactive` (`VeterinarianStatus`), `active` por defecto.
+* Sucursales (P5): las de su usuario (`branch_user`); la respuesta las muestra y el listado filtra por `branch_id` (una sucursal de
+  la clínica, activa o no).
+* Se inactiva (`status: inactive`) aunque esté en uso. Un usuario inactivo no cambia su ficha; la respuesta muestra
+  `user.is_active` (las fases 3 y 4 no lo asignan).
+* Baja (`SoftDeletes`) solo sin uso: una fila de `schedules`, `appointments`, `consultations`, `consultation_items`,
+  `patient_applications` o `patient_documents` (`VeterinarianService::USAGE`, con `DB::table`; un test exige que cubra toda clave
+  foránea a `veterinarians`). Con uso → 409 `VETERINARIAN_IN_USE`, "El veterinario tiene registros y no se puede eliminar:
+  inactivalo." Al eliminar, `//deleted_<id>_<timestamp>` entero en la matrícula: la columna admite 60. La ficha eliminada cuenta
+  como uso de su usuario (§6.5, `USER_IN_USE`).
+* Quitarle el rol `veterinario` (`users/{user}`) a un usuario con una ficha no eliminada → 409 `USER_IS_VETERINARIAN`, "El usuario
+  tiene una ficha de veterinario: eliminala antes de quitarle el rol."; con la ficha eliminada, se permite. `ShowUserResource`
+  muestra `veterinarian` (`id`, `code`), o `null` sin ficha o con la ficha eliminada.
+* Listado paginado con `ListFilters`: solo los activos; `status` filtra por un estado y manda; `include_inactive=1` sin `status`
+  trae activos e inactivos (nunca los eliminados); `search` en el código, el nombre y el apellido del usuario y la matrícula; orden
+  por código.
+
+### 6.7 Pendientes de diseño (reglas a definir antes de programar)
 
 * **Turnos:** sin superposición en la misma agenda (validar con `lockForUpdate` sobre la agenda); transiciones de
   `AppointmentStatus`; un turno fichado abre la consulta.

@@ -18,6 +18,11 @@ El diseño (paso 2) completa cada entrega con reglas de negocio, datos, endpoint
 | 3.4 | Disponibilidad por agenda | PENDIENTE |
 | 3.5 | Cola del día por veterinario | PENDIENTE |
 
+**Pendiente de la FASE 2 (R-037).** La colección de Postman de veterinarios (`syncvet-fase-02-veterinarios`) no prueba la baja de un
+veterinario con uso (409 `VETERINARIAN_IN_USE`): la API todavía no crea agendas. La cubren los tests (`VeterinarianDeleteTest`). Al
+implementar las agendas, sumar a la colección de Postman de esta fase la baja de un veterinario con una agenda → 409, sin tocar el
+`DemoSeeder`.
+
 ## Preguntas de negocio
 
 Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).

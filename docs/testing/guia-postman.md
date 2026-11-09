@@ -186,6 +186,7 @@ pasos, y la preparación, el Environment **SyncVet local** y la forma de correrl
 |---|---|---|
 | [`postman/syncvet-fase-02-sucursales.postman_collection.json`](postman/syncvet-fase-02-sucursales.postman_collection.json) | 2.1 (R-030 y R-031) | Listado con inactivas y detalle de la sucursal por defecto con su depósito, alta de una sucursal con su depósito por defecto, código repetido en minúsculas, nombre repetido en mayúsculas y sin acento, establecimiento mal formado o en uso y teléfono inválido (422), cambio de la sucursal por defecto (la anterior deja de serlo), quitar la por defecto sin marcar otra (422), inactivar la por defecto (409), cambio del establecimiento sin facturas con `PUT` parcial, alta de depósitos (un `branch_id` del cuerpo se ignora; código en uso y nombre repetido, 422), cambio del depósito por defecto, inactivar el depósito por defecto (409), `branch_id` al editar un depósito (422), listado de depósitos sin el inactivo, sucursal inactivada (no suma depósitos: 422 en `branch`; no pasa a ser la por defecto: 422), listados con y sin inactivas, sucursal de otra clínica (404), y el recepcionista que lista y no crea (403) |
 | [`postman/syncvet-fase-02-usuarios.postman_collection.json`](postman/syncvet-fase-02-usuarios.postman_collection.json) | 2.2a y 2.2b (R-032 a R-035) | Roles que se asignan, alta de un usuario con roles y sucursales (email repetido con otras mayúsculas, contraseña débil, rol inexistente y sin sucursales: 422), detalle, cambio de roles y de sucursales (la actual sale de la lista y pasa a ser la primera), login del usuario nuevo y `me`, cambio de su contraseña por el administrador (el token anterior queda revocado: 401; login con la nueva), el administrador no cambia su propia contraseña por `users/{user}` (422), quitar el rol al último administrador (409) y, con otro administrador, quitarlo (200), listado con `search`, `role` y `branch_id`, filtros mal formados (422), usuario de otra clínica (404 al verlo y al editarlo), y el recepcionista que no lista, no da de alta ni ve los roles (403). Con la 2.2b: sucursal actual con `me/current-branch` (inexistente o no asignada, 422), contraseña propia con `me/password` (la actual incorrecta, 422; el cambio correcto conserva el token en uso), el administrador no se inactiva a sí mismo (409), inactivar al usuario (su token, 401; login con la contraseña correcta, 403 `USER_INACTIVE`; con una incorrecta, 422 `INVALID_CREDENTIALS`), listado sin el inactivo salvo `include_inactive`, reactivarlo, baja de un usuario con uso (409 `USER_IN_USE`), el recepcionista que no da de baja (403), baja sin uso (404 al buscarlo y su email libre para un alta nueva) y la baja del usuario nuevo |
+| [`postman/syncvet-fase-02-veterinarios.postman_collection.json`](postman/syncvet-fase-02-veterinarios.postman_collection.json) | 2.3 (R-036 y R-037) | Alta del usuario de la corrida con el rol `veterinario`, alta de un veterinario con un usuario sin el rol (422) y con la matrícula de otro en minúsculas (422), alta con código `VET-`, el mismo usuario otra vez (422), matrícula repetida, `code` en el cuerpo y comisión fuera de rango al editar (422), detalle, listado con `search` y `branch_id`, la ficha en el detalle del usuario, quitarle el rol `veterinario` al usuario (409 `USER_IS_VETERINARIAN`), inactivar la ficha, listado sin el inactivo, con `status=inactive`, con `include_inactive=1` (sin comisión ni notas) y con `status` que manda, `include_inactive` inválido y filtros mal formados (422), el recepcionista que lista y no da de alta, no edita ni da de baja (403), baja sin uso (404 después), restauración con el mismo código (alta del mismo usuario), y la limpieza: baja de la ficha, baja del usuario (409 `USER_IN_USE`) y su inactivación |
 
 #### Sucursales (2.1)
 
@@ -245,4 +246,36 @@ nombre en una tabla de negocio (`UserDeleteTest`) y el límite de intentos del l
 
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-02-usuarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Veterinarios (2.3)
+
+**Migrar la base antes de correrla.** La 2.3 amplía `veterinarians.license_number` a 60 caracteres: en una base creada antes, correr
+`php artisan migrate` (no hace falta recrearla). No hace falta volver a sembrar los roles: la 2.3 no cambia permisos.
+
+**Necesita internet.** El email del usuario de la corrida es `@mailinator.com` y la validación del email consulta su registro MX
+(`EMAIL_DNS_CHECK`); la contraseña se revisa en Have I Been Pwned.
+
+**Necesita el `DemoSeeder`.** El pedido 03 toma la matrícula de la ficha de `vet-a@example.com` (para la matrícula repetida, también
+en minúsculas, pedidos 05b y 08), y el 05 usa a `recepcion-a@example.com` como usuario sin el rol `veterinario`.
+
+**32 requests.**
+
+**Se corre más de una vez sin recrear la base.** Su rango de corrida es de 300000 a 399998, que no usa ninguna otra colección; el
+número va en el email y la contraseña del usuario de la corrida y en la matrícula de su ficha. **Cada corrida deja un usuario inactivo
+y una ficha eliminada:** la corrida crea su usuario con el rol `veterinario` y su ficha, y al final elimina la ficha e inactiva al
+usuario. El usuario no se puede eliminar, porque la ficha eliminada cuenta como uso (409 `USER_IN_USE`, pedido 26).
+
+**Usuarios.** `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`).
+
+**Lo que no está en la colección.** La baja de un veterinario con uso (409 `VETERINARIAN_IN_USE`): la API todavía no crea agendas,
+turnos ni consultas, y ninguna ficha de la demo tiene uso. La cubre `VeterinarianDeleteTest`, y se suma a Postman en la FASE 3, con
+las agendas (anotado en el [documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md)). También la concurrencia y el orden de los
+bloqueos (`VeterinarianLockTest`), el índice único como respaldo de la matrícula y el Service sin el Form Request
+(`VeterinarianRestoreTest`), y la bajada de la migración (`VeterinarianLicenseMigrationTest`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-veterinarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```

@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033) y 2.2b (R-034 y R-035) cerradas; sigue la 2.3. El estado vigente de
+Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035) y 2.3 (R-036 y R-037) cerradas; sigue la 2.4. El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -19,7 +19,7 @@ asignan a sucursales, y divide los usuarios en dos (R-029). Cada entrega recorre
 | 2.1 | Sucursales y depósitos: ABM sin baja, sucursal y depósito por defecto, `establishment` | 2.2 | COMPLETADO (R-030, R-031) |
 | 2.2a | Usuarios: alta, edición, detalle y listado; roles y sucursales; último administrador | 2.1 | COMPLETADO (R-032, R-033) |
 | 2.2b | Usuarios: inactivos (migración, login, tokens), baja sin uso, sucursal actual y contraseña propia | 2.1 | COMPLETADO (R-034, R-035) |
-| 2.3 | Veterinarios (`VET-`): uno por usuario, restauración, inactivación en uso | 2.3 | PENDIENTE |
+| 2.3 | Veterinarios (`VET-`): uno por usuario, restauración, inactivación en uso | 2.3 | COMPLETADO (R-036, R-037) |
 | 2.4 | Catálogo de servicios (`SRV-`): nombre fijo una vez usado, baja sin uso | 2.4 | PENDIENTE |
 | 2.5 | Datos y configuración de la clínica (`system_settings`), logo y limpieza de archivos huérfanos (deuda 14) | 2.5 | PENDIENTE |
 | 2.6 | Consulta de auditoría y fechas con hora en un lugar común (deuda 13) | 2.6 | PENDIENTE |
@@ -773,3 +773,99 @@ por usuario; el recepcionista y el veterinario, 403 en `DELETE users/{user}` y 2
 El 2026-11-07 el usuario corrió en Postman (Collection Runner, una iteración) la colección `syncvet-fase-02-usuarios`: 53 requests,
 130 de 130 pruebas, 0 errores. Suite sobre el mismo código: la del cierre (742 casos; 8642 aserciones en SQLite con 2 omitidos y 8658
 en MySQL). La FASE 2 sigue con la 2.3 (veterinarios).
+
+### Entrega 2.3
+
+Implementación en `feature/fase-02-03-veterinarios`, creada desde `feature/fase-02-02b-usuarios`, revisada en una sesión de Claude
+Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-037)) y validada por el
+usuario ([validación del usuario](#validación-del-usuario-r-037)). La implementación y las correcciones quedaron en dos commits WIP
+(`4ff4a4c` y `c6a6847`), y el cierre va en un commit aparte. Decisiones en [R-036](../decisions/registro.md) y R-037.
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `database/migrations/2026_11_09_000000_widen_veterinarians_license_number.php`; `VeterinarianController`; `IndexVeterinarianRequest`, `StoreVeterinarianRequest`, `UpdateVeterinarianRequest` y `VeterinarianMessages`; `VeterinarianResource` y `ShowVeterinarianResource`; `VeterinarianService`; `tests/Feature/Veterinarians` (`VeterinarianStoreTest`, `VeterinarianRestoreTest`, `VeterinarianUpdateTest`, `VeterinarianDeleteTest`, `VeterinarianIndexTest`, `VeterinarianLockTest`), `tests/Feature/Database/VeterinarianLicenseMigrationTest`, `tests/Concerns/InteractsWithVeterinarians` e `InspectsQueries` (los helpers del orden de las consultas, sacados de `UserLockTest`); `docs/testing/postman/syncvet-fase-02-veterinarios.postman_collection.json` |
+| Cambiados | `routes/api.php` (`apiResource('veterinarians')`), `Veterinarian` (deuda 2, abajo), `UserService` (`USER_IS_VETERINARIAN`), `ShowUserResource` (`veterinarian`), `lang/es/validation.php` (`user_id`, `license_number`, `specialty`, `commission_percentage`, `status`; `include_inactive` pasa a "incluir los inactivos", R-037) |
+| Tests cambiados | `RoleAccessTest` (parámetro `veterinarian`), `RouteBindingTest` (veterinario de otra clínica → 404 en cada ruta, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas), `UserLockTest` (usa `InspectsQueries`), `UserUpdateTest` (`USER_IS_VETERINARIAN` y `veterinarian` en el detalle) |
+| Documentación | `CLAUDE.md` §1, §3 (orden clínica → usuario → veterinario → serie y la baja), §4 (`USER_IS_VETERINARIAN`, `VETERINARIAN_IN_USE`) y §6.6 nueva, veterinarios (las pendientes de diseño pasan a §6.7); la guía de Postman; este documento, el de la [FASE 3](fase-03-agenda-y-turnos.md) (la baja con uso en Postman), el registro (R-036 y R-037), la deuda técnica (2, revisada en `Veterinarian`), el handoff y los documentos de estado |
+
+**Endpoints.** Las rutas pasan de 41 a 46; los permisos siguen en 123; las migraciones, de 33 a 34.
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| GET | `veterinarians` | `veterinarians.index` | 200, paginado, `VeterinarianResource` (sin comisión ni notas); activos salvo `include_inactive=1`; `status`, `search` y `branch_id` | 422 |
+| POST | `veterinarians` | `veterinarians.store` | 201, `ShowVeterinarianResource`; también la restauración de una ficha eliminada | 422 |
+| GET | `veterinarians/{veterinarian}` | `veterinarians.show` | 200, `ShowVeterinarianResource` | 404 (también de otra clínica) |
+| PATCH/PUT | `veterinarians/{veterinarian}` | `veterinarians.update` | 200 | 404; 422 |
+| DELETE | `veterinarians/{veterinarian}` | `veterinarians.destroy` | 200, `data: null` | 404; 409 `VETERINARIAN_IN_USE` |
+
+Además: `PATCH`/`PUT users/{user}` responde 409 `USER_IS_VETERINARIAN` al quitar el rol `veterinario` a un usuario con ficha, y
+`GET users/{user}` muestra `veterinarian`. Solo el administrador escribe y ve el detalle; la recepción y el veterinario listan (R-037).
+
+**Migración.** `license_number` de 30 a 60 caracteres, nula; la bajada se detiene con un mensaje claro si alguna matrícula pasa de 30,
+sin cortarla. Probada en MySQL: en la implementación, sube, baja y vuelve a subir, y con una matrícula de más de 30 la bajada se
+detiene y la columna queda en 60; en las correcciones, un test (solo en MySQL) baja sin matrículas largas (la columna vuelve a 30 y la
+de 30 caracteres no se corta) y vuelve a subir.
+
+**Tests.** Suite del 2026-11-09, después de las correcciones: 797 casos con los *data providers*; en SQLite, 9217 aserciones con 3
+omitidos (solo de MySQL); contra MySQL (`syncvet_test_mysql`), 9237 aserciones sin omitidos. Frente al cierre de la 2.2b (742 casos;
+8642 y 8658 aserciones): 55 casos más, y 575 aserciones más en SQLite y 579 en MySQL. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `VeterinarianStoreTest` | 17 | 93 | Alta con `VET-` correlativo, sus datos, sus sucursales y la auditoría; valores por defecto; usuario sin el rol, inactivo, de otra clínica, eliminado o inexistente → 422; el que ya es veterinario → 422; `code` → 422; matrícula única en la clínica (la de otra clínica, libre) y de hasta 30; normalizada antes de validar (`mv-1001` choca con `MV-1001` sin llegar al guardado; se guarda en mayúsculas); comisión de 0 a 100 con hasta 2 decimales; `status`; la recepción y el veterinario listan (sin comisión ni notas) y reciben 403 en las otras cuatro rutas |
+| `VeterinarianRestoreTest` | 6 | 38 | Misma fila y mismo código, datos del pedido, `restored` en la auditoría y la serie sin usar (la ficha nueva siguiente sale `VET-000002`); matrícula de otro veterinario → 422 (también en minúsculas) y la ficha sigue eliminada; la restauración guarda la matrícula normalizada; el índice único como respaldo (422, no 500); un usuario sin el rol no restaura; la ficha eliminada de un usuario de otra clínica no se restaura; el Service rechaza a un usuario de otra clínica sin pasar por el Request |
+| `VeterinarianUpdateTest` | 5 | 35 | Inactivar en uso, `PATCH` y `PUT` parciales y la auditoría; `user_id` y `code` → 422; matrícula de otro → 422 (también en minúsculas) y la propia normalizada; quitar el rol `veterinario` → 409 y, eliminada la ficha, 200; un usuario inactivo no cambia la ficha y la respuesta lo muestra |
+| `VeterinarianDeleteTest` | 10 | 52 | Baja sin uso con el sufijo en la matrícula (libre para otra ficha) y 404 después; la matrícula de 30 con el sufijo entero; sin matrícula; con uso en cada tabla de `USAGE` → 409 sin cambios; `USAGE` cubre toda clave foránea a `veterinarians` |
+| `VeterinarianIndexTest` | 5 | 46 | Activos de la clínica sin eliminados, paginados, sin comisión ni notas; `status`; `include_inactive=1` trae activos e inactivos, `status` manda y un valor inválido → 422; `search` literal en código, nombre y matrícula; `branch_id` por las sucursales del usuario (también una inactiva; de otra clínica → 422); filtros mal formados → 422 |
+| `VeterinarianLockTest` | 4 | 32 | Alta: clínica → usuario → ficha → serie, con el rol revisado después de bloquear el usuario; restauración: clínica → usuario → ficha, sin la serie; quitar el rol: clínica → usuario antes de buscar la ficha; baja: la ficha antes de revisar el uso (`for update` en MySQL) |
+| `VeterinarianLicenseMigrationTest` | 3 | 5 | La columna admite 60 (`varchar(60)` en MySQL); la bajada se detiene con una matrícula de más de 30, sin cortarla; sin matrículas largas, baja a 30 y vuelve a subir (solo en MySQL) |
+
+**Mutaciones.** Las cinco del diseño, en la implementación (R-036): quitar la restauración, el chequeo del rol, el chequeo de uso y el
+de `USER_IS_VETERINARIAN`, cada una con un test que falla; quitar el bloqueo del usuario no falla en SQLite (no escribe `for update`,
+como prevé el diseño) y hace fallar dos tests en MySQL. En la revisión, quitar el `lockForUpdate` de la ficha: pasa en SQLite y falla
+`VeterinarianLockTest` en MySQL. En las correcciones, cada una con un test que falla: quitar `inClinic()` de `lockedUser()`, no pasar
+la matrícula a mayúsculas, no normalizarla antes de validar (solo en el Service) y quitar `include_inactive`.
+
+**Deuda 2.** `Veterinarian` revisado contra la tabla y las claves foráneas: relaciones (`user`, también eliminado) y casts correctos;
+suma los valores por defecto de `status` (`VeterinarianStatus::ACTIVE->value`) y `commission_percentage`, y su documentación.
+
+**Desvíos del diseño.**
+
+| # | Desvío | Motivo | Quién |
+|---|---|---|---|
+| 1 | La restauración vuelve a su valor por defecto los campos que no llegan; la auditoría guarda `updated` y `restored` | Como un alta; si no, quedaría la matrícula vieja con el sufijo de baja. `restore()` guarda el modelo | Implementación; aceptado por el usuario |
+| 2 | Orden de bloqueo clínica → usuario → ficha → serie en el alta y la restauración | Precisión 1 del usuario; compatible con `UserService` | Implementación; aceptado por el usuario |
+| 3 | `USER_IS_VETERINARIAN` salta aunque el usuario hoy no tenga el rol, si tiene una ficha no eliminada y los roles nuevos no incluyen `veterinario` | Una ficha no queda sin el rol | Implementación; aceptado por el usuario |
+| 4 | Mensajes propios: "El usuario no tiene el rol veterinario." y, para un usuario inactivo, de otra clínica, eliminado o inexistente, "El usuario no existe o está inactivo." | El diseño no los fijaba | Implementación; aceptado por el usuario |
+| 5 | Sin forma de listar activos e inactivos juntos | El diseño solo pedía `status` | Implementación; **corregido** a pedido del usuario: `include_inactive=1`, como sucursales y usuarios |
+| 6 | El uso "también eliminados" no aplica hoy: ninguna tabla de uso tiene borrado lógico | La consulta con `DB::table` los contará cuando lo tengan | Implementación; aceptado por el usuario |
+| 7 | La matrícula no se normalizaba: en MySQL "mv-1001" y "MV-1001" chocaban y en SQLite no | El diseño no lo fijaba | Implementación; **corregido** a pedido del usuario: mayúsculas y sin espacios en los extremos antes de validar |
+
+#### Correcciones de la revisión (R-037)
+
+La revisión no encontró errores de comportamiento fuera de los desvíos 5 y 7. Lo que el usuario decidió:
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Media | Desvío 7: la matrícula no se normalizaba; en SQLite "mv-1001" se guardaba junto a "MV-1001" (201) y en MySQL respondía 422 | `VeterinarianMessages::normalizeLicense()` en `prepareForValidation` del alta y de la edición (la restauración entra por el alta) y en el Service | `VeterinarianStoreTest::test_the_license_number_is_normalized_before_validating_and_saving` (también si solo normaliza el Service: el 422 tiene que salir de la validación), y las aserciones nuevas de `VeterinarianUpdateTest` y `VeterinarianRestoreTest` |
+| 2 | Media | Desvío 5: `include_inactive` no existía (se ignoraba; `include_inactive=x` respondía 200) | `include_inactive` en `IndexVeterinarianRequest` y el Controller: `status` manda; `include_inactive=1` sin `status`, activos e inactivos. El atributo compartido pasa a "incluir los inactivos" | `VeterinarianIndexTest::test_include_inactive_brings_active_and_inactive_and_status_prevails` |
+| 3 | — | La recepción y el veterinario recibían 403 en el detalle; el pedido de la revisión decía que "listan y ven" | Decisión del usuario: solo listan; el detalle, con la comisión, es del administrador. Sin cambios en el seeder; tests de que el listado no muestra `commission_percentage` ni `notes` | `VeterinarianStoreTest::test_the_receptionist_and_the_veterinarian_only_list` y `VeterinarianIndexTest` |
+| 4 | Baja | Quitar `inClinic()` de `lockedUser()` no hacía fallar la suite: solo el `exists` del Request frenaba a un usuario de otra clínica | Tests del alta con el usuario de otra clínica que tiene una ficha eliminada y del Service sin el Request | `VeterinarianRestoreTest::test_the_service_rejects_a_user_of_another_clinic` |
+| 5 | Baja | `Veterinarian` usaba el string `'active'` como valor por defecto; la bajada de la migración sin matrículas largas no tenía test | `VeterinarianStatus::ACTIVE->value`; test en MySQL de la bajada y la nueva subida | `VeterinarianLicenseMigrationTest::test_rolling_back_without_longer_license_numbers_narrows_the_column_and_keeps_them` |
+
+La colección de Postman suma 4 pedidos (05b, 16b, 16c y 16d): de 28 a 32 requests.
+
+La revisión confirmó además: la lógica en los Services; errores con `VeterinarianException`, `UserException` o 422 de validación,
+sin 500 (dos pedidos con la misma matrícula, 422 por el índice); el orden de bloqueo clínica → usuario → veterinario → serie,
+compatible con `UserService`; el código `VET-` correlativo sin huecos por la restauración; la migración y su bajada; quitar el rol a un
+usuario con la ficha eliminada se permite; un veterinario de otra clínica no aparece en el listado ni se restaura; la recepción y el
+veterinario listan y reciben 403 en el alta, el detalle, la edición y la baja.
+
+#### Validación del usuario (R-037)
+
+El 2026-11-09 el usuario corrió en Postman (Collection Runner, una iteración) la colección `syncvet-fase-02-veterinarios`: 75 de 75
+pruebas, 0 errores (32 requests). Suite sobre el mismo código: la del cierre (797 casos; 9217 aserciones en SQLite con 3 omitidos y
+9237 en MySQL). La baja con uso no está en la colección: la cubre `VeterinarianDeleteTest` y se agrega en la FASE 3 con las agendas.
+Con este cierre el módulo de veterinarios queda COMPLETADO; la FASE 2 sigue con la 2.4 (servicios).
