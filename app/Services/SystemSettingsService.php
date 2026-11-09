@@ -8,6 +8,7 @@ use App\Models\SystemSetting;
 use App\Support\CurrentClinic;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Configuración de la clínica (FASE 2, entrega 2.5; P11 y P13): sus datos (nombre de
@@ -30,7 +31,7 @@ class SystemSettingsService
     public function snapshot(?Clinic $clinic = null): array
     {
         $clinic ??= Clinic::query()->findOrFail(CurrentClinic::id());
-        $values = SystemSetting::query()->get()->mapWithKeys(fn (SystemSetting $setting) => [$setting->key->value => $setting->value]);
+        $values = $this->knownValues();
 
         $settings = [];
         foreach (SystemSettingKey::editable() as $key) {
@@ -42,6 +43,31 @@ class SystemSettingsService
             'settings' => $settings,
             'has_logo' => ($values[SystemSettingKey::LOGO_PATH->value] ?? null) !== null,
         ];
+    }
+
+    /**
+     * Los valores de las claves de SystemSettingKey de la clínica en contexto. Las filas
+     * se leen sin el modelo: el cast de `key` lanzaría un ValueError (un 500) con una
+     * clave que no está en el enum. Una clave desconocida se ignora, con un aviso en el
+     * log, y no se borra (corrección de la 2.5).
+     *
+     * @return array<string, ?string> clave => valor
+     */
+    private function knownValues(): array
+    {
+        $values = [];
+
+        foreach (SystemSetting::query()->toBase()->get(['key', 'value']) as $row) {
+            if (SystemSettingKey::tryFrom($row->key) === null) {
+                Log::warning('Clave de configuración desconocida: se ignora.', ['clinic_id' => CurrentClinic::id(), 'key' => $row->key]);
+
+                continue;
+            }
+
+            $values[$row->key] = $row->value;
+        }
+
+        return $values;
     }
 
     /**

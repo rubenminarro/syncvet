@@ -4,8 +4,9 @@ namespace App\Enums;
 
 /**
  * Claves de system_settings (FASE 2, entrega 2.5; P13 y pregunta 23): una lista
- * cerrada, cada una con su regla. logo_path es interna: la escribe ClinicLogoService,
- * no se edita por la API y nunca sale en una respuesta (has_logo en su lugar).
+ * cerrada, cada una con su regla. Dos son internas: no se editan por la API ni salen en
+ * una respuesta. logo_path la escribe ClinicLogoService (has_logo en su lugar);
+ * demo_data es la marca de una clínica de demostración del DemoSeeder (R-010).
  */
 enum SystemSettingKey: string
 {
@@ -14,6 +15,7 @@ enum SystemSettingKey: string
     case WEBSITE = 'website';
     case DOCUMENT_FOOTER = 'document_footer';
     case LOGO_PATH = 'logo_path';
+    case DEMO_DATA = 'demo_data';
 
     public function label(): string
     {
@@ -23,12 +25,13 @@ enum SystemSettingKey: string
             self::WEBSITE => 'Sitio web',
             self::DOCUMENT_FOOTER => 'Pie de recetas y comprobantes',
             self::LOGO_PATH => 'Logo',
+            self::DEMO_DATA => 'Clínica de demostración',
         };
     }
 
     public function isEditable(): bool
     {
-        return $this !== self::LOGO_PATH;
+        return ! in_array($this, [self::LOGO_PATH, self::DEMO_DATA], true);
     }
 
     /**
@@ -43,7 +46,7 @@ enum SystemSettingKey: string
             self::CONTACT_PHONE => ['string', 'regex:/^\+?[1-9]\d{7,14}$/'],
             self::WEBSITE => ['string', 'max:150', 'url:https'],
             self::DOCUMENT_FOOTER => ['string', 'max:500'],
-            self::LOGO_PATH => ['prohibited'],
+            self::LOGO_PATH, self::DEMO_DATA => ['prohibited'],
         };
     }
 

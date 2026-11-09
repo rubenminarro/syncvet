@@ -5,7 +5,9 @@ namespace Tests\Feature\Settings;
 use App\Models\Clinic;
 use App\Models\SystemSetting;
 use App\Support\CurrentClinic;
+use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InspectsQueries;
@@ -242,6 +244,53 @@ class SystemSettingsTest extends TestCase
         $queries = $this->queriesOf(fn () => $this->patchJson('/api/system-settings', ['settings' => ['website' => 'https://norte.example.com']])->assertOk());
 
         $this->assertBefore($queries, $this->lockOf('clinics'), $this->readOf('system_settings'), 'Se leyeron las claves antes de bloquear la clínica.');
+    }
+
+    /**
+     * Corrección de la 2.5 (validación del usuario): una fila con una clave que no está en
+     * SystemSettingKey (cargada sin la API) daba 500 al leer la configuración, por el cast
+     * del modelo. Se ignora al leer, con un aviso en el log, y no se borra: la lectura, la
+     * edición, el logo y `me` responden 200.
+     */
+    public function test_an_unknown_key_in_the_database_is_ignored_with_a_warning(): void
+    {
+        DB::table('system_settings')->insert(['clinic_id' => $this->clinic->id, 'key' => 'clave_vieja', 'value' => '1', 'created_at' => now(), 'updated_at' => now()]);
+        $this->setting('website', 'https://norte.example.com');
+        Sanctum::actingAs($this->userWithRole($this->clinic, 'administrador'));
+        Log::spy();
+
+        $this->getJson('/api/system-settings')
+            ->assertOk()
+            ->assertJsonPath('data.settings', ['contact_email' => null, 'contact_phone' => null, 'website' => 'https://norte.example.com', 'document_footer' => null])
+            ->assertJsonPath('data.has_logo', false);
+        $this->patchJson('/api/system-settings', ['settings' => ['document_footer' => 'Pie']])->assertOk()->assertJsonPath('data.settings.document_footer', 'Pie');
+        $this->deleteJson('/api/system-settings/logo')->assertNotFound();
+        $this->getJson('/api/me')->assertOk()->assertJsonPath('data.clinic.has_logo', false);
+
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn (string $message, array $context) => str_contains($message, 'desconocida') && $context === ['clinic_id' => $this->clinic->id, 'key' => 'clave_vieja']
+        )->twice();
+        $this->assertSame('1', DB::table('system_settings')->where('clinic_id', $this->clinic->id)->where('key', 'clave_vieja')->value('value'));
+    }
+
+    /**
+     * La marca del DemoSeeder (demo_data, R-010), como la crea el seeder en la base de
+     * desarrollo: es una clave interna de SystemSettingKey. No sale en la respuesta, no
+     * deja avisos y no se edita por la API.
+     */
+    public function test_the_demo_seeder_marker_is_an_internal_key(): void
+    {
+        $this->assertSame('demo_data', DemoSeeder::MARKER);
+        DB::table('system_settings')->insert(['clinic_id' => $this->clinic->id, 'key' => DemoSeeder::MARKER, 'value' => '1', 'created_at' => now(), 'updated_at' => now()]);
+        Sanctum::actingAs($this->userWithRole($this->clinic, 'administrador'));
+        Log::spy();
+
+        $this->getJson('/api/system-settings')->assertOk()->assertJsonMissingPath('data.settings.demo_data')->assertDontSee('demo_data');
+        Log::shouldNotHaveReceived('warning');
+
+        $response = $this->patchJson('/api/system-settings', ['settings' => ['demo_data' => '0']])->assertUnprocessable();
+        $this->assertSame(['La clave demo_data no existe en la configuración.'], $response->json('errors')['settings.demo_data'] ?? null);
+        $this->assertSame('1', DB::table('system_settings')->where('clinic_id', $this->clinic->id)->where('key', 'demo_data')->value('value'));
     }
 
     private function setting(string $key, string $value): void
