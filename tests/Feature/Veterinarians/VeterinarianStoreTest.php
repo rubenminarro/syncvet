@@ -3,8 +3,12 @@
 namespace Tests\Feature\Veterinarians;
 
 use App\Models\Veterinarian;
+use App\Services\DocumentSequenceService;
+use App\Services\VeterinarianService;
 use App\Support\CurrentClinic;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithVeterinarians;
 use Tests\TestCase;
@@ -151,6 +155,60 @@ class VeterinarianStoreTest extends TestCase
 
         $this->postJson('/api/veterinarians', ['user_id' => $this->veterinarianUser($clinic)->id, 'license_number' => 'MV-2002'])
             ->assertCreated();
+    }
+
+    /**
+     * Corrección de la 2.3 en el cierre de la 2.4: un código VET- ya usado llega a
+     * DocumentSequenceService (409 DOCUMENT_CODE_CONFLICT), con o sin matrícula, y no
+     * responde el 422 de la matrícula (el mensaje de la excepción trae el SQL, que nombra
+     * la columna license_number).
+     */
+    public function test_a_repeated_code_answers_409_and_not_the_license_error(): void
+    {
+        $clinic = $this->createClinic();
+        $existing = $this->veterinarianOf($this->veterinarianUser($clinic));
+        $this->actAsVeterinarianManager($clinic);
+
+        $sequences = Mockery::mock(DocumentSequenceService::class)->makePartial();
+        $sequences->shouldReceive('next')->andReturn($existing->code);
+        $this->app->instance(DocumentSequenceService::class, $sequences);
+
+        foreach ([[], ['license_number' => 'MV-3003']] as $license) {
+            $response = $this->postJson('/api/veterinarians', ['user_id' => $this->veterinarianUser($clinic)->id, ...$license]);
+
+            $this->assertErrorCode($response, 409, 'DOCUMENT_CODE_CONFLICT');
+            $response->assertJsonPath('errors', null);
+        }
+
+        $this->assertSame(1, DB::table('veterinarians')->count());
+    }
+
+    /**
+     * El índice (clinic_id, license_number) es el respaldo en el alta y en la edición:
+     * con la validación salteada (una matrícula tomada entre la validación y el
+     * guardado), el mismo 422 y no un 500. La restauración, en VeterinarianRestoreTest.
+     */
+    public function test_the_unique_index_backs_the_license_number_on_store_and_update(): void
+    {
+        $clinic = $this->createClinic();
+        $this->veterinarianOf($this->veterinarianUser($clinic), ['license_number' => 'MV-1001']);
+        $other = $this->veterinarianOf($this->veterinarianUser($clinic), ['license_number' => 'MV-2002']);
+        $newUser = $this->veterinarianUser($clinic);
+        $service = app(VeterinarianService::class);
+
+        foreach ([
+            fn () => $service->create(['user_id' => $newUser->id, 'license_number' => 'MV-1001']),
+            fn () => $service->update($other, ['license_number' => 'MV-1001']),
+        ] as $write) {
+            try {
+                CurrentClinic::run($clinic, $write);
+                $this->fail('No respondió un error de validación.');
+            } catch (ValidationException $e) {
+                $this->assertSame(['Ya hay un veterinario con esa matrícula.'], $e->errors()['license_number'] ?? null);
+            }
+        }
+
+        $this->assertSame(['MV-1001', 'MV-2002'], DB::table('veterinarians')->orderBy('id')->pluck('license_number')->all());
     }
 
     /**

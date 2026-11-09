@@ -29,18 +29,21 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
   (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), 2.2a,
-  usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), y 2.3,
-  veterinarios (R-036 y R-037), cerradas y validadas por el usuario con Postman; sigue la entrega 2.4, servicios.
+  usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), 2.3,
+  veterinarios (R-036 y R-037), y 2.4, servicios (R-038 y R-039), cerradas y validadas por el usuario con Postman; sigue la
+  entrega 2.5, configuración de la clínica, logo y archivos huérfanos.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
-  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios y de veterinarios (`tests/Feature/Clients`,
-  `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`, `tests/Feature/Veterinarians`).
-  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios y veterinarios, con las colecciones de Postman de `docs/testing/postman`, que
+  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios y de servicios (`tests/Feature/Clients`,
+  `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`, `tests/Feature/Veterinarians`,
+  `tests/Feature/Services`).
+  Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios y servicios, con las colecciones de Postman de `docs/testing/postman`, que
   se pueden correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
   (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso), el
-  listado de roles y los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso).
+  listado de roles, los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso) y el catálogo de
+  servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API) y el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`).
 * **Pendientes con esquema listo:** agenda y turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
@@ -93,6 +96,11 @@ empezar una sesión.
   `string(20)`, no columnas `ENUM` de MySQL. Comparar enums con enums.
 * Errores de negocio: excepción de dominio (`ClientException`, `PatientException`…) con `error_code` y `422` (o `409` en
   conflictos). Nunca `500` ni trazas.
+* Violaciones de índice único (`UniqueConstraintViolationException`): se identifican por el **nombre del índice** (MySQL,
+  `services_clinic_id_name_unique`) o por `tabla.columna` (SQLite, `UNIQUE constraint failed: services.clinic_id, services.name`),
+  nunca buscando el nombre de la columna en el mensaje: el mensaje trae el SQL, que nombra todas las columnas. Una violación que no
+  es la esperada sigue su camino; la del código llega a `DocumentSequenceService` (409 `DOCUMENT_CODE_CONFLICT`). Ejemplos:
+  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039).
 * Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
   `error_code` en inglés. `VoseoTest` rechaza las palabras de tú y de usted, los imperativos de tú y de usted de sus verbos
   (un verbo nuevo en un mensaje se agrega a su lista) y los mensajes en inglés. Los mensajes de validación sin mensaje propio
@@ -122,7 +130,9 @@ empezar una sesión.
   quitar el rol `veterinario`, también antes de buscar su ficha); clínica → usuario → veterinario → serie (el alta y la
   restauración de un veterinario: `CatalogLock`, después el usuario y su ficha, también eliminada, con `lockForUpdate`, y la
   serie `VET-` al final, solo en un alta nueva); veterinario (la baja: la ficha con `lockForUpdate` antes de revisar el uso;
-  las fases 3 y 4 tomarán un `sharedLock` sobre el veterinario al usarlo).
+  las fases 3 y 4 tomarán un `sharedLock` sobre el veterinario al usarlo); clínica → servicio → serie (el alta y el cambio de
+  nombre de un servicio: `CatalogLock` antes de leer los nombres; la edición y la baja: el servicio con `lockForUpdate` antes de
+  revisar el uso; la serie `SRV-` al final; las fases 3 y 4 tomarán un `sharedLock` sobre el servicio al usarlo).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -235,7 +245,7 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | Otro 4xx | `HTTP_ERROR` | Error HTTP sin código propio; conserva su estado |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
 
-`error_code` de autenticación, usuarios y veterinarios que no son de un solo módulo (2.2a, 2.2b y 2.3):
+`error_code` de autenticación, usuarios, veterinarios y servicios que no son de un solo módulo (2.2a, 2.2b, 2.3 y 2.4):
 
 | HTTP | `error_code` | Excepción | Cuándo |
 |---|---|---|---|
@@ -245,6 +255,8 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
 | 409 | `USER_LAST_ADMIN` | `UserException` | La clínica se queda sin un administrador activo (§6.5) |
 | 409 | `USER_IS_VETERINARIAN` | `UserException` | Se le quita el rol `veterinario` a un usuario con una ficha de veterinario no eliminada (§6.6) |
 | 409 | `VETERINARIAN_IN_USE` | `VeterinarianException` | Baja de un veterinario con registros (`VeterinarianService::USAGE`): se inactiva (§6.6) |
+| 422 | `SERVICE_NAME_NOT_EDITABLE` | `ServiceException` | Cambio de nombre de un servicio usado (`ServiceCatalogService::USAGE`): se crea otro y se inactiva este (§6.7) |
+| 409 | `SERVICE_IN_USE` | `ServiceException` | Baja de un servicio usado (`ServiceCatalogService::USAGE`): se inactiva (§6.7) |
 
 ---
 
@@ -452,7 +464,40 @@ sandbox` y `Cache-Control: private, no-store`. Sus errores sí usan el contrato.
   trae activos e inactivos (nunca los eliminados); `search` en el código, el nombre y el apellido del usuario y la matrícula; orden
   por código.
 
-### 6.7 Pendientes de diseño (reglas a definir antes de programar)
+### 6.7 Servicios
+
+* Catálogo en `services` (`apiResource`; permisos `services.index`, `.store`, `.show`, `.update` y `.destroy`), con
+  `ServiceCatalogService`. Lo administra el administrador; el `recepcionista` y el `veterinario` listan y ven el detalle
+  (`services.index` y `services.show`) y reciben 403 al escribir. Un servicio de otra clínica → 404.
+* Código `SRV-` de la serie (`DocumentSeries::SERVICE`); `code` en el alta o en la edición → 422 (`prohibited`).
+* Alta: `name`, `category` (`ServiceCategory`) y `standard_price` obligatorios (el precio, para que no quede en 0 por olvido);
+  `duration_minutes` (30), `tax_rate` (10) y `status` (`active`) toman su valor por defecto si no llegan (R-038). Edición con
+  semántica parcial.
+* Nombre de 2 a 120, con al menos una letra, sin `//` (el comienzo del sufijo de baja) y solo letras, números, espacios y
+  `. , - ' ( ) / + %` (`ServiceMessages::NAME_REGEX`, propio de servicios: "Castración macho/hembra", "Vacuna 5+1"; R-039).
+  `CatalogMessages::NAME_REGEX`, el de sucursales, especies y razas, no cambia. Se guarda limpio (`CatalogName::clean`) y es único
+  en la clínica sin mayúsculas, acentos ni espacios repetidos (`CatalogName`), frente a los no eliminados; repetido → 422
+  "Ya hay un servicio con ese nombre." (también si lo frena el índice `(clinic_id, name)`, el respaldo de dos pedidos simultáneos).
+* **Un servicio usado no cambia de nombre:** 422 `SERVICE_NAME_NOT_EDITABLE`, "El servicio ya se usó y no puede cambiar de nombre:
+  creá otro e inactivá este." Cuenta como cambio solo lo que cambia el nombre ya limpio: reenviar el mismo (con espacios de más)
+  pasa; cambiar solo las mayúsculas responde 422. El precio, el IVA, la duración, la categoría, la descripción y el estado se editan
+  siempre (lo usado guarda su precio).
+* `standard_price`: entero de 0 a 999.999.999.999, sin decimales mientras la moneda sea PYG (pregunta 21; `App\Rules\WholeAmount`):
+  un entero de JSON o un texto de solo dígitos; se rechazan los decimales (también `"150000.00"` y `150000.0`), los negativos, los
+  exponentes, los separadores de miles y los floats de JSON. Se guarda con BCMath (sin float) y la respuesta lo muestra como texto
+  con dos decimales (`"150000.00"`). `tax_rate` 0, 5 o 10 (`TaxRate`), como número en la respuesta. `duration_minutes` de 5 a 720 en
+  múltiplos de 5 (pregunta 22). `description` hasta 1000. La respuesta muestra `category` y `status` como `{value, label}`.
+* Uso (`ServiceCatalogService::USAGE`, con `DB::table`; un test exige que cubra toda clave foránea a `services`): una fila de
+  `schedules`, `appointments` o `consultation_items`.
+* Se inactiva (`status: inactive`) aunque esté usado. Baja (`SoftDeletes`) solo sin uso: con uso → 409 `SERVICE_IN_USE`, "El
+  servicio ya se usó y no se puede eliminar: inactivalo." Al eliminar, `//deleted_<id>_<timestamp>` entero en el nombre (la columna
+  admite 150) y el nombre queda libre.
+* Listado paginado con `ListFilters`: solo los activos; `status` filtra por un estado y manda; `include_inactive=1` sin `status`
+  trae activos e inactivos (nunca los eliminados); `category`; `search` literal en el código y el nombre; orden por nombre e id.
+* Concurrencia (§3): el alta y el cambio de nombre bloquean la clínica (`CatalogLock`) antes de leer los nombres; la edición y la
+  baja bloquean el servicio antes de revisar el uso; la serie va al final.
+
+### 6.8 Pendientes de diseño (reglas a definir antes de programar)
 
 * **Turnos:** sin superposición en la misma agenda (validar con `lockForUpdate` sobre la agenda); transiciones de
   `AppointmentStatus`; un turno fichado abre la consulta.

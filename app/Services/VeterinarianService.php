@@ -213,11 +213,27 @@ class VeterinarianService
         try {
             return $save();
         } catch (UniqueConstraintViolationException $e) {
-            if (str_contains($e->getMessage(), 'license_number')) {
+            if ($this->isLicenseViolation($e)) {
                 throw ValidationException::withMessages(['license_number' => VeterinarianMessages::LICENSE_TAKEN]);
             }
 
             throw $e;
         }
+    }
+
+    /**
+     * Por el índice concreto, no por la palabra "license_number": el mensaje de la
+     * excepción trae el SQL, que nombra la columna (corrección de la 2.3 en el cierre de la
+     * 2.4). Así el choque del código llega a DocumentSequenceService (409
+     * DOCUMENT_CODE_CONFLICT).
+     */
+    private function isLicenseViolation(UniqueConstraintViolationException $e): bool
+    {
+        $message = $e->getMessage();
+
+        // SQLite: "UNIQUE constraint failed: veterinarians.clinic_id, veterinarians.license_number";
+        // MySQL: "Duplicate entry '…' for key 'veterinarians.veterinarians_clinic_id_license_number_unique'".
+        return str_contains($message, 'veterinarians.license_number')
+            || str_contains($message, 'veterinarians_clinic_id_license_number_unique');
     }
 }

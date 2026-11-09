@@ -16,7 +16,7 @@
                             "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
                             "// El número va solo en los nombres de los servicios de la corrida (\"Ecografía Postman <run>\"), que",
                             "// ninguna otra colección crea: no se cruza con los rangos de las demás (que van en documentos, emails",
-                            "// y matrículas). Además, la corrida da de baja sus dos servicios al final y sus nombres quedan libres.",
+                            "// y matrículas). Además, la corrida da de baja sus tres servicios y sus nombres quedan libres.",
                             "const run = String(Math.floor(Math.random() * 999999)).padStart(6, '0');",
                             "pm.collectionVariables.set('run', run);"
                         ]

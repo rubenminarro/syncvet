@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035) y 2.3 (R-036 y R-037) cerradas; sigue la 2.4. El estado vigente de
+Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035), 2.3 (R-036 y R-037) y 2.4 (R-038 y R-039) cerradas; sigue la 2.5. El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -20,7 +20,7 @@ asignan a sucursales, y divide los usuarios en dos (R-029). Cada entrega recorre
 | 2.2a | Usuarios: alta, edición, detalle y listado; roles y sucursales; último administrador | 2.1 | COMPLETADO (R-032, R-033) |
 | 2.2b | Usuarios: inactivos (migración, login, tokens), baja sin uso, sucursal actual y contraseña propia | 2.1 | COMPLETADO (R-034, R-035) |
 | 2.3 | Veterinarios (`VET-`): uno por usuario, restauración, inactivación en uso | 2.3 | COMPLETADO (R-036, R-037) |
-| 2.4 | Catálogo de servicios (`SRV-`): nombre fijo una vez usado, baja sin uso | 2.4 | PENDIENTE |
+| 2.4 | Catálogo de servicios (`SRV-`): nombre fijo una vez usado, baja sin uso | 2.4 | COMPLETADO (R-038, R-039) |
 | 2.5 | Datos y configuración de la clínica (`system_settings`), logo y limpieza de archivos huérfanos (deuda 14) | 2.5 | PENDIENTE |
 | 2.6 | Consulta de auditoría y fechas con hora en un lugar común (deuda 13) | 2.6 | PENDIENTE |
 
@@ -869,3 +869,107 @@ El 2026-11-09 el usuario corrió en Postman (Collection Runner, una iteración) 
 pruebas, 0 errores (32 requests). Suite sobre el mismo código: la del cierre (797 casos; 9217 aserciones en SQLite con 3 omitidos y
 9237 en MySQL). La baja con uso no está en la colección: la cubre `VeterinarianDeleteTest` y se agrega en la FASE 3 con las agendas.
 Con este cierre el módulo de veterinarios queda COMPLETADO; la FASE 2 sigue con la 2.4 (servicios).
+
+### Entrega 2.4
+
+Implementación en `feature/fase-02-04-servicios`, creada desde `feature/fase-02-03-veterinarios`, revisada en una sesión de Claude
+Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-039)) y validada por el
+usuario ([validación del usuario](#validación-del-usuario-r-039)). La implementación y las correcciones quedaron en dos commits WIP
+(`a2079a2` y `a5fad25`), y el cierre va en un commit aparte, con la corrección de la 2.3 (abajo). Decisiones en
+[R-038](../decisions/registro.md) y R-039.
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `ServiceController`; `IndexServiceRequest`, `StoreServiceRequest`, `UpdateServiceRequest` y `ServiceMessages` (con su `NAME_REGEX`, R-039); `ServiceResource` y `ShowServiceResource`; `ServiceCatalogService`; `App\Rules\WholeAmount` (el precio entero); `tests/Feature/Services` (`ServiceStoreTest`, `ServiceUpdateTest`, `ServiceDeleteTest`, `ServiceIndexTest`, `ServiceLockTest`) y `tests/Concerns/InteractsWithServices`; `docs/testing/postman/syncvet-fase-02-servicios.postman_collection.json` |
+| Cambiados | `routes/api.php` (`apiResource('services')`), `Service` (deuda 2, abajo), `lang/es/validation.php` (`category`, `description`, `duration_minutes`, `standard_price`, `tax_rate`); en el cierre, `VeterinarianService` (corrección de la 2.3, abajo) |
+| Tests cambiados | `RoleAccessTest` (parámetro `service`), `RouteBindingTest` (servicio de otra clínica → 404 en cada ruta, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas y `WholeAmount`, con su propio mensaje); en el cierre, `VeterinarianStoreTest` |
+| Documentación | `CLAUDE.md` §1, §3 (orden clínica → servicio → serie y las violaciones de índice único por el nombre del índice), §4 (`SERVICE_NAME_NOT_EDITABLE`, `SERVICE_IN_USE`) y §6.7 nueva, servicios (las pendientes de diseño pasan a §6.8); la guía de Postman; este documento, el de la [FASE 3](fase-03-agenda-y-turnos.md) (un servicio usado en Postman), el registro (R-038 y R-039), la deuda técnica (2, revisada en `Service`), el handoff y los documentos de estado |
+
+**Endpoints.** Las rutas pasan de 46 a 51; los permisos siguen en 123; las migraciones, en 34 (`services.name` de 150 admite 120 más
+el sufijo).
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| GET | `services` | `services.index` | 200, paginado, `ServiceResource`; activos salvo `include_inactive=1`; `status` (manda), `category` y `search` | 422 |
+| POST | `services` | `services.store` | 201, `ShowServiceResource` | 409 `DOCUMENT_CODE_CONFLICT`; 422 |
+| GET | `services/{service}` | `services.show` | 200, `ShowServiceResource` (suma `description` y las fechas) | 404 (también de otra clínica) |
+| PATCH/PUT | `services/{service}` | `services.update` | 200 | 404; 422 `SERVICE_NAME_NOT_EDITABLE`; 422 |
+| DELETE | `services/{service}` | `services.destroy` | 200, `data: null` | 404; 409 `SERVICE_IN_USE` |
+
+El administrador escribe; la recepción y el veterinario listan y ven el detalle (permisos que ya tenían) y reciben 403 al escribir.
+
+**Tests.** Suite del 2026-11-09, después de la corrección de la 2.3 en el cierre: 859 casos con los *data providers*; en
+SQLite, 9869 aserciones con 3 omitidos (solo de MySQL); contra MySQL (`syncvet_test_mysql`), 9889
+aserciones sin omitidos. Frente al cierre de la 2.3 (797 casos; 9217 y 9237 aserciones): 62 casos más, y 652 aserciones más en SQLite y en MySQL. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `ServiceStoreTest` | 37 | 174 | Alta con `SRV-` correlativo, el nombre limpio, sus datos y la auditoría; valores por defecto (30, 10 y `active`); nombre repetido sin mayúsculas, acentos ni espacios (también frente a un inactivo) → 422, el de otra clínica libre; `code` → 422; el código repetido → 409 `DOCUMENT_CODE_CONFLICT`, no el 422 del nombre; el índice como respaldo del nombre en el alta y la edición (422); precio entero de 0 a 999.999.999.999 (decimales, `.0` de JSON, negativos, exponentes, separadores, floats, booleanos y textos → 422); duración de 5 a 720 en múltiplos de 5; tasa de IVA, categoría y estado; el formato del nombre (`/`, `,`, `+` y `%` aceptados; `//`, el sufijo de baja, otros símbolos y sin letras → 422); la recepción y el veterinario listan y ven el detalle y reciben 403 al escribir |
+| `ServiceUpdateTest` | 6 | 69 | `PATCH` y `PUT` parciales y la auditoría; `code` → 422 y las reglas del alta; el nombre de otro → 422 y el propio con otras mayúsculas, sin uso, cambia; con uso en cada tabla de `USAGE`, el nombre no cambia (422 `SERVICE_NAME_NOT_EDITABLE`, también solo las mayúsculas) y el precio, el IVA, la duración, la categoría y el estado sí (200) |
+| `ServiceDeleteTest` | 6 | 32 | Baja sin uso con el sufijo en el nombre (libre para un alta nueva) y 404 después; el nombre de 120 con el sufijo entero; con uso en cada tabla de `USAGE` → 409 sin cambios; `USAGE` cubre toda clave foránea a `services` |
+| `ServiceIndexTest` | 4 | 44 | Activos de la clínica sin eliminados, paginados y por nombre, con `category` como `{value, label}` y `tax_rate` como número; `status` manda (también con `include_inactive=1`), `include_inactive` y `category`; `search` literal en código y nombre; filtros mal formados → 422 |
+| `ServiceLockTest` | 3 | 21 | Alta: la clínica antes de leer los nombres y la serie al final; cambio de nombre: clínica → servicio antes de revisar el uso y los nombres; baja: el servicio antes de revisar el uso |
+
+**Mutaciones.** Las cinco del diseño, en la implementación (R-038), cada una con tests que fallan: quitar el chequeo del nombre usado
+(4), el chequeo de uso de la baja (4), el sufijo de baja (2), la regla de enteros del precio (15) y el bloqueo de la clínica en el
+alta (1, `ServiceLockTest`). En las correcciones, cada una con un test que falla: volver a buscar la palabra `name` en el mensaje de
+la excepción, quitar el respaldo del índice del nombre y quitar la exclusión de `//` del nombre. En el cierre, en `VeterinarianService`:
+volver a buscar `license_number` en el mensaje y quitar el respaldo del índice de la matrícula.
+
+**Deuda 2.** `Service` revisado contra la tabla y las claves foráneas: relaciones y casts correctos; suma el cast de
+`duration_minutes` a entero, los valores por defecto de las columnas en `$attributes` (un servicio recién creado ya los muestra) y el
+nombre limpio al guardar (`CatalogName::clean`), como sucursales, especies y razas.
+
+**Desvíos del diseño.**
+
+| # | Desvío | Motivo | Quién |
+|---|---|---|---|
+| 1 | Obligatorios en el alta: `name`, `category` y `standard_price`; la duración (30), el IVA (10) y el estado (`active`) toman su valor por defecto | Que un servicio no quede con precio 0 por olvido | Implementación; aceptado por el usuario |
+| 2 | Cuenta como cambio de nombre solo lo que cambia el nombre ya limpio: reenviar el mismo con espacios de más pasa; cambiar solo las mayúsculas es un cambio (422 si está usado) | El formulario manda todos los campos | Implementación; aceptado por el usuario |
+| 3 | El nombre usaba la regla de sucursales y especies (`CatalogMessages::NAME_REGEX`): sin `/` ni `%` ("Consulta/urgencia" → 422) | El diseño no fijaba el formato | Implementación; **resuelto** a pedido del usuario en la revisión: regex propio de servicios (R-039) |
+| 4 | El precio sale como texto con dos decimales (`"150000.00"`), como la comisión de los veterinarios; se guarda con BCMath | Igual que los demás importes | Implementación; aceptado por el usuario |
+| 5 | Un número de JSON con `.0` (`150000.0`) → 422 (con un test que escribe el cuerpo JSON a mano); un texto con espacios en los extremos (`" 1500"`) se acepta, porque `TrimStrings` los quita antes de validar | La regla trabaja sobre lo que llega después del middleware | Implementación; aceptado por el usuario |
+| 6 | Orden del listado por nombre e id | El diseño no lo fijaba | Implementación; aceptado por el usuario |
+| 7 | La colección de Postman no tiene rango de corrida propio: las demás ya cubren de 000000 a 999998. El número de la corrida va solo en los nombres de sus servicios, que ninguna otra colección crea, y la corrida los da de baja | No hay rango de seis dígitos libre | Implementación; aceptado por el usuario |
+| 8 | El Service se llama `ServiceCatalogService` | `ServiceService` era confuso | Implementación; aceptado por el usuario |
+
+#### Correcciones de la revisión (R-039)
+
+La revisión, en una sesión aparte de la implementación, encontró un error de comportamiento (hallazgo 1), el desvío 3 para decidir y
+dos huecos de tests. Lo que el usuario decidió:
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Media | `withUniqueName` reconocía el choque del nombre buscando `'name'` en el mensaje de la excepción, que trae el SQL del insert y siempre nombra la columna: un código `SRV-` repetido respondía 422 "Ya hay un servicio con ese nombre." en lugar de 409 `DOCUMENT_CODE_CONFLICT` | `ServiceCatalogService::isNameViolation()`: por el índice (`services_clinic_id_name_unique` en MySQL, `services.name` en SQLite); otra violación sigue su camino y la del código llega a `DocumentSequenceService`. Regla nueva en `CLAUDE.md` §3 | `ServiceStoreTest::test_a_repeated_code_answers_409_and_not_the_name_error` (con la serie simulada) y `test_the_unique_index_backs_up_the_name_with_the_same_422` (alta y edición, con la fila simultánea cargada en el evento del modelo) |
+| 2 | Media | Desvío 3: "/", ",", "+" y "%" se rechazaban. La única razón era el sufijo de baja (`//deleted_…`), que nada interpreta en los servicios; el riesgo real era un nombre con `//deleted_<id>_<ts>` que chocara en el índice con el de una baja | `ServiceMessages::NAME_REGEX`: al menos una letra, sin `//`, y letras, números, espacios y `. , - ' ( ) / + %`; el mensaje de `name.regex` lo dice. `CatalogMessages::NAME_REGEX` no cambia | `ServiceStoreTest::test_the_name_accepts_slashes_commas_plus_and_percent` ("Castración macho/hembra", "Vacuna 5+1", "Consulta, control", "Análisis 100%" → 201) y los casos `//`, el sufijo de baja, otro símbolo y sin letras de `test_the_name_is_validated` (422) |
+| 3 | Baja | El servicio usado que cambia la tasa de IVA, la duración y la categoría no tenía test | El PATCH del test suma `tax_rate`, `duration_minutes` y `category` (200) | `ServiceUpdateTest::test_a_used_service_keeps_its_name_and_changes_its_price` |
+| 4 | Baja | `include_inactive=1&status=inactive` no tenía test | Aserción nueva: solo los inactivos | `ServiceIndexTest::test_status_include_inactive_and_category` |
+| 5 | Informativo | El valor anterior de `standard_price` en la auditoría sale de `getRawOriginal` (`AuditLogger`): en SQLite, un número (`150000`); en MySQL, texto (`"150000.00"`). Sin floats | Sin cambios | — |
+
+La colección de Postman suma 2 pedidos (25, alta con "/" en el nombre, y 26, su baja): de 25 a 27 requests y de 61 a 64 pruebas.
+
+**Corrección de la 2.3 en el cierre.** `VeterinarianService::withUniqueLicense` tenía el mismo error del hallazgo 1: buscaba
+`license_number` en el mensaje, así que un código `VET-` repetido respondía 422 "Ya hay un veterinario con esa matrícula.", aunque el
+pedido no trajera matrícula. Ahora `isLicenseViolation()` lo reconoce por el índice
+(`veterinarians_clinic_id_license_number_unique` en MySQL, `veterinarians.license_number` en SQLite). Tests nuevos en
+`VeterinarianStoreTest`: `test_a_repeated_code_answers_409_and_not_the_license_error` (409 `DOCUMENT_CODE_CONFLICT` con la serie
+simulada, con y sin matrícula) y `test_the_unique_index_backs_the_license_number_on_store_and_update` (el 422 del índice en el alta y
+la edición; el de la restauración ya estaba en `VeterinarianRestoreTest`). No queda otro Service que identifique violaciones por el
+texto del mensaje: `DocumentSequenceService` ya lo hacía por el índice.
+
+La revisión confirmó además: la lógica en el Service; errores con `ServiceException` o 422 de validación, sin 500; el precio sin
+floats en el Request, el Service, el Resource y la auditoría; los bloqueos (clínica en el alta y el cambio de nombre, el servicio en
+la edición y la baja, la serie al final); `USAGE` cubre toda clave foránea a `services`; el nombre de un servicio eliminado queda libre
+y el índice `(clinic_id, name)` no choca (dos bajas del mismo nombre en el mismo segundo, sufijos distintos); `category` como
+`{value, label}` y `tax_rate` como número en el listado y el detalle; la recepción y el veterinario listan y ven el detalle (200) y
+reciben 403 al escribir.
+
+#### Validación del usuario (R-039)
+
+El 2026-11-09 el usuario corrió en Postman (Collection Runner, una iteración) la colección `syncvet-fase-02-servicios`: 64 de 64
+pruebas, 0 errores (27 requests). Suite: la del cierre, sobre el código con la corrección de la 2.3 (859 casos;
+9869 aserciones en SQLite con 3 omitidos y 9889 en MySQL). Un servicio usado no está en la colección:
+lo cubren `ServiceDeleteTest` y `ServiceUpdateTest`, y se agrega en la FASE 3 con las agendas y los turnos. Con este cierre el módulo
+de servicios queda COMPLETADO; la FASE 2 sigue con la 2.5 (configuración de la clínica, logo y archivos huérfanos).
