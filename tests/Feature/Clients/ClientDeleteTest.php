@@ -108,10 +108,14 @@ class ClientDeleteTest extends TestCase
 
     /**
      * El sufijo de baja no se corta: un documento de 20 caracteres (el máximo) se
-     * puede dar de baja dos veces (pregunta 15 del diseño).
+     * puede dar de baja dos veces (pregunta 15 del diseño). Con el reloj congelado: el
+     * timestamp que se compara se toma después del DELETE y, con la máquina cargada
+     * (--parallel), el segundo podía cambiar en el medio.
      */
     public function test_the_same_long_document_can_be_deleted_twice(): void
     {
+        $this->freezeTime();
+
         $this->assertTheSameDocumentCanBeDeletedTwice(fn () => $this->travel(1)->days());
     }
 

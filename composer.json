@@ -17,6 +17,7 @@
         "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {
+        "brianium/paratest": "^7.20",
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
@@ -49,8 +50,24 @@
             "@php artisan dev"
         ],
         "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv XDEBUG_MODE=off",
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
+        ],
+        "test:mysql": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv XDEBUG_MODE=off",
+            "@putenv DB_CONNECTION=mysql",
+            "@putenv DB_DATABASE=syncvet_test_mysql",
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test"
+        ],
+        "test:fast": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv XDEBUG_MODE=off",
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test --parallel"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
