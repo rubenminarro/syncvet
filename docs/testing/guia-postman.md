@@ -189,6 +189,7 @@ pasos, y la preparación, el Environment **SyncVet local** y la forma de correrl
 | [`postman/syncvet-fase-02-veterinarios.postman_collection.json`](postman/syncvet-fase-02-veterinarios.postman_collection.json) | 2.3 (R-036 y R-037) | Alta del usuario de la corrida con el rol `veterinario`, alta de un veterinario con un usuario sin el rol (422) y con la matrícula de otro en minúsculas (422), alta con código `VET-`, el mismo usuario otra vez (422), matrícula repetida, `code` en el cuerpo y comisión fuera de rango al editar (422), detalle, listado con `search` y `branch_id`, la ficha en el detalle del usuario, quitarle el rol `veterinario` al usuario (409 `USER_IS_VETERINARIAN`), inactivar la ficha, listado sin el inactivo, con `status=inactive`, con `include_inactive=1` (sin comisión ni notas) y con `status` que manda, `include_inactive` inválido y filtros mal formados (422), el recepcionista que lista y no da de alta, no edita ni da de baja (403), baja sin uso (404 después), restauración con el mismo código (alta del mismo usuario), y la limpieza: baja de la ficha, baja del usuario (409 `USER_IN_USE`) y su inactivación |
 | [`postman/syncvet-fase-02-servicios.postman_collection.json`](postman/syncvet-fase-02-servicios.postman_collection.json) | 2.4 (R-038 y R-039) | Alta con código `SRV-` (nombre limpio, categoría con su etiqueta, precio, IVA y duración), nombre repetido con otras mayúsculas y sin acento, precio con decimales, duración de más de 720 o que no es múltiplo de 5 y `code` en el cuerpo (422), detalle, edición del precio, listado con `search`, el recepcionista que lista y ve el detalle y no da de alta, no edita ni da de baja (403), inactivar el servicio, listado sin el inactivo, con `include_inactive=1` y con `status` que manda, filtros mal formados (422), baja sin uso (404 después), el nombre libre para un alta nueva y su baja, y el alta con "/" en el nombre y su baja |
 | [`postman/syncvet-fase-02-configuracion.postman_collection.json`](postman/syncvet-fase-02-configuracion.postman_collection.json) | 2.5 (R-040 y R-041) | Lectura de la configuración por los tres roles (datos de la clínica, las claves y `has_logo`, sin la ruta del logo), edición de los datos y las claves (el correo en minúsculas), `null` que borra una clave con `PUT` parcial, una clave desconocida y el RUC (422), el recepcionista que no edita (403), un texto con extensión `.jpg` como logo (422), subida del logo (PNG), `has_logo` en `me`, descarga por el administrador, el veterinario y el recepcionista con `Content-Type`, `nosniff`, CSP y `no-store`, reemplazo por un WEBP, el recepcionista que no sube ni borra el logo (403), borrado del logo, descarga sin logo (404 `CLINIC_LOGO_NOT_FOUND`), `me` sin logo, y la restauración de los datos y las claves |
+| [`postman/syncvet-fase-02-auditoria.postman_collection.json`](postman/syncvet-fase-02-auditoria.postman_collection.json) | 2.6 (R-042 y R-043) | Dos registros propios (edita las notas de un cliente de la clínica A y las deja como estaban), y desde el comienzo de la corrida: filtro por fecha con `Z`, sin zona (hora de Asunción) y fecha sola, con el tipo, el id y el evento; por usuario; por evento (el login de la corrida); detalle con los valores, sin contraseñas ni rutas; `auditable_id` sin tipo, `to` antes de `from`, tipo fuera de la lista y fecha mal formada (422); el recepcionista no ve el listado ni el detalle (403) |
 
 #### Sucursales (2.1)
 
@@ -346,4 +347,37 @@ limpieza de archivos huérfanos (`PruneOrphanFilesTest`; a mano, con `php artisa
 
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-02-configuracion.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Auditoría (2.6)
+
+**Necesita el `DemoSeeder`.** Usa `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`). No hay que
+migrar ni volver a sembrar los roles: la 2.6 no tiene migraciones ni permisos nuevos (`audit-logs.index` y `audit-logs.show` ya
+existían y solo los tiene el administrador). No sube archivos y no necesita internet.
+
+**16 requests y 47 pruebas.**
+
+**Genera sus propios registros.** Edita las notas de un cliente de la clínica A y las vuelve a dejar como estaban (dos registros
+`updated`), y filtra desde el comienzo de la corrida (unos segundos antes, `{{from_z}}`), así que no depende de los registros
+anteriores. `{{from_local}}` y `{{today_local}}` son el mismo momento y el mismo día en la hora de Asunción, calculados con UTC-3
+(Paraguay no tiene horario de verano desde el 15/10/2024). La fecha sola del pedido 07 es el día de hoy en Asunción: corrida justo
+antes de la medianoche de Asunción, puede quedar fuera un registro.
+
+**Se corre más de una vez sin recrear la base.** No deja cambios en los datos; los registros de auditoría quedan, porque son
+inmutables.
+
+**La zona horaria del servidor.** El filtro con la fecha sin zona y la fecha sola dependen de que PHP tenga la base de zonas 2025a o
+posterior ([`development/setup.md`](../development/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)): con una más vieja, de
+marzo a octubre la hora de Asunción queda corrida una hora y esos pedidos fallan.
+
+**Lo que no está en la colección.** Un registro de otra clínica o un `LOGIN_FAILED` sin clínica (404), `search` literal, el usuario
+eliminado, `from` con fracción de segundo, las horas y los desplazamientos fuera de rango, la paginación y el veterinario (403)
+(`AuditLogIndexTest` y `AuditLogShowTest`); los registros viejos con la ruta de la foto o del logo (`AuditLogShowTest`); y las fechas
+con hora del cast `AppDateTime` (`AppDateTimeTest`). La regresión de `deceased_at` (deuda 13) se valida con la colección de
+pacientes de la FASE 1 (`syncvet-fase-01-pacientes`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-auditoria.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```

@@ -879,3 +879,59 @@ implementación, la corrección del 500 y las correcciones de la revisión queda
 
 **Qué cambió en la API.** Frente a R-040: `DELETE system-settings/logo` con un `logo_path` fuera de la carpeta de la clínica responde
 200 y limpia la referencia (antes, 404 `CLINIC_LOGO_NOT_FOUND`). Rutas, permisos y `error_code`, sin otros cambios.
+
+# R-042 Entrega 2.6 de la FASE 2: consulta de la auditoría y fechas con hora en un lugar común (2026-11-09)
+
+Implementación de la entrega 2.6 en `feature/fase-02-06-auditoria` (creada desde `feature/fase-02-05-configuracion`), en el commit WIP
+`18d5db2`. El detalle está en el [resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-26).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Dos: `GET audit-logs` y `GET audit-logs/{auditLog}`, sin rutas de escritura (405). 56 → 58 | Diseño (R-029) |
+| Permisos | Sin nuevos (127): `audit-logs.index` y `audit-logs.show` ya existían; solo el administrador (P14), los demás roles reciben 403 | Diseño (R-029) |
+| Migraciones | Ninguna (34): los índices de `audit_logs` cubren los filtros | Diseño (R-029) |
+| Clínica | `AuditLog` ya tenía el `ClinicScope`: el listado y el detalle ven solo la clínica en contexto; un registro de otra clínica o sin clínica (`LOGIN_FAILED` con un email desconocido) → 404 | Diseño (R-029) |
+| Filtros | `from` y `to`, `user_id` (de la clínica, también eliminado), `event`, `auditable_type` (lista cerrada), `auditable_id` (exige el tipo) y `search` literal en el nombre o el email del usuario; orden por `created_at` e `id` descendentes | Diseño (R-029) |
+| Valores sensibles | El listado no trae `old_values` ni `new_values`. La foto del paciente se audita como `"(archivo)"` (`Patient::auditValues()`), como el logo (R-041); el detalle oculta `photo_path` en los registros anteriores | Diseño (R-029) y usuario (que la ruta de la foto no se guarde) |
+| Deuda 13 | Cast `App\Casts\AppDateTime` en los atributos con hora de los modelos (15 modelos), con la conversión de zona en `App\Support\ApiDateTime::toLocal()`; `PatientService` ya no convierte `deceased_at`; `UpdatePatientRequest` y los filtros de la auditoría usan `ApiDateTime`. `DateTimeCastCoverageTest` lo exige | Diseño (R-029) |
+| `AppDateTimeTest` (desvío 1) | En `tests/Feature/Database`, no en `tests/Unit`: necesita la base y así corre en SQLite y en MySQL | Implementación; aceptado por el usuario |
+| Lista de tipos (desvío 2) | `AuditLog::AUDITABLE_TYPES` es una lista escrita; `AuditableTypesTest` falla si no coincide con los modelos con `Auditable` (como las listas `USAGE`) | Implementación; aceptado por el usuario |
+| Casts (desvío 3) | Todos los casts `datetime` pasan a `AppDateTime`, no solo los asignables, salvo `created_at`, `updated_at` y `deleted_at` (los llena Eloquent con `now()`, ya en la hora de Asunción) y `ScheduleHour::starts_at`/`ends_at` (horas del día, `time`, sin zona) | Implementación; aceptado por el usuario |
+| `event` (desvío 4) | Sale como `{value, label}`, como `category` y `status` en servicios | Implementación; aceptado por el usuario |
+| `auditable_id` sin tipo (desvío 5) | El 422 va en `auditable_type`: "Para filtrar por el id del registro, indicá también su tipo." | Implementación; aceptado por el usuario |
+| Formato de `from` y `to` (desvío 6) | Solo una fecha o una fecha con hora, por una expresión regular: "tomorrow" o "13:00" → 422, aunque la regla `date` de Laravel los acepta | Implementación; aceptado por el usuario |
+| Registros viejos (desvío 7) | El detalle cambia el `photo_path` viejo por `"(archivo)"` sin quitar la clave (se sigue viendo que la foto cambió); reutiliza `SystemSetting::AUDIT_FILE` | Implementación; aceptado por el usuario |
+
+**Qué cambió en la API.** Rutas nuevas: las dos de la auditoría. Sin `error_code` nuevos (solo los genéricos). `deceased_at` responde
+igual que en la FASE 1 (se guarda en la hora de Asunción y sale en UTC con `Z`). Rutas, permisos y contratos existentes, sin otros
+cambios.
+
+# R-043 Revisión, correcciones y cierre de la entrega 2.6 de la FASE 2 (2026-11-10)
+
+La revisión, en una sesión de Claude Code aparte de la implementación, encontró que la base de zonas de PHP del entorno de desarrollo
+no tenía el cambio de Paraguay a UTC-3 todo el año, un hallazgo de gravedad media y varios menores. El usuario decidió cada uno y
+validó la entrega. La implementación y las correcciones quedaron en dos commits WIP (`18d5db2` y `3df22d1`); el cierre va en un commit
+aparte en `feature/fase-02-06-auditoria`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-043) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-043).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Zona horaria de Paraguay | Desde el 15/10/2024, `America/Asuncion` es UTC-3 todo el año (ley promulgada el 14/10/2024); la base de zonas de la IANA lo incluye desde la 2025a. PHP 8.3.16 de Laragon traía la 2024.2: de marzo a octubre usaba `-04:00` y corría una hora toda fecha con hora. Se instaló la extensión `timezonedb` (base 2026.6). `tests/Unit/AsuncionTimezoneTest` exige `-03:00` en invierno y en verano y, si no, falla pidiendo actualizar PHP o `timezonedb`. Pasos de Laragon en `development/setup.md`; requisito del servidor en `development/deployment.md` y en la FASE 10 (entrega 10.5) | Usuario |
+| Ruta del logo en registros viejos (hallazgo 1) | Los registros de `system_setting` anteriores a R-041 (en la base de desarrollo, a veces sin la clave) tenían la ruta del logo: el detalle muestra `"(archivo)"` en cualquier valor con la forma `clinics/{id}/logo/…`, también anidado | Usuario |
+| Fracción de segundo (hallazgo 2) | `from` con fracción incluía el segundo anterior (`created_at` no tiene fracción): `from` se redondea hacia arriba al segundo siguiente y `to` hacia abajo (`ApiDateTime::ceilSecond` y `floorSecond`); se siguen aceptando fracciones (el frontend manda `toISOString()`, con `.000Z`) | Usuario |
+| Fecha anterior a la ley (hallazgo 3) | `AppDateTimeTest` suma `2024-07-01T12:00:00Z` → 08:00 (Asunción en `-04:00`) y julio de 2026 → `-03:00`; un `-03:00` fijo en lugar de `America/Asuncion` hace fallar el primero | Usuario |
+| Formato (hallazgo 4) | `ApiDateTime::FILTER_FORMAT`: horas de 00 a 23, minutos y segundos de 00 a 59 y desplazamientos de hasta ±14:00; `T24:00:00` y `-2400` → 422 | Usuario |
+| Tests (hallazgo 5) | `event=login_failed`; el detalle de un registro cuyo usuario fue eliminado; `DateTimeCastCoverageTest` recorre también las subcarpetas de `app/Models` | Usuario |
+| Deuda 16 | Nueva: las columnas `timestamp` de MySQL se guardan según la zona de la sesión, que es la del servidor (`config/database.php` no fija `timezone`), y `useCurrent()` de `inventory_movements` depende de eso. Se analiza antes del diseño de la FASE 3 | Usuario |
+| Suites en paralelo | No correr la de SQLite y la de MySQL a la vez: comparten los discos falsos de `Storage::fake` (`development/testing.md`) | Usuario |
+| Desvíos 1 a 7 | Aceptados (R-042) | Usuario |
+| Validación | El usuario corrió en Postman (Collection Runner, una iteración), después de las correcciones de la revisión, `syncvet-fase-02-auditoria`: 47 de 47 pruebas, 0 errores; y, como regresión por la deuda 13 (`deceased_at`), `syncvet-fase-01-pacientes`: 61 de 61, 0 errores. Entrega validada | Usuario, el 2026-11-10 |
+| Suite del cierre | Sobre el código de `3df22d1`, una después de la otra: 988 casos; en SQLite, 10816 aserciones con 3 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 10836 aserciones sin omitidos | Cierre |
+| Deuda 13 | Resuelta: `AppDateTime` y `ApiDateTime` | Cierre |
+| Deuda 2 | Revisados los seis modelos de la FASE 2 (`AuditLog`, el último, en la 2.6). Sigue abierta para los modelos generados de las fases siguientes | Cierre |
+| Siguiente | Todas las entregas de la FASE 2 cerradas; falta el cierre de la fase y su merge a `main`, con autorización del usuario. Antes del diseño de la FASE 3, la deuda 16 | Usuario |
+
+**Qué cambió en la API.** Frente a R-042: `from` y `to` rechazan una hora o un desplazamiento fuera de rango (422), y `from` con
+fracción de segundo ya no incluye el segundo anterior; el detalle de la auditoría muestra `"(archivo)"` en lugar de la ruta de un logo.
+Rutas, permisos y `error_code`, sin otros cambios.

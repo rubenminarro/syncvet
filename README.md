@@ -58,8 +58,9 @@ acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo 
 ## Instalación
 
 Proyecto Laravel 13 con Sanctum 4 y spatie/laravel-permission 8 (entrega 0.1 de la FASE 0). Requisitos: PHP 8.3+ con `bcmath`,
-`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md));
-Composer; MySQL 8.
+`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md)),
+y la base de zonas horarias 2025a o posterior (Paraguay en UTC-3 todo el año; en Laragon, la extensión `timezonedb`,
+[`setup.md`](docs/development/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)); Composer; MySQL 8.
 
 ```bash
 git clone https://github.com/rubenminarro/syncvet.git

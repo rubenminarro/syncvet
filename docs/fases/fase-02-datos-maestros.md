@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035), 2.3 (R-036 y R-037), 2.4 (R-038 y R-039) y 2.5 (R-040 y R-041) cerradas; sigue la 2.6. El estado vigente de
+Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035), 2.3 (R-036 y R-037), 2.4 (R-038 y R-039), 2.5 (R-040 y R-041) y 2.6 (R-042 y R-043) cerradas; falta el cierre de la fase. El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -22,7 +22,7 @@ asignan a sucursales, y divide los usuarios en dos (R-029). Cada entrega recorre
 | 2.3 | Veterinarios (`VET-`): uno por usuario, restauración, inactivación en uso | 2.3 | COMPLETADO (R-036, R-037) |
 | 2.4 | Catálogo de servicios (`SRV-`): nombre fijo una vez usado, baja sin uso | 2.4 | COMPLETADO (R-038, R-039) |
 | 2.5 | Datos y configuración de la clínica (`system_settings`), logo y limpieza de archivos huérfanos (deuda 14) | 2.5 | COMPLETADO (R-040, R-041) |
-| 2.6 | Consulta de auditoría y fechas con hora en un lugar común (deuda 13) | 2.6 | PENDIENTE |
+| 2.6 | Consulta de auditoría y fechas con hora en un lugar común (deuda 13) | 2.6 | COMPLETADO (R-042, R-043) |
 
 ## Preguntas de negocio
 
@@ -1067,3 +1067,97 @@ El 2026-11-09 el usuario corrió en Postman (Collection Runner, una iteración),
 del paciente (`syncvet-fase-01-foto`): 60 de 60, 0 errores. Suite: la del cierre (921 casos; 10477 aserciones en SQLite con 3
 omitidos y 10497 en MySQL). Con este cierre el módulo de configuración de la clínica queda COMPLETADO y la deuda 14, resuelta; la
 FASE 2 sigue con la 2.6 (auditoría y deuda 13).
+
+### Entrega 2.6
+
+Implementación en `feature/fase-02-06-auditoria`, creada desde `feature/fase-02-05-configuracion`, revisada en una sesión de Claude
+Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-043)) y validada por el
+usuario ([validación del usuario](#validación-del-usuario-r-043)). La implementación y las correcciones de la revisión quedaron en dos
+commits WIP (`18d5db2` y `3df22d1`), y el cierre va en un commit aparte. Decisiones en [R-042](../decisions/registro.md) y R-043.
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `AuditLogController`; `IndexAuditLogRequest`; `AuditLogResource` y `ShowAuditLogResource`; `App\Casts\AppDateTime`; `App\Support\ApiDateTime`; `tests/Feature/Audit` (`AuditLogIndexTest` y `AuditLogShowTest`), `tests/Feature/Database/AppDateTimeTest`, `tests/Unit/DateTimeCastCoverageTest`, `AuditableTypesTest` y `AsuncionTimezoneTest`; `docs/testing/postman/syncvet-fase-02-auditoria.postman_collection.json` |
+| Cambiados | `routes/api.php` (dos rutas); los 15 modelos con casts `datetime`, que pasan a `AppDateTime` (`Appointment`, `CashMovement`, `CashRegister`, `ClientNotification`, `Consultation`, `InventoryMovement`, `Invoice`, `Patient`, `PatientApplication`, `PatientDocument`, `Payment`, `ProductStock`, `Reminder`, `ScheduleBlock` y `AuditLog`); `Patient` (`auditValues()`: la foto como `"(archivo)"`); `AuditLog` (`AUDITABLE_TYPES`); `PatientService` (ya no convierte `deceased_at`); `UpdatePatientRequest` (usa `ApiDateTime`); `lang/es/validation.php` (los filtros nuevos) |
+| Tests cambiados | `RoleAccessTest` (un registro de auditoría para el detalle) y `ValidationTranslationsTest` (pedidos inválidos a la auditoría) |
+| Documentación | `CLAUDE.md` §1, §2 (los informes en español con voseo; en la implementación), §3 (fechas con hora: `AppDateTime` y `ApiDateTime`, y la base de zonas), §6.9 nueva, auditoría (las pendientes de diseño pasan a §6.10), y §7 (deuda 13 resuelta, 16 nueva); `development/setup.md` (la zona horaria de Paraguay y `timezonedb` en Laragon), `development/deployment.md` (la base de zonas en el servidor) y `development/testing.md` (las suites, una después de la otra); la guía de Postman; este documento, el de la [FASE 10](fase-10-reportes-y-piloto.md) (la base de zonas en la 10.5), el registro (R-042 y R-043), la deuda técnica, el handoff y los documentos de estado |
+
+**Endpoints.** Las rutas pasan de 56 a 58; los permisos siguen en 127 (`audit-logs.index` y `audit-logs.show` ya existían); las
+migraciones, en 34.
+
+| Método | Ruta | Permiso | Respuesta | Errores |
+|---|---|---|---|---|
+| GET | `audit-logs` | `audit-logs.index` | 200, paginado, `AuditLogResource`: `id`, `event` (`{value, label}`), `auditable_type`, `auditable_id`, `user` (`id`, `name`; también eliminado), `ip_address` y `created_at` (UTC, `Z`), sin `old_values` ni `new_values`; por `created_at` e `id` descendentes | 422 (filtros) |
+| GET | `audit-logs/{auditLog}` | `audit-logs.show` | 200, `ShowAuditLogResource`: suma `old_values`, `new_values` y `user_agent`, sin contraseñas, tokens ni rutas de archivos | 404 (también de otra clínica o sin clínica) |
+
+Solo el administrador; el recepcionista y el veterinario reciben 403. Sin rutas de escritura (405). Filtros: `from` y `to` (una fecha
+sola, de 00:00 a 23:59:59 de Asunción, o una fecha con hora con o sin zona; `from` con fracción se redondea hacia arriba y `to` hacia
+abajo; `to` no anterior a `from`), `user_id`, `event`, `auditable_type`, `auditable_id` (exige el tipo) y `search`, más `per_page` y
+`page`.
+
+**Tests.** Suite del 2026-11-10, sobre el código de `3df22d1` (el cierre solo cambia documentación), corrida en SQLite y después en
+MySQL: 988 casos con los *data providers*; en SQLite, 10816 aserciones con 3 omitidos (solo de MySQL); contra MySQL
+(`syncvet_test_mysql`), 10836 aserciones sin omitidos. Frente al cierre de la 2.5 (921 casos; 10477 y 10497 aserciones): 67 casos más,
+y 339 aserciones más en SQLite y en MySQL. La tabla cuenta casos (SQLite).
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `AuditLogIndexTest` | 41 | 144 | Listado de la clínica por `created_at` e `id` descendentes y sin valores; nunca de otra clínica ni `LOGIN_FAILED` sin clínica; `from` y `to` con `Z`, desplazamiento (también `+14:00` y `-1200`), sin zona, fecha sola y fracción (`from` hacia arriba, `to` hacia abajo); `user_id` (también eliminado), `event` (también `login_failed`), tipo e id; `search` literal; paginación; los 422 (`to` antes de `from`, id sin tipo, tipo fuera de la lista, `T24:00:00`, minuto 60, `-2400`, `+14:30`, `-15:00`, usuario de otra clínica); el recepcionista y el veterinario → 403 |
+| `AuditLogShowTest` | 8 | 62 | Detalle con valores, usuario y `user_agent`; contraseña enmascarada; la foto auditada como `"(archivo)"`; un registro viejo con `photo_path`; registros viejos del logo con su ruta (con la clave, sin ella y anidada) como `"(archivo)"`; el usuario eliminado; de otra clínica o sin clínica → 404; sin rutas de escritura (405) |
+| `AppDateTimeTest` | 13 | 50 | El cast con `Z`, fracción, `-03:00`, `+02:00`, sin zona, un cambio de día, invierno de 2026 (`-03:00`) y de 2024, antes de la ley (`-04:00`), en SQLite y en MySQL; un Carbon en UTC o en Asunción y `null`; el mismo momento en otra zona no es un cambio; `deceased_at` de punta a punta; comienzo y final de un filtro |
+| `DateTimeCastCoverageTest` | 2 | 6 | Ningún cast `datetime` y todo atributo asignable con hora con `AppDateTime`; los modelos de las subcarpetas también |
+| `AuditableTypesTest` | 1 | 1 | `AuditLog::AUDITABLE_TYPES` coincide con los modelos con `Auditable` |
+| `AsuncionTimezoneTest` | 2 | 4 | `America/Asuncion` en `-03:00` en invierno y en verano de 2026; con una base de zonas anterior a la 2025a, falla pidiendo actualizar PHP o `timezonedb` |
+
+**Mutaciones.** Las cinco del diseño, comprobadas en la implementación, cada una con tests que fallan: quitar el `ClinicScope` del
+listado, quitar el ocultamiento de `photo_path`, volver a `datetime` en `deceased_at`, quitar la conversión de zona de `from` y `to`, y
+aceptar `auditable_id` sin tipo; además, guardar la ruta de la foto en la auditoría. En las correcciones, cada una con un test que
+falla: un `-03:00` fijo en lugar de `America/Asuncion`, quitar el redondeo de `from`, quitar el ocultamiento de la ruta del logo o solo
+su parte anidada, y volver al formato anterior de `from` y `to`.
+
+**Deuda 2.** `AuditLog` revisado: la relación con el usuario incluye los eliminados, sigue inmutable (`AUDIT_LOG_IMMUTABLE`),
+`created_at` pasa a `AppDateTime` y no tiene `morphTo` porque `auditable_type` es el tipo corto (`"patient"`), no la clase. Con él
+quedan revisados los seis modelos de la FASE 2; la deuda sigue abierta para los modelos de las fases siguientes. Los casts de los
+modelos generados que cambió la deuda 13 no son una revisión de esos modelos.
+
+**Desvíos del diseño.**
+
+| # | Desvío | Motivo | Quién |
+|---|---|---|---|
+| 1 | `AppDateTimeTest` en `tests/Feature/Database`, no en `tests/Unit` | Necesita la base, y así corre en SQLite y en MySQL | Implementación; aceptado por el usuario |
+| 2 | `AuditLog::AUDITABLE_TYPES` es una lista escrita, con `AuditableTypesTest` | Como las listas `USAGE`: un modelo auditable nuevo hace fallar el test | Implementación; aceptado por el usuario |
+| 3 | Todos los casts `datetime` pasan a `AppDateTime`, no solo los asignables, salvo `created_at`, `updated_at`, `deleted_at` y las horas del día de `ScheduleHour` | Los timestamps los llena Eloquent con `now()`, ya en la hora de Asunción; una hora del día no tiene zona | Implementación; aceptado por el usuario |
+| 4 | `event` sale como `{value, label}` | Como `category` y `status` en servicios | Implementación; aceptado por el usuario |
+| 5 | `auditable_id` sin tipo: el 422 va en `auditable_type` | Es el campo que falta | Implementación; aceptado por el usuario |
+| 6 | `from` y `to` aceptan solo una fecha o una fecha con hora, por una expresión regular ("tomorrow" o "13:00" → 422) | La regla `date` de Laravel acepta textos relativos | Implementación; aceptado por el usuario |
+| 7 | El detalle cambia el `photo_path` viejo por `"(archivo)"` sin quitar la clave | Se sigue viendo que la foto cambió | Implementación; aceptado por el usuario |
+
+#### Correcciones de la revisión (R-043)
+
+La revisión, en una sesión aparte de la implementación, encontró lo siguiente. Lo que el usuario decidió:
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| — | Alta (del entorno) | La base de zonas de PHP 8.3.16 (2024.2) no tenía el cambio de Paraguay a UTC-3 todo el año (ley del 14/10/2024, IANA 2025a): de marzo a octubre usaba `-04:00` y toda fecha con hora quedaba una hora corrida. Los tests usaban solo fechas de noviembre y no lo veían | Extensión `timezonedb` en Laragon (base 2026.6), con los pasos en `development/setup.md`; requisito del servidor en `development/deployment.md` y en la FASE 10 | `AsuncionTimezoneTest::test_asuncion_is_utc_minus_three_all_year` (falla con la base 2024.2) |
+| 1 | Media | Los registros de `system_setting` anteriores a R-041 tenían la ruta del logo (en la base de desarrollo, los 823 a 825; el 824 sin la clave), y el detalle la mostraba | Cualquier valor con la forma `clinics/{id}/logo/…`, también anidado, sale como `"(archivo)"` | `AuditLogShowTest::test_an_old_system_setting_log_with_a_logo_path_shows_it_as_a_file` |
+| 2 | Baja | `from` con fracción de segundo incluía el segundo anterior (`created_at` no tiene fracción) | `from` hacia arriba al segundo siguiente y `to` hacia abajo; la validación de `to` contra `from` compara los valores enviados | `AuditLogIndexTest` (`from` con fracción) |
+| 3 | Baja | `AppDateTimeTest` usaba solo fechas de noviembre: un `-03:00` fijo pasaba | Casos de julio de 2026 (`-03:00`) y de julio de 2024, antes de la ley (`-04:00`) | `AppDateTimeTest` (invierno de 2024) |
+| 4 | Baja | `FILTER_FORMAT` aceptaba `T24:00:00` y `-2400` | Horas de 00 a 23, minutos y segundos de 00 a 59, desplazamientos de hasta ±14:00 | `AuditLogIndexTest` (los 422 del formato) |
+| 5 | Baja | Sin test: `event=login_failed` y el detalle con el usuario eliminado; `DateTimeCastCoverageTest` no veía las subcarpetas | Tests nuevos; el recorrido incluye las subcarpetas | `AuditLogIndexTest::test_filters_the_failed_logins_of_the_clinic`, `AuditLogShowTest::test_the_detail_of_a_log_whose_user_was_deleted` y `DateTimeCastCoverageTest::test_the_models_are_searched_also_in_subfolders` |
+| 6 | Informativo | Las columnas `timestamp` de MySQL dependen de la zona del servidor (`config/database.php` no fija `timezone`), y `useCurrent()` de `inventory_movements` también | Deuda 16, a analizar antes del diseño de la FASE 3 | — |
+| 7 | Informativo | Las suites de SQLite y de MySQL corridas a la vez fallan en `RoleAccessTest` (comparten los discos de `Storage::fake`) | Nota en `development/testing.md`: una después de la otra | — |
+
+La revisión confirmó además: ningún camino muestra registros de otra clínica ni `LOGIN_FAILED` sin clínica (listado, detalle y
+`user_id` de otra clínica → 422); la contraseña enmascarada y la foto como `"(archivo)"`; sin rutas de escritura y el modelo inmutable;
+`search` literal; el 403 de los otros roles; `deceased_at` igual que en la FASE 1; `AppDateTime` con la zona `America/Asuncion` de PHP,
+no un desplazamiento fijo; y los tests sin depender de la fecha en que corren.
+
+#### Validación del usuario (R-043)
+
+El 2026-11-10 el usuario corrió en Postman (Collection Runner, una iteración), después de las correcciones de la revisión, la colección
+`syncvet-fase-02-auditoria`: 47 de 47 pruebas, 0 errores (16 requests); y, como regresión por la deuda 13 (`deceased_at`), la de
+pacientes (`syncvet-fase-01-pacientes`): 61 de 61, 0 errores. Suite: la del cierre (988 casos; 10816 aserciones en SQLite con 3
+omitidos y 10836 en MySQL). Con este cierre el módulo de auditoría queda COMPLETADO y la deuda 13, resuelta; todas las entregas de la
+FASE 2 están cerradas y falta el cierre de la fase.

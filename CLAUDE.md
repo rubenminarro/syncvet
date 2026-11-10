@@ -30,22 +30,25 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
   (datos maestros) está en desarrollo: diseño aprobado (R-029); entregas 2.1, sucursales y depósitos (R-030 y R-031), 2.2a,
   usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y R-035), 2.3,
-  veterinarios (R-036 y R-037), 2.4, servicios (R-038 y R-039), y 2.5, configuración de la clínica, logo y archivos huérfanos
-  (R-040 y R-041), cerradas y validadas por el usuario con Postman; sigue la entrega 2.6, auditoría (y deuda 13).
+  veterinarios (R-036 y R-037), 2.4, servicios (R-038 y R-039), 2.5, configuración de la clínica, logo y archivos huérfanos
+  (R-040 y R-041), y 2.6, consulta de la auditoría y fechas con hora (deuda 13 resuelta; R-042 y R-043), cerradas y validadas por
+  el usuario con Postman; falta el cierre de la fase y su merge a `main`. Antes del diseño de la FASE 3, la deuda 16.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
-  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios y de la configuración
-  (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`, `tests/Feature/Users`,
-  `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`).
+  clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración
+  y de la auditoría (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`,
+  `tests/Feature/Users`, `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`, `tests/Feature/Audit`),
+  y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
-  servicios y la configuración con el logo, con las colecciones de Postman de `docs/testing/postman`, que se pueden correr más de
-  una vez sin recrear la base.
+  servicios, la configuración con el logo y la auditoría, con las colecciones de Postman de `docs/testing/postman`, que se pueden
+  correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
   (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso), el
   listado de roles, los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso) y el catálogo de
-  servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado), y la configuración de la
-  clínica (sus datos, las claves de `system_settings` y el logo: subir, ver y borrar).
+  servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado), la configuración de la
+  clínica (sus datos, las claves de `system_settings` y el logo: subir, ver y borrar) y la consulta de la auditoría (listado con
+  filtros y detalle, solo el administrador).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API), el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`) y `php artisan files:prune-orphans` (fotos y logos
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
@@ -119,6 +122,15 @@ empezar una sesión.
   `search` es literal: se busca con `whereContains`/`orWhereContains` (`App\Support\SearchTerm`), que escapan `%` y `_` y dejan
   la barra invertida como un carácter más, nunca con `like` y el texto sin escapar (R-021).
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
+* **Fechas con hora** (deuda 13, R-042 y R-043): todo atributo con hora de un modelo usa el cast `App\Casts\AppDateTime`, nunca
+  `datetime` (`DateTimeCastCoverageTest` lo exige en todo atributo asignable, también en las subcarpetas de `app/Models`; salvo
+  `created_at`, `updated_at` y `deleted_at`, que llena Eloquent, y las horas del día, `time`). Al guardar, un valor con zona (`Z`
+  o un desplazamiento) se convierte a la hora de `America/Asuncion` y uno sin zona se toma como hora de Asunción; la base guarda la
+  hora de Asunción y la API responde en UTC con `Z` (`toISOString()`). Los filtros y las validaciones con hora usan
+  `App\Support\ApiDateTime` (`toLocal`, `startOf`/`endOf` para una fecha sola, `ceilSecond`/`floorSecond` contra columnas sin
+  fracción), nunca `Date::parse` sin zona. La conversión usa la zona `America/Asuncion` de PHP, nunca un `-03:00` fijo: Paraguay es
+  UTC-3 todo el año desde el 15/10/2024, pero las fechas anteriores tenían horario de verano. PHP necesita la base de zonas 2025a o
+  posterior (o la extensión `timezonedb`; `development/setup.md`); `AsuncionTimezoneTest` falla con una base vieja.
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
   strings (`App\Support\Decimal::round`), nunca `float`. Los importes en guaraníes (PYG) se redondean a **0 decimales**
@@ -194,10 +206,12 @@ empezar una sesión.
 
 ### Entorno
 
-* Zona horaria `America/Asuncion`; la API envía las fechas con hora en UTC (`Z`).
+* Zona horaria `America/Asuncion` (UTC-3 todo el año desde el 15/10/2024); la API envía las fechas con hora en UTC (`Z`). PHP con la
+  base de zonas 2025a o posterior (§3, Fechas con hora).
 * Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) una vez por entrega, antes del
   cierre, y también durante el trabajo si se tocan migraciones, búsquedas de texto, concurrencia o autenticación (§2, Ritmo de
-  las entregas): `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`.
+  las entregas): `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`. La de SQLite y la de MySQL, nunca a la
+  vez: comparten los discos falsos de `Storage::fake` (`development/testing.md`).
 
 ---
 
@@ -325,7 +339,7 @@ errores sí usan el contrato.
   demás campos pueden llegar con el valor que ya tienen (el frontend manda el formulario completo): se rechaza solo si
   cambian, comparados con los casts del modelo (R-021). Los dos listados, `patients` y `clients/{client}/patients`, los
   ocultan salvo `include_deceased=1`. `deceased_at` llega en UTC (o con su desplazamiento) y se guarda en la hora de
-  `America/Asuncion` (`PatientService`; deuda 13).
+  `America/Asuncion` (el cast `AppDateTime`, §3; antes, `PatientService`), y sale en UTC con `Z`.
 * `deceased_at` no es anterior a `birth_date` (la que llega en el pedido o la que el paciente ya tiene), comparando el día en
   la hora de Asunción; si lo es, 422 en `deceased_at` (R-021).
 * No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento.
@@ -554,7 +568,29 @@ errores sí usan el contrato.
   se puede revisar (un enlace simbólico, un error del disco) queda en el log, no se borra nada en ella y se sigue con las demás.
   Termina con 1 si una clínica falló o un borrado no se pudo hacer. `--dry-run` informa lo mismo que borraría, sin borrar.
 
-### 6.9 Pendientes de diseño (reglas a definir antes de programar)
+### 6.9 Auditoría
+
+* Consulta en `audit-logs` (`GET` listado y `GET audit-logs/{auditLog}` detalle; permisos `audit-logs.index` y `audit-logs.show`):
+  solo el administrador (P14); el recepcionista y el veterinario reciben 403. Sin rutas de escritura (405): los registros son
+  inmutables (`AUDIT_LOG_IMMUTABLE` en el modelo).
+* Clínica: `AuditLog` tiene el `ClinicScope`; un registro de otra clínica o sin clínica (`LOGIN_FAILED` con un email desconocido,
+  `clinic_id` nulo) nunca aparece en el listado y en el detalle responde 404.
+* Listado (`AuditLogResource`): `id`, `event` (`{value, label}`), `auditable_type` (el tipo corto, `"patient"`), `auditable_id`,
+  `user` (`id`, `name`; también eliminado; `null` sin usuario), `ip_address` y `created_at` (UTC, `Z`); sin `old_values` ni
+  `new_values`. Por `created_at` e `id` descendentes, paginado con `ListFilters`.
+* Filtros (`IndexAuditLogRequest`): `from` y `to` (una fecha sola, de 00:00 a 23:59:59 de Asunción, o una fecha con hora con o sin
+  zona, por `ApiDateTime::FILTER_FORMAT`: horas de 00 a 23 y desplazamientos de hasta ±14:00; otro formato, también "tomorrow", →
+  422 "Ingresá una fecha (2026-11-09) o una fecha con hora (2026-11-09T13:00:00Z)."; `from` con fracción de segundo se redondea
+  hacia arriba y `to` hacia abajo; `to` anterior a `from` → 422 en `to`), `user_id` (un usuario de la clínica, también eliminado;
+  si no, 422), `event` (`AuditEvent`), `auditable_type` (lista cerrada `AuditLog::AUDITABLE_TYPES`, que `AuditableTypesTest`
+  compara con los modelos con `Auditable`), `auditable_id` (exige el tipo: 422 en `auditable_type`) y `search` literal en el nombre
+  o el email del usuario.
+* Detalle (`ShowAuditLogResource`): suma `old_values`, `new_values` y `user_agent`. Nunca muestra contraseñas ni tokens
+  (`AuditLogger` guarda `password`, `remember_token` y `token` como `********`) ni rutas de archivos: la foto del paciente se audita
+  como `"(archivo)"` (`Patient::auditValues()`), como el logo (R-041); en los registros anteriores, el detalle cambia por
+  `"(archivo)"` el `photo_path` (sin quitar la clave) y cualquier valor con la forma `clinics/{id}/logo/…`, también anidado.
+
+### 6.10 Pendientes de diseño (reglas a definir antes de programar)
 
 * **Turnos:** sin superposición en la misma agenda (validar con `lockForUpdate` sobre la agenda); transiciones de
   `AppointmentStatus`; un turno fichado abre la consulta.
@@ -576,6 +612,5 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 3 | Códigos SIFEN de formas de pago y unidades de medida sin verificar |
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
-| 13 | Fechas con hora de la API: solo `deceased_at` se convierte de UTC a `America/Asuncion`; llevarlo a un lugar común antes de la FASE 3 |
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
 | 16 | Columnas `timestamp` de MySQL según la zona del servidor (`config/database.php` no fija `timezone`); `useCurrent()` de `inventory_movements` depende de eso. Analizar antes del diseño de la FASE 3 |
