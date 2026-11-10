@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Support\CurrentClinic;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithBranches;
 use Tests\TestCase;
@@ -300,6 +301,48 @@ class RouteBindingTest extends TestCase
             $this->assertTrue($found->is_active);
             $this->assertSame(1, ScheduleBlock::query()->count(), 'Los bloqueos de la agenda ajena cambiaron.');
         });
+    }
+
+    /**
+     * Turnos (FASE 3, entrega 3.2a): uno de otra clínica responde 404 en cada ruta y no cambia.
+     */
+    public static function appointmentRoutes(): array
+    {
+        return [
+            'GET appointments/{appointment}' => ['get'],
+            'PATCH appointments/{appointment}' => ['patch'],
+            'PUT appointments/{appointment}' => ['put'],
+        ];
+    }
+
+    #[DataProvider('appointmentRoutes')]
+    public function test_appointment_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreignBranch = $this->defaultBranchIn($foreignClinic);
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $schedule = CurrentClinic::run($foreignClinic, fn () => Schedule::factory()->create([
+            'branch_id' => $foreignBranch->id,
+            'service_id' => Service::create(['code' => 'SRV-000001', 'name' => 'Peluquería'])->id,
+        ]));
+        $id = DB::table('appointments')->insertGetId([
+            'clinic_id' => $foreignClinic->id,
+            'branch_id' => $foreignBranch->id,
+            'schedule_id' => $schedule->id,
+            'client_id' => $patient->client_id,
+            'patient_id' => $patient->id,
+            'starts_at' => '2030-01-01 10:00:00',
+            'ends_at' => '2030-01-01 10:30:00',
+            'notes' => 'Ajeno',
+            'created_by' => User::factory()->for($foreignClinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), ['appointments.show', 'appointments.update']);
+
+        $this->assertErrorCode($this->json($method, "/api/appointments/{$id}", ['notes' => 'Cambiado']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame('Ajeno', DB::table('appointments')->where('id', $id)->value('notes'));
     }
 
     public function test_own_records_are_found(): void

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
@@ -89,6 +90,10 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
         'store' => 'schedules.schedule-blocks.store',
     ]);
     Route::delete('schedule-blocks/{scheduleBlock}', [ScheduleBlockController::class, 'destroy'])->name('schedule-blocks.destroy');
+
+    // Turnos (FASE 3, entrega 3.2a): los dan y los mueven el administrador y la recepción. Sin baja
+    // (DELETE → 405): un turno se cancela (3.2b). El sobreturno pide además appointments.overbook.
+    Route::apiResource('appointments', AppointmentController::class)->except(['destroy']);
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

@@ -10,8 +10,7 @@ use Illuminate\Support\Collection;
 /**
  * El bloqueo recién creado (FASE 3, entrega 3.1; pregunta 22) con los turnos que ocupan el
  * horario y se superponen con él (affected_appointments), para que la recepción los
- * reprograme. Los datos de contacto de un turno sin paciente ni cliente llegan con la
- * migración de la 3.2a.
+ * reprograme. Un turno sin paciente ni cliente muestra sus datos de contacto (desde la 3.2a).
  */
 class StoredScheduleBlockResource extends ScheduleBlockResource
 {
@@ -44,6 +43,9 @@ class StoredScheduleBlockResource extends ScheduleBlockResource
                     'id' => $appointment->client->id,
                     'display_name' => $appointment->client->display_name,
                 ],
+                // Un turno sin cliente ni paciente (FASE 3, entrega 3.2a).
+                'contact_name' => $appointment->contact_name,
+                'contact_phone' => $appointment->contact_phone,
             ])->values(),
         ];
     }

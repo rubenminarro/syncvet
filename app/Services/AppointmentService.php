@@ -1,0 +1,513 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\AppointmentStatus;
+use App\Enums\ServiceStatus;
+use App\Enums\VeterinarianStatus;
+use App\Exceptions\AppointmentException;
+use App\Exceptions\ScheduleChangedWhileLocking;
+use App\Http\Requests\AppointmentMessages;
+use App\Models\Appointment;
+use App\Models\Client;
+use App\Models\Patient;
+use App\Models\Schedule;
+use App\Models\ScheduleBlock;
+use App\Models\ScheduleHour;
+use App\Models\Service;
+use App\Models\User;
+use App\Models\Veterinarian;
+use App\Support\ApiDateTime;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\DetectsConcurrencyErrors;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Throwable;
+
+/**
+ * Turnos únicos (FASE 3, entrega 3.2a; P2, P4 a P7 y preguntas 15 a 17).
+ *
+ * Reglas: la agenda activa y, si tiene veterinario, activo y con su usuario activo; la
+ * sucursal y el veterinario se copian de la agenda. El servicio, el del pedido o el de la
+ * agenda, activo. Paciente (no fallecido; el cliente es su dueño), cliente sin paciente o
+ * nombre y teléfono de contacto. ends_at por defecto: la duración del servicio o slot_minutes
+ * de la agenda. Desde el comienzo del día de hoy, sin cruzar la medianoche, hasta 720
+ * minutos. Dentro de un tramo del horario semanal (422 APPOINTMENT_OUTSIDE_HOURS), fuera de
+ * los bloqueos (422 APPOINTMENT_IN_BLOCK) y sin superponerse con un turno que ocupa el
+ * horario en la agenda o del mismo veterinario en otra agenda (409 APPOINTMENT_OVERLAP),
+ * salvo un sobreturno (overbook), que saltea solo la superposición y queda con
+ * is_overbooked si al guardar se superponía. Se editan y se mueven solo los turnos a
+ * confirmar o confirmados (422 APPOINTMENT_NOT_EDITABLE); un turno movido conserva su estado.
+ *
+ * Concurrencia (orden de la FASE 3: clínica → veterinario → servicio → agenda → paciente →
+ * turno; el alta no toma CatalogLock). Se lee la agenda sin bloqueo para saber su
+ * veterinario y su servicio; después, el veterinario con lockForUpdate (serializa sus turnos
+ * entre todas sus agendas, pregunta 15), el servicio con sharedLock, la agenda (al mover, las
+ * dos, por id) con lockForUpdate, el paciente y el cliente con sharedLock y, al editar, el
+ * turno con lockForUpdate. Con todo bloqueado se leen los tramos, los bloqueos y los turnos
+ * que se superponen. Si entre la lectura y el bloqueo cambió el veterinario o el servicio de
+ * la agenda, o la agenda o el estado del turno, se deshace la transacción y se repite; un
+ * deadlock o una espera vencida de MySQL (DetectsConcurrencyErrors) también. Después de
+ * ATTEMPTS intentos, 409 CONFLICT: nunca un 500.
+ */
+class AppointmentService
+{
+    use DetectsConcurrencyErrors;
+
+    public const ATTEMPTS = 3;
+
+    private const EDITABLE = [AppointmentStatus::PENDING_CONFIRMATION, AppointmentStatus::CONFIRMED];
+
+    private const DATA_FIELDS = ['service_id', 'source', 'reason', 'notes'];
+
+    /**
+     * @param array<string, mixed> $data los campos validados de StoreAppointmentRequest
+     */
+    public function create(array $data): Appointment
+    {
+        $overbook = (bool) ($data['overbook'] ?? false);
+
+        return $this->withRetries(function () use ($data, $overbook) {
+            $read = Schedule::query()->whereKey((int) $data['schedule_id'])->first(['id', 'veterinarian_id', 'service_id']);
+
+            if ($read === null) {
+                throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
+            }
+
+            return DB::transaction(fn () => $this->createLocked($data, $read, $overbook));
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $data los campos validados de UpdateAppointmentRequest (semántica parcial)
+     */
+    public function update(Appointment $appointment, array $data): Appointment
+    {
+        $overbook = (bool) ($data['overbook'] ?? false);
+
+        return $this->withRetries(function () use ($appointment, $data, $overbook) {
+            $read = Appointment::query()->whereKey($appointment->getKey())->firstOrFail(['id', 'schedule_id', 'patient_id', 'status']);
+            $targetId = array_key_exists('schedule_id', $data) ? (int) $data['schedule_id'] : $read->schedule_id;
+            $target = Schedule::query()->whereKey($targetId)->first(['id', 'veterinarian_id', 'service_id']);
+
+            if ($target === null) {
+                throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
+            }
+
+            return DB::transaction(fn () => $this->updateLocked($data, $read, $target, $overbook));
+        });
+    }
+
+    /**
+     * El turno con lo que muestra el detalle.
+     */
+    public function loadDetail(Appointment $appointment): Appointment
+    {
+        return $appointment->load([
+            'schedule', 'branch', 'veterinarian.user', 'service', 'patient', 'client', 'createdBy', 'cancelledBy',
+        ]);
+    }
+
+    /**
+     * Repite el intento si la agenda cambió entre la lectura y el bloqueo, o si MySQL
+     * informa un deadlock o una espera vencida; después de ATTEMPTS, 409 CONFLICT.
+     *
+     * @template T
+     * @param callable(): T $attempt
+     * @return T
+     */
+    private function withRetries(callable $attempt): mixed
+    {
+        for ($try = 1; $try <= self::ATTEMPTS; $try++) {
+            try {
+                return $attempt();
+            } catch (ScheduleChangedWhileLocking) {
+                continue;
+            } catch (Throwable $e) {
+                if (! $this->causedByConcurrencyError($e)) {
+                    throw $e;
+                }
+            }
+        }
+
+        throw new AppointmentException(
+            'La agenda cambió mientras se guardaba el turno: volvé a intentarlo.',
+            409,
+            'CONFLICT'
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function createLocked(array $data, Schedule $read, bool $overbook): Appointment
+    {
+        $serviceSent = array_key_exists('service_id', $data) && $data['service_id'] !== null;
+        $serviceId = $serviceSent ? (int) $data['service_id'] : $read->service_id;
+
+        // Orden de bloqueo: veterinario → servicio → agenda.
+        $veterinarian = $this->lockVeterinarian($this->id($read->veterinarian_id));
+        $service = $this->sharedService($this->id($serviceId));
+        $schedule = $this->lockSchedules([$read->id])[$read->id];
+
+        if ($this->id($schedule->veterinarian_id) !== $this->id($read->veterinarian_id)
+            || (! $serviceSent && $this->id($schedule->service_id) !== $this->id($read->service_id))) {
+            throw new ScheduleChangedWhileLocking();
+        }
+
+        $this->ensureScheduleIsAvailable($schedule, $veterinarian);
+
+        if ($serviceId !== null) {
+            $this->ensureServiceIsAvailable($service);
+        }
+
+        // Después de la agenda: el paciente y el cliente.
+        [$patientId, $clientId] = $this->lockWho($data['patient_id'] ?? null, $data['client_id'] ?? null);
+
+        $startsAt = ApiDateTime::toLocal($data['starts_at']);
+        $endsAt = isset($data['ends_at'])
+            ? ApiDateTime::toLocal($data['ends_at'])
+            : $startsAt->addMinutes($service?->duration_minutes ?? $schedule->slot_minutes);
+
+        $this->ensureTiming($startsAt, $endsAt);
+        $overlaps = $this->ensureFits($schedule, $startsAt, $endsAt, $overbook);
+
+        return Appointment::create([
+            ...Arr::only($data, self::DATA_FIELDS),
+            'schedule_id' => $schedule->id,
+            'branch_id' => $schedule->branch_id,
+            'veterinarian_id' => $schedule->veterinarian_id,
+            'service_id' => $serviceId,
+            'patient_id' => $patientId,
+            'client_id' => $clientId,
+            'contact_name' => $clientId === null ? ($data['contact_name'] ?? null) : null,
+            'contact_phone' => $clientId === null ? ($data['contact_phone'] ?? null) : null,
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
+            'status' => AppointmentStatus::PENDING_CONFIRMATION,
+            'is_overbooked' => $overlaps,
+            'created_by' => Auth::id(),
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function updateLocked(array $data, Appointment $read, Schedule $target, bool $overbook): Appointment
+    {
+        $mayMove = Arr::hasAny($data, ['schedule_id', 'starts_at', 'ends_at']);
+        $serviceSent = array_key_exists('service_id', $data) && $data['service_id'] !== null;
+
+        // Orden de bloqueo: veterinario de la agenda de destino → servicio → agendas de origen
+        // y destino (por id) → paciente y cliente → turno. Sin mover, ni el veterinario ni las
+        // agendas: el horario no cambia.
+        $veterinarian = $mayMove ? $this->lockVeterinarian($this->id($target->veterinarian_id)) : null;
+        $service = $serviceSent ? $this->sharedService((int) $data['service_id']) : null;
+        $schedules = $mayMove ? $this->lockSchedules([(int) $read->schedule_id, (int) $target->id]) : [];
+
+        if ($mayMove && $this->id($schedules[$target->id]->veterinarian_id) !== $this->id($target->veterinarian_id)) {
+            throw new ScheduleChangedWhileLocking();
+        }
+
+        $patientSent = array_key_exists('patient_id', $data);
+        $clientSent = array_key_exists('client_id', $data);
+        [$sentPatientId, $sentClientId] = $patientSent || $clientSent
+            ? $this->lockWho($data['patient_id'] ?? null, $data['client_id'] ?? null, $this->id($read->patient_id))
+            : [null, null];
+
+        $appointment = Appointment::query()->whereKey($read->getKey())->lockForUpdate()->firstOrFail();
+
+        if ($this->id($appointment->schedule_id) !== $this->id($read->schedule_id)
+            || $this->id($appointment->patient_id) !== $this->id($read->patient_id)
+            || $appointment->status !== $read->status) {
+            throw new ScheduleChangedWhileLocking();
+        }
+
+        if (! in_array($appointment->status, self::EDITABLE, true)) {
+            throw new AppointmentException(
+                'Solo se modifican los turnos a confirmar o confirmados.',
+                422,
+                'APPOINTMENT_NOT_EDITABLE'
+            );
+        }
+
+        $changes = Arr::only($data, self::DATA_FIELDS);
+
+        if ($serviceSent && (int) $data['service_id'] !== $this->id($appointment->service_id)) {
+            // Uno nuevo, activo; el que el turno ya tiene se acepta aunque se haya inactivado.
+            $this->ensureServiceIsAvailable($service);
+        }
+
+        $changes = [...$changes, ...$this->who($appointment, $data, $patientSent, $clientSent, $sentPatientId, $sentClientId)];
+
+        if ($mayMove) {
+            $schedule = $schedules[$target->id];
+            $startsAt = array_key_exists('starts_at', $data) ? ApiDateTime::toLocal($data['starts_at']) : $appointment->starts_at->toImmutable();
+            // Sin ends_at, conserva la duración del turno.
+            $endsAt = array_key_exists('ends_at', $data) && $data['ends_at'] !== null
+                ? ApiDateTime::toLocal($data['ends_at'])
+                : $startsAt->addSeconds((int) abs($appointment->starts_at->diffInSeconds($appointment->ends_at)));
+
+            $moves = $this->id($schedule->id) !== $this->id($appointment->schedule_id)
+                || ! $startsAt->equalTo($appointment->starts_at)
+                || ! $endsAt->equalTo($appointment->ends_at);
+
+            if ($moves) {
+                $this->ensureScheduleIsAvailable($schedule, $veterinarian);
+                $this->ensureTiming($startsAt, $endsAt);
+                $overlaps = $this->ensureFits($schedule, $startsAt, $endsAt, $overbook, $appointment);
+
+                $changes = [
+                    ...$changes,
+                    'schedule_id' => $schedule->id,
+                    'branch_id' => $schedule->branch_id,
+                    'veterinarian_id' => $schedule->veterinarian_id,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                    'is_overbooked' => $overlaps,
+                ];
+            }
+        }
+
+        $appointment->fill($changes);
+        $appointment->save();
+
+        return $appointment;
+    }
+
+    /**
+     * El paciente, el cliente o el contacto que queda en el turno después de la edición.
+     * Pasar de contacto a cliente o de cliente a paciente vacía los datos de contacto.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function who(Appointment $appointment, array $data, bool $patientSent, bool $clientSent, ?int $sentPatientId, ?int $sentClientId): array
+    {
+        $patientId = $appointment->patient_id;
+        $clientId = $appointment->client_id;
+
+        if ($patientSent) {
+            $patientId = $sentPatientId;
+            $clientId = $sentPatientId !== null ? $sentClientId : ($clientSent ? $sentClientId : $clientId);
+        } elseif ($clientSent) {
+            // El paciente que el turno ya tiene tiene que ser de ese cliente (su dueño de
+            // ese momento, guardado en el turno).
+            if ($patientId !== null && $sentClientId !== $this->id($appointment->client_id)) {
+                throw ValidationException::withMessages(['patient_id' => AppointmentMessages::PATIENT_NOT_OF_CLIENT]);
+            }
+
+            $clientId = $sentClientId;
+        }
+
+        $contactName = array_key_exists('contact_name', $data) ? $data['contact_name'] : $appointment->contact_name;
+        $contactPhone = array_key_exists('contact_phone', $data) ? $data['contact_phone'] : $appointment->contact_phone;
+
+        if ($clientId !== null) {
+            foreach (['contact_name', 'contact_phone'] as $field) {
+                if (($data[$field] ?? null) !== null) {
+                    throw ValidationException::withMessages([$field => AppointmentMessages::CONTACT_PROHIBITED]);
+                }
+            }
+
+            return ['patient_id' => $patientId, 'client_id' => $clientId, 'contact_name' => null, 'contact_phone' => null];
+        }
+
+        if ($contactName === null && $contactPhone === null) {
+            throw ValidationException::withMessages(['patient_id' => AppointmentMessages::WHO_REQUIRED]);
+        }
+
+        if ($contactName === null || $contactPhone === null) {
+            throw ValidationException::withMessages([$contactName === null ? 'contact_name' : 'contact_phone' => AppointmentMessages::CONTACT_TOGETHER]);
+        }
+
+        return ['patient_id' => null, 'client_id' => null, 'contact_name' => $contactName, 'contact_phone' => $contactPhone];
+    }
+
+    /**
+     * El paciente y el cliente con sharedLock (su baja los bloquea con lockForUpdate antes de
+     * revisar el uso). Con paciente, el cliente es su dueño: si llega otro, 422.
+     *
+     * @return array{0: ?int, 1: ?int} [patient_id, client_id]
+     */
+    private function lockWho(mixed $patientId, mixed $clientId, ?int $currentPatientId = null): array
+    {
+        $patientId = $patientId === null ? null : (int) $patientId;
+        $clientId = $clientId === null ? null : (int) $clientId;
+
+        if ($patientId !== null) {
+            $patient = Patient::query()->whereKey($patientId)->sharedLock()->first();
+
+            if ($patient === null) {
+                throw ValidationException::withMessages(['patient_id' => AppointmentMessages::PATIENT_NOT_AVAILABLE]);
+            }
+
+            // El paciente que el turno ya tiene se acepta aunque haya fallecido (el formulario lo reenvía).
+            if ($patient->deceased_at !== null && $patientId !== $currentPatientId) {
+                throw ValidationException::withMessages(['patient_id' => AppointmentMessages::PATIENT_DECEASED]);
+            }
+
+            if ($clientId !== null && $clientId !== $this->id($patient->client_id)) {
+                throw ValidationException::withMessages(['patient_id' => AppointmentMessages::PATIENT_NOT_OF_CLIENT]);
+            }
+
+            $clientId = $this->id($patient->client_id);
+        }
+
+        if ($clientId !== null && Client::query()->whereKey($clientId)->sharedLock()->first() === null) {
+            throw ValidationException::withMessages(['client_id' => AppointmentMessages::CLIENT_NOT_AVAILABLE]);
+        }
+
+        return [$patientId, $clientId];
+    }
+
+    private function id(mixed $value): ?int
+    {
+        return $value === null ? null : (int) $value;
+    }
+
+    private function lockVeterinarian(?int $id): ?Veterinarian
+    {
+        return $id === null ? null : Veterinarian::query()->whereKey($id)->lockForUpdate()->first();
+    }
+
+    private function sharedService(?int $id): ?Service
+    {
+        return $id === null ? null : Service::query()->whereKey($id)->sharedLock()->first();
+    }
+
+    /**
+     * Las agendas con lockForUpdate, por id ascendente.
+     *
+     * @param list<int> $ids
+     * @return array<int, Schedule>
+     */
+    private function lockSchedules(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+        $schedules = [];
+
+        foreach ($ids as $id) {
+            $schedule = Schedule::query()->whereKey($id)->lockForUpdate()->first();
+
+            if ($schedule === null) {
+                throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
+            }
+
+            $schedules[$id] = $schedule;
+        }
+
+        return $schedules;
+    }
+
+    /**
+     * La agenda activa y, si tiene veterinario, la ficha activa (no eliminada) con su
+     * usuario activo y de la clínica.
+     */
+    private function ensureScheduleIsAvailable(Schedule $schedule, ?Veterinarian $veterinarian): void
+    {
+        if (! $schedule->is_active) {
+            throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
+        }
+
+        if ($schedule->veterinarian_id === null) {
+            return;
+        }
+
+        $available = $veterinarian !== null
+            && $veterinarian->status === VeterinarianStatus::ACTIVE
+            && User::query()->inClinic()->active()->whereKey($veterinarian->user_id)->exists();
+
+        if (! $available) {
+            throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::VETERINARIAN_INACTIVE]);
+        }
+    }
+
+    private function ensureServiceIsAvailable(?Service $service): void
+    {
+        if ($service === null || $service->status !== ServiceStatus::ACTIVE) {
+            throw ValidationException::withMessages(['service_id' => AppointmentMessages::SERVICE_NOT_AVAILABLE]);
+        }
+    }
+
+    /**
+     * Desde el comienzo del día de hoy en Asunción (pregunta 16), el fin posterior al inicio,
+     * hasta 720 minutos y el mismo día (no cruza la medianoche).
+     */
+    private function ensureTiming(CarbonImmutable $startsAt, CarbonImmutable $endsAt): void
+    {
+        if ($startsAt->lessThan(now()->toImmutable()->startOfDay())) {
+            throw ValidationException::withMessages(['starts_at' => AppointmentMessages::PAST_DAY]);
+        }
+
+        if ($endsAt->lessThanOrEqualTo($startsAt)) {
+            throw ValidationException::withMessages(['ends_at' => AppointmentMessages::ENDS_BEFORE_START]);
+        }
+
+        if ($endsAt->toDateString() !== $startsAt->toDateString()) {
+            throw ValidationException::withMessages(['ends_at' => AppointmentMessages::CROSSES_MIDNIGHT]);
+        }
+
+        if ($startsAt->diffInMinutes($endsAt) > AppointmentMessages::MAX_MINUTES) {
+            throw ValidationException::withMessages(['ends_at' => AppointmentMessages::TOO_LONG]);
+        }
+    }
+
+    /**
+     * Con la agenda (y su veterinario) bloqueada: dentro de un tramo del horario semanal,
+     * fuera de los bloqueos y sin superposición (salvo un sobreturno). Devuelve si el turno
+     * se superpone con otro (is_overbooked).
+     */
+    private function ensureFits(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt, bool $overbook, ?Appointment $ignore = null): bool
+    {
+        // P6: el rango entero dentro de un tramo del día de la semana, en hora de reloj de Asunción.
+        $insideHours = ScheduleHour::query()
+            ->where('schedule_id', $schedule->id)
+            ->where('weekday', $startsAt->isoWeekday())
+            ->where('starts_at', '<=', $startsAt->format('H:i:s'))
+            ->where('ends_at', '>=', $endsAt->format('H:i:s'))
+            ->exists();
+
+        if (! $insideHours) {
+            throw new AppointmentException('El turno está fuera del horario de la agenda.', 422, 'APPOINTMENT_OUTSIDE_HOURS');
+        }
+
+        $start = $startsAt->format('Y-m-d H:i:s');
+        $end = $endsAt->format('Y-m-d H:i:s');
+
+        $inBlock = ScheduleBlock::query()
+            ->where('schedule_id', $schedule->id)
+            ->where('starts_at', '<', $end)
+            ->where('ends_at', '>', $start)
+            ->exists();
+
+        if ($inBlock) {
+            throw new AppointmentException('La agenda está bloqueada en ese horario.', 422, 'APPOINTMENT_IN_BLOCK');
+        }
+
+        // Se superponen si a.starts_at < b.ends_at y a.ends_at > b.starts_at: tocarse no
+        // choca. En la agenda, y del mismo veterinario en sus otras agendas (pregunta 15).
+        $overlaps = Appointment::query()
+            ->whereIn('status', AppointmentStatus::occupyingValues())
+            ->where('starts_at', '<', $end)
+            ->where('ends_at', '>', $start)
+            ->where(fn ($query) => $query
+                ->where('schedule_id', $schedule->id)
+                ->when($schedule->veterinarian_id !== null, fn ($query) => $query->orWhere('veterinarian_id', $schedule->veterinarian_id)))
+            ->when($ignore !== null, fn ($query) => $query->whereKeyNot($ignore->getKey()))
+            ->exists();
+
+        if ($overlaps && ! $overbook) {
+            throw new AppointmentException(
+                'El horario ya está ocupado: elegí otro o dalo como sobreturno.',
+                409,
+                'APPOINTMENT_OVERLAP'
+            );
+        }
+
+        return $overlaps;
+    }
+}

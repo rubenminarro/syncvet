@@ -5,6 +5,7 @@ namespace Tests\Feature\Clients;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Support\CurrentClinic;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Role;
 use Tests\Concerns\InteractsWithAuth;
@@ -95,6 +96,25 @@ class ClientDeleteTest extends TestCase
         $this->assertNotSoftDeleted('clients', ['id' => $formerOwner->id]);
     }
 
+    /**
+     * FASE 3, entrega 3.2a (pregunta 21): un turno con el cliente y sin paciente es uso.
+     */
+    public function test_a_client_with_appointments_is_in_use(): void
+    {
+        $clinic = $this->createClinic();
+        $client = $this->clientIn($clinic);
+        // El turno se da con el paciente; después el paciente cambia de dueño y se elimina el
+        // paciente: el turno conserva el cliente de ese momento.
+        $patient = $this->patientOf($client);
+        $this->appointmentFor($patient);
+        DB::table('appointments')->update(['patient_id' => null]);
+        DB::table('patients')->where('id', $patient->id)->update(['deleted_at' => now()]);
+        $this->actAsDeleter($clinic);
+
+        $this->assertInUse($this->deleteJson("/api/clients/{$client->id}"));
+        $this->assertNotSoftDeleted('clients', ['id' => $client->id]);
+    }
+
     public function test_a_client_with_invoices_is_in_use(): void
     {
         $clinic = $this->createClinic();
@@ -179,7 +199,7 @@ class ClientDeleteTest extends TestCase
     {
         $response->assertStatus(409)->assertJson([
             'success' => false,
-            'message' => 'El cliente tiene pacientes, consultas o facturas y no puede eliminarse.',
+            'message' => 'El cliente tiene pacientes, turnos, consultas o facturas y no puede eliminarse.',
             'error_code' => 'CLIENT_IN_USE',
         ]);
     }

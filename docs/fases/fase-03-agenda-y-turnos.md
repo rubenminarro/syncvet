@@ -381,6 +381,70 @@ en un bloqueo → 422; mover; listado del día.
 
 **MySQL:** toca concurrencia: `composer test:mysql` durante el trabajo.
 
+#### Pendiente para el cierre (3.2a)
+
+Implementación en `feature/fase-03-02a-turnos` (commit WIP "WIP 3.2a turnos, sin revisar"), sin revisar ni validar con Postman.
+Lo que el cierre tiene que llevar al resultado, a `CLAUDE.md` y al registro.
+
+**Cifras.** Migraciones 34 → 35 (`2026_11_10_000000_add_contact_and_overbook_to_appointments`); rutas 66 → 70 (`GET`/`POST
+appointments`, `GET`/`PATCH`/`PUT appointments/{appointment}`; `DELETE` → 405); permisos 130 → 131 (`appointments.overbook`, del
+administrador y la recepción). Suite del 2026-11-10: 1200 casos; en SQLite (`composer test`), 12752 aserciones con 9 omitidos (los 8
+de MySQL de antes y `AppointmentConcurrencyTest`); en MySQL (`composer test:mysql`), 12791 aserciones sin omitidos.
+`tests/Feature/Appointments`: 88 casos (Store 33, ScheduleRules 10, Overlap 11, Overbook 5, Update 16, Index 5, Lock 7, Concurrency 1).
+
+**Desvíos y decisiones de la implementación** (a aceptar o corregir en la revisión):
+
+| # | Desvío o decisión | Motivo |
+|---|---|---|
+| 1 | El alta y la edición también toman el **cliente** con `sharedLock`, después del paciente (agenda → paciente → cliente → turno) | La baja del cliente ahora lo bloquea antes de revisar el uso (pregunta 21); sin el bloqueo, un turno con cliente y sin paciente podía quedar en un cliente eliminado. Ninguna operación bloquea un cliente y después un paciente |
+| 2 | Una edición que no mueve (notas, motivo, servicio, paciente) no bloquea el veterinario ni las agendas: solo el servicio, el paciente y el cliente que llegan y el turno | El horario no cambia; se respeta el orden con un subconjunto. Mover (llega `schedule_id`, `starts_at` o `ends_at`) bloquea todo como dice el diseño |
+| 3 | Mover sin `ends_at` conserva la duración del turno | El diseño solo dice que cambiar el servicio no recalcula `ends_at` |
+| 4 | Al mover (también dentro de la misma agenda) se exigen la agenda activa y su veterinario activo; sin mover, un turno de una agenda inactiva se sigue editando | Un turno movido es como uno nuevo; pregunta 24 (la recepción reprograma los turnos de una agenda inactiva) |
+| 5 | Reintentos: hasta 3 (`AppointmentService::ATTEMPTS`) si cambian el veterinario o el servicio de la agenda, la agenda, el paciente o el estado del turno entre la lectura y el bloqueo, o si MySQL informa un *deadlock* o una espera vencida (`DetectsConcurrencyErrors`: 40001, 1213 y 1205). Después, 409 `CONFLICT` ("La agenda cambió mientras se guardaba el turno: volvé a intentarlo.") con `AppointmentException` | Pendiente de la 3.1 (hallazgo 1): nunca un 500. `CONFLICT` de turnos va a `CLAUDE.md` §4 |
+| 6 | Al editar, el paciente que el turno ya tiene se acepta aunque haya fallecido (el formulario lo reenvía); otro fallecido → 422 | Como las especies y razas inactivas (§6.2) |
+| 7 | Con paciente, mandar otro `client_id` (también sin `patient_id`) → 422 en `patient_id`, "El paciente no es de ese cliente." | El cliente del turno es el dueño de ese momento |
+| 8 | `contact_name`: al menos una letra, sin caracteres de control ni `<` `>` (regex propia) | El diseño dice "texto libre con al menos una letra" |
+| 9 | Listado: el rango filtra por `starts_at`; con solo `from` o solo `to`, el otro es el mismo día; `status` acepta uno (`status=confirmed`) o una lista (`status[]=…`) | Precisa el diseño |
+| 10 | Al mover, `is_overbooked` se recalcula (un sobreturno movido a un horario libre deja de serlo); `overbook` sin mover se ignora (no pide nada más que el permiso) | P2 |
+| 11 | `StoredScheduleBlockResource` suma `contact_name` y `contact_phone` a los turnos afectados | Cierra el desvío 1 de la 3.1 |
+| 12 | La baja del cliente sigue contando solo los pacientes no eliminados (como hasta ahora); suma los turnos y revisa todo con la fila bloqueada | Pregunta 21, sin cambiar lo demás |
+| 13 | Mensajes que el diseño no fija: "La agenda es obligatoria.", "El paciente no existe.", "El cliente no existe.", "El paciente falleció: no se le pueden dar turnos.", "El nombre y el teléfono de contacto van solo en un turno sin cliente ni paciente.", "Ingresá el nombre y el teléfono de contacto juntos.", "El fin del turno debe ser posterior a su inicio.", "El turno no puede durar más de 720 minutos.", "El turno tiene que empezar y terminar el mismo día.", "El origen debe ser reception, phone o whatsapp: la reserva online no está disponible.", "El rango no puede superar los 31 días." y los de los campos `prohibited` | — |
+
+**Tests de concurrencia.** `AppointmentLockTest` (SQLite y MySQL): el orden veterinario → servicio → agenda → paciente → cliente y
+los tramos, bloqueos y superposición leídos después de la agenda; mover con las dos agendas por id y el turno después; las bajas de
+cliente y paciente con su fila bloqueada antes de revisar los turnos; el reintento si cambia el veterinario de la agenda y 409
+después de 3; un *deadlock* simulado (un *listener* que hace fallar el bloqueo del veterinario con el mensaje de MySQL 1213) que se
+repite y, si sigue, 409 en el alta y al mover. `AppointmentConcurrencyTest` (solo MySQL) es el criterio de cierre con **dos
+conexiones reales**: dos procesos de PHP aparte (`tests/Support/concurrent-request.php`) piden el mismo turno por la API mientras una
+tercera conexión del test tiene tomada la fila del veterinario; el test espera a verlos a los dos en el `SELECT … FOR UPDATE` del
+veterinario (`information_schema.processlist`), suelta el bloqueo y verifica un 201 y un 409 `APPOINTMENT_OVERLAP`. Para que los
+procesos vean los datos, el test no usa la transacción de `RefreshDatabase` (`$connectionsToTransact = []`) y borra al final los
+datos de su clínica (comprobado: la base de test queda vacía).
+
+**Mutaciones** (cada una con tests que fallan): `<` por `<=` en la superposición (`AppointmentOverlapTest`, los que se tocan);
+contar los cancelados y ausentes como ocupados, y no contar los fichados y atendidos (`AppointmentOverlapTest`, por estado); quitar
+el chequeo de bloqueos (3 tests de ScheduleRules, Overbook y Update); quitar el permiso del sobreturno (`AppointmentOverbookTest`);
+quitar el veterinario de la superposición entre agendas (`AppointmentOverlapTest`, pregunta 15); quitar el `lockForUpdate` de la
+agenda (en MySQL, los dos de orden de `AppointmentLockTest`; el de dos procesos sigue pasando porque el veterinario ya serializa); quitar
+el `lockForUpdate` del veterinario (en MySQL, `AppointmentConcurrencyTest` y 4 de `AppointmentLockTest`); la baja del cliente sin
+bloquear la fila (`AppointmentLockTest`) o sin contar los turnos (`ClientDeleteTest`). En SQLite los tests de orden no ven el
+`FOR UPDATE` (como en la 3.1): esa parte solo se verifica en MySQL.
+
+**Deuda 2 (`Appointment`).** Relaciones y casts revisados: coinciden con las claves foráneas; los instantes con `AppDateTime`;
+suma `contact_name`, `contact_phone` e `is_overbooked` (cast `boolean`) y los valores por defecto de la base en `$attributes`
+(estado a confirmar, origen recepción, sin sobreturno). `Client` suma la relación `appointments()`.
+
+**Postman.** `syncvet-fase-03-turnos` (34 requests), **no corrida en esta sesión**. Antes de correrla: `php artisan migrate` y
+`php artisan db:seed --class=RolesAndPermissionsSeeder`. No prueba "mover un turno cancelado → 422": la API todavía no cancela
+(3.2b); lo cubre `AppointmentUpdateTest`. Los turnos, los dos clientes y el paciente de cada corrida quedan en la base (un turno no se
+elimina y es uso del cliente y del paciente); la agenda, el servicio, el veterinario y el usuario se inactivan, y el bloqueo se
+elimina.
+
+**Documentación pendiente para el cierre**, como en las entregas anteriores: `CLAUDE.md` §1, §3 (orden con el cliente, reintentos),
+§4 (`APPOINTMENT_*` y `CONFLICT` de turnos), §6.1 (`CLIENT_IN_USE` con turnos y la fila bloqueada), §6.2 (la baja del paciente con la
+fila bloqueada), §6.10 (turnos) y §6.11 (sale la regla de turnos); la guía de Postman; el registro (R-051), el roadmap, los módulos y
+el handoff. En esta entrega solo se agregó a `CLAUDE.md` §2 la regla de escribir los pendientes en el repositorio (pedido del usuario).
+
 ### 3.2b Estados del turno
 
 **Alcance.** Las transiciones de `AppointmentStatus` ([tabla](#estados-del-turno)), cada una con su ruta, su permiso y su test (P3,

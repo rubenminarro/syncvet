@@ -279,6 +279,17 @@ return [
         'starts_at' => 'inicio',
         'ends_at' => 'fin',
         'reason' => 'motivo',
+
+        // Turnos (FASE 3, entrega 3.2a)
+        'schedule_id' => 'agenda',
+        'patient_id' => 'paciente',
+        'contact_name' => 'nombre de contacto',
+        'contact_phone' => 'teléfono de contacto',
+        'source' => 'origen',
+        'overbook' => 'sobreturno',
+        'is_overbooked' => 'sobreturno',
+        'series_id' => 'serie',
+        'status.*' => 'estado',
     ],
 
 ];

@@ -45,6 +45,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'schedule-blocks.index', 'schedule-blocks.store', 'schedule-blocks.destroy',
         'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
         'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
+        // FASE 3, entrega 3.2a: el sobreturno (overbook: true), un permiso de un campo, no de una ruta.
+        'appointments.overbook',
 
         /* historia clínica */
         'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
@@ -118,6 +120,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'schedule-blocks.index',
                     'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
                     'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
+                    'appointments.overbook',
                     'consultations.index', 'consultations.show',
                     'patient-applications.index', 'patient-documents.index', 'patient-documents.show',
                     'reminders.index', 'reminders.store', 'reminders.update', 'reminders.cancel',

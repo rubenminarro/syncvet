@@ -96,19 +96,27 @@ class PatientService
         return $patient;
     }
 
+    /**
+     * Solo sin consultas, aplicaciones o turnos. El uso se revisa dentro de la transacción,
+     * con la fila del paciente bloqueada (lockForUpdate; FASE 3, entrega 3.2a, pregunta 21):
+     * el alta de un turno toma el paciente con sharedLock, así que un turno simultáneo no
+     * queda en un paciente eliminado.
+     */
     public function delete(Patient $patient): void
     {
-        if ($patient->consultations()->exists()
-            || $patient->applications()->exists()
-            || $patient->appointments()->exists()) {
-            throw new PatientException(
-                'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registrá la fecha de fallecimiento.',
-                409,
-                'PATIENT_IN_USE'
-            );
-        }
-
         DB::transaction(function () use ($patient) {
+            $patient = Patient::query()->whereKey($patient->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($patient->consultations()->exists()
+                || $patient->applications()->exists()
+                || $patient->appointments()->exists()) {
+                throw new PatientException(
+                    'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registrá la fecha de fallecimiento.',
+                    409,
+                    'PATIENT_IN_USE'
+                );
+            }
+
             if ($patient->microchip) {
                 // La columna tiene 60 caracteres (entrega 1.3): 30 del chip más el
                 // sufijo entero, con el id; sin cortar, dos bajas del mismo chip no chocan.

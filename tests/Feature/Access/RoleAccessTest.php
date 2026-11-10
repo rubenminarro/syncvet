@@ -127,6 +127,20 @@ class RoleAccessTest extends TestCase
             'scheduleBlock' => (string) CurrentClinic::run($this->clinic, fn () => ScheduleBlock::factory()->for($schedule)->create([
                 'created_by' => User::factory()->for($this->clinic)->create()->id,
             ])->id),
+            // Un turno a confirmar de esa agenda (FASE 3, entrega 3.2a): editarlo sin cuerpo responde 200.
+            'appointment' => (string) DB::table('appointments')->insertGetId([
+                'clinic_id' => $this->clinic->id,
+                'branch_id' => $branch->id,
+                'schedule_id' => $schedule->id,
+                'service_id' => $schedule->service_id,
+                'client_id' => $client->id,
+                'patient_id' => $patient->id,
+                'starts_at' => now()->addDay()->setTime(10, 0)->format('Y-m-d H:i:s'),
+                'ends_at' => now()->addDay()->setTime(10, 30)->format('Y-m-d H:i:s'),
+                'created_by' => User::factory()->for($this->clinic)->create()->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]),
             // Un registro de auditoría de la clínica (FASE 2, entrega 2.6): solo se consulta.
             'auditLog' => (string) CurrentClinic::run($this->clinic, fn () => AuditLog::create([
                 'clinic_id' => $this->clinic->id,
