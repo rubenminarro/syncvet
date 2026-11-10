@@ -125,6 +125,64 @@ class ScheduleUpdateTest extends TestCase
             ->assertJsonPath('errors.service_id.0', 'El servicio no existe o está inactivo.');
     }
 
+    /**
+     * Hallazgo 2 de la revisión: el veterinario nuevo, solo activo (con su usuario activo);
+     * el que la agenda ya tiene se acepta inactivo (test anterior).
+     */
+    public function test_a_new_inactive_veterinarian_is_rejected(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $current = $this->veterinarianIn($branch);
+        $schedule = $this->scheduleIn($branch, ['veterinarian_id' => $current->id]);
+        $inactive = $this->veterinarianIn($branch);
+        $inactiveUser = $this->veterinarianIn($branch);
+        DB::table('veterinarians')->where('id', $inactive->id)->update(['status' => VeterinarianStatus::INACTIVE->value]);
+        DB::table('users')->where('id', $inactiveUser->user_id)->update(['is_active' => false]);
+        $this->actAsScheduleManager($clinic);
+
+        foreach ([$inactive, $inactiveUser] as $veterinarian) {
+            $this->patchJson("/api/schedules/{$schedule->id}", ['veterinarian_id' => $veterinarian->id])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.veterinarian_id.0', 'El veterinario no existe o está inactivo.');
+        }
+
+        $this->assertSame($current->id, (int) $this->scheduleRow($schedule->id)->veterinarian_id);
+    }
+
+    public function test_moving_to_an_inactive_branch_is_rejected(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $inactive = $this->branchIn($clinic, ['is_active' => false]);
+        $schedule = $this->scheduleIn($branch, ['service_id' => $this->serviceIn($clinic)->id]);
+        $this->actAsScheduleManager($clinic);
+
+        $this->patchJson("/api/schedules/{$schedule->id}", ['branch_id' => $inactive->id])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.branch_id.0', 'La sucursal no existe o está inactiva.');
+
+        $this->assertSame($branch->id, (int) $this->scheduleRow($schedule->id)->branch_id);
+    }
+
+    public function test_moving_to_a_branch_with_the_same_name_is_rejected(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $other = $this->branchIn($clinic);
+        $service = $this->serviceIn($clinic);
+        $this->scheduleIn($other, ['name' => 'Consultório', 'service_id' => $service->id]);
+        $schedule = $this->scheduleIn($branch, ['name' => 'Consultorio', 'service_id' => $service->id]);
+        $this->actAsScheduleManager($clinic);
+
+        // Sin mandar el nombre: el de la agenda choca en la sucursal de destino.
+        $this->patchJson("/api/schedules/{$schedule->id}", ['branch_id' => $other->id])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.name.0', 'Ya hay una agenda con ese nombre en la sucursal.');
+
+        $this->assertSame($branch->id, (int) $this->scheduleRow($schedule->id)->branch_id);
+    }
+
     public function test_removing_both_the_veterinarian_and_the_service_is_rejected(): void
     {
         $clinic = $this->createClinic();

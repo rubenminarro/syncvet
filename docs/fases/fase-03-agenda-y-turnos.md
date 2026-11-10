@@ -1,7 +1,7 @@
 # FASE 3 — Agenda y turnos
 
 Etapa: Atención. Estado: **PENDIENTE**: diseño **aprobado** por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047)
-y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Entrega 3.0 cerrada (R-049); sigue la 3.1. El estado vigente de cada fase está en
+y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Entregas 3.0 (R-049) y 3.1 (R-050) cerradas; sigue la 3.2a. El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -18,7 +18,7 @@ los estados antes que la recurrencia para que la serie use las transiciones ya p
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
 | 3.0 | Deuda 16: zona fija de la sesión de MySQL, sin migraciones | — | COMPLETADO ([resultado](#entrega-30), R-049) |
-| 3.1 | Agendas: ABM, horario semanal y bloqueos; los pendientes de Postman de la FASE 2 | 3.1 | PENDIENTE |
+| 3.1 | Agendas: ABM, horario semanal y bloqueos; los pendientes de Postman de la FASE 2 | 3.1 | COMPLETADO ([resultado](#entrega-31), R-050) |
 | 3.2a | Turnos únicos: alta, edición y mover, sin superposición, con el horario y los bloqueos; sobreturno | 3.2 | PENDIENTE |
 | 3.2b | Estados: confirmar, fichar, atendido, ausente (y deshacerlo el mismo día) y cancelar | 3.3 | PENDIENTE |
 | 3.3 | Turnos recurrentes: la serie entera o nada; cancelar uno o los siguientes | 3.2 | PENDIENTE |
@@ -371,6 +371,14 @@ contar los cancelados como ocupados (o no contar los fichados); quitar el cheque
 próximo lunes y siguientes): alta con paciente, con cliente y con contacto; superposición → 409; sobreturno → 201; fuera del horario y
 en un bloqueo → 422; mover; listado del día.
 
+**Pendientes que deja la 3.1 (R-050).** Para el diseño y la colección de la 3.2a:
+
+* **Postman:** mover una agenda con turnos (cambio de sucursal o de veterinario, 422 `SCHEDULE_NOT_EDITABLE`) y la baja de una
+  agenda con un turno real (409 `SCHEDULE_IN_USE`). En la 3.1 los cubren los tests (`ScheduleUpdateTest` y `ScheduleDeleteTest`),
+  porque la API todavía no creaba turnos.
+* **Deadlock:** evaluar `DB::transaction` con reintentos ante un *deadlock* (MySQL, código 1213) en el alta y el mover de turnos,
+  para que nunca respondan 500 (hoy `DB::transaction` corre un solo intento). Lo sugirió la revisión de la 3.1 (hallazgo 1).
+
 **MySQL:** toca concurrencia: `composer test:mysql` durante el trabajo.
 
 ### 3.2b Estados del turno
@@ -646,3 +654,84 @@ El 2026-11-10 el usuario, con `DB_TIMEZONE=-03:00` en su `.env`, corrió en Post
 base de desarrollo, como regresión (la entrega no tiene endpoints): 47 de 47 pruebas, 0 errores. Suite: la del cierre (1007 casos;
 10851 aserciones en SQLite con 8 omitidos y 10885 en MySQL). Con este cierre la deuda 16 queda resuelta; la 17 (el tope de 2038)
 sigue abierta.
+
+### Entrega 3.1
+
+Implementación en `feature/fase-03-01-agendas`, creada desde `feature/fase-03-00-zona-mysql`, revisada en una sesión de Claude Code
+aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-050)) y validada por el usuario
+([validación del usuario](#validación-del-usuario-r-050)). La implementación quedó en el commit WIP `aa96fed`; las correcciones y el
+cierre van en el commit de cierre. Decisiones en [R-050](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `ScheduleController`, `ScheduleBlockController`; `IndexScheduleRequest`, `StoreScheduleRequest`, `UpdateScheduleRequest`, `ScheduleMessages`, `IndexScheduleBlockRequest`, `StoreScheduleBlockRequest`; `ScheduleResource`, `ShowScheduleResource`, `ScheduleBlockResource`, `StoredScheduleBlockResource`; `ScheduleService`, `ScheduleBlockService`; `ScheduleException` y `ScheduleChangedWhileLocking` (señal interna del reintento, revisión); las factories de `Schedule`, `ScheduleHour` y `ScheduleBlock`; `tests/Concerns/InteractsWithSchedules` y `tests/Feature/Schedules` (7 clases); la colección `syncvet-fase-03-agendas` |
+| Cambiados | `Schedule`, `ScheduleHour` y `ScheduleBlock` (auditables, con sus casts y valores por defecto; deuda 2); `AppointmentStatus` (`occupiesSlot()` y `occupyingValues()`); `AuditLog::AUDITABLE_TYPES`; `ApiDateTime::DATE_TIME_FORMAT`; `RolesAndPermissionsSeeder` (`schedule-blocks.*`); `routes/api.php`; `lang/es/validation.php` (atributos); `RoleAccessTest`, `RouteBindingTest`, `ValidationTranslationsTest`, `VeterinarianDeleteTest`, `ServiceDeleteTest` y `tests/Fixtures/clinic-roles.json` |
+| Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo de la FASE 3 y la excepción de la baja física), §4 (`SCHEDULE_IN_USE`, `SCHEDULE_NOT_EDITABLE` y `CONFLICT`), §6.10 nueva (agendas; las pendientes de diseño pasan a §6.11); la guía de Postman (FASE 3); este documento, el registro (R-050), la deuda técnica (deuda 2), el roadmap, los módulos y el handoff |
+
+**Endpoints.** 8 rutas nuevas (58 → 66): `GET`/`POST schedules`, `GET`/`PATCH`/`PUT`/`DELETE schedules/{schedule}` (el `PUT` es la
+misma ruta que el `PATCH`), `GET`/`POST schedules/{schedule}/blocks` (nombres `schedules.schedule-blocks.index` y `.store`, permiso
+`schedule-blocks.*`) y `DELETE schedule-blocks/{scheduleBlock}`. Permisos 127 → 130. Sin migraciones (34).
+
+**Tests.** Suite del 2026-11-10 sobre el código del cierre (las correcciones de la revisión), corrida en serie en SQLite (`composer test`) y después en MySQL (`composer test:mysql`): 1108 casos con los *data providers*; en SQLite, 11845 aserciones con 8 omitidos (solo de MySQL); contra MySQL (`syncvet_test_mysql`), 11879 aserciones sin omitidos. `composer test:fast`, 1108 casos en verde. Frente a la 3.0 (1007 casos; 10851 y 10885 aserciones): 101 casos más, 994 aserciones más en SQLite y 994 en MySQL. `tests/Feature/Schedules`: 92 casos y 462 aserciones (Store 23 y 107, Hours 19 y 71, Update 13 y 46, Delete 7 y 43, Block 20 y 99, Index 3 y 34, Lock 7 y 62).
+
+| Clase | Verifica |
+|---|---|
+| `ScheduleStoreTest` | Alta con veterinario y horario (color en mayúsculas, auditoría de la agenda y de cada tramo), con solo el servicio y sus valores por defecto (`online_booking` se ignora); sin veterinario ni servicio; veterinario inactivo, de usuario inactivo, eliminado, de otra clínica o sin la sucursal; servicio inactivo o de otra clínica; sucursal inactiva o de otra clínica; nombre repetido en la sucursal (en otra pasa); campos mal formados; tramos superpuestos en el alta (revisión); el recepcionista (403) |
+| `ScheduleHoursTest` | Tramos superpuestos (también uno dentro de otro) y que se tocan; fuera de la grilla, con segundos, hora 24, inicio igual o posterior al fin, día 0 u 8, campo de más; más de 6 por día; el reemplazo borra, crea y conserva con su auditoría; `hours: []` vacía y `null` → 422; sin `hours` no cambia; los turnos no se tocan; el horario anterior intacto si la edición falla (revisión) |
+| `ScheduleUpdateTest` | Sucursal o veterinario con turnos (también cancelados) → 422 `SCHEDULE_NOT_EDITABLE`, y reenviar los mismos pasa; sin turnos cambian; mover a una sucursal donde el veterinario no trabaja; el servicio cambia con turnos; el veterinario y el servicio actuales inactivos se aceptan; veterinario nuevo inactivo o de usuario inactivo, sucursal de destino inactiva y nombre repetido en la sucursal de destino (revisión); sin veterinario ni servicio; inactivar con turnos futuros; nombre único; el recepcionista y el veterinario (403) |
+| `ScheduleDeleteTest` | Baja sin turnos con sus tramos y bloqueos (auditoría) y el veterinario y el servicio libres; con un turno en cada uno de los 6 estados → 409 `SCHEDULE_IN_USE` |
+| `ScheduleBlockTest` | Alta en UTC y sin zona (hora de Asunción); `affected_appointments` con los activos que se superponen (no los cancelados, ausentes, de otra agenda ni los que se tocan), también fichados y atendidos (revisión); en una agenda inactiva y superpuestos; fin no posterior, más de 366 días (exactamente 366 pasa), fuera de la grilla, fecha sola, texto, motivo largo; baja con auditoría; otra clínica (404); listado por defecto, `from`/`to` y `search`; detalle con los próximos; el recepcionista y el veterinario (403 al escribir) |
+| `ScheduleIndexTest` | Activas por defecto e `include_inactive`; filtros; `search` literal; paginación; otra clínica; filtros mal formados o ajenos (422) |
+| `ScheduleLockTest` | Orden del alta (clínica → veterinario → servicio → nombres) y de la edición (veterinarios y servicio antes que la agenda y ningún veterinario después, también al cambiar solo la sucursal y al cambiar de veterinario: revisión); reintento si el veterinario cambia entre la lectura y el bloqueo, y 409 `CONFLICT` después de 3 intentos (revisión); bloqueos, horario y baja con la agenda primero |
+| Otros | `RoleAccessTest` (las 8 rutas por rol), `RouteBindingTest` (agenda o bloqueo de otra clínica → 404 en cada ruta), `ValidationTranslationsTest`, `VeterinarianDeleteTest` y `ServiceDeleteTest` (una agenda creada por la API es uso) |
+
+**Mutaciones.** Las de la implementación no quedaron documentadas: su informe no está en el repositorio. En la revisión, quitar
+`ensureVeterinarianWorksIn` al editar y el tope de 6 tramos por día hacen fallar sus tests, y estas cuatro no hacían fallar ninguno:
+quitar el chequeo del veterinario nuevo inactivo al editar, el de la sucursal de destino inactiva, el del nombre al cambiar de
+sucursal, y no contar los fichados y atendidos como ocupados. En las correcciones, cada una hace fallar su test nuevo; también volver
+al orden anterior de la edición (el veterinario leído con la agenda bloqueada) hace fallar
+`test_changing_only_the_branch_locks_the_veterinarian_before_the_schedule`, y quitar la verificación del veterinario, los dos tests del
+reintento.
+
+**Desvíos del diseño.**
+
+| # | Desvío | Motivo | Quién |
+|---|---|---|---|
+| 1 | Los turnos afectados por un bloqueo no muestran `contact_name` ni `contact_phone` | Las columnas llegan con la migración de la 3.2a | Implementación; aceptado por el usuario |
+| 2 | Al mover una agenda de sucursal se revisa que el veterinario trabaje en la nueva; si está inactivo, se acepta igual | Es el veterinario que la agenda ya tiene, como al reenviarlo | Implementación; aceptado por el usuario |
+| 3 | El listado de bloqueos muestra por defecto los que terminan desde hoy, con `from`/`to`, y `search` busca en el motivo | Precisa el listado del diseño | Implementación; aceptado por el usuario |
+| 4 | El horario acepta hasta 6 tramos por día y 42 en total, y `hours: null` responde 422 | Un tope para la lista entera; `[]` es la forma de vaciarlo | Implementación; aceptado por el usuario |
+| 5 | La documentación, en el cierre | Como en las entregas anteriores | Implementación; aceptado por el usuario |
+
+El informe de la implementación no está en el repositorio; los desvíos salen del resumen del usuario.
+
+**Precisión del diseño.** La tabla de tests pide "bloqueo de otra agenda en la URL → 404", pero `DELETE schedule-blocks/{scheduleBlock}`
+no lleva la agenda en la URL: ese caso no existe. El 404 de una agenda o un bloqueo de otra clínica está cubierto (hallazgo 5, R-050).
+
+#### Correcciones de la revisión (R-050)
+
+La revisión, en una sesión aparte de la implementación, confirmó: la lógica en los Services y los errores de dominio (nunca 500); el
+orden de bloqueo del alta y de la edición con el veterinario en el pedido; la superposición de tramos (tocarse pasa) y el reemplazo en
+la transacción; los bloqueos con y sin zona y `affected_appointments` con la regla de superposición de los turnos; la baja solo sin
+turnos en cualquier estado; las listas de uso de veterinarios y servicios con las agendas; y los permisos (el recepcionista y el
+veterinario, 403 al escribir). Lo que encontró y el usuario pidió corregir:
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Media | Un `PATCH` que cambiaba la sucursal sin `veterinarian_id` leía el veterinario con `sharedLock` después de bloquear la agenda: con el alta de un turno de la 3.2a (veterinario → agenda), un *deadlock* en MySQL y un 500 | La edición lee el veterinario de la agenda sin bloquearla, bloquea ese y el nuevo por id, después el servicio y la agenda, y verifica que el veterinario no cambió; si cambió, repite (3 intentos; después, 409 `CONFLICT`) | `ScheduleLockTest`: `test_changing_only_the_branch_locks_the_veterinarian_before_the_schedule`, `test_the_update_is_retried_if_the_veterinarian_changes_while_locking` y `test_after_the_attempts_the_update_answers_409` |
+| 2 | Media-baja | Cuatro reglas sin test: el veterinario nuevo inactivo al editar, la sucursal de destino inactiva, el nombre único al mover de sucursal, y los fichados y atendidos como afectados | Un test por regla | `ScheduleUpdateTest` (`test_a_new_inactive_veterinarian_is_rejected`, `test_moving_to_an_inactive_branch_is_rejected`, `test_moving_to_a_branch_with_the_same_name_is_rejected`) y `ScheduleBlockTest::test_checked_in_and_attended_appointments_are_also_affected` |
+| 3 | Baja | Sin test del horario anterior intacto cuando la edición falla, ni de la superposición en el alta | Tests | `ScheduleHoursTest::test_a_failed_update_keeps_the_previous_hours` y `ScheduleStoreTest::test_overlapping_hours_are_rejected_on_creation` |
+| 4 | Baja | El comentario de las agendas entre el de la auditoría y su ruta (`routes/api.php`), y un docblock suelto en `ServiceDeleteTest` | Cada uno en su lugar | — |
+| 5 | Baja | El caso "bloqueo de otra agenda en la URL" del diseño no existe | Precisión del diseño (arriba) | — |
+
+Además, el usuario decidió que crear y borrar bloqueos sigue siendo solo del administrador en el MVP, y dejó dos pendientes para la
+3.2a: la prueba de Postman de mover una agenda con turnos y de `SCHEDULE_IN_USE` con un turno real, y evaluar los reintentos ante un
+*deadlock* en el alta y el mover de turnos ([pendientes que deja la 3.1](#32a-turnos-únicos)).
+
+#### Validación del usuario (R-050)
+
+El 2026-11-10 el usuario corrió en Postman, en otra PC, con el Collection Runner y una iteración, la colección
+`syncvet-fase-03-agendas`: 35 requests, 68 de 68 pruebas, 0 errores. Las correcciones de la revisión no cambian la API: la edición
+solo cambia el orden de los bloqueos y suma un 409 `CONFLICT` que aparece únicamente con ediciones simultáneas. Suite: la del cierre.

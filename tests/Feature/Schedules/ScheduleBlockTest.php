@@ -95,6 +95,34 @@ class ScheduleBlockTest extends TestCase
         $this->assertSame(AppointmentStatus::CONFIRMED->value, DB::table('appointments')->where('id', $confirmed)->value('status'));
     }
 
+    /**
+     * Hallazgo 2 de la revisión: los cuatro estados que ocupan el horario
+     * (AppointmentStatus::occupiesSlot), también fichado y atendido, son afectados.
+     */
+    public function test_checked_in_and_attended_appointments_are_also_affected(): void
+    {
+        [$clinic, $schedule] = $this->schedule();
+        $day = CarbonImmutable::parse('2026-11-20 00:00:00', 'America/Asuncion');
+        $ids = [];
+
+        foreach ([AppointmentStatus::PENDING_CONFIRMATION, AppointmentStatus::CONFIRMED, AppointmentStatus::CHECKED_IN, AppointmentStatus::ATTENDED] as $i => $status) {
+            $ids[$status->value] = $this->appointmentIn($schedule, $day->setTime(9 + $i, 0), $status);
+        }
+
+        $this->actAsScheduleManager($clinic);
+
+        $response = $this->postJson("/api/schedules/{$schedule->id}/blocks", [
+            'starts_at' => '2026-11-20T08:00:00-03:00',
+            'ends_at' => '2026-11-20T18:00:00-03:00',
+        ])->assertCreated();
+
+        $this->assertSame(array_values($ids), array_column($response->json('data.affected_appointments'), 'id'));
+        $this->assertSame(
+            ['pending_confirmation', 'confirmed', 'checked_in', 'attended'],
+            array_column(array_column($response->json('data.affected_appointments'), 'status'), 'value')
+        );
+    }
+
     public function test_an_inactive_schedule_is_also_blocked_and_blocks_may_overlap(): void
     {
         [$clinic, $schedule] = $this->schedule(['is_active' => false]);

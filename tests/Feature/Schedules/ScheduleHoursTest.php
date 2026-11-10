@@ -33,6 +33,39 @@ class ScheduleHoursTest extends TestCase
         $this->assertSame(0, DB::table('schedule_hours')->count());
     }
 
+    /**
+     * Hallazgo 3 de la revisión: si la edición falla, por la validación o por el Service, el
+     * horario anterior queda como estaba (el reemplazo va en la transacción de la edición).
+     */
+    public function test_a_failed_update_keeps_the_previous_hours(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $other = $this->branchIn($clinic);
+        $schedule = $this->scheduleIn($branch, ['veterinarian_id' => $this->veterinarianIn($branch, $other)->id]);
+        $this->hoursFor($schedule, [[1, '08:00', '12:00'], [2, '14:00', '18:00']]);
+        $this->appointmentIn($schedule);
+        $before = DB::table('schedule_hours')->orderBy('id')->get();
+        $this->actAsScheduleManager($clinic);
+        $newHours = [['weekday' => 3, 'starts_at' => '09:00', 'ends_at' => '13:00']];
+
+        // Un tramo superpuesto: 422 de la validación.
+        $this->patchJson("/api/schedules/{$schedule->id}", ['hours' => [
+            ['weekday' => 3, 'starts_at' => '09:00', 'ends_at' => '13:00'],
+            ['weekday' => 3, 'starts_at' => '12:00', 'ends_at' => '15:00'],
+        ]])->assertUnprocessable()->assertJsonValidationErrors(['hours']);
+        $this->assertEquals($before, DB::table('schedule_hours')->orderBy('id')->get());
+
+        // Un horario válido con un cambio de sucursal que la agenda con turnos no admite.
+        $this->assertErrorCode(
+            $this->patchJson("/api/schedules/{$schedule->id}", ['branch_id' => $other->id, 'hours' => $newHours]),
+            422,
+            'SCHEDULE_NOT_EDITABLE'
+        );
+        $this->assertEquals($before, DB::table('schedule_hours')->orderBy('id')->get());
+        $this->assertSame(0, DB::table('audit_logs')->where('auditable_type', 'schedule_hour')->where('event', 'deleted')->count());
+    }
+
     public function test_a_range_inside_another_is_an_overlap_and_order_does_not_matter(): void
     {
         [$clinic, $schedule] = $this->scheduleWithService();

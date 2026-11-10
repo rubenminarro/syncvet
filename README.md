@@ -12,14 +12,14 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes) y FASE 2 (datos
 | `database/migrations` | 34 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4), `users.is_active` (FASE 2, entrega 2.2b) y la matrícula del veterinario ampliada a 60 (entrega 2.3). `clinic_id` en las tablas de negocio (D1) |
 | `app/Enums` | 36 enums (estados y tipos) con `label()` en español |
 | `app/Models` | 35 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog`; las fechas con hora con el cast `AppDateTime` |
-| `app/Exceptions` | `AppException`, 16 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
-| `app/Services` | Reglas de negocio de autenticación, clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios, veterinarios, servicios, la configuración y el logo, y la limpieza de archivos huérfanos; `ClinicService`, `CatalogLock`, `DocumentSequenceService` y `AuditLogger` |
-| `app/Http` | Controllers, Requests y Resources de autenticación y perfil, clientes, pacientes, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración de la clínica y la auditoría; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
+| `app/Exceptions` | `AppException`, 17 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
+| `app/Services` | Reglas de negocio de autenticación, clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios, veterinarios, servicios, la configuración y el logo, la limpieza de archivos huérfanos, y las agendas y sus bloqueos; `ClinicService`, `CatalogLock`, `DocumentSequenceService` y `AuditLogger` |
+| `app/Http` | Controllers, Requests y Resources de autenticación y perfil, clientes, pacientes, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración de la clínica, la auditoría, y las agendas y sus bloqueos; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
 | `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | 58 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, y la auditoría |
-| `database/seeders` | `RolesAndPermissionsSeeder` (127 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
+| `routes/api.php` | 66 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, y las agendas y sus bloqueos |
+| `database/seeders` | `RolesAndPermissionsSeeder` (130 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
 
@@ -47,7 +47,7 @@ Con el código de Laravel 13:
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
-* Los 127 permisos de los Controllers y de los roles existen en el seeder.
+* Los 130 permisos de los Controllers y de los roles existen en el seeder.
 
 La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y de las rutas, y las respuestas de error en JSON
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);

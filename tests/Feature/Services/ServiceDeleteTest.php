@@ -83,10 +83,6 @@ class ServiceDeleteTest extends TestCase
     }
 
     /**
-     * Precisión 2 del usuario: la lista de uso (para la baja y el nombre fijo) cubre toda
-     * clave foránea a services.
-     */
-    /**
      * FASE 3, entrega 3.1: una agenda creada por la API es uso: el servicio no se elimina ni
      * cambia de nombre; eliminada la agenda (sin turnos), deja de serlo.
      */
@@ -110,6 +106,10 @@ class ServiceDeleteTest extends TestCase
         $this->deleteJson("/api/services/{$service->id}")->assertOk();
     }
 
+    /**
+     * Precisión 2 del usuario: la lista de uso (para la baja y el nombre fijo) cubre toda
+     * clave foránea a services.
+     */
     public function test_usage_covers_every_foreign_key_to_services(): void
     {
         $references = [];

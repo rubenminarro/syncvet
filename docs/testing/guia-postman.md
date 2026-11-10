@@ -381,3 +381,46 @@ pacientes de la FASE 1 (`syncvet-fase-01-pacientes`).
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-02-auditoria.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
+
+## FASE 3 — Agenda y turnos
+
+Se valida con una colección por entrega, con las mismas reglas que las anteriores: la colección es la fuente de verdad de los pasos, y
+la preparación, el Environment **SyncVet local** y la forma de correrla son los de la [FASE 1](#fase-1--clientes-y-pacientes). La
+entrega 3.0 no tiene endpoints: se validó con la colección de auditoría como regresión.
+
+| Colección | Entrega | Qué valida |
+|---|---|---|
+| [`postman/syncvet-fase-03-agendas.postman_collection.json`](postman/syncvet-fase-03-agendas.postman_collection.json) | 3.1 (R-050) | Alta del usuario de la corrida con el rol `veterinario`, su ficha y su servicio; agenda sin veterinario ni servicio (422); alta de una agenda con veterinario y horario y de otra con solo el servicio; nombre repetido en la sucursal con otras mayúsculas y sin acento, tramos superpuestos el mismo día y un tramo fuera de la grilla de 5 minutos (422); reemplazo del horario (los tramos que se tocan pasan); un bloqueo del lunes que viene en UTC y uno con el fin antes del inicio (422); el detalle con el bloqueo próximo; el recepcionista que lista agendas y bloqueos y no crea ni edita agendas ni crea bloqueos (403); los pendientes de la FASE 2: la baja del veterinario con una agenda (409 `VETERINARIAN_IN_USE`), la baja del servicio usado por una agenda (409 `SERVICE_IN_USE`) y su cambio de nombre (422 `SERVICE_NAME_NOT_EDITABLE`); inactivar una agenda, el listado sin ella y con `include_inactive=1`; la baja del bloqueo y de las agendas sin turnos (404 después); y la limpieza |
+
+#### Agendas (3.1)
+
+**Volver a sembrar los roles.** La 3.1 suma los permisos `schedule-blocks.index`, `schedule-blocks.store` y `schedule-blocks.destroy`
+(`schedule-blocks.index` también al recepcionista y al veterinario). Si la base no se recrea, correr
+`php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos) antes de la colección: sin eso, "17 El recepcionista
+lista los bloqueos" recibe 403. No hay que migrar: la 3.1 no tiene migraciones.
+
+**Necesita internet.** El email del usuario de la corrida es `@mailinator.com` y la validación del email consulta su registro MX
+(`EMAIL_DNS_CHECK`); la contraseña se revisa en Have I Been Pwned.
+
+**Necesita el `DemoSeeder`.** Usa `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`), y la sucursal
+por defecto de la clínica A.
+
+**35 requests y 68 pruebas.**
+
+**Se corre más de una vez sin recrear la base.** El primer pedido genera un número de corrida de seis dígitos al azar, que va en el
+email y la contraseña del usuario de la corrida y en los nombres de su servicio y de sus agendas. **Cada corrida deja un usuario
+inactivo, una ficha eliminada y un servicio eliminado:** al final elimina el bloqueo, las dos agendas, el servicio y la ficha, e
+inactiva al usuario, que no se puede eliminar porque la ficha eliminada cuenta como uso (409 `USER_IN_USE`).
+
+**Lo que no está en la colección.** Lo que necesita turnos, porque la API todavía no los crea: mover una agenda con turnos de sucursal
+o de veterinario (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno (409 `SCHEDULE_IN_USE`); los cubren
+`ScheduleUpdateTest` y `ScheduleDeleteTest`, y van en la colección de la 3.2a (anotado en el
+[documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md#32a-turnos-únicos)). También `affected_appointments` con turnos
+(`ScheduleBlockTest`), el orden de los bloqueos y el reintento de la edición (`ScheduleLockTest`), y una agenda o un bloqueo de otra
+clínica (404, `RouteBindingTest`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-03-agendas.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```

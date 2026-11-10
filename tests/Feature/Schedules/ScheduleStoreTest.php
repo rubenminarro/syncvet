@@ -60,6 +60,33 @@ class ScheduleStoreTest extends TestCase
         $this->assertSame(2, DB::table('audit_logs')->where('auditable_type', 'schedule_hour')->where('event', 'created')->count());
     }
 
+    /**
+     * Hallazgo 3 de la revisión: el alta valida el horario como la edición (tramos que se
+     * superponen → 422 sin crear nada; los que se tocan pasan).
+     */
+    public function test_overlapping_hours_are_rejected_on_creation(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $service = $this->serviceIn($clinic);
+        $this->actAsScheduleManager($clinic);
+
+        $this->postJson('/api/schedules', $this->schedulePayload($branch, ['service_id' => $service->id, 'hours' => [
+            ['weekday' => 6, 'starts_at' => '08:00', 'ends_at' => '12:00'],
+            ['weekday' => 6, 'starts_at' => '10:00', 'ends_at' => '13:00'],
+        ]]))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.hours.0', 'El horario del sábado tiene tramos que se superponen.');
+
+        $this->assertSame(0, DB::table('schedules')->count());
+        $this->assertSame(0, DB::table('schedule_hours')->count());
+
+        $this->postJson('/api/schedules', $this->schedulePayload($branch, ['service_id' => $service->id, 'hours' => [
+            ['weekday' => 6, 'starts_at' => '08:00', 'ends_at' => '12:00'],
+            ['weekday' => 6, 'starts_at' => '12:00', 'ends_at' => '13:00'],
+        ]]))->assertCreated()->assertJsonCount(2, 'data.hours');
+    }
+
     public function test_a_schedule_with_only_a_service_takes_the_default_values(): void
     {
         $clinic = $this->createClinic();

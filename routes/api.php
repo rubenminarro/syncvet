@@ -80,8 +80,6 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::get('system-settings/logo', [ClinicLogoController::class, 'show'])->name('system-settings.show-logo');
     Route::delete('system-settings/logo', [ClinicLogoController::class, 'destroy'])->name('system-settings.delete-logo');
 
-    // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
-    // un registro de otra clínica o sin clínica responde 404.
     // Agendas (FASE 3, entrega 3.1): las arma el administrador. Sin SoftDeletes: la baja, solo sin
     // turnos. Los bloqueos se listan y se crean en su agenda y se eliminan fuera de ella; los nombres
     // propios dan el permiso schedule-blocks.* por la regla de los dos últimos tramos.
@@ -92,5 +90,7 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     ]);
     Route::delete('schedule-blocks/{scheduleBlock}', [ScheduleBlockController::class, 'destroy'])->name('schedule-blocks.destroy');
 
+    // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
+    // un registro de otra clínica o sin clínica responde 404.
     Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show'])->parameters(['audit-logs' => 'auditLog']);
 });

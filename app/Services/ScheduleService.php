@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ServiceStatus;
 use App\Enums\VeterinarianStatus;
+use App\Exceptions\ScheduleChangedWhileLocking;
 use App\Exceptions\ScheduleException;
 use App\Http\Requests\ScheduleMessages;
 use App\Models\Branch;
@@ -31,10 +32,20 @@ use Illuminate\Validation\ValidationException;
  * el veterinario y el servicio que llegan se leen con sharedLock antes de la agenda (una baja
  * simultánea del veterinario o del servicio, que los bloquea con lockForUpdate antes de
  * revisar el uso, ve la agenda o la hace esperar); la edición, el horario y la baja bloquean
- * la agenda (lockForUpdate) antes de revisar los turnos o reemplazar el horario.
+ * la agenda (lockForUpdate) antes de revisar los turnos o reemplazar el horario. La edición
+ * nunca bloquea un veterinario después de la agenda (el alta de un turno, desde la 3.2a,
+ * bloquea veterinario → agenda): lee el veterinario de la agenda sin bloquearla, lo bloquea
+ * (con el nuevo, por id), bloquea la agenda y verifica que su veterinario no cambió; si
+ * cambió, repite (UPDATE_ATTEMPTS; después, 409 CONFLICT).
  */
 class ScheduleService
 {
+    /**
+     * Intentos de la edición si el veterinario de la agenda cambia entre la lectura y el
+     * bloqueo; después, 409 CONFLICT.
+     */
+    public const UPDATE_ATTEMPTS = 3;
+
     private const FIELDS = ['branch_id', 'name', 'veterinarian_id', 'service_id', 'slot_minutes', 'color', 'is_active'];
 
     /**
@@ -81,73 +92,133 @@ class ScheduleService
      */
     public function update(Schedule $schedule, array $data): Schedule
     {
-        return DB::transaction(function () use ($schedule, $data) {
-            if (array_key_exists('name', $data) || array_key_exists('branch_id', $data)) {
-                CatalogLock::forCurrentClinic();
+        for ($attempt = 1; $attempt <= self::UPDATE_ATTEMPTS; $attempt++) {
+            // El veterinario de la agenda, leído sin bloquearla: se bloquea antes que ella.
+            $readVeterinarianId = Schedule::query()->whereKey($schedule->getKey())->firstOrFail(['id', 'veterinarian_id'])->veterinarian_id;
+
+            $updated = $this->attemptUpdate($schedule, $data, $this->id($readVeterinarianId));
+
+            if ($updated !== null) {
+                return $updated;
+            }
+        }
+
+        throw new ScheduleException('La agenda cambió mientras se editaba: volvé a intentarlo.', 409, 'CONFLICT');
+    }
+
+    /**
+     * Un intento de la edición. Orden de bloqueo de la FASE 3: clínica → veterinario →
+     * servicio → agenda. Los veterinarios (el que la agenda tenía al leerla, si cambia la
+     * sucursal o el veterinario, y el nuevo, si llega) se toman con sharedLock por id
+     * ascendente antes que la agenda; con la agenda bloqueada se vuelve a leer su
+     * veterinario: si cambió en el medio, se deshace la transacción y devuelve null para
+     * repetir.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function attemptUpdate(Schedule $schedule, array $data, ?int $readVeterinarianId): ?Schedule
+    {
+        try {
+            return DB::transaction(fn () => $this->updateLocked($schedule, $data, $readVeterinarianId));
+        } catch (ScheduleChangedWhileLocking) {
+            return null;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function updateLocked(Schedule $schedule, array $data, ?int $readVeterinarianId): Schedule
+    {
+        if (array_key_exists('name', $data) || array_key_exists('branch_id', $data)) {
+            CatalogLock::forCurrentClinic();
+        }
+
+        // Antes que la agenda (orden de bloqueo): el veterinario que la agenda tiene, si
+        // cambia la sucursal o el veterinario, y el que llega en el pedido; por id.
+        $sentVeterinarianId = array_key_exists('veterinarian_id', $data) ? $this->id($data['veterinarian_id']) : null;
+        $veterinarianIds = [];
+
+        if ($readVeterinarianId !== null && (array_key_exists('branch_id', $data) || array_key_exists('veterinarian_id', $data))) {
+            $veterinarianIds[] = $readVeterinarianId;
+        }
+
+        if ($sentVeterinarianId !== null) {
+            $veterinarianIds[] = $sentVeterinarianId;
+        }
+
+        $veterinarianIds = array_values(array_unique($veterinarianIds));
+        sort($veterinarianIds);
+        $lockedVeterinarians = [];
+
+        foreach ($veterinarianIds as $veterinarianId) {
+            $lockedVeterinarians[$veterinarianId] = $this->sharedVeterinarian($veterinarianId);
+        }
+
+        $sentService = array_key_exists('service_id', $data)
+            ? $this->sharedService($this->id($data['service_id']))
+            : null;
+
+        $schedule = Schedule::query()->whereKey($schedule->getKey())->lockForUpdate()->firstOrFail();
+
+        // Si el veterinario de la agenda cambió entre la lectura y el bloqueo, el que se
+        // bloqueó ya no es el suyo: se repite.
+        if ($this->id($schedule->veterinarian_id) !== $readVeterinarianId) {
+            throw new ScheduleChangedWhileLocking();
+        }
+
+        $branchId = array_key_exists('branch_id', $data) ? (int) $data['branch_id'] : $schedule->branch_id;
+        $veterinarianId = array_key_exists('veterinarian_id', $data) ? $this->id($data['veterinarian_id']) : $schedule->veterinarian_id;
+        $serviceId = array_key_exists('service_id', $data) ? $this->id($data['service_id']) : $schedule->service_id;
+
+        $branchChanges = $branchId !== $schedule->branch_id;
+        $veterinarianChanges = $veterinarianId !== $schedule->veterinarian_id;
+        $serviceChanges = $serviceId !== $schedule->service_id;
+
+        $this->ensureHasOwner($veterinarianId, $serviceId);
+
+        // Pregunta 14: los turnos guardan la sucursal y el veterinario de la agenda.
+        if (($branchChanges || $veterinarianChanges) && $this->hasAppointments($schedule)) {
+            throw new ScheduleException(
+                'La agenda ya tiene turnos y no puede cambiar de sucursal ni de veterinario: creá otra agenda e inactivá esta.',
+                422,
+                'SCHEDULE_NOT_EDITABLE'
+            );
+        }
+
+        if ($branchChanges) {
+            $this->ensureBranchIsActive($branchId);
+        }
+
+        if ($veterinarianId !== null && ($veterinarianChanges || $branchChanges)) {
+            // Bloqueado antes que la agenda: el nuevo o el que la agenda ya tenía.
+            $veterinarian = $lockedVeterinarians[$veterinarianId] ?? null;
+
+            // El veterinario que la agenda ya tiene se acepta aunque se haya inactivado (el
+            // formulario lo reenvía); uno nuevo, solo activo.
+            if ($veterinarianChanges) {
+                $this->ensureVeterinarianIsAvailable($veterinarian);
             }
 
-            // Antes que la agenda (orden de bloqueo): los que llegan en el pedido.
-            $sentVeterinarian = array_key_exists('veterinarian_id', $data)
-                ? $this->sharedVeterinarian($this->id($data['veterinarian_id']))
-                : null;
-            $sentService = array_key_exists('service_id', $data)
-                ? $this->sharedService($this->id($data['service_id']))
-                : null;
+            $this->ensureVeterinarianWorksIn($veterinarian, $branchId);
+        }
 
-            $schedule = Schedule::query()->whereKey($schedule->getKey())->lockForUpdate()->firstOrFail();
+        if ($serviceId !== null && $serviceChanges) {
+            $this->ensureServiceIsAvailable($sentService);
+        }
 
-            $branchId = array_key_exists('branch_id', $data) ? (int) $data['branch_id'] : $schedule->branch_id;
-            $veterinarianId = array_key_exists('veterinarian_id', $data) ? $this->id($data['veterinarian_id']) : $schedule->veterinarian_id;
-            $serviceId = array_key_exists('service_id', $data) ? $this->id($data['service_id']) : $schedule->service_id;
+        if ($branchChanges || (array_key_exists('name', $data) && CatalogName::clean($data['name']) !== $schedule->name)) {
+            $this->ensureNameIsFree($data['name'] ?? $schedule->name, $branchId, $schedule);
+        }
 
-            $branchChanges = $branchId !== $schedule->branch_id;
-            $veterinarianChanges = $veterinarianId !== $schedule->veterinarian_id;
-            $serviceChanges = $serviceId !== $schedule->service_id;
+        $schedule->fill($this->fields($data));
+        $schedule->save();
 
-            $this->ensureHasOwner($veterinarianId, $serviceId);
+        if (array_key_exists('hours', $data)) {
+            $this->replaceHours($schedule, $data['hours']);
+        }
 
-            // Pregunta 14: los turnos guardan la sucursal y el veterinario de la agenda.
-            if (($branchChanges || $veterinarianChanges) && $this->hasAppointments($schedule)) {
-                throw new ScheduleException(
-                    'La agenda ya tiene turnos y no puede cambiar de sucursal ni de veterinario: creá otra agenda e inactivá esta.',
-                    422,
-                    'SCHEDULE_NOT_EDITABLE'
-                );
-            }
-
-            if ($branchChanges) {
-                $this->ensureBranchIsActive($branchId);
-            }
-
-            if ($veterinarianId !== null && ($veterinarianChanges || $branchChanges)) {
-                $veterinarian = $sentVeterinarian ?? Veterinarian::query()->whereKey($veterinarianId)->sharedLock()->first();
-
-                // El veterinario que la agenda ya tiene se acepta aunque se haya inactivado (el
-                // formulario lo reenvía); uno nuevo, solo activo.
-                if ($veterinarianChanges) {
-                    $this->ensureVeterinarianIsAvailable($veterinarian);
-                }
-
-                $this->ensureVeterinarianWorksIn($veterinarian, $branchId);
-            }
-
-            if ($serviceId !== null && $serviceChanges) {
-                $this->ensureServiceIsAvailable($sentService);
-            }
-
-            if ($branchChanges || (array_key_exists('name', $data) && CatalogName::clean($data['name']) !== $schedule->name)) {
-                $this->ensureNameIsFree($data['name'] ?? $schedule->name, $branchId, $schedule);
-            }
-
-            $schedule->fill($this->fields($data));
-            $schedule->save();
-
-            if (array_key_exists('hours', $data)) {
-                $this->replaceHours($schedule, $data['hours']);
-            }
-
-            return $schedule;
-        });
+        return $schedule;
     }
 
     /**
