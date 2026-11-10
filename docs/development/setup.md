@@ -133,3 +133,57 @@ php -r "\$g = gd_info(); var_dump(\$g['JPEG Support'], \$g['PNG Support'], \$g['
 
 Las cuatro deben dar `bool(true)`. Una foto se decodifica en memoria (unos 4 bytes por píxel; el límite es 25 megapíxeles, unos
 100 MB): `memory_limit` de al menos 256M (Laragon trae 512M).
+
+## Zona horaria de Paraguay (base de zonas de PHP)
+
+Desde el 15/10/2024, `America/Asuncion` es UTC-3 todo el año, sin horario de verano (ley promulgada el 14/10/2024). La base de
+zonas de la IANA lo incluye desde la versión **2025a**. Las fechas con hora se convierten con esa zona de PHP (`AppDateTime` y
+`ApiDateTime`, FASE 2, entrega 2.6; deuda 13): con una base anterior, de marzo a octubre PHP sigue usando `-04:00` y toda fecha con
+hora queda una hora corrida. PHP 8.3.16, por ejemplo, trae la 2024.2.
+
+Comprobar con:
+
+```bash
+php -r "echo timezone_version_get(), PHP_EOL;"
+php -r "echo (new DateTime('2026-07-01 12:00', new DateTimeZone('America/Asuncion')))->format('P'), PHP_EOL;"
+```
+
+La primera debe dar `2025.1` o posterior (con la base del sistema, en los paquetes de Linux, da `0.system`: vale la segunda), y la
+segunda `-03:00`. Si no, actualizar PHP a una versión que traiga la base 2025a o instalar la extensión `timezonedb` de PECL
+(`extension=timezonedb` en el `php.ini`), que reemplaza la base de PHP. `tests/Unit/AsuncionTimezoneTest` falla con una base vieja.
+
+### `timezonedb` en Laragon (Windows)
+
+Así se instaló en el entorno de desarrollo (PHP 8.3.16 de Laragon, que trae la base 2024.2; con la extensión, 2026.6):
+
+1. Ver qué DLL hace falta. Laragon trae PHP **Thread Safe** (TS), de 64 bits, compilado con Visual C++ 2019 (`vs16`):
+
+   ```bash
+   php -r "echo PHP_VERSION, ' ', PHP_ZTS ? 'TS' : 'NTS', ' ', PHP_INT_SIZE * 8, ' bits', PHP_EOL;"
+   php -i | findstr /C:"Compiler" /C:"Loaded Configuration File" /C:"extension_dir"
+   ```
+
+   Tiene que dar `8.3.x TS 64 bits`; anotar la ruta del `php.ini` y la carpeta `ext`
+   (`C:\laragon\bin\php\php-8.3.16-Win32-vs16-x64\ext`).
+2. Descargar la última versión de <https://pecl.php.net/package/timezonedb>: en la versión, el enlace **DLL**, y ahí el zip
+   **8.3 Thread Safe (TS) x64**. Tiene que coincidir con lo del paso 1: con una NTS o de 32 bits, PHP avisa al arrancar
+   ("Unable to load dynamic library") y no la carga.
+3. Copiar `php_timezonedb.dll` del zip a la carpeta `ext` del PHP en uso (las demás DLL del zip no hacen falta).
+4. En ese `php.ini` (Laragon: menú **PHP → php.ini**, el mismo que usa la consola), agregar una línea:
+
+   ```ini
+   extension=timezonedb
+   ```
+
+5. Reiniciar Laragon (**Stop** y **Start All**) para que Apache la tome; la consola la toma en el siguiente `php`.
+6. Comprobar:
+
+   ```bash
+   php -m | findstr timezonedb                                   # timezonedb
+   php -r "echo timezone_version_get(), PHP_EOL;"                # 2025.1 o posterior
+   php -i | findstr /C:"Timezone Database"                       # Timezone Database => external
+   php artisan test tests/Unit/AsuncionTimezoneTest.php          # 2 tests en verde
+   ```
+
+Al cambiar de versión de PHP en Laragon hay que repetir los pasos con la DLL de esa versión. Cuando la IANA publique un cambio que
+afecte a Paraguay, actualizar la DLL con la versión nueva de PECL.

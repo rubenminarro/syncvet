@@ -578,3 +578,4 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 13 | Fechas con hora de la API: solo `deceased_at` se convierte de UTC a `America/Asuncion`; llevarlo a un lugar común antes de la FASE 3 |
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
+| 16 | Columnas `timestamp` de MySQL según la zona del servidor (`config/database.php` no fija `timezone`); `useCurrent()` de `inventory_movements` depende de eso. Analizar antes del diseño de la FASE 3 |

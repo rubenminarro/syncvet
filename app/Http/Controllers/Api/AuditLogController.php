@@ -8,6 +8,7 @@ use App\Http\Requests\ListFilters;
 use App\Http\Resources\AuditLogResource;
 use App\Http\Resources\ShowAuditLogResource;
 use App\Models\AuditLog;
+use App\Support\ApiDateTime;
 use App\Traits\ApiResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -34,8 +35,10 @@ class AuditLogController extends Controller implements HasMiddleware
 
     public function index(IndexAuditLogRequest $request)
     {
-        $from = $request->fromDate();
-        $to = $request->toDate();
+        // created_at no tiene fracción de segundo: from se redondea hacia arriba y to hacia
+        // abajo, para no incluir un registro anterior a from ni posterior a to.
+        $from = $request->fromDate() !== null ? ApiDateTime::ceilSecond($request->fromDate()) : null;
+        $to = $request->toDate() !== null ? ApiDateTime::floorSecond($request->toDate()) : null;
         $format = (new AuditLog())->getDateFormat();
 
         $logs = AuditLog::query()

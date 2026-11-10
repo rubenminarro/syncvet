@@ -5,6 +5,8 @@ namespace Tests\Unit;
 use App\Casts\AppDateTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -13,9 +15,9 @@ use Tests\TestCase;
  * AppDateTime, que convierte la zona al guardar. El cast "datetime" de Eloquent guarda la
  * hora de un valor con zona sin convertirla.
  *
- * Revisa cada modelo de app/Models: ningún cast "datetime" (ni sus variantes), y toda
- * columna datetime o timestamp de $fillable con AppDateTime. Las fechas solas ("date") y
- * las horas del día ("time") no tienen zona.
+ * Revisa cada modelo de app/Models, también en las subcarpetas: ningún cast "datetime"
+ * (ni sus variantes), y toda columna datetime o timestamp de $fillable con AppDateTime.
+ * Las fechas solas ("date") y las horas del día ("time") no tienen zona.
  */
 class DateTimeCastCoverageTest extends TestCase
 {
@@ -26,9 +28,7 @@ class DateTimeCastCoverageTest extends TestCase
         $missing = [];
         $checked = 0;
 
-        foreach (glob(app_path('Models/*.php')) as $file) {
-            $class = 'App\\Models\\' . basename($file, '.php');
-
+        foreach (self::classesIn(app_path('Models'), 'App\\Models') as $class) {
             if (! is_subclass_of($class, Model::class) || (new ReflectionClass($class))->isAbstract()) {
                 continue;
             }
@@ -69,5 +69,42 @@ class DateTimeCastCoverageTest extends TestCase
         $this->assertSame([], $missing);
         // Que el test no pase en vacío: hoy son 25 atributos asignables con hora.
         $this->assertGreaterThanOrEqual(20, $checked);
+    }
+
+    /**
+     * Las clases de app/Models se buscan también en las subcarpetas (revisión de la 2.6): un
+     * modelo en app/Models/Inventory/… se revisa igual.
+     */
+    public function test_the_models_are_searched_also_in_subfolders(): void
+    {
+        $classes = self::classesIn(app_path('Models'), 'App\\Models');
+
+        $this->assertContains('App\\Models\\Patient', $classes);
+        $this->assertContains('App\\Models\\Scopes\\ClinicScope', $classes);
+        $this->assertContains('App\\Models\\Builders\\SharedCatalogBuilder', $classes);
+    }
+
+    /**
+     * Las clases de una carpeta y sus subcarpetas, con el espacio de nombres de PSR-4.
+     *
+     * @return list<string>
+     */
+    private static function classesIn(string $directory, string $namespace): array
+    {
+        $classes = [];
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS));
+
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $relative = substr($file->getPathname(), strlen($directory) + 1, -4);
+            $classes[] = $namespace . '\\' . str_replace(['/', '\\'], '\\', $relative);
+        }
+
+        sort($classes);
+
+        return $classes;
     }
 }

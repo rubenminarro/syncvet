@@ -123,6 +123,52 @@ class AuditLogShowTest extends TestCase
     }
 
     /**
+     * Registros de system_setting anteriores a R-041, con la ruta del logo: el alta y la baja
+     * con la clave, y una modificación sin la clave (como el 824 de la base de desarrollo).
+     * El detalle muestra "(archivo)" en cualquier valor con la forma clinics/{id}/logo/….
+     */
+    public function test_an_old_system_setting_log_with_a_logo_path_shows_it_as_a_file(): void
+    {
+        $path = "clinics/{$this->clinic->id}/logo/c459e7ee-6fe5-4285-ae6b-01a9e51b40f0.png";
+        $created = $this->log(null, ['id' => 7, 'key' => 'logo_path', 'value' => $path, 'clinic_id' => $this->clinic->id], 'system_setting');
+        $updated = $this->log(['value' => $path], ['value' => "clinics/{$this->clinic->id}/logo/4d5ef147.webp"], 'system_setting');
+        $nested = $this->log(null, ['items' => [['value' => $path]], 'value' => 'clinics/logo/no-es-una-ruta'], 'system_setting');
+
+        $this->getJson("/api/audit-logs/{$created}")->assertOk()
+            ->assertJsonPath('data.new_values.value', SystemSetting::AUDIT_FILE)
+            ->assertJsonPath('data.new_values.key', 'logo_path');
+
+        $response = $this->getJson("/api/audit-logs/{$updated}")->assertOk()
+            ->assertJsonPath('data.old_values.value', SystemSetting::AUDIT_FILE)
+            ->assertJsonPath('data.new_values.value', SystemSetting::AUDIT_FILE);
+        $this->assertStringNotContainsString('/logo/', stripslashes($response->getContent()));
+
+        // También dentro de un arreglo; un texto sin la forma de la ruta no cambia.
+        $this->getJson("/api/audit-logs/{$nested}")->assertOk()
+            ->assertJsonPath('data.new_values.items.0.value', SystemSetting::AUDIT_FILE)
+            ->assertJsonPath('data.new_values.value', 'clinics/logo/no-es-una-ruta');
+    }
+
+    /**
+     * El registro de un usuario eliminado sigue mostrando quién fue.
+     */
+    public function test_the_detail_of_a_log_whose_user_was_deleted(): void
+    {
+        $user = User::factory()->for($this->clinic)->create(['first_name' => 'Ana', 'last_name' => 'Pérez', 'name' => 'Ana Pérez']);
+        $log = CurrentClinic::run($this->clinic, fn () => AuditLog::create([
+            'clinic_id' => $this->clinic->id,
+            'event' => AuditEvent::LOGIN,
+            'user_id' => $user->id,
+            'created_at' => now(),
+        ])->id);
+
+        $user->delete();
+
+        $this->getJson("/api/audit-logs/{$log}")->assertOk()
+            ->assertJsonPath('data.user', ['id' => $user->id, 'name' => 'Ana Pérez']);
+    }
+
+    /**
      * Un registro de otra clínica, o sin clínica (un login fallido con un email
      * desconocido), no existe para esta clínica.
      */
@@ -155,12 +201,12 @@ class AuditLogShowTest extends TestCase
      * @param array<string, mixed>|null $old
      * @param array<string, mixed>|null $new
      */
-    private function log(?array $old, ?array $new): int
+    private function log(?array $old, ?array $new, string $type = 'patient'): int
     {
         return CurrentClinic::run($this->clinic, fn () => AuditLog::create([
             'clinic_id' => $this->clinic->id,
             'event' => AuditEvent::UPDATED,
-            'auditable_type' => 'patient',
+            'auditable_type' => $type,
             'auditable_id' => 1,
             'user_id' => $this->admin->id,
             'old_values' => $old,

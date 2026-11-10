@@ -23,7 +23,8 @@ class AppDateTimeTest extends TestCase
     use InteractsWithAuth;
 
     /**
-     * Noviembre: Asunción en UTC-3.
+     * Noviembre: Asunción en UTC-3. Julio de 2026, también UTC-3 (ley del 14/10/2024); julio
+     * de 2024, UTC-4.
      */
     public static function values(): array
     {
@@ -35,6 +36,11 @@ class AppDateTimeTest extends TestCase
             'sin zona: hora de Asunción' => ['2025-11-05T10:00:00', '2025-11-05 10:00:00'],
             'sin zona, con espacio' => ['2025-11-05 10:00:00', '2025-11-05 10:00:00'],
             'cambia de día en Asunción' => ['2025-11-05T02:00:00Z', '2025-11-04 23:00:00'],
+            // Invierno, después de la ley del 14/10/2024: Asunción en UTC-3 todo el año.
+            'invierno de 2026: -03:00' => ['2026-07-01T12:00:00Z', '2026-07-01 09:00:00'],
+            // Antes de la ley, el invierno era -04:00: la base de zonas de PHP lo sabe; un -03:00
+            // fijo lo guardaría a las 09:00 (revisión de la 2.6).
+            'invierno de 2024, antes de la ley: -04:00' => ['2024-07-01T12:00:00Z', '2024-07-01 08:00:00'],
         ];
     }
 

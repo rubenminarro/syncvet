@@ -24,8 +24,11 @@ final class ApiDateTime
     /**
      * Lo que acepta un filtro de fecha: una fecha sola, o una fecha con hora (con "T" o
      * un espacio; segundos y fracción opcionales) con o sin zona ("Z", "+00:00", "-0300").
+     * Horas de 00 a 23, minutos y segundos de 00 a 59, y desplazamientos de hasta ±14:00:
+     * "T24:00:00" y "-2400" no se aceptan (revisión de la 2.6). El día lo valida la regla
+     * "date".
      */
-    public const FILTER_FORMAT = '/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/';
+    public const FILTER_FORMAT = '/^\d{4}-\d{2}-\d{2}(?:[T ](?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?(?:Z|[+-](?:(?:0\d|1[0-3]):?[0-5]\d|14:?00))?)?$/';
 
     /**
      * El valor en la hora de Asunción. Sin zona, ya es hora de Asunción.
@@ -62,5 +65,23 @@ final class ApiDateTime
     public static function endOf(string $value): CarbonImmutable
     {
         return self::isDateOnly($value) ? self::toLocal($value)->endOfDay() : self::toLocal($value);
+    }
+
+    /**
+     * El comienzo de un filtro contra columnas sin fracción de segundo: con fracción, se
+     * redondea hacia arriba al segundo siguiente ("11:00:00.5" no incluye las 11:00:00).
+     */
+    public static function ceilSecond(CarbonImmutable $value): CarbonImmutable
+    {
+        return $value->microsecond > 0 ? $value->startOfSecond()->addSecond() : $value;
+    }
+
+    /**
+     * El final de un filtro contra columnas sin fracción de segundo: la fracción se
+     * descarta (hacia abajo; "23:59:59.999999" queda en 23:59:59).
+     */
+    public static function floorSecond(CarbonImmutable $value): CarbonImmutable
+    {
+        return $value->startOfSecond();
     }
 }
