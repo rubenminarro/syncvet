@@ -37,7 +37,7 @@ class ClientMessages
                 'string' => 'El nombre debe tener el formato correcto.',
                 'min' => 'El nombre debe tener al menos 2 caracteres.',
                 'max' => 'El nombre no debe tener más de 100 caracteres.',
-                'regex' => 'El nombre solo puede contener letras y espacios.',
+                'regex' => 'El nombre solo puede contener letras y espacios, y apóstrofos o guiones entre letras.',
             ],
             'last_name' => [
                 'required' => 'El apellido es obligatorio.',
@@ -45,7 +45,7 @@ class ClientMessages
                 'string' => 'El apellido debe tener el formato correcto.',
                 'min' => 'El apellido debe tener al menos 2 caracteres.',
                 'max' => 'El apellido no debe tener más de 100 caracteres.',
-                'regex' => 'El apellido solo puede contener letras y espacios.',
+                'regex' => 'El apellido solo puede contener letras y espacios, y apóstrofos o guiones entre letras.',
             ],
             'email' => [
                 'required' => 'El correo es obligatorio.',

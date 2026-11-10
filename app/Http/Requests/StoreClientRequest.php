@@ -6,6 +6,7 @@ use App\Enums\ClientKind;
 use App\Rules\RucCheckDigit;
 use App\Rules\UniqueClientDocument;
 use App\Support\CurrentClinic;
+use App\Support\PersonName;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -42,13 +43,13 @@ class StoreClientRequest extends FormRequest
                 Rule::requiredIf(! $isCompany),
                 Rule::prohibitedIf($isCompany),
                 'nullable', 'string', 'min:2', 'max:100',
-                'regex:/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/u',
+                'regex:' . PersonName::REGEX,
             ],
             'last_name' => [
                 Rule::requiredIf(! $isCompany),
                 Rule::prohibitedIf($isCompany),
                 'nullable', 'string', 'min:2', 'max:100',
-                'regex:/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/u',
+                'regex:' . PersonName::REGEX,
             ],
             'email' => [
                 'required',

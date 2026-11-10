@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\CashRegisterStatus;
 use App\Traits\Auditable;
@@ -30,9 +31,9 @@ class CashRegister extends Model
     {
         return [
             'status' => CashRegisterStatus::class,
-            'opened_at' => 'datetime',
+            'opened_at' => AppDateTime::class,
             'opening_amount' => 'decimal:2',
-            'closed_at' => 'datetime',
+            'closed_at' => AppDateTime::class,
             'declared_amount' => 'decimal:2',
             'expected_amount' => 'decimal:2',
             'difference' => 'decimal:2',

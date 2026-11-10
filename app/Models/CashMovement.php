@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\CashMovementType;
 use Illuminate\Database\Eloquent\Model;
@@ -27,7 +28,7 @@ class CashMovement extends Model
         return [
             'type' => CashMovementType::class,
             'amount' => 'decimal:2',
-            'cancelled_at' => 'datetime',
+            'cancelled_at' => AppDateTime::class,
         ];
     }
 

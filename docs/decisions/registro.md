@@ -546,5 +546,410 @@ Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisi�
 | Deudas abiertas | 2, 3, 5, 6, 13 y 14 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 1, 8, 9, 10, 11 y 12 | Cierre |
 | Siguiente | FASE 2, datos maestros: empieza por el análisis (paso 1) y sigue con el diseño (paso 2), con autorización del usuario | Usuario |
 | Documentos | `CLAUDE.md` §1 con la FASE 1 completada; `README.md` con el estado, sin el pendiente de los tests de clientes y pacientes (deuda 1, resuelta) y con `gd` y `exif` en los requisitos (R-027) | Cierre |
+| Merge a `main` | La FASE 1 se integró a `main` con el merge `7b35ea2` (`feature/fase-01-05-foto`, que contiene el diseño y las cinco entregas encadenadas), autorizado por el usuario el 2026-11-06. Agregado en el diseño de la FASE 2 (R-029): el handoff y el cierre de la fase seguían diciendo "sin merge a `main`" | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-029 Respuestas de negocio y alcance de la FASE 2 (2026-11-06)
+
+Respuestas del usuario a las preguntas del análisis de la FASE 2 (paso 1), que incluyen las tres del alcance inicial (P5, P8 y P11)
+y la de usuarios inactivos que la FASE 0 dejó para esta fase. El diseño que las aplica está en
+[`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md), pendiente de aprobación. Las preguntas que el diseño no puede
+decidir solo están al final de ese documento.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| P1 Usuarios inactivos | `users.is_active`, con una migración. Un usuario inactivo no entra: con la contraseña correcta, 403 "usuario inactivo"; con una incorrecta, el error genérico de siempre (`INVALID_CREDENTIALS`). Al inactivarlo se revocan todos sus tokens. La baja (`SoftDeletes` con el sufijo `//deleted_`) solo sin uso; con uso, 409 | Usuario |
+| P2 Quién gestiona usuarios | Solo el administrador | Usuario |
+| P3 Roles | Un usuario puede tener varios roles | Usuario |
+| P4 Administradores | Un administrador no se inactiva ni se da de baja a sí mismo, y nadie deja la clínica sin un administrador activo: 409 | Usuario |
+| P5 Veterinario y sucursales | Trabaja en las sucursales de su usuario (`branch_user`), sin una tabla aparte | Usuario |
+| P6 Veterinario | Necesita un usuario con el rol `veterinario`. En uso, se inactiva; sin uso, se da de baja, y si se vuelve a dar de alta al mismo usuario se restaura el anterior en lugar de crear uno nuevo (`veterinarians.user_id` es único) | Usuario |
+| P7 Comisión | `commission_percentage` se guarda; no se calcula nada hasta los reportes | Usuario |
+| P8 Precios | Un precio único por servicio (`standard_price`). La factura guardará su precio | Usuario |
+| P9 Sucursales | `establishment` se edita solo mientras la sucursal no tenga facturas (en esta fase siempre se puede; el punto queda preparado). Sucursales y depósitos solo se inactivan. La sucursal y el depósito por defecto no se inactivan | Usuario |
+| P10 Depósitos | Una sucursal tiene varios depósitos, uno por defecto | Usuario |
+| P11 Datos de la clínica | Se guardan la razón social, el nombre de fantasía y el RUC de la clínica, y la dirección y el teléfono de cada sucursal. El timbrado, la actividad económica y el punto de expedición quedan para la fase de SIFEN | Usuario |
+| P12 Logo | Se muestra después del login (en `me` y en la configuración). No se agrega un slug a `clinics` | Usuario |
+| P13 Configuración | `system_settings` con una lista cerrada de claves (Enum) y validación por clave | Usuario |
+| P14 Auditoría | La ve solo el administrador, con filtros por fecha, usuario, evento y registro, sin valores sensibles, filtrada por la clínica. Los `LOGIN_FAILED` sin clínica no se muestran | Usuario |
+| P15 Fotos huérfanas (deuda 14) | La foto de un paciente dado de baja se conserva. El comando de limpieza solo borra archivos que no sean el `photo_path` ni el logo de nadie | Usuario |
+| Email del usuario | Único en toda la base (es el login): en el MVP, una persona que trabaja en dos clínicas necesita dos emails | Usuario |
+| Entregas | En el orden del análisis: 2.1 sucursales y depósitos, 2.2 usuarios (dividida en 2.2a y 2.2b), 2.3 veterinarios, 2.4 servicios, 2.5 configuración y logo con la deuda 14, 2.6 auditoría con la deuda 13 | Usuario; la división de la 2.2, diseño |
+| Documentación | Se corrigen el handoff, el cierre de la FASE 1 y R-028 con el merge `7b35ea2` de la FASE 1 a `main` | Usuario |
+| Aprobación del diseño | El usuario aprueba el diseño de la FASE 2 tal como está ([`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md)), con las siete entregas y las preguntas 16 a 31 del diseño según la propuesta de cada una (códigos de sucursal y depósito escritos por el administrador, depósito por defecto en el alta de la sucursal, `PATCH me/password`, precio entero, claves de `system_settings`, RUC no editable, logo de hasta 2 MB, limpieza a las 24 horas, matrícula a 60 caracteres, `USER_IS_VETERINARIAN`, entre otras). Sigue la entrega 2.1 en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno` | Usuario, el 2026-11-06 |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code` y contrato de respuesta: el diseño y su aprobación solo documentan.
+
+# R-030 Entrega 2.1 de la FASE 2: sucursales y depósitos (2026-11-07)
+
+Implementación de la entrega 2.1 en `feature/fase-02-01-sucursales` (creada desde `docs/fase-02-diseno`), con los desvíos del
+diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-21).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Siete: `branches` (listado, alta, detalle y edición, sin baja), `branches/{branch}/warehouses` (listado y alta) y `warehouses/{warehouse}` (edición). 26 → 33 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123). El recepcionista y el veterinario suman `branches.index` | Usuario (pregunta 19) |
+| `is_default: false` | 422 solo en la sucursal o el depósito que es el por defecto; en otro no cambia nada (el frontend manda el formulario completo) | Implementación (desvío 1); aceptado por el usuario |
+| Primera por defecto | Si la clínica no tiene sucursal por defecto, la que se crea pasa a serlo; igual el primer depósito de una sucursal sin depósito por defecto | Implementación (desvío 2); aceptado por el usuario |
+| Únicos | Código, nombre y establecimiento los revisa el Service con la clínica bloqueada (`CatalogLock`), no reglas `unique` del Form Request: dos altas simultáneas no terminan en un 500 por el índice único. Misma respuesta, 422 `VALIDATION_ERROR` | Implementación (desvío 3); aceptado por el usuario |
+| Mismo `establishment` | Con facturas, reenviar el mismo valor responde 200: no es un cambio | Implementación (desvío 4); aceptado por el usuario |
+| Listado de depósitos | Paginado, con `ListFilters` e `include_inactive` | Implementación (desvío 5); aceptado por el usuario |
+| Nombres | `CatalogMessages::NAME_REGEX`: al menos una letra, como especies y razas | Implementación (desvío 6); aceptado por el usuario |
+| Depósito en sucursal inactiva | Se podía crear: el diseño no lo mencionaba. **Rechazado**: 422 en `branch`, "La sucursal está inactiva." (corregido en R-031) | Implementación (desvío 7); rechazado por el usuario |
+| Orden de bloqueo | Nuevo: clínica → sucursal → usuario. Inactivar una sucursal vacía `current_branch_id` usuario por usuario, para la auditoría. `CLAUDE.md` §3: clínica → sucursal → depósito o usuario | Implementación (desvío 8); aceptado por el usuario |
+| Deuda 2 | `Branch` y `Warehouse` revisados: casts y relaciones correctos; suman valores por defecto, el código en mayúsculas, el nombre limpio y `Branch::invoices()` | Implementación |
+| Validación | Suite en verde en SQLite (662 casos, 7505 aserciones, 2 omitidos que son solo de MySQL) y en MySQL 8.4.3 (`syncvet_test_mysql`, 7521 aserciones). Las cinco protecciones del diseño quitadas de a una, cada una con un test que falla | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las siete de sucursales y depósitos. `error_code` nuevos: `BRANCH_DEFAULT_NOT_DEACTIVATABLE`,
+`BRANCH_ESTABLISHMENT_NOT_EDITABLE` y `WAREHOUSE_DEFAULT_NOT_DEACTIVATABLE`. El recepcionista y el veterinario suman
+`branches.index`. Rutas, permisos y contratos existentes, sin cambios.
+
+# R-031 Revisión, correcciones y cierre de la entrega 2.1 de la FASE 2 (2026-11-07)
+
+La revisión de la entrega 2.1, en una sesión de Claude Code aparte de la implementación, encontró un hallazgo de gravedad media
+(el desvío 7, rechazado por el usuario) y cuatro de baja (tests que pasaban con la regla rota). El usuario pidió corregirlos y
+validó la entrega. Implementación (R-030), correcciones y cierre van en un solo commit en `feature/fase-02-01-sucursales`. El
+detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-031) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-031).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Sucursal inactiva | `WarehouseService::create()` revisa `is_active` sobre la sucursal ya bloqueada: 422 en `branch`, "La sucursal está inactiva." Reactivada, el alta vuelve a responder 201 | Usuario |
+| Tests faltantes | La búsqueda de depósitos por código, la sucursal nueva sin usuarios en `branch_user` y el orden clínica → sucursal → usuario al inactivar | Usuario |
+| Voseo | `VoseoTest` suma el verbo `crear`. La descripción de `clinic:create` pasa de "Crea una clínica…" (tercera persona, que el test marcaba) a "Alta de una clínica…" | Usuario; el cambio de la descripción, implementación |
+| Postman | La colección de sucursales suma el pedido 24b (depósito en la sucursal recién inactivada → 422): 37 requests y 107 pruebas | Usuario |
+| Validación | El usuario corrió la colección en Postman (Collection Runner, una iteración): 107 de 107 pruebas, sin errores. Entrega validada | Usuario, el 2026-11-07 |
+| Suite del cierre | La de las correcciones, sobre el mismo código: 664 casos; en SQLite, 7525 aserciones con 2 omitidos (solo de MySQL); en MySQL 8.4.3 (`syncvet_test_mysql`), 7541 aserciones. La mutación del chequeo de la sucursal inactiva hace fallar su test | Cierre |
+| Sucursales y depósitos | El módulo pasa a COMPLETADO: la 2.1 era su única entrega en el diseño (R-029) | Cierre |
+| Deuda 2 | Sigue abierta: revisada en `Branch` y `Warehouse`; faltan `User`, `Veterinarian`, `Service` y `AuditLog` en las entregas siguientes | Cierre |
+| Siguiente | Entrega 2.2a (usuarios), en `feature/fase-02-02a-usuarios`, creada desde `feature/fase-02-01-sucursales`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Crear un depósito en una sucursal inactiva responde 422 en `branch` (antes, 201). Rutas, permisos,
+`error_code` y contrato de respuesta, sin otros cambios.
+
+# R-032 Entrega 2.2a de la FASE 2: usuarios (2026-11-07)
+
+Implementación de la entrega 2.2a en `feature/fase-02-02a-usuarios` (creada desde `feature/fase-02-01-sucursales`), con los
+desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-22a).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Cinco: `users` (listado, alta, detalle y edición, sin baja hasta la 2.2b) y `roles` (listado). 33 → 38 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123): `users.*` y `roles.index` ya existían. Solo el administrador (P2) | Diseño (R-029) |
+| Bloqueo de la clínica | En toda alta y edición, no solo en la edición que toca los roles: se ordenan con la inactivación de una sucursal (clínica → sucursal → usuario, R-030), y el Service vuelve a leer las sucursales con la clínica bloqueada (una inactivada entre la validación y el guardado → 422) | Implementación (desvío 1); aceptado por el usuario |
+| Sucursal actual | "La primera" es la primera activa de la lista; sin ninguna activa (solo una inactiva que el usuario ya tenía), queda sin sucursal actual. Ampliada en R-033 para el usuario que no tiene una | Implementación (desvío 2); aceptado por el usuario |
+| Email único | Lo revisa el Service, no una regla `unique` del Form Request: dos altas simultáneas en clínicas distintas que chocan con el índice reciben 422, no un 500 | Implementación (desvío 3); aceptado por el usuario |
+| Revocación de tokens | Cualquier `password` enviado revoca los tokens del usuario, aunque sea igual a la anterior | Implementación (desvío 4); aceptado por el usuario |
+| Auditoría de sucursales | El cambio de sucursales queda como `updated`, con `branch_ids` antes y después (el diseño solo pedía `ROLES_SYNCED` para los roles) | Implementación (desvío 5); aceptado por el usuario |
+| `roles` en `UserResource` | Lista de `{name, label}`, la misma forma que `GET roles`, desde el Enum `UserRole`; un test exige que el Enum coincida con los roles del seeder | Implementación (desvío 6); aceptado por el usuario |
+| Último administrador activo | En la 2.2a, "activo" es no eliminado: `is_active` llega con la 2.2b. No cuentan los de otra clínica. **Aceptado con una condición:** la 2.2b cuenta solo los administradores con `is_active` y lo prueba con un test | Implementación (desvío 7); aceptado por el usuario con esa condición |
+| Validación del email | Sigue `EMAIL_DNS_CHECK`, como la de los clientes: en desarrollo rechaza `example.com`, y la colección de Postman usa `@mailinator.com` (necesita internet). Los usuarios del `DemoSeeder` no se tocan | Implementación (desvío 8); aceptado por el usuario |
+| Orden del listado | Por apellido, nombre e id (el diseño no lo fijaba) | Implementación (desvío 9); aceptado por el usuario |
+| Deuda 2 | `User` revisado contra la tabla y las claves foráneas: casts (`password` → `hashed`) y relaciones (`clinic`, `currentBranch`, `branches`, `veterinarian`) correctos, sin cambios | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las cinco de usuarios y roles. `error_code` nuevo: `USER_LAST_ADMIN` (409). Rutas,
+permisos y contratos existentes, sin cambios (login, `me` y logout incluidos).
+
+# R-033 Revisión, correcciones y cierre de la entrega 2.2a de la FASE 2 (2026-11-07)
+
+La revisión de la entrega 2.2a, en una sesión de Claude Code aparte de la implementación, no encontró errores en el código: encontró
+dos puntos de diseño (el administrador que cambia su propia contraseña cierra su propia sesión, y el usuario sin sucursal actual que
+recibe sucursales sigue sin una), tests que faltaban y un test inestable. El usuario decidió cada punto y pidió corregirlos, sumó el
+cambio de los nombres de personas y validó la entrega. Implementación (R-032), correcciones y cierre van en un solo commit en
+`feature/fase-02-02a-usuarios`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-033) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-033).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Contraseña propia | `PATCH`/`PUT users/{user}` con `password` sobre el usuario autenticado → 422 en `password`, "Para cambiar tu contraseña usá tu perfil." (también vacía o nula). La propia se cambia con `PATCH me/password` (2.2b), que pide la actual y conserva el token en uso | Usuario |
+| Sucursal actual | Un usuario sin sucursal actual que recibe `branch_ids` toma una con la regla del alta (la por defecto si está en la lista; si no, la primera activa) | Usuario |
+| Nombres de personas | **Desvío que cambia una regla de la FASE 1** (§6.1): nombre y apellido de clientes y de usuarios aceptan el apóstrofo y el guion entre letras (D'Alessandro, Ana-María), nunca al principio, al final ni repetidos; los clientes suman la `ü`, que los usuarios ya aceptaban. Una sola regla, `App\Support\PersonName::REGEX`. El mensaje pasa a "… solo puede contener letras y espacios, y apóstrofos o guiones entre letras." | Usuario; el lugar de la regla (`App\Support`, porque la usan clientes y usuarios), usuario |
+| Tests faltantes | Un administrador real (rol `administrador`, con token) que se quita su propio rol: solo, 409; con otro, 200. La revocación con tokens reales: el usuario editado pierde los suyos y el administrador conserva el suyo. La contraseña y su hash fuera de la auditoría de la edición. Los nombres, en clientes y usuarios | Usuario |
+| Test inestable | `UserIndexTest` dependía del apellido al azar del usuario que hace el pedido, que a veces se ordenaba primero: `actAsUserManager` le fija nombre, apellido y email | Revisión |
+| Postman | La colección de usuarios suma el pedido 16b (el administrador cambia su propia contraseña → 422): 30 requests | Usuario |
+| Validación | El usuario corrió la colección en Postman (Collection Runner, una iteración): 0 errores. Número de pruebas: 78 de 78 pruebas, en 30 requests (cifra tomada de Newman: la colección corrida otra vez el 2026-11-07 contra la base de desarrollo, con `SUC-USR` ya creada, sin fallas; el Collection Runner del usuario no informó la cifra). Entrega validada | Usuario, el 2026-11-07 |
+| Suite del cierre | Sobre el código del commit (después de las correcciones y de mover la regla de nombres a `App\Support\PersonName`): 706 casos; en SQLite, 8277 aserciones con 2 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 8293 aserciones. La mutación del chequeo de la contraseña propia hace fallar su test | Cierre |
+| Deuda 2 | Sigue abierta: revisada en `Branch`, `Warehouse` y `User`; faltan `Veterinarian`, `Service` y `AuditLog` | Cierre |
+| Siguiente | Entrega 2.2b (usuarios inactivos, baja, sucursal actual y contraseña propia), en `feature/fase-02-02b-usuarios`, creada desde `feature/fase-02-02a-usuarios`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** `password` sobre el propio usuario en `users/{user}` responde 422. Clientes: nombre y apellido aceptan el
+apóstrofo, el guion y la `ü` (antes, 422), con otro mensaje de error. Rutas, permisos, `error_code` y contrato de respuesta, sin
+otros cambios.
+
+# R-034 Entrega 2.2b de la FASE 2: usuarios inactivos, baja, sucursal actual y contraseña propia (2026-11-07)
+
+Implementación de la entrega 2.2b en `feature/fase-02-02b-usuarios` (creada desde `feature/fase-02-02a-usuarios`), con los
+desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-22b).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Tres: `DELETE users/{user}` (`users.destroy`), `PATCH me/current-branch` (`auth.current-branch`) y `PATCH me/password` (`auth.password`), las dos de `me` sin permiso (`ROUTES_WITHOUT_PERMISSION`). 38 → 41 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123): `users.destroy` ya existía. La baja, solo el administrador (P2) | Diseño (R-029) |
+| Migración | `2026_11_07_000000_add_is_active_to_users`: `is_active` booleano, no nulo, por defecto `true`, después de `password`; sin índice. 32 → 33. Probada en MySQL durante la implementación: sube, baja y vuelve a subir (`tinyint(1)`, por defecto 1) | Diseño (R-029); prueba, implementación |
+| Último administrador | Regla generalizada: si un administrador activo deja de serlo (pierde el rol, se inactiva o se da de baja), tiene que quedar otro administrador activo de la clínica. Quitarle el rol a un administrador ya inactivo responde 200: no cambia la cantidad de activos | Implementación (desvío 1); aceptado por el usuario |
+| Bloqueo de `me/current-branch` | Clínica → sucursal → usuario, el mismo orden que la inactivación de una sucursal (R-030). Una sucursal inactivada entre la validación y el guardado → 422 | Implementación (desvío 2); aceptado por el usuario |
+| Intentos de `me/password` | Los errores de validación (una contraseña nueva débil, por ejemplo) responden 422 antes del límite y no cuentan: solo cuenta lo que llega a verificar la contraseña actual | Implementación (desvío 3); aceptado por el usuario |
+| Auditoría de la baja | Dos registros: `updated` (el email con el sufijo de baja) y `deleted` | Implementación (desvío 4); aceptado por el usuario |
+| `RoleAccessTest` | Las dos rutas de `me` sin cuerpo responden 422 `VALIDATION_ERROR` en lugar de 200: el test lo acepta solo para esas dos; `me` y `logout` siguen exigiendo 200 | Implementación (desvío 5); aceptado por el usuario |
+| Tests inestables de la 2.2a | Dos aserciones de `UserStoreTest` contaban usuarios por `first_name = 'Lucía'`, que la factory (`es_ES`) puede generar al azar: ahora cuentan el total y el email | Implementación (desvío 6); aceptado por el usuario |
+| Claves foráneas en MySQL | `test_usage_covers_every_foreign_key_to_users` traía en MySQL las tablas de las otras bases del servidor: limitado al esquema actual | Implementación (desvío 7); aceptado por el usuario |
+| Límite de `me/password` | **Agregado al diseño:** 5 intentos por minuto por usuario, contados antes de verificar la contraseña actual, como el login; el sexto responde 429 `AUTH_TOO_MANY_ATTEMPTS` con `Retry-After` aunque la actual sea correcta; un cambio correcto limpia el contador. El contador es del usuario: el de otro no se afecta | Usuario |
+| Condición del desvío 7 de la 2.2a (R-032) | Cumplida: `USER_LAST_ADMIN` cuenta solo los administradores con `is_active`; lo prueba `UserDeactivateTest::test_an_inactive_administrator_does_not_count` (un administrador inactivo no evita el 409, ni al quitar el rol ni al inactivar) y `UserDeleteTest::test_the_last_active_administrator_is_not_deleted` | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las tres de arriba. `error_code` nuevos: `USER_INACTIVE` (403), `USER_SELF_ACTION` (409) y
+`USER_IN_USE` (409). `users/{user}` acepta `is_active`; `GET users` acepta `include_inactive` y por defecto muestra solo los activos;
+`UserResource` y `ShowUserResource` suman `is_active`. Login, `me` y logout sin otros cambios: un usuario inactivo recibe 403
+`USER_INACTIVE` en el login con la contraseña correcta y en `me` con un token vigente, y puede hacer logout.
+
+# R-035 Revisión, correcciones y cierre de la entrega 2.2b de la FASE 2 (2026-11-07)
+
+La revisión de la entrega 2.2b, en una sesión de Claude Code aparte de la implementación, no encontró errores en el código: encontró
+reglas sin test o con tests que pasarían con la regla rota, y una referencia vieja en un comentario. El usuario pidió corregir los
+cinco hallazgos y validó la entrega. Implementación (R-034), correcciones y cierre van en un solo commit en
+`feature/fase-02-02b-usuarios`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-035) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-035).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Hallazgos 1 a 5 | Corregidos: tests del inactivo en las rutas del perfil, del login del inactivo con la contraseña incorrecta, del uso por `created_by` y por una segunda columna, de la asignación revisada en el Service y del orden de bloqueo de `me/current-branch`, y el comentario de `UserService::USAGE`. Cada test nuevo, con la mutación que lo hace fallar | Usuario |
+| Validación | El usuario corrió la colección `syncvet-fase-02-usuarios` en Postman (Collection Runner, una iteración): 53 requests, 130 de 130 pruebas, 0 errores. Entrega validada | Usuario, el 2026-11-07 |
+| Suite del cierre | Sobre el código después de las correcciones: 742 casos; en SQLite, 8642 aserciones con 2 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 8658 aserciones | Cierre |
+| Siguiente | Entrega 2.3 (veterinarios), en `feature/fase-02-03-veterinarios`, creada desde `feature/fase-02-02b-usuarios`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Nada más que lo de R-034: las correcciones son tests y un comentario.
+
+# R-036 Entrega 2.3 de la FASE 2: veterinarios (2026-11-09)
+
+Implementación de la entrega 2.3 en `feature/fase-02-03-veterinarios` (creada desde `feature/fase-02-02b-usuarios`), con los
+desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-23).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Cinco: `apiResource('veterinarians')` (listado, alta, detalle, edición con `PATCH` y `PUT`, y baja). 41 → 46 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123): `veterinarians.*` ya existían, y la recepción y el veterinario ya tenían `veterinarians.index` | Diseño (R-029) |
+| Migración | `2026_11_09_000000_widen_veterinarians_license_number`: `license_number` de 30 a 60 caracteres (pregunta 29); se valida hasta 30. La bajada se detiene con un mensaje claro si alguna matrícula pasa de 30, sin cortarla. 33 → 34. Probada en MySQL durante la implementación: sube, baja (con una matrícula larga se detiene y la columna queda en 60) y vuelve a subir | Diseño (R-029); la bajada que se detiene y la prueba, implementación |
+| Restauración | Los campos que no llegan en el pedido vuelven a su valor por defecto, como en un alta (si no, quedaría la matrícula vieja con el sufijo de baja). La auditoría guarda `updated` (los cambios) y `restored`, porque `restore()` guarda el modelo | Implementación (desvío 1); aceptado por el usuario |
+| Orden de bloqueo | En el alta y la restauración: clínica (`CatalogLock`), después el usuario, después la ficha (también eliminada) y la serie al final, según la precisión 1 del usuario. Compatible con `UserService`, que bloquea clínica → usuario antes de buscar la ficha al quitar el rol | Implementación (desvío 2); aceptado por el usuario |
+| `USER_IS_VETERINARIAN` | Salta cuando el usuario tiene una ficha no eliminada y los roles nuevos no incluyen `veterinario`, aunque hoy no tenga el rol | Implementación (desvío 3); aceptado por el usuario |
+| Mensajes del usuario | Propio para el usuario sin el rol: "El usuario no tiene el rol veterinario."; para uno inactivo, de otra clínica, eliminado o inexistente: "El usuario no existe o está inactivo." | Implementación (desvío 4); aceptado por el usuario |
+| Listado | Sin `status`, solo los activos, y no había forma de traer activos e inactivos juntos | Implementación (desvío 5); corregido a pedido del usuario en la revisión (R-037): `include_inactive=1` |
+| Uso "también eliminados" | Ninguna de las seis tablas de uso tiene borrado lógico hoy; la consulta con `DB::table` los contará cuando lo tengan | Implementación (desvío 6); aceptado por el usuario |
+| Matrícula y mayúsculas | No se normalizaba: en MySQL "mv-1001" y "MV-1001" eran la misma matrícula y en SQLite no | Implementación (desvío 7); corregido a pedido del usuario en la revisión (R-037) |
+| Deuda 2 | `Veterinarian` revisado contra la tabla y las claves foráneas: relaciones (`user`, también eliminado) y casts correctos; suma los valores por defecto de `status` y `commission_percentage` y su documentación | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las cinco de veterinarios. `error_code` nuevos: `VETERINARIAN_IN_USE` (409) y
+`USER_IS_VETERINARIAN` (409, en `PATCH`/`PUT users/{user}`). `ShowUserResource` suma `veterinarian` (`id`, `code`, o `null`). Rutas,
+permisos y contratos existentes, sin otros cambios.
+
+# R-037 Revisión, correcciones y cierre de la entrega 2.3 de la FASE 2 (2026-11-09)
+
+La revisión de la entrega 2.3, en una sesión de Claude Code aparte de la implementación, no encontró errores de comportamiento fuera
+de los desvíos 5 y 7: encontró una discrepancia de permisos que decidió el usuario, una regla sin test y detalles. El usuario pidió
+corregir los hallazgos y validó la entrega. La implementación y las correcciones quedaron en dos commits WIP (`4ff4a4c` y `c6a6847`);
+el cierre va en un commit aparte en `feature/fase-02-03-veterinarios`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-037) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-037).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Matrícula (desvío 7) | Se pasa a mayúsculas y sin espacios en los extremos antes de validar, en el alta, la edición y la restauración (vacía, nula): la regla `unique` compara el valor normalizado. El Service la normaliza también, por si se lo llama sin el Form Request | Usuario |
+| `include_inactive` (desvío 5) | En el listado, como en sucursales y usuarios: si llega `status`, manda `status`; `include_inactive=1` sin `status` trae activos e inactivos; un valor inválido → 422 | Usuario |
+| Atributo compartido | `include_inactive` se llama "incluir los inactivos" en `lang/es/validation.php` (antes "incluir inactivas"): sirve para sucursales, depósitos, especies, usuarios y veterinarios | Usuario |
+| Permisos del detalle | La recepción y el veterinario solo listan veterinarios (`veterinarians.index`); el detalle, con la comisión y las notas, es solo del administrador. El listado no muestra `commission_percentage` ni `notes`, con test. Sin cambios en el seeder | Usuario |
+| Filtro de clínica en el Service | Tests nuevos: el alta con el usuario de otra clínica que tiene una ficha eliminada (422, la ficha sigue eliminada) y el Service llamado sin el Form Request con usuarios de otra clínica. Quitar `inClinic()` de `lockedUser()` hace fallar un test | Usuario |
+| Detalles | `Veterinarian` usa `VeterinarianStatus::ACTIVE->value` como valor por defecto; un test de la migración, solo en MySQL, baja sin matrículas de más de 30 (la columna vuelve a 30 sin cortar ninguna) y vuelve a subir | Usuario |
+| Baja con uso en Postman | No está en la colección: la cubren los tests (`VeterinarianDeleteTest`) y se agrega en la FASE 3 con las agendas (anotado en su documento). El `DemoSeeder` no se toca | Usuario |
+| Restos de cada corrida | Cada corrida de Postman deja un usuario inactivo y una ficha eliminada (la ficha eliminada es uso del usuario, que no se puede eliminar); anotado en la guía | Usuario |
+| Postman | La colección suma el alta con la matrícula de vet-a en minúsculas (422), `include_inactive=1`, `status` que manda y `include_inactive` inválido (422): 32 requests | Usuario |
+| Validación | El usuario corrió la colección `syncvet-fase-02-veterinarios` en Postman (Collection Runner, una iteración): 75 de 75 pruebas, 0 errores. Entrega validada | Usuario, el 2026-11-09 |
+| Suite del cierre | Sobre el código después de las correcciones (`c6a6847`): 797 casos; en SQLite, 9217 aserciones con 3 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 9237 aserciones sin omitidos | Cierre |
+| Deuda 2 | Sigue abierta: revisada en `Branch`, `Warehouse`, `User` y `Veterinarian`; faltan `Service` y `AuditLog` | Cierre |
+| Siguiente | Entrega 2.4 (servicios), en `feature/fase-02-04-servicios`, creada desde `feature/fase-02-03-veterinarios`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Frente a R-036: `GET veterinarians` acepta `include_inactive`; la matrícula se guarda en mayúsculas y sin
+espacios en los extremos, y una que solo difiere en mayúsculas de otra responde 422 también en SQLite; el nombre del campo
+`include_inactive` en los mensajes de validación pasa a "incluir los inactivos" en todos los listados. Rutas, permisos y `error_code`,
+sin otros cambios.
+
+# R-038 Entrega 2.4 de la FASE 2: servicios (2026-11-09)
+
+Implementación de la entrega 2.4 en `feature/fase-02-04-servicios` (creada desde `feature/fase-02-03-veterinarios`), con los
+desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
+[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-24).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Cinco: `apiResource('services')` (listado, alta, detalle, edición con `PATCH` y `PUT`, y baja). 46 → 51 | Diseño (R-029) |
+| Permisos | Sin permisos nuevos (123): `services.*` ya existían, y la recepción y el veterinario ya tenían `services.index` y `services.show` | Diseño (R-029) |
+| Migraciones | Ninguna (34): `services.name` de 150 admite el nombre de 120 más el sufijo de baja | Diseño (R-029) |
+| Obligatorios en el alta | `name`, `category` y `standard_price`; la duración (30), el IVA (10) y el estado (`active`) toman su valor por defecto. El precio, para que un servicio no quede en 0 por olvido | Implementación (desvío 1); aceptado por el usuario |
+| Nombre fijo de un servicio usado | Cuenta como cambio solo lo que cambia el nombre ya limpio: reenviar el mismo con espacios de más pasa; cambiar solo las mayúsculas es un cambio | Implementación (desvío 2); aceptado por el usuario |
+| Formato del nombre | Usaba `CatalogMessages::NAME_REGEX` (sin `/` ni `%`) | Implementación (desvío 3); resuelto a pedido del usuario en la revisión (R-039): regex propio de servicios |
+| Precio en la respuesta | Texto con dos decimales (`"150000.00"`), como la comisión de los veterinarios; se guarda con BCMath | Implementación (desvío 4); aceptado por el usuario |
+| Precios rechazados | Un número de JSON con `.0` → 422; un texto con espacios en los extremos se acepta (`TrimStrings`) | Implementación (desvío 5); aceptado por el usuario |
+| Orden del listado | Por nombre e id | Implementación (desvío 6); aceptado por el usuario |
+| Rango de Postman | Sin rango propio (no queda uno de seis dígitos libre): el número de la corrida va en los nombres de sus servicios, que ninguna otra colección crea | Implementación (desvío 7); aceptado por el usuario |
+| Nombre del Service | `ServiceCatalogService` | Implementación (desvío 8); aceptado por el usuario |
+| Deuda 2 | `Service` revisado: relaciones y casts correctos; suma el cast de `duration_minutes`, los valores por defecto de las columnas y el nombre limpio al guardar | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las cinco de servicios. `error_code` nuevos: `SERVICE_NAME_NOT_EDITABLE` (422) y
+`SERVICE_IN_USE` (409), con `ServiceException`, que ya existía. Rutas, permisos y contratos existentes, sin cambios.
+
+# R-039 Revisión, correcciones y cierre de la entrega 2.4 de la FASE 2 (2026-11-09)
+
+La revisión de la entrega 2.4, en una sesión de Claude Code aparte de la implementación, encontró un error de comportamiento (el
+código repetido respondía como un nombre repetido), el desvío 3 para decidir y dos huecos de tests. El usuario pidió corregirlos,
+corregir lo mismo en veterinarios (de la 2.3) y validó la entrega. La implementación y las correcciones quedaron en dos commits WIP
+(`a2079a2` y `a5fad25`); el cierre, con la corrección de veterinarios, va en un commit aparte en `feature/fase-02-04-servicios`. El
+detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-039) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-039).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Desvíos | Se aceptan el 1, 2, 4, 5, 6, 7 y 8; el 3 se resuelve con un regex propio | Usuario |
+| Nombre de un servicio (desvío 3) | `ServiceMessages::NAME_REGEX`: al menos una letra, sin `//` (el comienzo del sufijo de baja: un nombre con `//deleted_<id>_<ts>` podría chocar en el índice con el de una baja) y letras, números, espacios y `. , - ' ( ) / + %`. `CatalogMessages::NAME_REGEX` (sucursales, especies y razas) no cambia | Usuario |
+| Violaciones de índice único | Se identifican por el nombre del índice (o `tabla.columna` en SQLite), nunca buscando el nombre de la columna en el mensaje de la excepción, que trae el SQL. Una violación que no es la esperada sigue su camino: la del código llega a `DocumentSequenceService` (409 `DOCUMENT_CODE_CONFLICT`). Regla nueva en `CLAUDE.md` §3 | Usuario |
+| Servicios (hallazgo 1) | `ServiceCatalogService::isNameViolation()`, con tests del 409 por el código y del 422 del índice en el alta y la edición | Usuario |
+| Veterinarios (corrección de la 2.3 en el cierre de la 2.4) | `VeterinarianService::isLicenseViolation()`: un código `VET-` repetido respondía 422 "Ya hay un veterinario con esa matrícula.", aunque el pedido no la trajera. Tests del 409 por el código (con y sin matrícula) y del 422 del índice en el alta y la edición | Usuario |
+| Tests (hallazgos 3 y 4) | Un servicio usado cambia la tasa de IVA, la duración y la categoría (200); `include_inactive=1&status=inactive` trae solo los inactivos | Usuario |
+| Auditoría del precio (hallazgo 5) | Informativo, sin cambios: el valor anterior sale de `getRawOriginal` (`AuditLogger`), un número en SQLite y texto en MySQL; sin floats | Usuario |
+| Postman | La colección suma el alta con "/" en el nombre (201) y su baja: 27 requests y 64 pruebas. Sin servicios activos al terminar | Usuario |
+| Validación | El usuario corrió la colección `syncvet-fase-02-servicios` en Postman (Collection Runner, una iteración): 64 de 64 pruebas, 0 errores. Entrega validada | Usuario, el 2026-11-09 |
+| Suite del cierre | Sobre el código con la corrección de veterinarios: 859 casos; en SQLite, 9869 aserciones con 3 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 9889 aserciones sin omitidos | Cierre |
+| Deuda 2 | Sigue abierta: revisada en `Branch`, `Warehouse`, `User`, `Veterinarian` y `Service`; falta `AuditLog` (2.6) | Cierre |
+| Siguiente | Entrega 2.5 (configuración de la clínica, logo y archivos huérfanos), en `feature/fase-02-05-configuracion`, creada desde `feature/fase-02-04-servicios`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Frente a R-038: el nombre de un servicio acepta además `,`, `/`, `+` y `%` (sin `//`), y el mensaje de
+`name.regex` cambia; un código repetido en el alta de un servicio o de un veterinario responde 409 `DOCUMENT_CODE_CONFLICT` en lugar
+del 422 del nombre o de la matrícula. Rutas, permisos y `error_code`, sin otros cambios.
+
+# R-040 Entrega 2.5 de la FASE 2: configuración de la clínica, logo y archivos huérfanos (2026-11-09)
+
+Implementación de la entrega 2.5 en `feature/fase-02-05-configuracion` (creada desde `feature/fase-02-04-servicios`). El detalle está
+en el [resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-25).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Cinco: `GET` y `PATCH`/`PUT` `system-settings`, y `POST`, `GET` y `DELETE` `system-settings/logo`. 51 → 56 | Diseño (R-029) |
+| Permisos | Cuatro nuevos, 123 → 127: `system-settings.show`, `.upload-logo`, `.show-logo` y `.delete-logo` (`.update` ya existía). El recepcionista y el veterinario suman `show` y `show-logo` | Diseño (R-029) |
+| Migraciones | Ninguna (34): `clinics` y `system_settings` existían. Modelo nuevo `SystemSetting` (`BelongsToClinic`, `Auditable`) | Diseño (R-029) |
+| Claves | Enum `SystemSettingKey`, lista cerrada con la regla de cada clave: `contact_email`, `contact_phone`, `website` y `document_footer`; `logo_path`, interna. `null` borra la fila | Diseño (R-029, pregunta 23) |
+| Logo | JPG, PNG o WEBP de hasta 2 MB, disco propio `clinic_logos`, la ruta en `logo_path` y nunca en la API (`has_logo` en la configuración y en `me`) | Diseño (R-029, P12 y pregunta 25) |
+| Reutilización | Lo común con la foto del paciente pasa a `App\Support\PrivateImageStore` (guardar, reemplazar después del commit, validar la ruta, descargar) y a `App\Http\Requests\PrivateImageRequest` (tipo por el contenido, 413, megapíxeles, imagen vuelta a codificar). Los tests de la foto no cambian | Diseño (R-029) |
+| Limpieza (deuda 14) | `files:prune-orphans` con `--dry-run` (`OrphanFileService`), programado a diario a las 03:00 | Diseño (R-029, P15 y pregunta 26) |
+| `CatalogLock::forCurrentClinic()` | Devuelve la clínica bloqueada (antes, nada): la edición de los datos la usa | Implementación |
+
+**Qué cambió en la API.** Rutas nuevas: las cinco de la configuración. `error_code` nuevo: `CLINIC_LOGO_NOT_FOUND` (404), con
+`ClinicException`, que ya existía. `me` (y el login) suma `clinic.has_logo`. Rutas, permisos y contratos existentes, sin otros
+cambios: la foto del paciente responde igual con `PrivateImageStore`.
+
+# R-041 Revisión, correcciones y cierre de la entrega 2.5 de la FASE 2 (2026-11-09)
+
+La primera validación con Postman encontró un 500 en la lectura de la configuración; la revisión, en una sesión de Claude Code aparte
+de la implementación, encontró dos hallazgos de gravedad media y varios menores. El usuario decidió cada uno y validó la entrega. La
+implementación, la corrección del 500 y las correcciones de la revisión quedaron en tres commits WIP (`fe10d2b`, `62b160e` y
+`f0b906a`); el cierre va en un commit aparte en `feature/fase-02-05-configuracion`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-041) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-041).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| El 500 de la primera validación | `GET system-settings` respondía 500 en la base de desarrollo: el `DemoSeeder` marca sus clínicas con la clave `demo_data` (R-010), que no estaba en `SystemSettingKey`, y el cast `key` del modelo lanzaba un `ValueError` al leer todas las filas. La lectura toma las filas sin el modelo. Tests: `SystemSettingsTest::test_an_unknown_key_in_the_database_is_ignored_with_a_warning` y `test_the_demo_seeder_marker_is_an_internal_key` | Usuario |
+| `demo_data` (desvío 1) | Clave interna de `SystemSettingKey`, como `logo_path`: no se edita (422) ni sale en la respuesta; `DemoSeeder::MARKER` la toma del enum | Implementación; aceptado por el usuario |
+| Claves desconocidas (desvío 2) | Una fila con una clave fuera del enum se ignora al leer, con un aviso en el log, y no se borra | Implementación; aceptado por el usuario |
+| Auditoría del logo | La fila `logo_path` nunca guarda la ruta en `audit_logs`: guarda `"(archivo)"` en el alta, la modificación y la baja (`SystemSetting::auditValues()`, un gancho nuevo de `Auditable` que aplica `AuditLogger`). `SystemSetting::auditContext()` suma siempre la clave: una modificación ya no queda como `{"value": …}` sin saber de qué clave es. La 2.6 no necesita ocultar la ruta del logo | Usuario |
+| `has_logo` | Igual que `has_photo`: `logo_path !== null`, sin revisar la ruta | Usuario |
+| Borrar el logo con una ruta inválida | `DELETE system-settings/logo` con un `logo_path` fuera de la carpeta de la clínica limpia la referencia (200) sin tocar ningún archivo, con el aviso en el log; sin logo sigue en 404. El diseño decía 404: sin este cambio, el administrador no podía sacar un logo roto | Usuario |
+| Foto con una ruta inválida | El mismo caso en la foto del paciente queda como deuda 15 (borrarla responde 404 y deja la referencia) | Usuario |
+| Clave en otras mayúsculas | En MySQL (comparación e índice único sin mayúsculas), un `PATCH` de `website` con una fila `WEBSITE` respondía 200 y escribía en esa fila, que la lectura ignora: el valor se perdía (la revisión lo informó como un 500; no lo era). La edición toma esa fila y le pone la clave del enum; la lectura compara exacto. Test en SQLite y en MySQL | Usuario |
+| Limpieza que falla en una clínica | `files:prune-orphans` revisa cada clínica entera antes de borrar en ella; si la revisión falla (un enlace simbólico, un error del disco), queda en el log, no borra nada en esa clínica y sigue con las demás. Termina con 1 | Usuario |
+| Tests | Clínicas con ids X y X0 y un `photo_path` cruzado entre clínicas (falla con `withoutGlobalScopes()`); el 413 del logo cortado por PHP; la clínica que falla; la auditoría sin rutas; la clave en otras mayúsculas | Usuario |
+| Menores | `ClinicPaths` en su propio archivo; comentarios de `DemoSeeder` y de la migración de `system_settings`; `array_flip` en `OrphanFileService` | Usuario |
+| Validación | El usuario corrió en Postman (Collection Runner, una iteración) `syncvet-fase-02-configuracion`: 67 de 67 pruebas, 0 errores; y, por `PrivateImageStore`, la de la foto (`syncvet-fase-01-foto`): 60 de 60, 0 errores. Entrega validada | Usuario, el 2026-11-09 |
+| Suite del cierre | Sobre el código de `f0b906a`: 921 casos; en SQLite, 10477 aserciones con 3 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 10497 aserciones sin omitidos | Cierre |
+| Deuda 14 | Resuelta: `files:prune-orphans`. En producción necesita el cron del *scheduler* (FASE 10, entrega 10.5) | Cierre |
+| Siguiente | Entrega 2.6 (auditoría y deuda 13), en `feature/fase-02-06-auditoria`, creada desde `feature/fase-02-05-configuracion`. Sin merge a `main` hasta el final de la FASE 2 | Usuario |
+
+**Qué cambió en la API.** Frente a R-040: `DELETE system-settings/logo` con un `logo_path` fuera de la carpeta de la clínica responde
+200 y limpia la referencia (antes, 404 `CLINIC_LOGO_NOT_FOUND`). Rutas, permisos y `error_code`, sin otros cambios.
+
+# R-042 Entrega 2.6 de la FASE 2: consulta de la auditoría y fechas con hora en un lugar común (2026-11-09)
+
+Implementación de la entrega 2.6 en `feature/fase-02-06-auditoria` (creada desde `feature/fase-02-05-configuracion`), en el commit WIP
+`18d5db2`. El detalle está en el [resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-26).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Rutas | Dos: `GET audit-logs` y `GET audit-logs/{auditLog}`, sin rutas de escritura (405). 56 → 58 | Diseño (R-029) |
+| Permisos | Sin nuevos (127): `audit-logs.index` y `audit-logs.show` ya existían; solo el administrador (P14), los demás roles reciben 403 | Diseño (R-029) |
+| Migraciones | Ninguna (34): los índices de `audit_logs` cubren los filtros | Diseño (R-029) |
+| Clínica | `AuditLog` ya tenía el `ClinicScope`: el listado y el detalle ven solo la clínica en contexto; un registro de otra clínica o sin clínica (`LOGIN_FAILED` con un email desconocido) → 404 | Diseño (R-029) |
+| Filtros | `from` y `to`, `user_id` (de la clínica, también eliminado), `event`, `auditable_type` (lista cerrada), `auditable_id` (exige el tipo) y `search` literal en el nombre o el email del usuario; orden por `created_at` e `id` descendentes | Diseño (R-029) |
+| Valores sensibles | El listado no trae `old_values` ni `new_values`. La foto del paciente se audita como `"(archivo)"` (`Patient::auditValues()`), como el logo (R-041); el detalle oculta `photo_path` en los registros anteriores | Diseño (R-029) y usuario (que la ruta de la foto no se guarde) |
+| Deuda 13 | Cast `App\Casts\AppDateTime` en los atributos con hora de los modelos (15 modelos), con la conversión de zona en `App\Support\ApiDateTime::toLocal()`; `PatientService` ya no convierte `deceased_at`; `UpdatePatientRequest` y los filtros de la auditoría usan `ApiDateTime`. `DateTimeCastCoverageTest` lo exige | Diseño (R-029) |
+| `AppDateTimeTest` (desvío 1) | En `tests/Feature/Database`, no en `tests/Unit`: necesita la base y así corre en SQLite y en MySQL | Implementación; aceptado por el usuario |
+| Lista de tipos (desvío 2) | `AuditLog::AUDITABLE_TYPES` es una lista escrita; `AuditableTypesTest` falla si no coincide con los modelos con `Auditable` (como las listas `USAGE`) | Implementación; aceptado por el usuario |
+| Casts (desvío 3) | Todos los casts `datetime` pasan a `AppDateTime`, no solo los asignables, salvo `created_at`, `updated_at` y `deleted_at` (los llena Eloquent con `now()`, ya en la hora de Asunción) y `ScheduleHour::starts_at`/`ends_at` (horas del día, `time`, sin zona) | Implementación; aceptado por el usuario |
+| `event` (desvío 4) | Sale como `{value, label}`, como `category` y `status` en servicios | Implementación; aceptado por el usuario |
+| `auditable_id` sin tipo (desvío 5) | El 422 va en `auditable_type`: "Para filtrar por el id del registro, indicá también su tipo." | Implementación; aceptado por el usuario |
+| Formato de `from` y `to` (desvío 6) | Solo una fecha o una fecha con hora, por una expresión regular: "tomorrow" o "13:00" → 422, aunque la regla `date` de Laravel los acepta | Implementación; aceptado por el usuario |
+| Registros viejos (desvío 7) | El detalle cambia el `photo_path` viejo por `"(archivo)"` sin quitar la clave (se sigue viendo que la foto cambió); reutiliza `SystemSetting::AUDIT_FILE` | Implementación; aceptado por el usuario |
+
+**Qué cambió en la API.** Rutas nuevas: las dos de la auditoría. Sin `error_code` nuevos (solo los genéricos). `deceased_at` responde
+igual que en la FASE 1 (se guarda en la hora de Asunción y sale en UTC con `Z`). Rutas, permisos y contratos existentes, sin otros
+cambios.
+
+# R-043 Revisión, correcciones y cierre de la entrega 2.6 de la FASE 2 (2026-11-10)
+
+La revisión, en una sesión de Claude Code aparte de la implementación, encontró que la base de zonas de PHP del entorno de desarrollo
+no tenía el cambio de Paraguay a UTC-3 todo el año, un hallazgo de gravedad media y varios menores. El usuario decidió cada uno y
+validó la entrega. La implementación y las correcciones quedaron en dos commits WIP (`18d5db2` y `3df22d1`); el cierre va en un commit
+aparte en `feature/fase-02-06-auditoria`. El detalle está en las
+[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-043) y la
+[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-043).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Zona horaria de Paraguay | Desde el 15/10/2024, `America/Asuncion` es UTC-3 todo el año (ley promulgada el 14/10/2024); la base de zonas de la IANA lo incluye desde la 2025a. PHP 8.3.16 de Laragon traía la 2024.2: de marzo a octubre usaba `-04:00` y corría una hora toda fecha con hora. Se instaló la extensión `timezonedb` (base 2026.6). `tests/Unit/AsuncionTimezoneTest` exige `-03:00` en invierno y en verano y, si no, falla pidiendo actualizar PHP o `timezonedb`. Pasos de Laragon en `development/setup.md`; requisito del servidor en `development/deployment.md` y en la FASE 10 (entrega 10.5) | Usuario |
+| Ruta del logo en registros viejos (hallazgo 1) | Los registros de `system_setting` anteriores a R-041 (en la base de desarrollo, a veces sin la clave) tenían la ruta del logo: el detalle muestra `"(archivo)"` en cualquier valor con la forma `clinics/{id}/logo/…`, también anidado | Usuario |
+| Fracción de segundo (hallazgo 2) | `from` con fracción incluía el segundo anterior (`created_at` no tiene fracción): `from` se redondea hacia arriba al segundo siguiente y `to` hacia abajo (`ApiDateTime::ceilSecond` y `floorSecond`); se siguen aceptando fracciones (el frontend manda `toISOString()`, con `.000Z`) | Usuario |
+| Fecha anterior a la ley (hallazgo 3) | `AppDateTimeTest` suma `2024-07-01T12:00:00Z` → 08:00 (Asunción en `-04:00`) y julio de 2026 → `-03:00`; un `-03:00` fijo en lugar de `America/Asuncion` hace fallar el primero | Usuario |
+| Formato (hallazgo 4) | `ApiDateTime::FILTER_FORMAT`: horas de 00 a 23, minutos y segundos de 00 a 59 y desplazamientos de hasta ±14:00; `T24:00:00` y `-2400` → 422 | Usuario |
+| Tests (hallazgo 5) | `event=login_failed`; el detalle de un registro cuyo usuario fue eliminado; `DateTimeCastCoverageTest` recorre también las subcarpetas de `app/Models` | Usuario |
+| Deuda 16 | Nueva: las columnas `timestamp` de MySQL se guardan según la zona de la sesión, que es la del servidor (`config/database.php` no fija `timezone`), y `useCurrent()` de `inventory_movements` depende de eso. Se analiza antes del diseño de la FASE 3 | Usuario |
+| Suites en paralelo | No correr la de SQLite y la de MySQL a la vez: comparten los discos falsos de `Storage::fake` (`development/testing.md`) | Usuario |
+| Desvíos 1 a 7 | Aceptados (R-042) | Usuario |
+| Validación | El usuario corrió en Postman (Collection Runner, una iteración), después de las correcciones de la revisión, `syncvet-fase-02-auditoria`: 47 de 47 pruebas, 0 errores; y, como regresión por la deuda 13 (`deceased_at`), `syncvet-fase-01-pacientes`: 61 de 61, 0 errores. Entrega validada | Usuario, el 2026-11-10 |
+| Suite del cierre | Sobre el código de `3df22d1`, una después de la otra: 988 casos; en SQLite, 10816 aserciones con 3 omitidos (solo de MySQL); en MySQL (`syncvet_test_mysql`), 10836 aserciones sin omitidos | Cierre |
+| Deuda 13 | Resuelta: `AppDateTime` y `ApiDateTime` | Cierre |
+| Deuda 2 | Revisados los seis modelos de la FASE 2 (`AuditLog`, el último, en la 2.6). Sigue abierta para los modelos generados de las fases siguientes | Cierre |
+| Siguiente | Todas las entregas de la FASE 2 cerradas; falta el cierre de la fase y su merge a `main`, con autorización del usuario. Antes del diseño de la FASE 3, la deuda 16 | Usuario |
+
+**Qué cambió en la API.** Frente a R-042: `from` y `to` rechazan una hora o un desplazamiento fuera de rango (422), y `from` con
+fracción de segundo ya no incluye el segundo anterior; el detalle de la auditoría muestra `"(archivo)"` en lugar de la ruta de un logo.
+Rutas, permisos y `error_code`, sin otros cambios.
+
+# R-044 Cierre de la FASE 2 y merge a `main` (2026-11-10)
+
+Cierre de la FASE 2 (datos maestros), con las siete entregas cerradas y validadas por el usuario (R-030 a R-043). El detalle está en el
+[cierre de la fase](../fases/fase-02-datos-maestros.md#cierre-de-la-fase-2).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | 2.1 (R-030, R-031), 2.2a (R-032, R-033), 2.2b (R-034, R-035), 2.3 (R-036, R-037), 2.4 (R-038, R-039), 2.5 (R-040, R-041) y 2.6 (R-042, R-043): COMPLETADO, cada una con su validación de Postman y sus cifras en el documento de la fase | Cierre |
+| FASE 2 | COMPLETADO: el criterio de cierre de la fase se cumple, punto por punto en el cierre de la fase | Usuario |
+| Cifras al cerrar | Rutas de la API de 26 a 58; permisos de 123 a 127; migraciones de 32 a 34. Suite sobre el código de `3df22d1` (lo posterior solo cambia documentación): 988 casos; 10816 aserciones en SQLite con 3 omitidos (solo de MySQL) y 10836 en MySQL (`syncvet_test_mysql`), sin omitidos | Cierre |
+| Deudas | Resueltas en la fase: 13 (R-042, R-043) y 14 (R-040, R-041). La 2, revisada en los seis modelos de la fase (`Branch`, `Warehouse`, `User`, `Veterinarian`, `Service` y `AuditLog`) y abierta para los modelos de las fases siguientes. Abiertas: 2, 3, 5, 6, 15 (nueva, R-041) y 16 (nueva, R-043) | Cierre |
+| Módulos | Sucursales y depósitos, usuarios, roles y permisos, veterinarios, servicios, configuración de la clínica y auditoría: COMPLETADO (`docs/modules/README.md`) | Cierre |
+| Pendiente para la FASE 3 | La deuda 16 (la zona de las columnas `timestamp` de MySQL), antes del diseño; en Postman, la baja de un veterinario con uso (R-037) y un servicio usado (2.4), cuando la API cree agendas o turnos | Usuario |
+| Merge a `main` | Autorizado por el usuario el 2026-11-10: merge `--no-ff` desde `feature/fase-02-06-auditoria`, que contiene el diseño (`docs/fase-02-diseno`) y las siete entregas encadenadas. Antes del push de `main`, la suite completa en `main`, en SQLite y después en MySQL. Las ramas de la fase se conservan. El hash del merge no puede ir en el commit que lo precede: se informa al usuario y se anota en el handoff al empezar la FASE 3 | Usuario |
+| Siguiente | Análisis de la FASE 3 (agenda y turnos), empezando por la deuda 16 | Usuario |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

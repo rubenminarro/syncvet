@@ -198,6 +198,23 @@ class ClientStoreTest extends TestCase
         $this->store($this->clientPayload(['document_number' => 'X99999903-1', 'email' => 'pasaporte@example.com']))->assertCreated();
     }
 
+    /**
+     * Nombre y apellido: apóstrofo y guion entre letras (D'Alessandro, Ana-María; FASE 2,
+     * entrega 2.2a), nunca al principio, al final ni repetidos.
+     */
+    public function test_person_names_take_an_apostrophe_or_a_hyphen_between_letters(): void
+    {
+        $this->store($this->clientPayload(['first_name' => 'Ana-María', 'last_name' => "D'Alessandro"]))
+            ->assertCreated()
+            ->assertJsonPath('data.display_name', "Ana-María D'Alessandro");
+
+        foreach (["'Ana", "Ana'", '-Ana', 'Ana-', 'Ana--María', "D''Alessandro", "Ana -María", 'Ana1'] as $index => $name) {
+            $this->store($this->clientPayload(['document_number' => '99400' . (100 + $index), 'email' => "nombre{$index}@example.com", 'last_name' => $name]))
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.last_name.0', 'El apellido solo puede contener letras y espacios, y apóstrofos o guiones entre letras.');
+        }
+    }
+
     private function store(array $payload): TestResponse
     {
         return $this->postJson('/api/clients', $payload);

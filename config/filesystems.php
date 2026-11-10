@@ -50,6 +50,16 @@ return [
             'report' => false,
         ],
 
+        // Logo de cada clínica (FASE 2, entrega 2.5): privado y sin `serve`, como las fotos.
+        // Solo se descarga por GET api/system-settings/logo.
+        'clinic_logos' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/clinic-logos'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

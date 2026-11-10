@@ -106,6 +106,25 @@ class ClientUpdateTest extends TestCase
             ->assertJsonPath('data.display_name', 'Ana Gómez Ruiz');
     }
 
+    /**
+     * La edición acepta el apóstrofo y el guion entre letras, como el alta (FASE 2,
+     * entrega 2.2a).
+     */
+    public function test_person_names_take_an_apostrophe_or_a_hyphen_between_letters_on_update(): void
+    {
+        $client = $this->clientIn($this->clinic);
+
+        $this->update($client, ['first_name' => "Ana-María", 'last_name' => "D'Alessandro"])
+            ->assertOk()
+            ->assertJsonPath('data.display_name', "Ana-María D'Alessandro");
+
+        foreach (['-Ana', "Ana'", 'Ana--María'] as $name) {
+            $this->update($client, ['first_name' => $name])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.first_name.0', 'El nombre solo puede contener letras y espacios, y apóstrofos o guiones entre letras.');
+        }
+    }
+
     public function test_the_client_keeps_its_own_document_and_email(): void
     {
         $client = $this->clientIn($this->clinic, ['document_number' => '99400004', 'email' => 'propio@example.com']);

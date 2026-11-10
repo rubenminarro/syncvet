@@ -176,3 +176,208 @@ npx newman run docs/testing/postman/syncvet-fase-01-foto.postman_collection.json
 ```
 
 Se corren desde la raíz del repositorio: la colección de la foto busca sus archivos con la ruta relativa a esa carpeta.
+
+## FASE 2 — Datos maestros
+
+Se valida con una colección por entrega, con las mismas reglas que las de la FASE 1: la colección es la fuente de verdad de los
+pasos, y la preparación, el Environment **SyncVet local** y la forma de correrla son los de la sección anterior.
+
+| Colección | Entrega | Qué valida |
+|---|---|---|
+| [`postman/syncvet-fase-02-sucursales.postman_collection.json`](postman/syncvet-fase-02-sucursales.postman_collection.json) | 2.1 (R-030 y R-031) | Listado con inactivas y detalle de la sucursal por defecto con su depósito, alta de una sucursal con su depósito por defecto, código repetido en minúsculas, nombre repetido en mayúsculas y sin acento, establecimiento mal formado o en uso y teléfono inválido (422), cambio de la sucursal por defecto (la anterior deja de serlo), quitar la por defecto sin marcar otra (422), inactivar la por defecto (409), cambio del establecimiento sin facturas con `PUT` parcial, alta de depósitos (un `branch_id` del cuerpo se ignora; código en uso y nombre repetido, 422), cambio del depósito por defecto, inactivar el depósito por defecto (409), `branch_id` al editar un depósito (422), listado de depósitos sin el inactivo, sucursal inactivada (no suma depósitos: 422 en `branch`; no pasa a ser la por defecto: 422), listados con y sin inactivas, sucursal de otra clínica (404), y el recepcionista que lista y no crea (403) |
+| [`postman/syncvet-fase-02-usuarios.postman_collection.json`](postman/syncvet-fase-02-usuarios.postman_collection.json) | 2.2a y 2.2b (R-032 a R-035) | Roles que se asignan, alta de un usuario con roles y sucursales (email repetido con otras mayúsculas, contraseña débil, rol inexistente y sin sucursales: 422), detalle, cambio de roles y de sucursales (la actual sale de la lista y pasa a ser la primera), login del usuario nuevo y `me`, cambio de su contraseña por el administrador (el token anterior queda revocado: 401; login con la nueva), el administrador no cambia su propia contraseña por `users/{user}` (422), quitar el rol al último administrador (409) y, con otro administrador, quitarlo (200), listado con `search`, `role` y `branch_id`, filtros mal formados (422), usuario de otra clínica (404 al verlo y al editarlo), y el recepcionista que no lista, no da de alta ni ve los roles (403). Con la 2.2b: sucursal actual con `me/current-branch` (inexistente o no asignada, 422), contraseña propia con `me/password` (la actual incorrecta, 422; el cambio correcto conserva el token en uso), el administrador no se inactiva a sí mismo (409), inactivar al usuario (su token, 401; login con la contraseña correcta, 403 `USER_INACTIVE`; con una incorrecta, 422 `INVALID_CREDENTIALS`), listado sin el inactivo salvo `include_inactive`, reactivarlo, baja de un usuario con uso (409 `USER_IN_USE`), el recepcionista que no da de baja (403), baja sin uso (404 al buscarlo y su email libre para un alta nueva) y la baja del usuario nuevo |
+| [`postman/syncvet-fase-02-veterinarios.postman_collection.json`](postman/syncvet-fase-02-veterinarios.postman_collection.json) | 2.3 (R-036 y R-037) | Alta del usuario de la corrida con el rol `veterinario`, alta de un veterinario con un usuario sin el rol (422) y con la matrícula de otro en minúsculas (422), alta con código `VET-`, el mismo usuario otra vez (422), matrícula repetida, `code` en el cuerpo y comisión fuera de rango al editar (422), detalle, listado con `search` y `branch_id`, la ficha en el detalle del usuario, quitarle el rol `veterinario` al usuario (409 `USER_IS_VETERINARIAN`), inactivar la ficha, listado sin el inactivo, con `status=inactive`, con `include_inactive=1` (sin comisión ni notas) y con `status` que manda, `include_inactive` inválido y filtros mal formados (422), el recepcionista que lista y no da de alta, no edita ni da de baja (403), baja sin uso (404 después), restauración con el mismo código (alta del mismo usuario), y la limpieza: baja de la ficha, baja del usuario (409 `USER_IN_USE`) y su inactivación |
+| [`postman/syncvet-fase-02-servicios.postman_collection.json`](postman/syncvet-fase-02-servicios.postman_collection.json) | 2.4 (R-038 y R-039) | Alta con código `SRV-` (nombre limpio, categoría con su etiqueta, precio, IVA y duración), nombre repetido con otras mayúsculas y sin acento, precio con decimales, duración de más de 720 o que no es múltiplo de 5 y `code` en el cuerpo (422), detalle, edición del precio, listado con `search`, el recepcionista que lista y ve el detalle y no da de alta, no edita ni da de baja (403), inactivar el servicio, listado sin el inactivo, con `include_inactive=1` y con `status` que manda, filtros mal formados (422), baja sin uso (404 después), el nombre libre para un alta nueva y su baja, y el alta con "/" en el nombre y su baja |
+| [`postman/syncvet-fase-02-configuracion.postman_collection.json`](postman/syncvet-fase-02-configuracion.postman_collection.json) | 2.5 (R-040 y R-041) | Lectura de la configuración por los tres roles (datos de la clínica, las claves y `has_logo`, sin la ruta del logo), edición de los datos y las claves (el correo en minúsculas), `null` que borra una clave con `PUT` parcial, una clave desconocida y el RUC (422), el recepcionista que no edita (403), un texto con extensión `.jpg` como logo (422), subida del logo (PNG), `has_logo` en `me`, descarga por el administrador, el veterinario y el recepcionista con `Content-Type`, `nosniff`, CSP y `no-store`, reemplazo por un WEBP, el recepcionista que no sube ni borra el logo (403), borrado del logo, descarga sin logo (404 `CLINIC_LOGO_NOT_FOUND`), `me` sin logo, y la restauración de los datos y las claves |
+| [`postman/syncvet-fase-02-auditoria.postman_collection.json`](postman/syncvet-fase-02-auditoria.postman_collection.json) | 2.6 (R-042 y R-043) | Dos registros propios (edita las notas de un cliente de la clínica A y las deja como estaban), y desde el comienzo de la corrida: filtro por fecha con `Z`, sin zona (hora de Asunción) y fecha sola, con el tipo, el id y el evento; por usuario; por evento (el login de la corrida); detalle con los valores, sin contraseñas ni rutas; `auditable_id` sin tipo, `to` antes de `from`, tipo fuera de la lista y fecha mal formada (422); el recepcionista no ve el listado ni el detalle (403) |
+
+#### Sucursales (2.1)
+
+**Volver a sembrar los roles.** La 2.1 suma `branches.index` al recepcionista y al veterinario. Si la base no se recrea, correr
+`php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos) antes de la colección: sin eso, "31 El recepcionista
+lista las sucursales" recibe 403 `FORBIDDEN`.
+
+**Se corre más de una vez sin recrear la base.** Su rango de corrida es de 100000 a 199998 y el número va en los códigos y los
+nombres de la corrida. El pedido 02 busca dos códigos de establecimiento libres en todas las páginas del listado, y al terminar la
+sucursal original vuelve a ser la por defecto. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva, que ocupa
+un código de establecimiento (hay 999).
+
+**Usuarios.** `admin-a@example.com` (`{{token_admin}}`), `recepcion-a@example.com` (`{{token}}`) y `admin-b@example.com`
+(`{{token_b}}`, para tomar una sucursal de la clínica B).
+
+**Lo que no está en la colección.** El establecimiento de una sucursal con facturas (422 `BRANCH_ESTABLISHMENT_NOT_EDITABLE`): la
+API todavía no crea facturas. Los usuarios que pierden la sucursal actual al inactivarla (elegir otra con `PATCH me/current-branch`
+está en la colección de usuarios, desde la 2.2b). La concurrencia y el orden de los bloqueos. Lo prueban `BranchUpdateTest` y
+`BranchLockTest`.
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-sucursales.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Usuarios (2.2a y 2.2b)
+
+**Necesita internet.** Los emails de la corrida son `@mailinator.com`, y la validación del email consulta su registro MX
+(`EMAIL_DNS_CHECK`, como la de los clientes): sin conexión, el alta responde 422 en `email`. No hace falta volver a sembrar los
+roles: la 2.2a y la 2.2b no cambian permisos.
+
+**Migrar la base antes de correrla.** La 2.2b suma la columna `users.is_active`: en una base creada antes, correr
+`php artisan migrate` (no hace falta recrearla). Sin la columna, los pedidos de la 2.2b fallan.
+
+**53 requests.** La primera corrida en una base suma uno (54): crea la sucursal `SUC-USR`.
+
+**Se corre más de una vez sin recrear la base.** Su rango de corrida es de 200000 a 299998, que no usa ninguna otra colección; el
+número va en el email y en la contraseña del usuario de la corrida. La primera corrida crea la sucursal `SUC-USR` y las siguientes
+la reusan (si quedó inactiva, la activan); ocupa un código de establecimiento. No deja usuarios: la corrida da de baja a los dos que crea (pedidos 47 y 50).
+
+**Un solo administrador en la clínica A.** El pedido 16 (409 `USER_LAST_ADMIN`) necesita que `admin-a@example.com` sea el único
+administrador activo de la clínica A. Si se agregó otro a mano, el pedido 15 lo avisa: sacarle el rol antes de correrla.
+
+**Un veterinario con ficha.** La baja con uso (pedido 45) usa a `vet-a@example.com`, que tiene ficha de veterinario porque la crea
+el `DemoSeeder`.
+
+**Usuarios.** `admin-a@example.com` (`{{token_admin}}`), `recepcion-a@example.com` (`{{token}}`) y `admin-b@example.com`
+(`{{token_b}}`, para tomar un usuario de la clínica B).
+
+**Lo que no está en la colección.** La concurrencia y el orden de los bloqueos (`UserLockTest`), el email tomado entre el chequeo y
+el guardado (`UserStoreTest`), el usuario sin sucursal actual que recibe sucursales (`UserUpdateTest`), el límite de intentos de
+`me/password` (`OwnPasswordTest`), el token vigente de un usuario inactivo (`InactiveUserTokenTest`), la baja con un registro a su
+nombre en una tabla de negocio (`UserDeleteTest`) y el límite de intentos del login de un inactivo (`LoginInactiveUserTest`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-usuarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Veterinarios (2.3)
+
+**Migrar la base antes de correrla.** La 2.3 amplía `veterinarians.license_number` a 60 caracteres: en una base creada antes, correr
+`php artisan migrate` (no hace falta recrearla). No hace falta volver a sembrar los roles: la 2.3 no cambia permisos.
+
+**Necesita internet.** El email del usuario de la corrida es `@mailinator.com` y la validación del email consulta su registro MX
+(`EMAIL_DNS_CHECK`); la contraseña se revisa en Have I Been Pwned.
+
+**Necesita el `DemoSeeder`.** El pedido 03 toma la matrícula de la ficha de `vet-a@example.com` (para la matrícula repetida, también
+en minúsculas, pedidos 05b y 08), y el 05 usa a `recepcion-a@example.com` como usuario sin el rol `veterinario`.
+
+**32 requests.**
+
+**Se corre más de una vez sin recrear la base.** Su rango de corrida es de 300000 a 399998, que no usa ninguna otra colección; el
+número va en el email y la contraseña del usuario de la corrida y en la matrícula de su ficha. **Cada corrida deja un usuario inactivo
+y una ficha eliminada:** la corrida crea su usuario con el rol `veterinario` y su ficha, y al final elimina la ficha e inactiva al
+usuario. El usuario no se puede eliminar, porque la ficha eliminada cuenta como uso (409 `USER_IN_USE`, pedido 26).
+
+**Usuarios.** `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`).
+
+**Lo que no está en la colección.** La baja de un veterinario con uso (409 `VETERINARIAN_IN_USE`): la API todavía no crea agendas,
+turnos ni consultas, y ninguna ficha de la demo tiene uso. La cubre `VeterinarianDeleteTest`, y se suma a Postman en la FASE 3, con
+las agendas (anotado en el [documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md)). También la concurrencia y el orden de los
+bloqueos (`VeterinarianLockTest`), el índice único como respaldo de la matrícula y el Service sin el Form Request
+(`VeterinarianRestoreTest`), y la bajada de la migración (`VeterinarianLicenseMigrationTest`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-veterinarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Servicios (2.4)
+
+**Sin migrar ni volver a sembrar.** La 2.4 no tiene migraciones ni permisos nuevos.
+
+**Necesita el `DemoSeeder`.** Usa `admin-a@example.com` y `recepcion-a@example.com`. No necesita internet: no da de alta usuarios.
+
+**27 requests y 64 pruebas.**
+
+**Se corre más de una vez sin recrear la base.** No tiene rango de corrida propio (las otras colecciones ya usan los de seis dígitos):
+el número de la corrida va solo en los nombres de sus servicios ("Ecografía Postman `<run>`", "Castración macho/hembra `<run>`"), que
+ninguna otra colección crea. **No deja servicios activos:** cada corrida da de baja sus tres servicios (pedidos 21, 24 y 26), que
+quedan eliminados con el sufijo de baja en el nombre, así que los nombres quedan libres.
+
+**Usuarios.** `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`).
+
+**Lo que no está en la colección.** Un servicio usado: la baja (409 `SERVICE_IN_USE`) y el cambio de nombre (422
+`SERVICE_NAME_NOT_EDITABLE`). La API todavía no crea agendas, turnos ni consultas; los cubren `ServiceDeleteTest` y
+`ServiceUpdateTest`, y se suman a Postman en la FASE 3 (anotado en el [documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md)).
+También la concurrencia y el orden de los bloqueos (`ServiceLockTest`), el índice único como respaldo del nombre y el código repetido
+(409 `DOCUMENT_CODE_CONFLICT`) (`ServiceStoreTest`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-servicios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Configuración de la clínica y logo (2.5)
+
+**Volver a sembrar los roles.** La 2.5 suma cuatro permisos (`system-settings.show`, `system-settings.upload-logo`,
+`system-settings.show-logo` y `system-settings.delete-logo`; 123 → 127), y el recepcionista y el veterinario reciben `show` y
+`show-logo`. Si la base no se recrea, correr `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos) antes de la
+colección: sin eso, la lectura de la configuración y la descarga del logo responden 403 `FORBIDDEN`. No hay migraciones.
+
+**Necesita el `DemoSeeder`.** Usa `admin-a@example.com` (`{{token_admin}}`), `recepcion-a@example.com` (`{{token}}`) y
+`vet-a@example.com` (`{{token_vet}}`).
+
+**Necesita internet.** El correo de contacto de la corrida es `@mailinator.com` y su validación consulta el registro MX
+(`EMAIL_DNS_CHECK`, como la de los clientes): sin conexión, la edición responde 422 en `settings.contact_email`.
+
+**Los archivos.** Sube tres archivos de [`postman/archivos`](postman/archivos), con la ruta relativa a la raíz del repositorio:
+`logo-clinica.png` y `logo-clinica.webp` (el mismo logo de 160 × 80 en PNG y en WEBP) y `no-es-imagen.jpg` (un texto, el de la
+colección de la foto). La carpeta de trabajo de Postman tiene que ser la del repositorio, como en la colección de la foto (FASE 1,
+arriba); Newman se corre desde esa carpeta.
+
+**24 requests y 67 pruebas.**
+
+**Deja la clínica como estaba.** El pedido 02 guarda los datos y las claves de la clínica A y el 22 los restaura al final; el logo
+que sube lo borra (pedido 19). Si la clínica A ya tiene logo (subido a mano), la colección se detiene en el pedido 02 sin tocar
+nada: borrarlo antes con `DELETE system-settings/logo`. Se corre más de una vez sin recrear la base: no tiene rango de corrida
+propio; el número de la corrida va solo en los valores que escribe (el nombre, el correo de contacto), que el pedido 22 vuelve a
+dejar como estaban.
+
+**Lo que no está en la colección.** El logo de más de 2 MB y el que PHP corta (413 `PAYLOAD_TOO_LARGE`), una imagen de más de 25
+megapíxeles, el EXIF quitado, una ruta del logo fuera de la carpeta de la clínica (404 al verlo; borrarlo limpia la referencia) y el
+logo de otra clínica (`ClinicLogoTest`); una clave desconocida cargada en la base, la marca del `DemoSeeder`, una clave en otras
+mayúsculas y la auditoría (`SystemSettingsTest` y `ClinicLogoTest`); la concurrencia y el orden de los bloqueos (los dos); y la
+limpieza de archivos huérfanos (`PruneOrphanFilesTest`; a mano, con `php artisan files:prune-orphans --dry-run`,
+[`development/setup.md`](../development/setup.md)).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-configuracion.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+#### Auditoría (2.6)
+
+**Necesita el `DemoSeeder`.** Usa `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`). No hay que
+migrar ni volver a sembrar los roles: la 2.6 no tiene migraciones ni permisos nuevos (`audit-logs.index` y `audit-logs.show` ya
+existían y solo los tiene el administrador). No sube archivos y no necesita internet.
+
+**16 requests y 47 pruebas.**
+
+**Genera sus propios registros.** Edita las notas de un cliente de la clínica A y las vuelve a dejar como estaban (dos registros
+`updated`), y filtra desde el comienzo de la corrida (unos segundos antes, `{{from_z}}`), así que no depende de los registros
+anteriores. `{{from_local}}` y `{{today_local}}` son el mismo momento y el mismo día en la hora de Asunción, calculados con UTC-3
+(Paraguay no tiene horario de verano desde el 15/10/2024). La fecha sola del pedido 07 es el día de hoy en Asunción: corrida justo
+antes de la medianoche de Asunción, puede quedar fuera un registro.
+
+**Se corre más de una vez sin recrear la base.** No deja cambios en los datos; los registros de auditoría quedan, porque son
+inmutables.
+
+**La zona horaria del servidor.** El filtro con la fecha sin zona y la fecha sola dependen de que PHP tenga la base de zonas 2025a o
+posterior ([`development/setup.md`](../development/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)): con una más vieja, de
+marzo a octubre la hora de Asunción queda corrida una hora y esos pedidos fallan.
+
+**Lo que no está en la colección.** Un registro de otra clínica o un `LOGIN_FAILED` sin clínica (404), `search` literal, el usuario
+eliminado, `from` con fracción de segundo, las horas y los desplazamientos fuera de rango, la paginación y el veterinario (403)
+(`AuditLogIndexTest` y `AuditLogShowTest`); los registros viejos con la ruta de la foto o del logo (`AuditLogShowTest`); y las fechas
+con hora del cast `AppDateTime` (`AppDateTimeTest`). La regresión de `deceased_at` (deuda 13) se valida con la colección de
+pacientes de la FASE 1 (`syncvet-fase-01-pacientes`).
+
+**Con Newman.**
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-02-auditoria.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```

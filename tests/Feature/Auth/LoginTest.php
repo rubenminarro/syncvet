@@ -40,7 +40,7 @@ class LoginTest extends TestCase
             ->assertJsonPath('data.expires_at', now()->addHours(12)->toISOString())
             ->assertJsonPath('data.user.id', $user->id)
             ->assertJsonPath('data.user.email', $user->email)
-            ->assertJsonPath('data.user.clinic', ['id' => $clinic->id, 'name' => 'Veterinaria Norte'])
+            ->assertJsonPath('data.user.clinic', ['id' => $clinic->id, 'name' => 'Veterinaria Norte', 'has_logo' => false])
             ->assertJsonPath('data.user.roles', [$role])
             ->assertJsonStructure(['data' => [
                 'token', 'token_type', 'expires_at',

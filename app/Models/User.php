@@ -27,6 +27,7 @@ use Spatie\Permission\Traits\HasRoles;
  *   usuario de otra clínica responde 404.
  *
  * clinic_id no va en $fillable: lo fija ClinicService (o el alta de usuarios).
+ * is_active tampoco: lo cambia UserService (FASE 2, entrega 2.2b).
  */
 class User extends Authenticatable
 {
@@ -43,6 +44,13 @@ class User extends Authenticatable
         'current_branch_id',
     ];
 
+    /**
+     * Activo por defecto, como la columna: un usuario recién creado ya lo muestra.
+     */
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -50,17 +58,25 @@ class User extends Authenticatable
 
     /**
      * Un usuario eliminado pierde sus sesiones: si después se restaura, sus tokens
-     * viejos no vuelven a valer.
+     * viejos no vuelven a valer. Lo mismo al inactivarlo (P1, entrega 2.2b):
+     * reactivarlo no se los devuelve.
      */
     protected static function booted(): void
     {
         static::deleted(fn (User $user) => $user->tokens()->delete());
+
+        static::updated(function (User $user) {
+            if ($user->wasChanged('is_active') && ! $user->is_active) {
+                $user->tokens()->delete();
+            }
+        });
     }
 
     protected function casts(): array
     {
         return [
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -99,6 +115,14 @@ class User extends Authenticatable
     public function resolveRouteBinding($value, $field = null)
     {
         return $this->resolveRouteBindingQuery($this->newQuery()->inClinic(), $value, $field)->first();
+    }
+
+    /**
+     * Usuarios activos (entrega 2.2b).
+     */
+    public function scopeActive(Builder $query): void
+    {
+        $query->where($this->qualifyColumn('is_active'), true);
     }
 
     public function veterinarian(): HasOne

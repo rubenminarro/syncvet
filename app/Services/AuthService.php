@@ -5,11 +5,16 @@ namespace App\Services;
 use App\Enums\AuditEvent;
 use App\Exceptions\AuthException;
 use App\Exceptions\ClinicException;
+use App\Http\Requests\UpdateCurrentBranchRequest;
+use App\Models\Branch;
 use App\Models\User;
 use App\Support\CurrentClinic;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Login y logout con tokens de Sanctum (FASE 0, entrega 0.3, registro R-004).
@@ -23,6 +28,12 @@ use Illuminate\Support\Facades\RateLimiter;
  *   usuario puede tener varios vigentes. El logout revoca solo el actual.
  * - Clínica suspendida: 403 CLINIC_NOT_AVAILABLE, no se crea el token y queda
  *   LOGIN_FAILED con el motivo; no cuenta como intento fallido.
+ * - Usuario inactivo (FASE 2, entrega 2.2b): con la contraseña correcta, 403
+ *   USER_INACTIVE, sin token, LOGIN_FAILED con el motivo y sin contar como intento
+ *   fallido; se revisa después de la clínica suspendida. Con una incorrecta, el
+ *   INVALID_CREDENTIALS de siempre: no revela que la cuenta existe.
+ * - Perfil (2.2b): la sucursal actual y la contraseña propia, con su propio límite
+ *   de intentos (5 por minuto por usuario).
  * - La contraseña lleva #[\SensitiveParameter]: no aparece en las trazas.
  */
 class AuthService
@@ -36,6 +47,16 @@ class AuthService
      * está suspendida.
      */
     public const REASON_CLINIC_SUSPENDED = 'clínica suspendida';
+
+    /**
+     * Motivo de LOGIN_FAILED cuando las credenciales son correctas pero el usuario
+     * está inactivo (2.2b).
+     */
+    public const REASON_USER_INACTIVE = 'usuario inactivo';
+
+    public const USER_INACTIVE_MESSAGE = 'Tu usuario está inactivo: consultá con el administrador de la clínica.';
+
+    public const WRONG_CURRENT_PASSWORD = 'La contraseña actual no es correcta.';
 
     /**
      * Hash de relleno: se verifica cuando no hay usuario, para que el tiempo de
@@ -77,15 +98,7 @@ class AuthService
         $attempts = RateLimiter::hit($key, self::DECAY_SECONDS);
 
         if ($attempts > self::MAX_ATTEMPTS) {
-            $seconds = RateLimiter::availableIn($key);
-
-            throw new AuthException(
-                "Demasiados intentos. Probá de nuevo en {$seconds} segundos.",
-                429,
-                'AUTH_TOO_MANY_ATTEMPTS',
-                null,
-                ['Retry-After' => (string) $seconds]
-            );
+            throw self::tooManyAttempts(RateLimiter::availableIn($key));
         }
 
         // Siempre se verifica una contraseña, aunque el usuario no exista.
@@ -103,6 +116,14 @@ class AuthService
             $this->audit->record(AuditEvent::LOGIN_FAILED, null, null, ['email' => $email, 'reason' => self::REASON_CLINIC_SUSPENDED], $user);
 
             throw new ClinicException('La clínica no está disponible.', 403, 'CLINIC_NOT_AVAILABLE');
+        }
+
+        // Usuario inactivo (2.2b): como la clínica suspendida, no cuenta como intento.
+        if (! $user->is_active) {
+            RateLimiter::decrement($key, self::DECAY_SECONDS);
+            $this->audit->record(AuditEvent::LOGIN_FAILED, null, null, ['email' => $email, 'reason' => self::REASON_USER_INACTIVE], $user);
+
+            throw self::userInactive();
         }
 
         RateLimiter::clear($key);
@@ -131,6 +152,89 @@ class AuthService
         $user->currentAccessToken()->delete();
 
         $this->audit->record(AuditEvent::LOGOUT, null, null, null, $user);
+    }
+
+    /**
+     * Sucursal actual del usuario autenticado (2.2b): una sucursal activa de la clínica
+     * asignada al usuario, revisada otra vez con la clínica bloqueada (una inactivada
+     * después de la validación → 422). Orden de bloqueo: clínica → sucursal → usuario,
+     * como la inactivación de una sucursal.
+     */
+    public function setCurrentBranch(User $user, int $branchId): User
+    {
+        DB::transaction(function () use ($user, $branchId) {
+            CatalogLock::forCurrentClinic();
+
+            $available = Branch::query()
+                ->whereKey($branchId)
+                ->where('is_active', true)
+                ->whereHas('users', fn ($query) => $query->whereKey($user->getKey()))
+                ->lockForUpdate()
+                ->first() !== null;
+
+            if (! $available) {
+                throw ValidationException::withMessages(['branch_id' => UpdateCurrentBranchRequest::BRANCH_NOT_AVAILABLE]);
+            }
+
+            $locked = User::query()->inClinic()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            $locked->current_branch_id = $branchId;
+            $locked->save();
+        });
+
+        return $this->profile($user->refresh());
+    }
+
+    /**
+     * Cambio de la contraseña propia (2.2b, pregunta 20). Límite: 5 intentos por minuto
+     * por usuario, contados antes de verificar (como el login: una ráfaga no pasa junta);
+     * el sexto responde 429 aunque la actual sea correcta, y un cambio correcto limpia el
+     * contador. La actual incorrecta → 422 en current_password. Conserva el token del
+     * pedido y revoca los demás del usuario.
+     */
+    public function changeOwnPassword(User $user, #[\SensitiveParameter] string $current, #[\SensitiveParameter] string $new): void
+    {
+        $key = "own-password:user:{$user->getKey()}";
+        $attempts = RateLimiter::hit($key, self::DECAY_SECONDS);
+
+        if ($attempts > self::MAX_ATTEMPTS) {
+            throw self::tooManyAttempts(RateLimiter::availableIn($key));
+        }
+
+        if (! Hash::check($current, $user->password)) {
+            throw ValidationException::withMessages(['current_password' => self::WRONG_CURRENT_PASSWORD]);
+        }
+
+        RateLimiter::clear($key);
+
+        $token = $user->currentAccessToken();
+
+        DB::transaction(function () use ($user, $new, $token) {
+            $user->password = $new;
+            $user->save();
+
+            $user->tokens()
+                ->when($token instanceof PersonalAccessToken, fn ($query) => $query->whereKeyNot($token->getKey()))
+                ->delete();
+        });
+    }
+
+    /**
+     * 403 de un usuario inactivo: en el login y, con un token vigente, en SetCurrentClinic.
+     */
+    public static function userInactive(): AuthException
+    {
+        return new AuthException(self::USER_INACTIVE_MESSAGE, 403, 'USER_INACTIVE');
+    }
+
+    private static function tooManyAttempts(int $seconds): AuthException
+    {
+        return new AuthException(
+            "Demasiados intentos. Probá de nuevo en {$seconds} segundos.",
+            429,
+            'AUTH_TOO_MANY_ATTEMPTS',
+            null,
+            ['Retry-After' => (string) $seconds]
+        );
     }
 
     /**

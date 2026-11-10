@@ -109,7 +109,11 @@
         "species.index",
         "species.store",
         "species.update",
+        "system-settings.delete-logo",
+        "system-settings.show",
+        "system-settings.show-logo",
         "system-settings.update",
+        "system-settings.upload-logo",
         "users.destroy",
         "users.index",
         "users.show",
@@ -132,6 +136,7 @@
         "appointments.show",
         "appointments.store",
         "appointments.update",
+        "branches.index",
         "cash-movements.store",
         "cash-registers.close",
         "cash-registers.index",
@@ -176,12 +181,15 @@
         "services.index",
         "services.show",
         "species.index",
+        "system-settings.show",
+        "system-settings.show-logo",
         "veterinarians.index"
     ],
     "veterinario": [
         "appointments.check-in",
         "appointments.index",
         "appointments.show",
+        "branches.index",
         "clients.index",
         "clients.show",
         "clients.store",
@@ -225,6 +233,8 @@
         "species.index",
         "species.store",
         "species.update",
+        "system-settings.show",
+        "system-settings.show-logo",
         "veterinarians.index"
     ]
 }

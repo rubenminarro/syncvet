@@ -3,9 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Enums\PatientSex;
+use App\Support\ApiDateTime;
 use App\Support\CurrentClinic;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Validator;
@@ -68,7 +68,7 @@ class UpdatePatientRequest extends FormRequest
                     ? $this->input('birth_date')
                     : $this->route('patient')->birth_date?->toDateString();
 
-                $deceasedOn = Date::parse($this->input('deceased_at'))->setTimezone(config('app.timezone'))->toDateString();
+                $deceasedOn = ApiDateTime::toLocal($this->input('deceased_at'))->toDateString();
 
                 if ($birthDate !== null && $deceasedOn < $birthDate) {
                     $validator->errors()->add('deceased_at', PatientMessages::DECEASED_BEFORE_BIRTH);

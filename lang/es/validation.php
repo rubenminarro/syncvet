@@ -210,15 +210,62 @@ return [
         // Especies y razas
         'is_active' => 'activo',
 
+        // Sucursales y depósitos
+        'establishment' => 'código de establecimiento',
+        'is_default' => 'por defecto',
+        'warehouse_code' => 'código del depósito',
+        'warehouse_name' => 'nombre del depósito',
+        'branch_id' => 'sucursal',
+
         // Autenticación
         'password' => 'contraseña',
+        'current_password' => 'contraseña actual',
+
+        // Usuarios (los elementos de una lista, con su comodín)
+        'roles' => 'roles',
+        'roles.*' => 'rol',
+        'role' => 'rol',
+        'branch_ids' => 'sucursales',
+        'branch_ids.*' => 'sucursal',
+
+        // Veterinarios
+        'user_id' => 'usuario',
+        'license_number' => 'matrícula',
+        'specialty' => 'especialidad',
+        'commission_percentage' => 'comisión',
+        'status' => 'estado',
+
+        // Servicios
+        'category' => 'categoría',
+        'description' => 'descripción',
+        'duration_minutes' => 'duración',
+        'standard_price' => 'precio',
+        'tax_rate' => 'tasa de IVA',
+
+        // Configuración de la clínica (FASE 2, entrega 2.5)
+        'legal_name' => 'razón social',
+        'ruc' => 'RUC',
+        'ruc_dv' => 'dígito verificador del RUC',
+        'settings' => 'configuración',
+        'settings.contact_email' => 'correo de contacto',
+        'settings.contact_phone' => 'teléfono de contacto',
+        'settings.website' => 'sitio web',
+        'settings.document_footer' => 'pie de recetas y comprobantes',
+        'logo' => 'logo',
 
         // Filtros de los listados
         'include_deceased' => 'incluir fallecidos',
-        'include_inactive' => 'incluir inactivas',
+        'include_inactive' => 'incluir los inactivos',
         'search' => 'búsqueda',
         'per_page' => 'resultados por página',
         'page' => 'página',
+
+        // Filtros de la auditoría (FASE 2, entrega 2.6)
+        'from' => 'desde',
+        'to' => 'hasta',
+        'event' => 'evento',
+        'auditable_type' => 'tipo de registro',
+        'auditable_id' => 'id del registro',
     ],
 
 ];

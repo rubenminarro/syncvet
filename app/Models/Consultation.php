@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ConsultationStatus;
 use App\Traits\Auditable;
@@ -45,12 +46,12 @@ class Consultation extends Model
     protected function casts(): array
     {
         return [
-            'consulted_at' => 'datetime',
+            'consulted_at' => AppDateTime::class,
             'weight_kg' => 'decimal:2',
             'temperature_c' => 'decimal:2',
             'status' => ConsultationStatus::class,
-            'closed_at' => 'datetime',
-            'cancelled_at' => 'datetime',
+            'closed_at' => AppDateTime::class,
+            'cancelled_at' => AppDateTime::class,
         ];
     }
 

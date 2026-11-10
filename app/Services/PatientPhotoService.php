@@ -4,14 +4,9 @@ namespace App\Services;
 
 use App\Exceptions\PatientException;
 use App\Models\Patient;
-use Illuminate\Contracts\Filesystem\Filesystem;
+use App\Support\PrivateImageStore;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Throwable;
 
 /**
  * Foto del paciente (FASE 1, entrega 1.5). Disco propio `patient_photos` (privado,
@@ -25,11 +20,14 @@ use Throwable;
  * El cambio de photo_path va en una transacción con la fila del paciente bloqueada
  * (dos subidas simultáneas no dejan un archivo huérfano). El archivo anterior se
  * borra después del commit; si la transacción falla, se borra el nuevo. Un borrado
- * que falla queda en el log (deuda 14: no hay limpieza de huérfanos).
+ * que falla queda en el log, y lo levanta files:prune-orphans (deuda 14).
  *
  * photo_path solo se usa si está en la carpeta del paciente: otro valor (no lo
  * escribe la API; R-027) responde 404 al verla o borrarla, no se borra al
  * reemplazarla, y queda en el log.
+ *
+ * Lo común con el logo de la clínica (guardar, reemplazar, validar la ruta y
+ * descargar) está en PrivateImageStore (FASE 2, entrega 2.5).
  */
 class PatientPhotoService
 {
@@ -40,40 +38,21 @@ class PatientPhotoService
     /**
      * Tipo detectado → extensión del archivo guardado.
      */
-    public const EXTENSIONS = [
-        'image/jpeg' => 'jpg',
-        'image/png' => 'png',
-        'image/webp' => 'webp',
-    ];
+    public const EXTENSIONS = PrivateImageStore::EXTENSIONS;
 
     /**
      * $contents: la imagen ya codificada de nuevo; $mimeType: el tipo detectado.
      */
     public function upload(Patient $patient, string $contents, string $mimeType): Patient
     {
-        $path = $this->folder($patient) . Str::uuid() . '.' . self::EXTENSIONS[$mimeType];
+        $this->store()->replace($this->folder($patient), $contents, $mimeType, $this->context($patient), function (string $path) use ($patient) {
+            $previous = $this->lockedPhotoPath($patient);
 
-        if (! $this->disk()->put($path, $contents)) {
-            // Falla del disco, no de negocio: un 500 genérico, y se reporta.
-            throw new RuntimeException("No se pudo guardar la foto del paciente {$patient->id}.");
-        }
+            $patient->photo_path = $path;
+            $patient->save();
 
-        try {
-            DB::transaction(function () use ($patient, $path) {
-                $previous = $this->lockedPhotoPath($patient);
-
-                $patient->photo_path = $path;
-                $patient->save();
-
-                if ($previous !== null && $this->belongsTo($patient, $previous)) {
-                    $this->deleteAfterCommit($patient, $previous);
-                }
-            });
-        } catch (Throwable $e) {
-            $this->deleteOrWarn($patient, $path, 'la subida falló');
-
-            throw $e;
-        }
+            return $previous;
+        });
 
         return $patient;
     }
@@ -83,14 +62,14 @@ class PatientPhotoService
         DB::transaction(function () use ($patient) {
             $previous = $this->lockedPhotoPath($patient);
 
-            if ($previous === null || ! $this->belongsTo($patient, $previous)) {
+            if ($previous === null || ! $this->store()->owns($this->folder($patient), $previous, $this->context($patient))) {
                 throw $this->notFound();
             }
 
             $patient->photo_path = null;
             $patient->save();
 
-            $this->deleteAfterCommit($patient, $previous);
+            $this->store()->deleteAfterCommit($previous, $this->context($patient));
         });
 
         return $patient;
@@ -104,50 +83,19 @@ class PatientPhotoService
     {
         $path = $patient->photo_path;
 
-        if ($path === null || ! $this->belongsTo($patient, $path)) {
+        if ($path === null || ! $this->store()->owns($this->folder($patient), $path, $this->context($patient))) {
             throw $this->notFound();
         }
 
-        if (! $this->disk()->exists($path)) {
-            Log::warning('Foto de paciente sin archivo en el disco.', $this->context($patient, $path));
-
-            throw $this->notFound();
-        }
-
-        $extension = pathinfo($path, PATHINFO_EXTENSION);
-        $type = array_search($extension, self::EXTENSIONS, true) ?: 'application/octet-stream';
-
-        return $this->disk()->response($path, "{$patient->code}.{$extension}", [
-            'Content-Type' => $type,
-            'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'; sandbox",
-            'Cache-Control' => 'private, no-store',
-        ], 'inline');
+        return $this->store()->response($path, $patient->code, $this->context($patient)) ?? throw $this->notFound();
     }
 
     /**
      * clinics/{clinic_id}/patients/{patient_id}/, con la barra final.
      */
-    private function folder(Patient $patient): string
+    public static function folder(Patient $patient): string
     {
         return "clinics/{$patient->clinic_id}/patients/{$patient->id}/";
-    }
-
-    /**
-     * true si la ruta es un archivo de la carpeta del paciente; si no, lo registra.
-     */
-    private function belongsTo(Patient $patient, string $path): bool
-    {
-        $folder = $this->folder($patient);
-        $name = substr($path, strlen($folder));
-
-        if (str_starts_with($path, $folder) && preg_match('/^[0-9a-f-]{36}\.(jpg|png|webp)$/', $name) === 1) {
-            return true;
-        }
-
-        Log::warning('Foto de paciente con una ruta fuera de su carpeta.', $this->context($patient, $path));
-
-        return false;
     }
 
     /**
@@ -159,33 +107,13 @@ class PatientPhotoService
     }
 
     /**
-     * Si la transacción se revierte, el archivo anterior queda: sigue siendo la foto.
-     */
-    private function deleteAfterCommit(Patient $patient, string $path): void
-    {
-        DB::afterCommit(fn () => $this->deleteOrWarn($patient, $path, 'después del commit'));
-    }
-
-    /**
-     * El disco no lanza excepciones (`throw` => false): un borrado que falla
-     * devuelve false y deja el archivo huérfano. Queda en el log (deuda 14).
-     */
-    private function deleteOrWarn(Patient $patient, string $path, string $moment): void
-    {
-        if (! $this->disk()->delete($path)) {
-            Log::warning("No se pudo borrar un archivo de foto de paciente ({$moment}).", $this->context($patient, $path));
-        }
-    }
-
-    /**
      * @return array<string, mixed>
      */
-    private function context(Patient $patient, string $path): array
+    private function context(Patient $patient): array
     {
         return [
             'clinic_id' => $patient->clinic_id,
             'patient_id' => $patient->id,
-            'photo_path' => $path,
         ];
     }
 
@@ -194,8 +122,8 @@ class PatientPhotoService
         return new PatientException(self::NOT_FOUND, 404, 'PATIENT_PHOTO_NOT_FOUND');
     }
 
-    private function disk(): Filesystem
+    private function store(): PrivateImageStore
     {
-        return Storage::disk(self::DISK);
+        return new PrivateImageStore(self::DISK, 'Foto de paciente', 'photo_path');
     }
 }

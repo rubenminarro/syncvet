@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\ClientNotificationStatus;
 use App\Enums\NotificationChannel;
@@ -38,7 +39,7 @@ class ClientNotification extends Model
             'channel' => NotificationChannel::class,
             'variables' => 'array',
             'status' => ClientNotificationStatus::class,
-            'sent_at' => 'datetime',
+            'sent_at' => AppDateTime::class,
         ];
     }
 

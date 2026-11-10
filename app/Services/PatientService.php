@@ -10,9 +10,7 @@ use App\Models\Client;
 use App\Models\Patient;
 use App\Models\Species;
 use App\Support\DeletedSuffix;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,10 +42,8 @@ class PatientService
     {
         $this->ensureNotDeceased($patient, $data);
 
-        if (! empty($data['deceased_at'])) {
-            $data['deceased_at'] = $this->toAppTimezone($data['deceased_at']);
-        }
-
+        // deceased_at llega en UTC (o con su desplazamiento): el cast AppDateTime lo guarda
+        // en la hora de Asunción (FASE 2, entrega 2.6; deuda 13).
         return DB::transaction(function () use ($patient, $data) {
             $this->lockCatalog(
                 $data['species_id'] ?? $patient->species_id,
@@ -122,17 +118,6 @@ class PatientService
 
             $patient->delete();
         });
-    }
-
-    /**
-     * La API recibe las fechas con hora en UTC ("Z") o con su desplazamiento; la
-     * base guarda la hora de America/Asuncion. Sin convertir, el cast del modelo
-     * guardaba la hora UTC como si fuera local (3 horas corrida). Deuda 13: llevar
-     * la conversión de todas las fechas con hora a un lugar común antes de la FASE 3.
-     */
-    private function toAppTimezone(string $value): CarbonInterface
-    {
-        return Date::parse($value)->setTimezone(config('app.timezone'));
     }
 
     private function ensureBreedMatchesSpecies(int $speciesId, ?int $breedId): void

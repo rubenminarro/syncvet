@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
@@ -40,7 +41,7 @@ class Payment extends Model
             'cash_change' => 'decimal:2',
             'method' => PaymentMethod::class,
             'status' => PaymentStatus::class,
-            'cancelled_at' => 'datetime',
+            'cancelled_at' => AppDateTime::class,
         ];
     }
 

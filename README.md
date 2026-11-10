@@ -2,24 +2,24 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en `CLAUDE.md`.
 
-Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; sigue la FASE 2, datos maestros. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes) y FASE 2 (datos maestros) completadas; sigue la FASE 3, agenda y turnos. El estado de cada fase está en
 [`docs/roadmap/README.md`](docs/roadmap/README.md) y el punto de continuidad, en [`docs/handoff.md`](docs/handoff.md).
 
 ## Qué incluye
 
 | Carpeta | Contenido |
 |---|---|
-| `database/migrations` | 32 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4). `clinic_id` en las tablas de negocio (D1) |
-| `app/Enums` | 34 enums (estados y tipos) con `label()` en español |
-| `app/Models` | 34 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog` |
-| `app/Exceptions` | `AppException`, 14 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
-| `app/Services` | `AuthService`, `ClientService`, `PatientService`, `ClinicService`, `DocumentSequenceService`, `AuditLogger` |
-| `app/Http` | Controllers, Requests y Resources de autenticación, clientes, pacientes, y especies y razas; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
-| `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas) y `PwnedPasswordsVerifier` |
-| `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador |
+| `database/migrations` | 34 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4), `users.is_active` (FASE 2, entrega 2.2b) y la matrícula del veterinario ampliada a 60 (entrega 2.3). `clinic_id` en las tablas de negocio (D1) |
+| `app/Enums` | 36 enums (estados y tipos) con `label()` en español |
+| `app/Models` | 35 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog`; las fechas con hora con el cast `AppDateTime` |
+| `app/Exceptions` | `AppException`, 16 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
+| `app/Services` | Reglas de negocio de autenticación, clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios, veterinarios, servicios, la configuración y el logo, y la limpieza de archivos huérfanos; `ClinicService`, `CatalogLock`, `DocumentSequenceService` y `AuditLogger` |
+| `app/Http` | Controllers, Requests y Resources de autenticación y perfil, clientes, pacientes, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración de la clínica y la auditoría; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
+| `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
+| `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | Rutas de autenticación (`login`, `logout`, `me`), clientes, pacientes, y especies y razas |
-| `database/seeders` | `RolesAndPermissionsSeeder` (123 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
+| `routes/api.php` | 58 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, y la auditoría |
+| `database/seeders` | `RolesAndPermissionsSeeder` (127 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
 
@@ -41,25 +41,28 @@ Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; s
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 32 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 34 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: lo reemplazan la verificación en MySQL de la entrega 0.5 y
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
-* Los 123 permisos de los Controllers y de los roles existen en el seeder.
+* Los 127 permisos de los Controllers y de los roles existen en el seeder.
 
 La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y de las rutas, y las respuestas de error en JSON
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);
 `clinic:create`, el `DemoSeeder` y la regla de contraseñas (`tests/Feature/Console`, `Seeders`, `Security` y `tests/Unit`, 0.4); y el
 acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo ficticios (`tests/Feature/Access` y `Database`,
-0.5). Los Form Requests y las reglas de negocio de clientes y pacientes todavía no tienen tests funcionales (deuda técnica #1).
+0.5); cada regla de clientes, pacientes, especies y razas (FASE 1) y de sucursales y depósitos, usuarios, veterinarios, servicios,
+la configuración y la auditoría (FASE 2), con los mensajes en voseo y las fechas con hora. Al cierre de la FASE 2: 988 casos, en
+SQLite y en MySQL ([cierre](docs/fases/fase-02-datos-maestros.md#cierre-de-la-fase-2)).
 
 ## Instalación
 
 Proyecto Laravel 13 con Sanctum 4 y spatie/laravel-permission 8 (entrega 0.1 de la FASE 0). Requisitos: PHP 8.3+ con `bcmath`,
-`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md));
-Composer; MySQL 8.
+`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md)),
+y la base de zonas horarias 2025a o posterior (Paraguay en UTC-3 todo el año; en Laragon, la extensión `timezonedb`,
+[`setup.md`](docs/development/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)); Composer; MySQL 8.
 
 ```bash
 git clone https://github.com/rubenminarro/syncvet.git

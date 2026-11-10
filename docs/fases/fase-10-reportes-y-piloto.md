@@ -16,7 +16,7 @@ El diseño (paso 2) completa cada entrega con reglas de negocio, datos, endpoint
 | 10.2 | Dashboard | PENDIENTE |
 | 10.3 | Datos de ejemplo por escenarios | PENDIENTE |
 | 10.4 | Límite de intentos en el login y revisión de seguridad | PENDIENTE |
-| 10.5 | Despliegue y respaldos (D7), con la caché en Redis (deuda 6: límite del login en ráfagas) | PENDIENTE |
+| 10.5 | Despliegue y respaldos (D7), con la caché en Redis (deuda 6: límite del login en ráfagas) y el cron del *scheduler* (`php artisan schedule:run` cada minuto: `files:prune-orphans` a las 03:00 y `sanctum:prune-expired`, FASE 2, entrega 2.5) y PHP con la base de zonas 2025a o posterior (Paraguay en UTC-3 todo el año; `AsuncionTimezoneTest`, FASE 2, entrega 2.6) | PENDIENTE |
 
 ## Preguntas de negocio
 
@@ -48,7 +48,7 @@ Implementa la FASE 10 según docs/fases/fase-10-reportes-y-piloto.md (diseño ap
 - Dashboard: turnos del día, consultas abiertas, cobros del día, avisos fallidos.
 - Seeders de ejemplo por escenarios, por los Services, idempotentes.
 - Rate limit en el login. Revisión de seguridad: archivos privados, cifrado de credenciales, CORS.
-- docs/development/deployment.md con el despliegue y los respaldos según D7. Caché en Redis (CACHE_STORE=redis): cierra la deuda 6 de docs/roadmap/deuda-tecnica.md; probar 20 logins fallidos simultáneos y que pasen exactamente 5; si no, envolver el hit del AuthService en Cache::lock.
+- docs/development/deployment.md con el despliegue y los respaldos según D7. Caché en Redis (CACHE_STORE=redis): cierra la deuda 6 de docs/roadmap/deuda-tecnica.md; probar 20 logins fallidos simultáneos y que pasen exactamente 5; si no, envolver el hit del AuthService en Cache::lock. El cron del scheduler (`* * * * * php artisan schedule:run`), que corre files:prune-orphans a las 03:00 y sanctum:prune-expired a diario. PHP con la base de zonas 2025a o posterior (o la extensión timezonedb): tests/Unit/AsuncionTimezoneTest tiene que pasar en el servidor.
 
 Sigue CLAUDE.md. Corre la suite e infórmame. No hagas commit.
 ```

@@ -2,9 +2,18 @@
 
 namespace Tests\Feature\Access;
 
+use App\Enums\AuditEvent;
+use App\Models\AuditLog;
+use App\Models\Branch;
 use App\Models\Clinic;
+use App\Models\Service;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\Veterinarian;
+use App\Models\Warehouse;
+use App\Services\ClinicLogoService;
 use App\Services\PatientPhotoService;
+use App\Support\CurrentClinic;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -68,14 +77,50 @@ class RoleAccessTest extends TestCase
         $photo = "clinics/{$this->clinic->id}/patients/{$patient->id}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png";
         Storage::disk(PatientPhotoService::DISK)->put($photo, 'png');
         DB::table('patients')->where('id', $patient->id)->update(['photo_path' => $photo]);
+        // Con logo (FASE 2, entrega 2.5), en la carpeta de la clínica: sin él, ver o borrar el logo
+        // respondería 404 CLINIC_LOGO_NOT_FOUND.
+        Storage::fake(ClinicLogoService::DISK);
+        $logo = ClinicLogoService::folder($this->clinic->id) . 'aaaaaaaa-bbbb-4ccc-8ddd-ffffffffffff.png';
+        Storage::disk(ClinicLogoService::DISK)->put($logo, 'png');
+        CurrentClinic::run($this->clinic, fn () => SystemSetting::create(['key' => 'logo_path', 'value' => $logo]));
         // Propias: una global respondería 403 CATALOG_GLOBAL_NOT_EDITABLE al editarla.
         [$species, $breed] = $this->ownSpeciesWithBreed($this->clinic, 'Hurón');
+
+        // La sucursal por defecto con su depósito, como los crea clinic:create (ClinicFactory
+        // crea solo la clínica). Editarlos sin cuerpo responde 200.
+        [$branch, $warehouse] = CurrentClinic::run($this->clinic, function () {
+            $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
+
+            return [$branch, Warehouse::create(['branch_id' => $branch->id, 'code' => 'DEP-01', 'name' => 'Principal', 'is_default' => true])];
+        });
 
         $this->parameters = [
             'client' => (string) $client->id,
             'patient' => (string) $patient->id,
             'species' => (string) $species,
             'breed' => (string) $breed,
+            'branch' => (string) $branch->id,
+            'warehouse' => (string) $warehouse->id,
+            // Un compañero de la clínica (FASE 2, entrega 2.2a): editarlo sin cuerpo responde 200.
+            'user' => (string) User::factory()->for($this->clinic)->create()->id,
+            // Un veterinario sin uso (FASE 2, entrega 2.3): editarlo sin cuerpo responde 200 y la
+            // baja, 200 (cada pedido se revierte).
+            'veterinarian' => (string) CurrentClinic::run($this->clinic, fn () => Veterinarian::create([
+                'user_id' => User::factory()->for($this->clinic)->create()->id,
+                'code' => 'VET-000001',
+            ])->id),
+            // Un servicio sin uso (FASE 2, entrega 2.4): editarlo sin cuerpo responde 200 y la baja,
+            // 200 (cada pedido se revierte).
+            'service' => (string) CurrentClinic::run($this->clinic, fn () => Service::create([
+                'code' => 'SRV-000001',
+                'name' => 'Consulta general',
+            ])->id),
+            // Un registro de auditoría de la clínica (FASE 2, entrega 2.6): solo se consulta.
+            'auditLog' => (string) CurrentClinic::run($this->clinic, fn () => AuditLog::create([
+                'clinic_id' => $this->clinic->id,
+                'event' => AuditEvent::LOGIN,
+                'created_at' => now(),
+            ])->id),
         ];
     }
 
@@ -210,7 +255,14 @@ class RoleAccessTest extends TestCase
                 $user = User::factory()->for($this->clinic)->create();
                 $response = $this->send($user, $routes[$key], $method);
 
-                $this->assertSame(200, $response->getStatusCode(), "{$method} {$routes[$key]['uri']} respondió {$response->getStatusCode()}");
+                // Las del perfil (2.2b) piden un cuerpo: sin él pasan la autorización y la
+                // validación las rechaza (422 VALIDATION_ERROR).
+                $expected = in_array($key, ['PATCH api/me/current-branch', 'PATCH api/me/password'], true) ? 422 : 200;
+                $this->assertSame($expected, $response->getStatusCode(), "{$method} {$routes[$key]['uri']} respondió {$response->getStatusCode()}");
+
+                if ($expected === 422) {
+                    $this->assertSame('VALIDATION_ERROR', $response->json('error_code'));
+                }
             }
         }
     }

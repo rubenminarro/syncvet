@@ -43,7 +43,7 @@ class ClinicCreateCommand extends Command
         {--admin-first-name= : Nombre del administrador}
         {--admin-last-name= : Apellido del administrador}';
 
-    protected $description = 'Crea una clínica con su sucursal, su depósito y su primer administrador';
+    protected $description = 'Alta de una clínica con su sucursal, su depósito y su primer administrador';
 
     /**
      * Opción => [pregunta, reglas]. Los límites son los de las columnas.

@@ -25,3 +25,6 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Espacios de trabajo del editor (configuración local)
+*.code-workspace

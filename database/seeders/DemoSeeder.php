@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\ClientKind;
 use App\Enums\DocumentSeries;
 use App\Enums\PatientSex;
+use App\Enums\SystemSettingKey;
 use App\Models\Breed;
 use App\Models\Branch;
 use App\Models\Client;
@@ -51,9 +52,10 @@ use RuntimeException;
 class DemoSeeder extends Seeder
 {
     /**
-     * Clave de system_settings que marca una clínica de demostración.
+     * Clave de system_settings que marca una clínica de demostración: una de las claves
+     * internas de SystemSettingKey (FASE 2, entrega 2.5), que no se edita por la API.
      */
-    public const MARKER = 'demo_data';
+    public const MARKER = SystemSettingKey::DEMO_DATA->value;
 
     /**
      * Entornos en los que corre. Ninguno más: crea usuarios con una contraseña conocida.
@@ -200,8 +202,9 @@ class DemoSeeder extends Seeder
             ['email' => $email, 'first_name' => $firstName, 'last_name' => $lastName, 'password' => $password]
         );
 
-        // Sin modelo de system_settings todavía: query builder con clinic_id explícito
-        // (R-010), dentro de la transacción de la clínica.
+        // Query builder con clinic_id explícito (R-010), dentro de la transacción de la
+        // clínica: el seeder no fija la clínica en contexto, que el modelo SystemSetting
+        // (BelongsToClinic) necesita. La marca no se audita.
         DB::table('system_settings')->insert([
             'clinic_id' => $clinic->id,
             'key' => self::MARKER,

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\AppDateTime;
 use App\Models\Concerns\BelongsToClinic;
 use App\Enums\PatientApplicationType;
 use App\Traits\Auditable;
@@ -36,7 +37,7 @@ class PatientApplication extends Model
         return [
             'type' => PatientApplicationType::class,
             'lot_expires_at' => 'date',
-            'applied_at' => 'datetime',
+            'applied_at' => AppDateTime::class,
             'next_dose_due_at' => 'date',
         ];
     }

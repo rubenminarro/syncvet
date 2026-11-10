@@ -12,5 +12,6 @@ Configurados en la entrega 0.1 de la FASE 0 (`phpunit.xml`, `tests/bootstrap.php
 | Permisos | Probar con un rol propio, no con el administrador (`Gate::before` lo deja pasar todo) |
 | MySQL | Cada migración nueva se prueba también en MySQL (límite de 64 caracteres en nombres de índices) |
 | Concurrencia | Numeración, turnos y stock: el bloqueo real solo se reproduce en MySQL |
+| SQLite y MySQL, nunca a la vez | Correr la suite de SQLite y la de MySQL (`DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`) una después de la otra. Comparten los discos falsos de `Storage::fake` (`storage/framework/testing/disks`), que cada test vacía al empezar: en paralelo, una suite borra los archivos de la otra y fallan tests que no tienen ningún error (en la revisión de la 2.6, `RoleAccessTest` con la foto y el logo respondiendo 404) |
 
 Organización: `tests/Feature/<Módulo>` por módulo, `tests/Feature/Access` para permisos por rol.

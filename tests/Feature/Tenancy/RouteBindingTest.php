@@ -2,11 +2,16 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Service;
+use App\Models\User;
+use App\Models\Veterinarian;
+use App\Models\Warehouse;
 use App\Support\CurrentClinic;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Tests\Concerns\InteractsWithClinics;
+use Tests\Concerns\InteractsWithBranches;
 use Tests\TestCase;
 
 /**
@@ -15,7 +20,7 @@ use Tests\TestCase;
  */
 class RouteBindingTest extends TestCase
 {
-    use InteractsWithClinics;
+    use InteractsWithBranches;
 
     private const PERMISSIONS = [
         'clients.show', 'clients.update', 'clients.destroy',
@@ -82,6 +87,166 @@ class RouteBindingTest extends TestCase
         });
     }
 
+    /**
+     * Sucursales y depósitos (FASE 2, entrega 2.1): una sucursal o un depósito de otra
+     * clínica responde 404 en cada ruta y no cambia.
+     */
+    public static function branchRoutes(): array
+    {
+        return [
+            'GET branches/{branch}' => ['get', '/api/branches/%d'],
+            'PATCH branches/{branch}' => ['patch', '/api/branches/%d'],
+            'PUT branches/{branch}' => ['put', '/api/branches/%d'],
+            'GET branches/{branch}/warehouses' => ['get', '/api/branches/%d/warehouses'],
+            'POST branches/{branch}/warehouses' => ['post', '/api/branches/%d/warehouses'],
+        ];
+    }
+
+    #[DataProvider('branchRoutes')]
+    public function test_branch_of_another_clinic_is_not_found(string $method, string $uri): void
+    {
+        $own = $this->createClinic();
+        $this->defaultBranchIn($own);
+        $foreign = $this->branchIn($this->createClinic(), ['name' => 'Ajena']);
+
+        $this->actAsBranchManager($own);
+
+        $response = $this->json($method, sprintf($uri, $foreign->id), ['name' => 'Cambiada', 'code' => 'DEP-99', 'is_default' => true]);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreign->clinic, function () use ($foreign) {
+            $branch = Branch::find($foreign->id);
+
+            $this->assertSame('Ajena', $branch?->name, 'La sucursal ajena cambió.');
+            $this->assertSame(1, Warehouse::count());
+        });
+    }
+
+    public function test_warehouse_of_another_clinic_is_not_found(): void
+    {
+        $own = $this->createClinic();
+        $this->defaultBranchIn($own);
+        $foreign = $this->defaultBranchIn($this->createClinic());
+        $warehouse = CurrentClinic::run($foreign->clinic, fn () => Warehouse::firstOrFail());
+
+        $this->actAsBranchManager($own);
+
+        foreach (['patch', 'put'] as $method) {
+            $this->assertErrorCode($this->json($method, "/api/warehouses/{$warehouse->id}", ['name' => 'Cambiado']), 404, 'RESOURCE_NOT_FOUND');
+        }
+
+        $this->assertSame('Principal', CurrentClinic::run($foreign->clinic, fn () => Warehouse::find($warehouse->id)?->name));
+    }
+
+    /**
+     * Usuarios (FASE 2, entrega 2.2a): User no tiene el scope de la clínica; su route
+     * binding (inClinic()) da 404 a un usuario de otra clínica en cada ruta, y no lo
+     * cambia.
+     */
+    public static function userRoutes(): array
+    {
+        return [
+            'GET users/{user}' => ['get'],
+            'PATCH users/{user}' => ['patch'],
+            'PUT users/{user}' => ['put'],
+            'DELETE users/{user}' => ['delete'],
+        ];
+    }
+
+    #[DataProvider('userRoutes')]
+    public function test_user_of_another_clinic_is_not_found(string $method): void
+    {
+        $own = $this->createClinic();
+        $foreign = User::factory()->for($this->createClinic())->create(['first_name' => 'Ajena']);
+        $foreign->syncRoles(['recepcionista']);
+
+        $this->actingIn($own, ['users.show', 'users.update', 'users.destroy']);
+
+        $response = $this->json($method, "/api/users/{$foreign->id}", ['first_name' => 'Cambiada', 'roles' => ['veterinario'], 'password' => 'Otra-Clave-2026!']);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame('Ajena', $foreign->fresh()->first_name);
+        $this->assertSame(['recepcionista'], $foreign->fresh()->getRoleNames()->all());
+        $this->assertFalse($foreign->fresh()->trashed());
+    }
+
+    /**
+     * Veterinarios (FASE 2, entrega 2.3): una ficha de otra clínica responde 404 en cada
+     * ruta y no cambia. Un usuario de otra clínica en el alta responde 422 (VeterinarianStoreTest).
+     */
+    public static function veterinarianRoutes(): array
+    {
+        return [
+            'GET veterinarians/{veterinarian}' => ['get'],
+            'PATCH veterinarians/{veterinarian}' => ['patch'],
+            'PUT veterinarians/{veterinarian}' => ['put'],
+            'DELETE veterinarians/{veterinarian}' => ['delete'],
+        ];
+    }
+
+    #[DataProvider('veterinarianRoutes')]
+    public function test_veterinarian_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreign = CurrentClinic::run($foreignClinic, fn () => Veterinarian::create([
+            'user_id' => User::factory()->for($foreignClinic)->create()->id,
+            'code' => 'VET-000001',
+            'license_number' => 'MV-1001',
+        ]));
+
+        $this->actingIn($this->createClinic(), ['veterinarians.show', 'veterinarians.update', 'veterinarians.destroy']);
+
+        $response = $this->json($method, "/api/veterinarians/{$foreign->id}", ['license_number' => 'MV-9999', 'status' => 'inactive']);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreignClinic, function () use ($foreign) {
+            $veterinarian = Veterinarian::find($foreign->id);
+
+            $this->assertSame('MV-1001', $veterinarian?->license_number, 'La ficha ajena cambió o se eliminó.');
+            $this->assertSame('active', $veterinarian->status->value);
+        });
+    }
+
+    /**
+     * Servicios (FASE 2, entrega 2.4): un servicio de otra clínica responde 404 en cada
+     * ruta y no cambia.
+     */
+    public static function serviceRoutes(): array
+    {
+        return [
+            'GET services/{service}' => ['get'],
+            'PATCH services/{service}' => ['patch'],
+            'PUT services/{service}' => ['put'],
+            'DELETE services/{service}' => ['delete'],
+        ];
+    }
+
+    #[DataProvider('serviceRoutes')]
+    public function test_service_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreign = CurrentClinic::run($foreignClinic, fn () => Service::create([
+            'code' => 'SRV-000001',
+            'name' => 'Consulta general',
+            'standard_price' => '150000.00',
+        ]));
+
+        $this->actingIn($this->createClinic(), ['services.show', 'services.update', 'services.destroy']);
+
+        $response = $this->json($method, "/api/services/{$foreign->id}", ['standard_price' => 1, 'status' => 'inactive']);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreignClinic, function () use ($foreign) {
+            $service = Service::find($foreign->id);
+
+            $this->assertSame('150000.00', $service?->standard_price, 'El servicio ajeno cambió o se eliminó.');
+            $this->assertSame('active', $service->status->value);
+        });
+    }
+
     public function test_own_records_are_found(): void
     {
         $own = $this->createClinic();
@@ -92,5 +257,11 @@ class RouteBindingTest extends TestCase
         $this->getJson("/api/clients/{$patient->client_id}")->assertOk();
         $this->getJson("/api/clients/{$patient->client_id}/patients")->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/patients/{$patient->id}")->assertOk();
+
+        $branch = $this->defaultBranchIn($own);
+        $this->actAsBranchManager($own);
+
+        $this->getJson("/api/branches/{$branch->id}")->assertOk();
+        $this->getJson("/api/branches/{$branch->id}/warehouses")->assertOk()->assertJsonCount(1, 'data');
     }
 }
