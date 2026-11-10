@@ -38,7 +38,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración
   y de la auditoría (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`,
   `tests/Feature/Users`, `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`, `tests/Feature/Audit`),
-  y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`).
+  y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`). Se corre sin Xdebug, con
+  `composer test`, `composer test:mysql` y `composer test:fast` (en paralelo, con paratest; R-045).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
   servicios, la configuración con el logo y la auditoría, con las colecciones de Postman de `docs/testing/postman`, que se pueden
   correr más de una vez sin recrear la base.
@@ -83,6 +84,11 @@ Para que una entrega no tarde más de lo necesario:
 * En cada mutación se corren solo los tests relacionados; la suite completa, al final.
 * MySQL (`syncvet_test_mysql`) una vez por entrega, antes del cierre, salvo que la entrega toque migraciones, concurrencia,
   búsquedas de texto o autenticación: entonces también durante el trabajo.
+* Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
+  de composer o con `XDEBUG_MODE=off` (`development/testing.md`, Velocidad). Durante el trabajo, `composer test:fast` (SQLite en
+  paralelo, alrededor de 1 min 20 s), y los tests sueltos, con `XDEBUG_MODE=off php vendor/bin/phpunit <archivo>`. Para el cierre,
+  `composer test` (SQLite en serie, alrededor de 3 min 20 s) y `composer test:mysql` (de 5 a 6 min y medio): las cifras de
+  aserciones del registro salen de la suite en serie.
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 
 ### Documentación por cambio
@@ -210,8 +216,11 @@ empezar una sesión.
   base de zonas 2025a o posterior (§3, Fechas con hora).
 * Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) una vez por entrega, antes del
   cierre, y también durante el trabajo si se tocan migraciones, búsquedas de texto, concurrencia o autenticación (§2, Ritmo de
-  las entregas): `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`. La de SQLite y la de MySQL, nunca a la
-  vez: comparten los discos falsos de `Storage::fake` (`development/testing.md`).
+  las entregas): `composer test:mysql`. La de SQLite y la de MySQL, nunca a la vez: comparten los discos falsos de
+  `Storage::fake` (`development/testing.md`). Los procesos de una misma suite con `--parallel` sí se pueden correr juntos, porque
+  cada uno tiene su base y sus discos. Sin red: `Http::preventStrayRequests()` y Have I Been Pwned simulado en `TestCase`, y
+  `EMAIL_DNS_CHECK=false` (la rama con DNS, en `EmailDnsCheckTest`). Un test que compara una hora calculada congela el reloj
+  (`freezeTime()`).
 
 ---
 

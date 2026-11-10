@@ -953,3 +953,20 @@ Cierre de la FASE 2 (datos maestros), con las siete entregas cerradas y validada
 | Siguiente | Análisis de la FASE 3 (agenda y turnos), empezando por la deuda 16 | Usuario |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-045 Suite más rápida, antes de la FASE 3 (2026-11-10)
+
+Rama `chore/suite-rapida`, desde `main`. Sin cambios en reglas de negocio, en la API ni en el código de `app/`: solo tests, scripts de
+composer y documentación. El detalle y las cifras están en [`development/testing.md`](../development/testing.md#velocidad).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Medición | Antes, con Xdebug en modo `debug` (el de Laragon): SQLite de 7 min 40 s a 8 min 55 s; MySQL, 9 min 53 s. El tiempo estaba repartido entre muchos tests; el más lento, `RoleAccessTest::test_each_route_requires_exactly_its_own_permission` (30 s con Xdebug, 4,7 s sin él) | Implementación |
+| Xdebug | Los tests corren con `XDEBUG_MODE=off` (scripts de composer, con `@putenv`, que heredan los procesos de `--parallel`). Xdebug no se desinstala. SQLite, en serie: 3 min 17 s; MySQL, en serie: de 4 min 50 s a 6 min 22 s | Implementación |
+| Paralelo | `brianium/paratest` 7.20 (desarrollo). Estable en Windows: 3 corridas en SQLite (73 a 75 s) y 3 en MySQL (3 min 30 s a 4 min 10 s), todas en verde. Cada proceso tiene su base (`…_test_N`) y sus discos falsos. `composer test:fast` lo usa durante el trabajo; las cifras del cierre siguen saliendo de la suite en serie (en paralelo hay 2 aserciones menos de `ExceptionArgumentsTest`, por la traza más corta) | Implementación; el merge, a autorizar por el usuario |
+| Scripts | `composer test` (SQLite en serie), `composer test:mysql` y `composer test:fast` (SQLite en paralelo), sin el límite de 300 s de composer | Implementación |
+| Red | Ya estaban `Http::preventStrayRequests()` global, Have I Been Pwned simulado y `EMAIL_DNS_CHECK=false`. Nuevo `EmailDnsCheckTest` (3 casos): con la validación DNS prendida, un dominio `.invalid` se rechaza sin consultar al DNS en el alta y la edición de clientes, en los usuarios y en `contact_email`; con la validación apagada, se acepta | Implementación |
+| Sin cambios | SQLite sigue en archivo (con `:memory:`, `RefreshDatabase` migraría en cada test); `BCRYPT_ROUNDS` ya era 4; las imágenes de los tests ya eran de menos de 1 KB | Implementación |
+| Test dependiente del reloj | `ClientDeleteTest::test_the_same_long_document_can_be_deleted_twice` falló una vez en paralelo con MySQL: tomaba el timestamp después del `DELETE` y el segundo cambió en el medio. Ahora congela el reloj (`freezeTime()`), con las mismas aserciones | Implementación |
+| Suite | 991 casos (988 + 3 de `EmailDnsCheckTest`). SQLite: 10833 aserciones (10816 + 17), 3 omitidos (solo de MySQL). MySQL: 10853 aserciones (10836 + 17), sin omitidos | Implementación |
+| Auditoría de dependencias | `composer audit` informa avisos de seguridad de `symfony/http-foundation`, `symfony/http-kernel` y `symfony/routing`, que ya estaban antes (no son de paratest). Fuera del alcance de esta rama | Usuario, a decidir |
