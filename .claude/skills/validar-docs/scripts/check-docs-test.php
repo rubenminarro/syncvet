@@ -172,5 +172,12 @@ check('detecta 3 frente a 2', str_contains($output, 'README.md:1: dice 3 migraci
 check('compara una cifra que no es de tests junto a una clase', str_contains($output, 'Cifras comparadas: 3.') && ! str_contains($output, 'excluida'), $output);
 remove($root);
 
+echo "\nCaso 5: rutas citadas\n";
+$root = fixture(['docs/project/a.md' => "`database/testing.sqlite_test_N` y `database/fantasma.sqlite`\n"]);
+[$output] = run($root);
+check('no reporta la base que crea la suite en paralelo', ! str_contains($output, 'testing.sqlite_test_N'), $output);
+check('sigue reportando una ruta inexistente', str_contains($output, 'database/fantasma.sqlite'), $output);
+remove($root);
+
 printf("\n%d correctas, %d fallidas.\n", $passed, $failures);
 exit($failures === 0 ? 0 : 1);

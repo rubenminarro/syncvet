@@ -19,6 +19,9 @@ const LIVE = ['CLAUDE.md', 'README.md', 'docs/README.md', 'docs/handoff.md', 'do
 // Rutas que viven en ../syncvet-frontend, no en este repositorio.
 const FRONTEND_PATHS = ['docs/plan-desarrollo.md'];
 
+// Rutas que crea la suite al correr, no el repositorio: las bases de `composer test:fast` (N es el número del proceso, R-045).
+const GENERATED_PATHS = ['database/testing.sqlite_test_N'];
+
 $findings = [];
 
 function report(string $check, string $where, string $detail): void
@@ -148,7 +151,7 @@ foreach (live() as $file) {
     preg_match_all('/`((?:docs|app|tests|config|routes|database)\/[\w.\/-]+\.\w+)`/', file_get_contents($file), $matches);
 
     foreach (array_unique($matches[1]) as $path) {
-        if (! file_exists($path) && ! in_array($path, FRONTEND_PATHS, true)) {
+        if (! file_exists($path) && ! in_array($path, [...FRONTEND_PATHS, ...GENERATED_PATHS], true)) {
             report('Rutas inexistentes', $file, $path);
         }
     }

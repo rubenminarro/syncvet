@@ -32,7 +32,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   (R-030 y R-031), 2.2a, usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y
   R-035), 2.3, veterinarios (R-036 y R-037), 2.4, servicios (R-038 y R-039), 2.5, configuración de la clínica, logo y archivos
   huérfanos (deuda 14 resuelta; R-040 y R-041), y 2.6, consulta de la auditoría y fechas con hora (deuda 13 resuelta; R-042 y
-  R-043), todas validadas por el usuario con Postman. Sigue el análisis de la FASE 3 (agenda y turnos), empezando por la deuda 16.
+  R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) tiene el diseño propuesto, con las preguntas de
+  negocio respondidas y la solución de la deuda 16 decidida (R-047); faltan las preguntas del diseño y su aprobación.
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración
@@ -140,6 +141,9 @@ empezar una sesión.
   fracción), nunca `Date::parse` sin zona. La conversión usa la zona `America/Asuncion` de PHP, nunca un `-03:00` fijo: Paraguay es
   UTC-3 todo el año desde el 15/10/2024, pero las fechas anteriores tenían horario de verano. PHP necesita la base de zonas 2025a o
   posterior (o la extensión `timezonedb`; `development/setup.md`); `AsuncionTimezoneTest` falla con una base vieja.
+  Las horas de negocio las pone PHP (`now()` de Laravel o el valor del pedido): en código nuevo, nunca `NOW()`, `CURRENT_TIMESTAMP`
+  ni `useCurrent()`, y las columnas nuevas de hora de negocio son `datetime`, no `timestamp` (deudas 16 y 17, R-047; la zona fija de
+  la sesión de MySQL llega con la entrega 3.0).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
   strings (`App\Support\Decimal::round`), nunca `float`. Los importes en guaraníes (PYG) se redondean a **0 decimales**
@@ -625,4 +629,5 @@ Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deud
 | 5 | Sin claves foráneas compuestas (`clinic_id` + `id`); hoy lo cubren la validación y los tests de aislamiento |
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
-| 16 | Columnas `timestamp` de MySQL según la zona del servidor (`config/database.php` no fija `timezone`); `useCurrent()` de `inventory_movements` depende de eso. Analizar antes del diseño de la FASE 3 |
+| 16 | Columnas `timestamp` de MySQL según la zona del servidor (`config/database.php` no fija `timezone`); `useCurrent()` de `inventory_movements` depende de eso. Solución decidida (R-047): `timezone` `-03:00` en la conexión, en la entrega 3.0 |
+| 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |

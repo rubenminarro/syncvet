@@ -983,3 +983,33 @@ Rama `chore/dependencias`, desde `main` (después del merge de `chore/suite-rapi
 | Resultado | `composer audit` sin avisos | Implementación |
 | Suite | `composer test:fast`: 991 casos en verde, 3 omitidos. Para el cierre, en serie: SQLite, 991 casos con 10833 aserciones y 3 omitidos (solo de MySQL); MySQL (`syncvet_test_mysql`), 991 casos con 10853 aserciones, sin omitidos. Las mismas cifras que en R-045 | Implementación |
 | Regla nueva | En cada cierre de fase, `composer audit` sin avisos (`CLAUDE.md` §2, `development/testing.md`) | Usuario |
+
+# R-047 Análisis y diseño de la FASE 3: agenda y turnos, y la solución de la deuda 16 (2026-11-10)
+
+Rama `docs/fase-03-diseno`, desde `main` (después de `115435b`). Solo documentación y el script de `/validar-docs`: ni código de `app/`,
+ni migraciones, ni la API. El análisis (solo lectura) confirmó la FASE 2 cerrada e integrada a `main` con el merge `cc78b38`, y después
+`27f3294` (R-045) y `115435b` (R-046); la suite en paralelo en verde (991 casos, 3 omitidos). El diseño está en
+[`fases/fase-03-agenda-y-turnos.md`](../fases/fase-03-agenda-y-turnos.md).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Deuda 16 | `'timezone' => env('DB_TIMEZONE', '-03:00')` en la conexión `mysql`, sin migraciones (la sesión de desarrollo ya es UTC-3, así que los datos no cambian). Regla en `CLAUDE.md` §3: las horas de negocio las pone PHP, nunca `NOW()`, `CURRENT_TIMESTAMP` ni `useCurrent()` en código nuevo; las columnas nuevas de hora de negocio, en `datetime`. Excepción documentada al "nunca un `-03:00` fijo": es la sesión de MySQL, no una conversión en PHP (MySQL de Laragon no tiene cargadas las zonas con nombre). Va como entrega 3.0 | Usuario |
+| Deuda 17 | Nueva, de prioridad baja: el tope de 2038 de las columnas `timestamp` | Usuario |
+| P1 Recurrentes (D3) | Todos al crear la serie (semanal o cada N semanas, con fecha de fin o cantidad, hasta 52), agrupados por `series_id`; si una fecha choca con otro turno, un bloqueo o el horario, se rechaza la serie entera con la lista de fechas en conflicto. D3 pasa a decidida | Usuario |
+| P2 Sobreturno | Solo explícito (`overbook: true`), con permiso propio del administrador y la recepción; columna `is_overbooked`; se superpone con otro turno, pero no sale del horario ni entra en un bloqueo | Usuario |
+| P3 Cancelación | Sin límite de anticipación; motivo obligatorio | Usuario |
+| P4 Sin paciente | Con paciente, con un cliente sin paciente, o con nombre y teléfono de contacto (columnas nuevas); para fichar hace falta el paciente | Usuario |
+| P5 Duración | `ends_at` por defecto: `starts_at` más la duración del servicio, o `slot_minutes` de la agenda; editable | Usuario |
+| P6 Fuera del horario | Fuera del horario o en un bloqueo → 422 siempre | Usuario |
+| P7 Mover y cancelar | El administrador y la recepción; el veterinario ficha y marca atendido; un turno fichado, atendido, ausente o cancelado no se mueve | Usuario |
+| P8 Cola del día | El veterinario, la de sus agendas en su sucursal actual; la recepción, la de toda la sucursal | Usuario |
+| P9 a P11 Agendas | Las arma solo el administrador; veterinario, servicio o los dos (al menos uno); un veterinario o servicio inactivo no recibe agendas nuevas; se inactiva siempre y se elimina solo sin turnos; `Schedule` y `ScheduleHour` auditables | Usuario |
+| P12 Ausente | Lo marca la recepción a mano; el automático, más adelante | Usuario |
+| Entregas | 3.0 (deuda 16), 3.1 (agendas, horario y bloqueos, con los pendientes de Postman de la FASE 2), 3.2a (turnos únicos), 3.2b (estados), 3.3 (recurrentes) y 3.4 (disponibilidad y cola del día): los estados antes que la recurrencia | Usuario |
+| Diseño propuesto | Permisos 127 → 135 (`schedule-blocks.index`, `.store` y `.destroy`, `appointments.overbook`, `.attend`, `.no-show` y `.queue`, y `schedules.availability`); rutas 58 → 77; migraciones 34 → 36. `branch_id` y `veterinarian_id` del turno salen de la agenda; `online_booking` fuera de la API y `AppointmentSource::ONLINE` rechazada en el MVP; `attended_at` y `no_show_at` como columnas `datetime`; "atendido" y la consulta de la FASE 4, como propuesta para esa fase. Preguntas del diseño 13 a 25, sin responder | Diseño, a aprobar por el usuario |
+| Hallazgos del análisis | `ClientService::delete` no cuenta los turnos como uso del cliente, y `PatientService::delete` revisa el uso antes de su transacción y sin bloqueo: el diseño los corrige en la 3.2a (pregunta 21) | Diseño, a aprobar por el usuario |
+| `/validar-docs` | `database/testing.sqlite_test_N` (`development/testing.md`) era un falso positivo de "rutas inexistentes": es la base que crea cada proceso de `composer test:fast`. El script suma `GENERATED_PATHS`, con su prueba de regresión | Implementación |
+| Handoff | Se anotan los merges `cc78b38` (FASE 2), `27f3294` (R-045) y `115435b` (R-046), y la suite de 991 casos | Implementación |
+
+**Qué no cambió.** Código de `app/`, rutas, permisos, migraciones, `error_code` y colecciones de Postman: el diseño solo documenta.
+`CLAUDE.md` §3 suma desde ahora la regla de no usar la hora de MySQL en código nuevo; la zona fija de la sesión llega con la entrega 3.0.
