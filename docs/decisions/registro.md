@@ -970,3 +970,16 @@ composer y documentación. El detalle y las cifras están en [`development/testi
 | Test dependiente del reloj | `ClientDeleteTest::test_the_same_long_document_can_be_deleted_twice` falló una vez en paralelo con MySQL: tomaba el timestamp después del `DELETE` y el segundo cambió en el medio. Ahora congela el reloj (`freezeTime()`), con las mismas aserciones | Implementación |
 | Suite | 991 casos (988 + 3 de `EmailDnsCheckTest`). SQLite: 10833 aserciones (10816 + 17), 3 omitidos (solo de MySQL). MySQL: 10853 aserciones (10836 + 17), sin omitidos | Implementación |
 | Auditoría de dependencias | `composer audit` informa avisos de seguridad de `symfony/http-foundation`, `symfony/http-kernel` y `symfony/routing`, que ya estaban antes (no son de paratest). Fuera del alcance de esta rama | Usuario, a decidir |
+
+# R-046 Avisos de seguridad de las dependencias (2026-11-10)
+
+Rama `chore/dependencias`, desde `main` (después del merge de `chore/suite-rapida`, R-045). Solo cambia `composer.lock`: ni
+`composer.json`, ni el código, ni la API.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Avisos | `composer audit` informaba 6 avisos en 3 paquetes, todos en la versión 7.4.22 y corregidos en la 7.4.23. La base de avisos no trae la gravedad de ninguno. `symfony/http-foundation`: CVE-2026-118514 (un pedido `HEAD` saltea la opción `methods` de `access_control` y de los firewalls; corrección incompleta de CVE-2026-45075), reglas de ruta aplicadas delante de PHP que se saltean agregando la ruta al nombre del script, `private_ranges` de los proxies de confianza que acepta direcciones IPv4 mapeadas, 6to4, Teredo o NAT64, y URLs generadas que pueden apuntar a un host elegido por el cliente. `symfony/http-kernel`: CVE-2026-123339 (los fragmentos inline dejan que unas cabeceras reenviadas no confiables fijen el host, el esquema y el puerto de las URLs del pedido principal). `symfony/routing`: CVE-2026-118516 (los marcadores de host pueden coincidir con el comienzo de la ruta en los matchers compilados) | Implementación |
+| Actualización | `composer update symfony/http-foundation symfony/http-kernel symfony/routing --with-dependencies`, dentro de las restricciones de `composer.json` (sin cambios en él): `symfony/http-foundation`, `symfony/http-kernel` y `symfony/routing` de 7.4.22 a 7.4.23; con ellas, `symfony/deprecation-contracts` y `symfony/event-dispatcher-contracts` de 3.7.1 a 3.8.1. Ninguna versión mayor | Usuario |
+| Resultado | `composer audit` sin avisos | Implementación |
+| Suite | `composer test:fast`: 991 casos en verde, 3 omitidos. Para el cierre, en serie: SQLite, 991 casos con 10833 aserciones y 3 omitidos (solo de MySQL); MySQL (`syncvet_test_mysql`), 991 casos con 10853 aserciones, sin omitidos. Las mismas cifras que en R-045 | Implementación |
+| Regla nueva | En cada cierre de fase, `composer audit` sin avisos (`CLAUDE.md` §2, `development/testing.md`) | Usuario |

@@ -89,6 +89,9 @@ Para que una entrega no tarde más de lo necesario:
   paralelo, alrededor de 1 min 20 s), y los tests sueltos, con `XDEBUG_MODE=off php vendor/bin/phpunit <archivo>`. Para el cierre,
   `composer test` (SQLite en serie, alrededor de 3 min 20 s) y `composer test:mysql` (de 5 a 6 min y medio): las cifras de
   aserciones del registro salen de la suite en serie.
+* En cada cierre de fase, `composer audit` tiene que quedar sin avisos. Un aviso se corrige con
+  `composer update <paquete> --with-dependencies` dentro de las restricciones de `composer.json`. Si la corrección pide cambiar una
+  restricción o subir de versión mayor, se consulta al usuario. Lo actualizado queda en el registro de decisiones (R-046).
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 
 ### Documentación por cambio

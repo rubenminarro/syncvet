@@ -45,3 +45,10 @@ sobre el código del cierre de la FASE 2 (988 casos, más los 3 de `EmailDnsChec
   megapíxeles solo trae la cabecera.
 * **Picos esperables:** en MySQL, el test que corre después de `VeterinarianLicenseMigrationTest` vuelve a migrar la base, porque el
   `ALTER TABLE` confirma la transacción del test. Son unos 30 s, una vez por proceso.
+
+## Dependencias
+
+En cada cierre de fase, `composer audit` tiene que quedar sin avisos (`CLAUDE.md` §2). Un aviso se corrige con
+`composer update <paquete> --with-dependencies`, sin tocar las restricciones de `composer.json`. Después se corren
+`composer test:fast` y, para el cierre, `composer test` y `composer test:mysql`, una después de la otra. Lo actualizado queda en el
+registro de decisiones (R-046, la primera vez).
