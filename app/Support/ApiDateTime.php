@@ -31,6 +31,12 @@ final class ApiDateTime
     public const FILTER_FORMAT = '/^\d{4}-\d{2}-\d{2}(?:[T ](?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?(?:Z|[+-](?:(?:0\d|1[0-3]):?[0-5]\d|14:?00))?)?$/';
 
     /**
+     * Un instante que recibe la API (FASE 3, entrega 3.1: los bloqueos de una agenda): como
+     * FILTER_FORMAT, pero con la hora obligatoria. Sin zona, hora de Asunción.
+     */
+    public const DATE_TIME_FORMAT = '/^\d{4}-\d{2}-\d{2}[T ](?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?(?:Z|[+-](?:(?:0\d|1[0-3]):?[0-5]\d|14:?00))?$/';
+
+    /**
      * El valor en la hora de Asunción. Sin zona, ya es hora de Asunción.
      */
     public static function toLocal(string|DateTimeInterface $value): CarbonImmutable

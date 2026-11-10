@@ -5,6 +5,8 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Schedule;
+use App\Models\ScheduleBlock;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
@@ -244,6 +246,59 @@ class RouteBindingTest extends TestCase
 
             $this->assertSame('150000.00', $service?->standard_price, 'El servicio ajeno cambió o se eliminó.');
             $this->assertSame('active', $service->status->value);
+        });
+    }
+
+    /**
+     * Agendas y bloqueos (FASE 3, entrega 3.1): una agenda o un bloqueo de otra clínica
+     * responde 404 en cada ruta y no cambia.
+     */
+    public static function scheduleRoutes(): array
+    {
+        return [
+            'GET schedules/{schedule}' => ['get', '/api/schedules/%d'],
+            'PATCH schedules/{schedule}' => ['patch', '/api/schedules/%d'],
+            'PUT schedules/{schedule}' => ['put', '/api/schedules/%d'],
+            'DELETE schedules/{schedule}' => ['delete', '/api/schedules/%d'],
+            'GET schedules/{schedule}/blocks' => ['get', '/api/schedules/%d/blocks'],
+            'POST schedules/{schedule}/blocks' => ['post', '/api/schedules/%d/blocks'],
+            'DELETE schedule-blocks/{scheduleBlock}' => ['delete', '/api/schedule-blocks/%d'],
+        ];
+    }
+
+    #[DataProvider('scheduleRoutes')]
+    public function test_schedule_or_block_of_another_clinic_is_not_found(string $method, string $uri): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreignBranch = $this->defaultBranchIn($foreignClinic);
+        $foreignCreator = User::factory()->for($foreignClinic)->create();
+
+        [$schedule, $block] = CurrentClinic::run($foreignClinic, function () use ($foreignBranch, $foreignCreator) {
+            $service = Service::create(['code' => 'SRV-000001', 'name' => 'Peluquería']);
+            $schedule = Schedule::factory()->create(['branch_id' => $foreignBranch->id, 'name' => 'Ajena', 'service_id' => $service->id]);
+
+            return [$schedule, ScheduleBlock::factory()->for($schedule)->create(['created_by' => $foreignCreator->id])];
+        });
+
+        $this->actingIn($this->createClinic(), [
+            'schedules.show', 'schedules.update', 'schedules.destroy',
+            'schedule-blocks.index', 'schedule-blocks.store', 'schedule-blocks.destroy',
+        ]);
+
+        $id = str_starts_with($uri, '/api/schedule-blocks') ? $block->id : $schedule->id;
+        $response = $this->json($method, sprintf($uri, $id), [
+            'name' => 'Cambiada', 'is_active' => false,
+            'starts_at' => '2030-01-01T10:00:00Z', 'ends_at' => '2030-01-01T11:00:00Z',
+        ]);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreignClinic, function () use ($schedule) {
+            $found = Schedule::find($schedule->id);
+
+            $this->assertSame('Ajena', $found?->name, 'La agenda ajena cambió o se eliminó.');
+            $this->assertTrue($found->is_active);
+            $this->assertSame(1, ScheduleBlock::query()->count(), 'Los bloqueos de la agenda ajena cambiaron.');
         });
     }
 

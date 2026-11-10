@@ -41,6 +41,8 @@ class RolesAndPermissionsSeeder extends Seeder
 
         /* agenda */
         'schedules.index', 'schedules.store', 'schedules.show', 'schedules.update', 'schedules.destroy',
+        // FASE 3, entrega 3.1: los bloqueos de una agenda.
+        'schedule-blocks.index', 'schedule-blocks.store', 'schedule-blocks.destroy',
         'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
         'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
 
@@ -113,6 +115,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     // FASE 2, entrega 2.5: los documentos y recibos llevan los datos y el logo de la clínica.
                     'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
+                    'schedule-blocks.index',
                     'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
                     'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
                     'consultations.index', 'consultations.show',
@@ -138,6 +141,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     // FASE 2, entrega 2.5: los documentos y recibos llevan los datos y el logo de la clínica.
                     'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
+                    'schedule-blocks.index',
                     'appointments.index', 'appointments.show', 'appointments.check-in',
                     'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
                     'consultations.close',

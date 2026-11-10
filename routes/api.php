@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\ClinicLogoController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ScheduleBlockController;
+use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\SystemSettingsController;
@@ -80,5 +82,15 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.
+    // Agendas (FASE 3, entrega 3.1): las arma el administrador. Sin SoftDeletes: la baja, solo sin
+    // turnos. Los bloqueos se listan y se crean en su agenda y se eliminan fuera de ella; los nombres
+    // propios dan el permiso schedule-blocks.* por la regla de los dos últimos tramos.
+    Route::apiResource('schedules', ScheduleController::class);
+    Route::apiResource('schedules.blocks', ScheduleBlockController::class)->only(['index', 'store'])->names([
+        'index' => 'schedules.schedule-blocks.index',
+        'store' => 'schedules.schedule-blocks.store',
+    ]);
+    Route::delete('schedule-blocks/{scheduleBlock}', [ScheduleBlockController::class, 'destroy'])->name('schedule-blocks.destroy');
+
     Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show'])->parameters(['audit-logs' => 'auditLog']);
 });

@@ -266,6 +266,19 @@ return [
         'event' => 'evento',
         'auditable_type' => 'tipo de registro',
         'auditable_id' => 'id del registro',
+
+        // Agendas y bloqueos (FASE 3, entrega 3.1)
+        'veterinarian_id' => 'veterinario',
+        'service_id' => 'servicio',
+        'slot_minutes' => 'duración del turno',
+        'hours' => 'horario',
+        'hours.*' => 'tramo del horario',
+        'hours.*.weekday' => 'día del tramo',
+        'hours.*.starts_at' => 'hora de inicio del tramo',
+        'hours.*.ends_at' => 'hora de fin del tramo',
+        'starts_at' => 'inicio',
+        'ends_at' => 'fin',
+        'reason' => 'motivo',
     ],
 
 ];

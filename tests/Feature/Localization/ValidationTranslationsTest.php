@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Patient;
+use App\Models\Schedule;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
@@ -175,7 +176,7 @@ class ValidationTranslationsTest extends TestCase
         $clinic = $this->createClinic();
         $client = $this->clientIn($clinic);
         $patient = $this->patientOf($client);
-        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update', 'services.index', 'services.store', 'services.update', 'system-settings.update', 'system-settings.upload-logo', 'audit-logs.index']);
+        $this->actingIn($clinic, ['clients.index', 'clients.store', 'clients.update', 'patients.index', 'patients.store', 'patients.update', 'patients.change-owner', 'species.index', 'species.store', 'species.update', 'branches.index', 'branches.store', 'branches.update', 'warehouses.index', 'warehouses.store', 'warehouses.update', 'users.index', 'users.store', 'users.update', 'veterinarians.index', 'veterinarians.store', 'veterinarians.update', 'services.index', 'services.store', 'services.update', 'system-settings.update', 'system-settings.upload-logo', 'audit-logs.index', 'schedules.index', 'schedules.store', 'schedules.update', 'schedule-blocks.index', 'schedule-blocks.store']);
         [$species, $breed] = $this->ownSpeciesWithBreed($clinic, 'Hurón');
         [$branch, $warehouse] = CurrentClinic::run($clinic, function () {
             $branch = Branch::create(['code' => 'SUC-01', 'name' => 'Casa central', 'establishment' => '001', 'is_default' => true]);
@@ -190,6 +191,10 @@ class ValidationTranslationsTest extends TestCase
         $service = CurrentClinic::run($clinic, fn () => Service::create(['code' => 'SRV-000001', 'name' => 'Consulta general']));
         $serviceFields = ['code', 'name', 'category', 'description', 'duration_minutes', 'standard_price', 'tax_rate', 'status'];
         $veterinarianFields = ['user_id', 'code', 'license_number', 'specialty', 'commission_percentage', 'status', 'notes'];
+        // Agendas y bloqueos (FASE 3, entrega 3.1).
+        $schedule = CurrentClinic::run($clinic, fn () => Schedule::factory()->create(['branch_id' => $branch->id, 'service_id' => $service->id]));
+        $scheduleFields = ['branch_id', 'name', 'veterinarian_id', 'service_id', 'slot_minutes', 'color', 'is_active', 'hours'];
+        $blockFields = ['starts_at', 'ends_at', 'reason'];
 
         $clientFields = ['kind', 'business_name', 'document_number', 'first_name', 'last_name', 'email', 'phone', 'address', 'city', 'notifications_enabled', 'notes'];
         $patientFields = ['name', 'species_id', 'breed_id', 'sex', 'is_neutered', 'birth_date', 'birth_date_estimated', 'color', 'weight_kg', 'microchip', 'allergies', 'notes', 'code'];
@@ -225,6 +230,10 @@ class ValidationTranslationsTest extends TestCase
             $requests[] = ['PATCH', '/api/system-settings', [...array_fill_keys(['name', 'legal_name', 'ruc', 'ruc_dv'], $value), 'settings' => array_fill_keys(['contact_email', 'contact_phone', 'website', 'document_footer', 'logo_path', 'x'], $value)]];
             $requests[] = ['PATCH', '/api/system-settings', ['settings' => $value, 'ruc' => $value]];
             $requests[] = ['POST', '/api/system-settings/logo', ['logo' => $value]];
+            $requests[] = ['POST', '/api/schedules', array_fill_keys($scheduleFields, $value)];
+            $requests[] = ['PATCH', "/api/schedules/{$schedule->id}", array_fill_keys($scheduleFields, $value)];
+            $requests[] = ['PATCH', "/api/schedules/{$schedule->id}", ['hours' => [array_fill_keys(['weekday', 'starts_at', 'ends_at', 'x'], $value)]]];
+            $requests[] = ['POST', "/api/schedules/{$schedule->id}/blocks", array_fill_keys($blockFields, $value)];
             $requests[] = ['PATCH', '/api/me/current-branch', ['branch_id' => $value]];
             $requests[] = ['PATCH', '/api/me/password', ['current_password' => $value, 'password' => $value]];
         }
@@ -245,6 +254,9 @@ class ValidationTranslationsTest extends TestCase
         $requests[] = ['GET', '/api/services?category=x&status=x&include_inactive=x', []];
         $requests[] = ['GET', '/api/audit-logs?from=x&to=x&user_id=x&event=x&auditable_type=x&auditable_id=x', []];
         $requests[] = ['GET', '/api/audit-logs?from=2026-11-09&to=2026-11-08&user_id=999999&auditable_id=1', []];
+        $requests[] = ['GET', '/api/schedules?branch_id=x&veterinarian_id=999999&service_id=x&include_inactive=x', []];
+        $requests[] = ['GET', "/api/schedules/{$schedule->id}/blocks?from=x&to=x&per_page=0", []];
+        $requests[] = ['GET', "/api/schedules/{$schedule->id}/blocks?from=2026-11-09&to=2026-11-08", []];
 
         foreach ($requests as [$method, $uri, $payload]) {
             $response = $this->json($method, $uri, $payload)->assertUnprocessable();
