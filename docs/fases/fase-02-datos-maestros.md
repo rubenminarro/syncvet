@@ -1,6 +1,6 @@
 # FASE 2 — Datos maestros
 
-Etapa: Base. Estado: **EN DESARROLLO**: diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029); entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035), 2.3 (R-036 y R-037), 2.4 (R-038 y R-039), 2.5 (R-040 y R-041) y 2.6 (R-042 y R-043) cerradas; falta el cierre de la fase. El estado vigente de
+Etapa: Base. Estado: **COMPLETADO** el 2026-11-10 (R-044): entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035), 2.3 (R-036 y R-037), 2.4 (R-038 y R-039), 2.5 (R-040 y R-041) y 2.6 (R-042 y R-043) cerradas; diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029). Ver el [cierre de la fase](#cierre-de-la-fase-2). El estado vigente de
 cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -1161,3 +1161,82 @@ El 2026-11-10 el usuario corrió en Postman (Collection Runner, una iteración),
 pacientes (`syncvet-fase-01-pacientes`): 61 de 61, 0 errores. Suite: la del cierre (988 casos; 10816 aserciones en SQLite con 3
 omitidos y 10836 en MySQL). Con este cierre el módulo de auditoría queda COMPLETADO y la deuda 13, resuelta; todas las entregas de la
 FASE 2 están cerradas y falta el cierre de la fase.
+
+## Cierre de la FASE 2
+
+Completada el 2026-11-10 (R-044). Un administrador deja la clínica lista para operar sin tocar la base: sucursales y depósitos (sin
+baja, con la sucursal y el depósito por defecto), usuarios con sus roles y sucursales (inactivos, baja sin uso, último administrador,
+sucursal actual y contraseña propia), veterinarios (`VET-`, uno por usuario, con restauración), el catálogo de servicios (`SRV-`,
+nombre fijo una vez usado), los datos, la configuración y el logo de la clínica, la limpieza de archivos huérfanos y la consulta de la
+auditoría; además, las fechas con hora de la API en un lugar común (`AppDateTime` y `ApiDateTime`). Las ramas se encadenaron
+(`docs/fase-02-diseno` → `feature/fase-02-01-sucursales` → `feature/fase-02-02a-usuarios` → `feature/fase-02-02b-usuarios` →
+`feature/fase-02-03-veterinarios` → `feature/fase-02-04-servicios` → `feature/fase-02-05-configuracion` →
+`feature/fase-02-06-auditoria`), todas en GitHub, y se integran a `main` con un merge `--no-ff` desde `feature/fase-02-06-auditoria`,
+autorizado por el usuario (R-044). Las ramas de la fase se conservan.
+
+| Entrega | Contenido | Commits | Suite al cerrar |
+|---|---|---|---|
+| [2.1](#entrega-21) | Sucursales y depósitos: ABM sin baja, por defecto, `establishment` | `537f26c` | 664 casos; 7525 aserciones en SQLite y 7541 en MySQL |
+| [2.2a](#entrega-22a) | Usuarios: alta, edición, detalle y listado; roles y sucursales; último administrador | `df1cfba` (cifra de Postman, `26d240c`) | 706 casos; 8277 y 8293 |
+| [2.2b](#entrega-22b) | Usuarios inactivos, baja sin uso, sucursal actual y contraseña propia | `3395b9f` | 742 casos; 8642 y 8658 |
+| [2.3](#entrega-23) | Veterinarios (`VET-`): uno por usuario, restauración, baja sin uso | `4ff4a4c`, `c6a6847` (cierre `cfe011e`) | 797 casos; 9217 y 9237 |
+| [2.4](#entrega-24) | Servicios (`SRV-`): nombre fijo una vez usado, precio entero, baja sin uso | `a2079a2`, `a5fad25` (cierre `99e65dd`) | 859 casos; 9869 y 9889 |
+| [2.5](#entrega-25) | Configuración de la clínica, logo y archivos huérfanos (deuda 14) | `fe10d2b`, `62b160e`, `f0b906a` (cierre `03c49d2`) | 921 casos; 10477 y 10497 |
+| [2.6](#entrega-26) | Consulta de la auditoría y fechas con hora (deuda 13) | `18d5db2`, `3df22d1` (cierre `e2b0e01`) | 988 casos; 10816 y 10836 |
+
+**Rutas, permisos y migraciones.** Las rutas de la API pasan de 26 a 58 (32 nuevas): sucursales y depósitos (7), usuarios y roles
+(5), `DELETE users/{user}`, `PATCH me/current-branch` y `PATCH me/password` (3), veterinarios (5), servicios (5), la configuración y
+el logo (5) y la auditoría (2). Los permisos, de 123 a 127 (`system-settings.show`, `.upload-logo`, `.show-logo` y `.delete-logo`;
+los demás ya estaban en el seeder). Las migraciones, de 32 a 34 (`users.is_active`, 2.2b, y `veterinarians.license_number` a 60,
+2.3). Los `error_code` de cada módulo están en su resultado; los compartidos (`USER_INACTIVE`, `USER_SELF_ACTION`, `USER_IN_USE`,
+`USER_LAST_ADMIN`, `USER_IS_VETERINARIAN`, `VETERINARIAN_IN_USE`, `SERVICE_NAME_NOT_EDITABLE`, `SERVICE_IN_USE` y
+`CLINIC_LOGO_NOT_FOUND`), en `CLAUDE.md` §4.
+
+**Suite al cerrar la fase** (2026-11-10, código de `3df22d1`; los commits posteriores solo cambian documentación): 988 casos con los
+*data providers*, en verde. SQLite: 10816 aserciones, 3 omitidos (solo de MySQL). MySQL 8.4.3 (`syncvet_test_mysql`): 10836
+aserciones, sin omitidos. Frente al cierre de la FASE 1 (616 casos; 6756 y 6772 aserciones): 372 casos más. La corrida en `main`
+después del merge, antes del push, la informa el cierre (R-044).
+
+**Colecciones de Postman** (`docs/testing/postman`; se corren más de una vez sin recrear la base, [guía](../testing/guia-postman.md)):
+
+| Colección | Entrega | Requests | Pruebas | Validación del usuario |
+|---|---|---|---|---|
+| Sucursales y depósitos | 2.1 | 37 | 107 | 2026-11-07, en verde |
+| Usuarios | 2.2a y 2.2b | 53 | 130 | 2026-11-07 (2.2a: 30 requests y 78 pruebas; 2.2b), en verde |
+| Veterinarios | 2.3 | 32 | 75 | 2026-11-09, en verde |
+| Servicios | 2.4 | 27 | 64 | 2026-11-09, en verde |
+| Configuración y logo | 2.5 | 24 | 67 | 2026-11-09, en verde; regresión de la foto del paciente, 60 de 60 |
+| Auditoría | 2.6 | 16 | 47 | 2026-11-10, en verde; regresión de pacientes, 61 de 61 |
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| Un administrador deja la clínica lista para operar sin tocar la base | Las rutas de las siete entregas, validadas por el usuario con las seis colecciones de Postman |
+| Cada regla tiene su test con el rol de la operación | `tests/Feature/Branches`, `Users`, `Veterinarians`, `Services`, `Settings` y `Audit`, con un administrador real y los otros roles en los 403; las protecciones críticas se quitaron de a una en la implementación y en la revisión de cada entrega (mutaciones de cada resultado) |
+| Cada ruta nueva con su acceso por rol y su aislamiento por clínica | `RoleAccessTest` (`tests/Feature/Access`) prueba el acceso por rol de las 58 rutas; el 404 de un registro de otra clínica, en los tests de cada módulo y en `RouteBindingTest` |
+| Suite en verde en SQLite y en MySQL | La suite del cierre, en las dos bases, una después de la otra |
+| Deudas 13 y 14 resueltas | Deuda 14 en la 2.5 (`files:prune-orphans`, R-040 y R-041); deuda 13 en la 2.6 (`AppDateTime` y `ApiDateTime`, R-042 y R-043) |
+| Deuda 2 revisada en los modelos de la fase | `Branch` y `Warehouse` (2.1), `User` (2.2a), `Veterinarian` (2.3), `Service` (2.4) y `AuditLog` (2.6), anotados en cada resultado. La deuda sigue abierta para los modelos generados de las fases siguientes |
+
+**Deudas** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 13 (fechas con hora de la API) y 14 (archivos
+huérfanos); la 2, cumplida en los seis modelos de la fase y abierta para los demás. Abiertas al cerrar: 2, 3 (códigos SIFEN sin
+verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en ráfagas con la caché `database`), 15 (foto con un `photo_path`
+fuera de su carpeta: borrarla responde 404 y deja la referencia; nueva en la 2.5) y 16 (zona de las columnas `timestamp` de MySQL y
+`useCurrent()` de `inventory_movements`; nueva en la 2.6).
+
+**Decisiones de la fase.** R-029 (respuestas de negocio y aprobación del diseño), R-030 y R-031 (2.1), R-032 y R-033 (2.2a), R-034 y
+R-035 (2.2b), R-036 y R-037 (2.3), R-038 y R-039 (2.4), R-040 y R-041 (2.5), R-042 y R-043 (2.6) y R-044 (cierre y merge), en el
+[registro](../decisions/registro.md). Las que cambian reglas de fases anteriores: nombres de personas con apóstrofo y guion también
+en clientes (`PersonName`, R-033), las violaciones de índice único por el nombre del índice (R-039), la foto del paciente sobre
+`PrivateImageStore` (R-040), `deceased_at` con el cast `AppDateTime` (R-042, sin cambios en la API) y la base de zonas de PHP 2025a
+o posterior (R-043).
+
+**Pendiente para la FASE 3** ([agenda y turnos](fase-03-agenda-y-turnos.md)):
+
+* Deuda 16, antes del diseño: decidir la zona de las columnas `timestamp` de MySQL (fijar la zona de la sesión, pasar a `datetime` o
+  guardar en UTC).
+* Postman: la baja de un veterinario con uso (409 `VETERINARIAN_IN_USE`, R-037) y un servicio usado (baja, 409 `SERVICE_IN_USE`, y
+  cambio de nombre, 422 `SERVICE_NAME_NOT_EDITABLE`; 2.4), cuando la API cree agendas o turnos. Hoy los cubren los tests.
+* Las fases 3 y 4 toman un `sharedLock` sobre el veterinario y el servicio al usarlos (`CLAUDE.md` §3) y no asignan un veterinario con
+  el usuario inactivo (§6.6).

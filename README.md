@@ -2,7 +2,7 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en `CLAUDE.md`.
 
-Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; sigue la FASE 2, datos maestros. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes) y FASE 2 (datos maestros) completadas; sigue la FASE 3, agenda y turnos. El estado de cada fase está en
 [`docs/roadmap/README.md`](docs/roadmap/README.md) y el punto de continuidad, en [`docs/handoff.md`](docs/handoff.md).
 
 ## Qué incluye
@@ -10,15 +10,15 @@ Estado: FASE 0 (puesta en marcha) y FASE 1 (clientes y pacientes) completadas; s
 | Carpeta | Contenido |
 |---|---|
 | `database/migrations` | 34 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4), `users.is_active` (FASE 2, entrega 2.2b) y la matrícula del veterinario ampliada a 60 (entrega 2.3). `clinic_id` en las tablas de negocio (D1) |
-| `app/Enums` | 34 enums (estados y tipos) con `label()` en español |
-| `app/Models` | 34 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog` |
-| `app/Exceptions` | `AppException`, 14 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
-| `app/Services` | `AuthService`, `ClientService`, `PatientService`, `ClinicService`, `DocumentSequenceService`, `AuditLogger` |
-| `app/Http` | Controllers, Requests y Resources de autenticación, clientes, pacientes, y especies y razas; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
-| `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas) y `PwnedPasswordsVerifier` |
+| `app/Enums` | 36 enums (estados y tipos) con `label()` en español |
+| `app/Models` | 35 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog`; las fechas con hora con el cast `AppDateTime` |
+| `app/Exceptions` | `AppException`, 16 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
+| `app/Services` | Reglas de negocio de autenticación, clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios, veterinarios, servicios, la configuración y el logo, y la limpieza de archivos huérfanos; `ClinicService`, `CatalogLock`, `DocumentSequenceService` y `AuditLogger` |
+| `app/Http` | Controllers, Requests y Resources de autenticación y perfil, clientes, pacientes, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración de la clínica y la auditoría; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
+| `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
 | `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | Rutas de autenticación (`login`, `logout`, `me`), clientes, pacientes, y especies y razas |
+| `routes/api.php` | 58 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, y la auditoría |
 | `database/seeders` | `RolesAndPermissionsSeeder` (127 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
@@ -53,7 +53,9 @@ La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);
 `clinic:create`, el `DemoSeeder` y la regla de contraseñas (`tests/Feature/Console`, `Seeders`, `Security` y `tests/Unit`, 0.4); y el
 acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo ficticios (`tests/Feature/Access` y `Database`,
-0.5). Los Form Requests y las reglas de negocio de clientes y pacientes todavía no tienen tests funcionales (deuda técnica #1).
+0.5); cada regla de clientes, pacientes, especies y razas (FASE 1) y de sucursales y depósitos, usuarios, veterinarios, servicios,
+la configuración y la auditoría (FASE 2), con los mensajes en voseo y las fechas con hora. Al cierre de la FASE 2: 988 casos, en
+SQLite y en MySQL ([cierre](docs/fases/fase-02-datos-maestros.md#cierre-de-la-fase-2)).
 
 ## Instalación
 

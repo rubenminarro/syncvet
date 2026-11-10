@@ -935,3 +935,21 @@ aparte en `feature/fase-02-06-auditoria`. El detalle está en las
 **Qué cambió en la API.** Frente a R-042: `from` y `to` rechazan una hora o un desplazamiento fuera de rango (422), y `from` con
 fracción de segundo ya no incluye el segundo anterior; el detalle de la auditoría muestra `"(archivo)"` en lugar de la ruta de un logo.
 Rutas, permisos y `error_code`, sin otros cambios.
+
+# R-044 Cierre de la FASE 2 y merge a `main` (2026-11-10)
+
+Cierre de la FASE 2 (datos maestros), con las siete entregas cerradas y validadas por el usuario (R-030 a R-043). El detalle está en el
+[cierre de la fase](../fases/fase-02-datos-maestros.md#cierre-de-la-fase-2).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | 2.1 (R-030, R-031), 2.2a (R-032, R-033), 2.2b (R-034, R-035), 2.3 (R-036, R-037), 2.4 (R-038, R-039), 2.5 (R-040, R-041) y 2.6 (R-042, R-043): COMPLETADO, cada una con su validación de Postman y sus cifras en el documento de la fase | Cierre |
+| FASE 2 | COMPLETADO: el criterio de cierre de la fase se cumple, punto por punto en el cierre de la fase | Usuario |
+| Cifras al cerrar | Rutas de la API de 26 a 58; permisos de 123 a 127; migraciones de 32 a 34. Suite sobre el código de `3df22d1` (lo posterior solo cambia documentación): 988 casos; 10816 aserciones en SQLite con 3 omitidos (solo de MySQL) y 10836 en MySQL (`syncvet_test_mysql`), sin omitidos | Cierre |
+| Deudas | Resueltas en la fase: 13 (R-042, R-043) y 14 (R-040, R-041). La 2, revisada en los seis modelos de la fase (`Branch`, `Warehouse`, `User`, `Veterinarian`, `Service` y `AuditLog`) y abierta para los modelos de las fases siguientes. Abiertas: 2, 3, 5, 6, 15 (nueva, R-041) y 16 (nueva, R-043) | Cierre |
+| Módulos | Sucursales y depósitos, usuarios, roles y permisos, veterinarios, servicios, configuración de la clínica y auditoría: COMPLETADO (`docs/modules/README.md`) | Cierre |
+| Pendiente para la FASE 3 | La deuda 16 (la zona de las columnas `timestamp` de MySQL), antes del diseño; en Postman, la baja de un veterinario con uso (R-037) y un servicio usado (2.4), cuando la API cree agendas o turnos | Usuario |
+| Merge a `main` | Autorizado por el usuario el 2026-11-10: merge `--no-ff` desde `feature/fase-02-06-auditoria`, que contiene el diseño (`docs/fase-02-diseno`) y las siete entregas encadenadas. Antes del push de `main`, la suite completa en `main`, en SQLite y después en MySQL. Las ramas de la fase se conservan. El hash del merge no puede ir en el commit que lo precede: se informa al usuario y se anota en el handoff al empezar la FASE 3 | Usuario |
+| Siguiente | Análisis de la FASE 3 (agenda y turnos), empezando por la deuda 16 | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
