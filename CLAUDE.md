@@ -20,8 +20,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Backend/API:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`).
-* **Base de datos:** MySQL 8. Esquema del MVP completo (34 migraciones: las 32 del MVP, `users.is_active`, de la 2.2b, y
-  `veterinarians.license_number` a 60 caracteres, de la 2.3). Una
+* **Base de datos:** MySQL 8. Esquema del MVP completo (35 migraciones: las 32 del MVP, `users.is_active`, de la 2.2b,
+  `veterinarians.license_number` a 60 caracteres, de la 2.3, y el contacto y el sobreturno de `appointments`, de la 3.2a). Una
   base compartida por todas las clínicas, con `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros
   R-002, R-004 y R-007).
 * **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
@@ -34,19 +34,20 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   huérfanos (deuda 14 resuelta; R-040 y R-041), y 2.6, consulta de la auditoría y fechas con hora (deuda 13 resuelta; R-042 y
   R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) tiene el diseño aprobado (R-047 y R-048) y la
   entrega 3.0 cerrada (zona de la sesión de MySQL, deuda 16 resuelta; R-049), validada por el usuario con Postman como regresión, y
-  la 3.1 cerrada (agendas, horario semanal y bloqueos; R-050), validada por el usuario con Postman; sigue la entrega 3.2a (turnos
-  únicos).
+  la 3.1 cerrada (agendas, horario semanal y bloqueos; R-050) y la 3.2a cerrada (turnos únicos; R-051), las dos validadas por el
+  usuario con Postman; sigue la entrega 3.2b (estados del turno).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
-  de la auditoría y de las agendas (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`, `tests/Feature/Branches`,
-  `tests/Feature/Users`, `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`, `tests/Feature/Audit`,
-  `tests/Feature/Schedules`),
+  de la auditoría, de las agendas y de los turnos (`tests/Feature/Clients`, `tests/Feature/Patients`, `tests/Feature/Catalog`,
+  `tests/Feature/Branches`, `tests/Feature/Users`, `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`,
+  `tests/Feature/Audit`, `tests/Feature/Schedules`, `tests/Feature/Appointments`, con dos altas simultáneas en dos procesos de PHP
+  aparte en `AppointmentConcurrencyTest`, solo MySQL),
   y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`) con la zona de la sesión de MySQL
   (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`). Se corre sin Xdebug, con
   `composer test`, `composer test:mysql` y `composer test:fast` (en paralelo, con paratest; R-045).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
-  servicios, la configuración con el logo, la auditoría y las agendas, con las colecciones de Postman de `docs/testing/postman`, que se pueden
+  servicios, la configuración con el logo, la auditoría, las agendas y los turnos, con las colecciones de Postman de `docs/testing/postman`, que se pueden
   correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
@@ -54,13 +55,13 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   listado de roles, los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso) y el catálogo de
   servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado), la configuración de la
   clínica (sus datos, las claves de `system_settings` y el logo: subir, ver y borrar), la consulta de la auditoría (listado con
-  filtros y detalle, solo el administrador) y las agendas (alta, edición, inactivación y baja sin turnos, con su horario semanal y
-  sus bloqueos).
+  filtros y detalle, solo el administrador), las agendas (alta, edición, inactivación y baja sin turnos, con su horario semanal y
+  sus bloqueos) y los turnos únicos (alta, detalle, listado, edición y mover, sin superposición, con sobreturno; sin baja).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API), el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`) y `php artisan files:prune-orphans` (fotos y logos
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
   *scheduler*, FASE 10).
-* **Pendientes con esquema listo:** turnos, historia clínica, aplicaciones, documentos, recordatorios, inventario,
+* **Pendientes con esquema listo:** los estados de los turnos (3.2b, que suma `attended_at` y `no_show_at`), historia clínica, aplicaciones, documentos, recordatorios, inventario,
   caja, facturación SIFEN y pagos.
 * **Frontend:** repositorio aparte, React 19 + TypeScript + Vite + Tabler.
 
@@ -186,13 +187,24 @@ de una PC.
   nombre de un servicio: `CatalogLock` antes de leer los nombres; la edición y la baja: el servicio con `lockForUpdate` antes de
   revisar el uso; la serie `SRV-` al final; las fases 3 y 4 tomarán un `sharedLock` sobre el servicio al usarlo); clínica →
   configuración (editar los datos y las claves, y subir o borrar el logo: `CatalogLock` antes de leer las claves o `logo_path`).
-  **FASE 3**, un solo orden para toda la fase: **clínica → veterinario → servicio → agenda → paciente → turno**; ninguna operación
-  bloquea un veterinario o un servicio después de una agenda, ni una agenda después de un turno; varias filas del mismo tipo, por id
-  ascendente. Agendas (3.1, §6.10): el alta, `CatalogLock` → veterinario y servicio (`sharedLock`); la edición, `CatalogLock` (si
+  **FASE 3**, un solo orden para toda la fase: **clínica → veterinario → servicio → agenda → paciente → cliente → turno**; ninguna
+  operación bloquea un veterinario o un servicio después de una agenda, ni una agenda después de un turno, ni un paciente después de
+  un cliente; varias filas del mismo tipo, por id ascendente. Agendas (3.1, §6.10): el alta, `CatalogLock` → veterinario y servicio (`sharedLock`); la edición, `CatalogLock` (si
   llegan el nombre o la sucursal) → veterinarios (`sharedLock`: el que la agenda tiene, leído sin bloquearla, si llegan la sucursal
   o el veterinario, y el nuevo) → servicio (`sharedLock`) → agenda (`lockForUpdate`), y con la agenda bloqueada verifica que su
   veterinario no cambió en el medio (si cambió, repite: hasta 3 intentos, después 409 `CONFLICT`); el horario, la inactivación, la
-  baja y los bloqueos, la agenda con `lockForUpdate` antes de revisar los turnos o escribir.
+  baja y los bloqueos, la agenda con `lockForUpdate` antes de revisar los turnos o escribir. Turnos (3.2a, §6.10; sin `CatalogLock`):
+  el alta lee la agenda sin bloqueo y después toma su veterinario (`lockForUpdate`; serializa sus turnos entre todas sus agendas) →
+  el servicio (`sharedLock`) → la agenda (`lockForUpdate`) → el paciente y el cliente (`sharedLock`), y con eso bloqueado lee el
+  horario, los bloqueos y la superposición; mover (cambia `schedule_id`, `starts_at` o `ends_at`), el veterinario de la agenda de
+  destino → el servicio → las dos agendas por id → el paciente y el cliente → el turno (`lockForUpdate`); una edición que no mueve,
+  solo el servicio, el paciente y el cliente que llegan y el turno. Con las filas bloqueadas se verifica que no cambiaron el
+  veterinario o el servicio de la agenda, ni la agenda, el paciente, el cliente o el estado del turno: si cambiaron, se repite. Un
+  *deadlock* de MySQL (40001 o 1213; `DetectsConcurrencyErrors`) también se repite, hasta 3 intentos en total
+  (`AppointmentService::ATTEMPTS`), y después 409 `CONFLICT`; una espera vencida (1205) no se repite: 409 `CONFLICT` enseguida. Nunca
+  un 500. Las bajas del cliente y del paciente, su fila con `lockForUpdate` antes de revisar el uso (los turnos lo toman con
+  `sharedLock`). El cambio de dueño del paciente (`change-owner`), en una transacción: el paciente (`lockForUpdate`) y después los dos
+  clientes, el actual y el nuevo, por id (`lockForUpdate`).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -311,8 +323,8 @@ errores sí usan el contrato.
 | Otro 4xx | `HTTP_ERROR` | Error HTTP sin código propio; conserva su estado |
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
 
-`error_code` de autenticación, usuarios, veterinarios, servicios, la configuración y las agendas que no son de un solo módulo (2.2a,
-2.2b, 2.3, 2.4, 2.5 y 3.1):
+`error_code` de autenticación, usuarios, veterinarios, servicios, la configuración, las agendas y los turnos que no son de un solo
+módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1 y 3.2a):
 
 | HTTP | `error_code` | Excepción | Cuándo |
 |---|---|---|---|
@@ -328,6 +340,11 @@ errores sí usan el contrato.
 | 409 | `SCHEDULE_IN_USE` | `ScheduleException` | Baja de una agenda con turnos, en cualquier estado: se inactiva (§6.10) |
 | 422 | `SCHEDULE_NOT_EDITABLE` | `ScheduleException` | Cambio de sucursal o de veterinario de una agenda con turnos, en cualquier estado (§6.10) |
 | 409 | `CONFLICT` | `ScheduleException` | El veterinario de una agenda cambió entre la lectura y el bloqueo en 3 intentos seguidos de la edición (§3, orden de bloqueo) |
+| 409 | `APPOINTMENT_OVERLAP` | `AppointmentException` | El turno se superpone con otro que ocupa el horario en la agenda o del mismo veterinario en otra agenda, sin `overbook: true` (§6.10) |
+| 422 | `APPOINTMENT_OUTSIDE_HOURS` | `AppointmentException` | El turno está fuera del horario semanal de la agenda (§6.10) |
+| 422 | `APPOINTMENT_IN_BLOCK` | `AppointmentException` | El turno se superpone con un bloqueo de la agenda (§6.10) |
+| 422 | `APPOINTMENT_NOT_EDITABLE` | `AppointmentException` | Se edita o se mueve un turno que no está a confirmar ni confirmado (§6.10) |
+| 409 | `CONFLICT` | `AppointmentException` | El alta o la edición de un turno: la agenda o el turno cambiaron entre la lectura y el bloqueo, o un *deadlock*, en 3 intentos seguidos; o una espera vencida de MySQL (1205), sin reintentar (§3, orden de bloqueo) |
 
 ---
 
@@ -364,7 +381,9 @@ errores sí usan el contrato.
   con el cálculo de `ClinicService`; R-015). Una cédula sin guion o un documento con letras no se valida.
 * La baja agrega `//deleted_<id>_<timestamp>` entero al documento y al email: `clients.document_number` admite 50
   caracteres (20 del documento y 21 más el id del sufijo, con ids de hasta 9 dígitos).
-* No se elimina con pacientes, consultas o facturas (`CLIENT_IN_USE`, 409).
+* No se elimina con pacientes (no eliminados), turnos, consultas o facturas (`CLIENT_IN_USE`, 409, "El cliente tiene pacientes,
+  turnos, consultas o facturas y no puede eliminarse."); el uso se revisa dentro de la transacción de la baja, con la fila del
+  cliente bloqueada (§3).
 * La búsqueda (`search`) también encuentra al dueño por el nombre o el código de su mascota.
 
 ### 6.2 Pacientes
@@ -380,7 +399,9 @@ errores sí usan el contrato.
   `species_id` o `breed_id` (§6.3).
 * El dueño se cambia solo con `POST patients/{patient}/change-owner` (`client_id` es `prohibited` en el PATCH); el mismo
   dueño → `PATIENT_SAME_OWNER` (422). Las consultas guardan el dueño de ese momento (`consultations.client_id`). El dueño
-  de un paciente fallecido también se cambia (corrige errores de carga).
+  de un paciente fallecido también se cambia (corrige errores de carga). El cambio va en una transacción, con el paciente y después
+  los dos clientes bloqueados (§3); si el dueño nuevo se eliminó entre la validación y el bloqueo, 422 en `client_id`. Un turno de
+  ese paciente toma el dueño nuevo cuando se le reenvía el paciente o el cliente (§6.10).
 * Paciente fallecido (`deceased_at`): solo cambian la fecha de fallecimiento y las notas (`PATIENT_DECEASED`, 422). Los
   demás campos pueden llegar con el valor que ya tienen (el frontend manda el formulario completo): se rechaza solo si
   cambian, comparados con los casts del modelo (R-021). Los dos listados, `patients` y `clients/{client}/patients`, los
@@ -388,7 +409,8 @@ errores sí usan el contrato.
   `America/Asuncion` (el cast `AppDateTime`, §3; antes, `PatientService`), y sale en UTC con `Z`.
 * `deceased_at` no es anterior a `birth_date` (la que llega en el pedido o la que el paciente ya tiene), comparando el día en
   la hora de Asunción; si lo es, 422 en `deceased_at` (R-021).
-* No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento.
+* No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento. El uso se revisa dentro
+  de la transacción de la baja, con la fila del paciente bloqueada (§3).
 * `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
   `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).
 * **Foto** (`patients/{patient}/photo`: subir con `POST`, ver con `GET`, borrar con `DELETE`; permisos `patients.upload-photo`,
@@ -636,7 +658,7 @@ errores sí usan el contrato.
   como `"(archivo)"` (`Patient::auditValues()`), como el logo (R-041); en los registros anteriores, el detalle cambia por
   `"(archivo)"` el `photo_path` (sin quitar la clave) y cualquier valor con la forma `clinics/{id}/logo/…`, también anidado.
 
-### 6.10 Agendas, horario semanal y bloqueos
+### 6.10 Agendas, horario semanal, bloqueos y turnos
 
 * ABM en `schedules` (`apiResource`; permisos `schedules.index`, `.store`, `.show`, `.update` y `.destroy`), con `ScheduleService`. Las
   arma solo el administrador (P9); el `recepcionista` y el `veterinario` listan y ven el detalle y reciben 403 al escribir. Una agenda
@@ -678,11 +700,53 @@ errores sí usan el contrato.
   `search` literal en el motivo; orden por `starts_at`. El detalle (`ShowScheduleResource`) suma `hours` y `upcoming_blocks` (hasta
   20).
 * Concurrencia: §3, orden de bloqueo de la FASE 3. `Schedule`, `ScheduleHour` y `ScheduleBlock` son auditables.
+* **Turnos** (`appointments`, 3.2a; `AppointmentService`): `GET`/`POST appointments` y `GET`/`PATCH`/`PUT appointments/{appointment}`
+  (permisos `appointments.index`, `.store`, `.show` y `.update`); sin baja (`DELETE` → 405): un turno se cancela (3.2b). Los dan y los
+  mueven el administrador y la recepción; el `veterinario` los lista y ve el detalle, y recibe 403 al dar o mover. Un turno de otra
+  clínica → 404. `Appointment` es auditable.
+  * **Agenda:** `schedule_id` obligatorio, una agenda activa de la clínica (422 "La agenda no existe o está inactiva."); si tiene
+    veterinario, activo y con su usuario activo (422 en `schedule_id`, "El veterinario de la agenda está inactivo."). `branch_id` y
+    `veterinarian_id` se copian de la agenda (en el cuerpo, `prohibited`, como `status`, `series_id` e `is_overbooked`).
+  * **Quién** (P4), uno de tres: `patient_id` (de la clínica, no eliminado, no fallecido; al editar se acepta el que el turno ya tiene
+    aunque haya fallecido); `client_id` sin paciente; o `contact_name` (2 a 150, con al menos una letra, sin caracteres de control ni
+    `<` `>`) y `contact_phone` (la regla de teléfonos de clientes), juntos. Sin ninguno → 422 en `patient_id`. Los datos de contacto,
+    solo sin cliente ni paciente (`null` se acepta). **Con paciente, el cliente del turno es el dueño actual del paciente:** otro
+    `client_id` → 422 en `patient_id`, "El paciente no es de ese cliente."; al editar se acepta también el `client_id` guardado en el
+    turno del mismo paciente (el formulario lo reenvía después de un cambio de dueño), y queda el dueño actual; reenviar el
+    `patient_id` también lo actualiza; sin tocar el paciente ni el cliente, el turno queda como estaba (R-051). Al editar se pasa de
+    contacto a cliente y de cliente a paciente.
+  * **Horario:** `starts_at` obligatorio y `ends_at` opcional (por defecto, la duración del servicio o `slot_minutes` de la agenda),
+    instantes (`AppDateTime`) en múltiplos de 5 minutos sin segundos, `ends_at > starts_at`, hasta 720 minutos, el mismo día de
+    Asunción, y `starts_at` desde el comienzo del día de hoy en Asunción (422 "No podés dar un turno en un día que ya pasó."). Dentro
+    del horario semanal del día de la semana de `starts_at`: el rango entero dentro de un tramo, y **los tramos del mismo día que se
+    tocan (08:00–12:00 y 12:00–16:00) cuentan como uno solo**; un hueco entre tramos no (422 `APPOINTMENT_OUTSIDE_HOURS`; R-051).
+    Un bloqueo de la agenda que se superpone → 422 `APPOINTMENT_IN_BLOCK`.
+  * **Superposición:** con un turno de la agenda que ocupa el horario (`AppointmentStatus::occupiesSlot`) o del mismo veterinario en
+    otra agenda (pregunta 15), con `a.starts_at < b.ends_at` y `a.ends_at > b.starts_at` (tocarse no choca) → 409
+    `APPOINTMENT_OVERLAP`. **Sobreturno** (`overbook: true`, permiso `appointments.overbook`, del administrador y la recepción; sin él,
+    403 en el `authorize()` del Form Request): saltea solo la superposición, no el horario ni los bloqueos. `is_overbooked` marca
+    solo el turno dado como sobreturno, si al guardarlo se superponía; se recalcula al moverlo y no cambia si después se cancela el
+    otro turno. Un turno común contra un sobreturno → 409.
+  * **Servicio** opcional (si no llega, el de la agenda), de la clínica y activo; al editar, también el que el turno ya tiene aunque
+    se haya inactivado. `source`: `reception` (por defecto), `phone` o `whatsapp`; `online` → 422 ("El origen debe ser recepción,
+    teléfono o WhatsApp: la reserva online no está disponible."). `reason` hasta 255 y `notes` hasta 1000.
+  * **Editar y mover** (P7): solo a confirmar o confirmado (422 `APPOINTMENT_NOT_EDITABLE`). Mover es cambiar `schedule_id`,
+    `starts_at` o `ends_at`: se revisan otra vez la agenda (activa, con su veterinario activo), el horario, los bloqueos y la
+    superposición (sin contarse a sí mismo), y se copian la sucursal y el veterinario de la agenda; sin `ends_at`, conserva la
+    duración; conserva el estado (pregunta 17). Sin mover, un turno de una agenda inactiva se sigue editando; cambiar solo el
+    servicio no recalcula `ends_at`.
+  * **Uso:** un turno es uso del paciente (`PATIENT_IN_USE`), del cliente (`CLIENT_IN_USE`, §6.1), del veterinario, del servicio, de la
+    agenda (`SCHEDULE_IN_USE` y `SCHEDULE_NOT_EDITABLE`) y del usuario que lo crea (`created_by`).
+  * **Listado** paginado con `ListFilters`, por `starts_at` e id: filtra por `starts_at` con `from` y `to` (`ApiDateTime`; sin ninguno,
+    hoy; con uno solo, solo ese día; hasta 31 días); `schedule_id`, `branch_id`, `veterinarian_id`, `service_id`, `patient_id`,
+    `client_id`, `status` (uno o varios) y `series_id`; `search` literal en el nombre y el código del paciente, el nombre y el documento
+    del cliente y el nombre y el teléfono de contacto. El detalle (`ShowAppointmentResource`) suma las notas, quién lo creó y las
+    fechas de los estados.
 
 ### 6.11 Pendientes de diseño (reglas a definir antes de programar)
 
-* **Turnos:** sin superposición en la misma agenda (validar con `lockForUpdate` sobre la agenda); transiciones de
-  `AppointmentStatus`; un turno fichado abre la consulta.
+* **Estados del turno** (3.2b, diseñada en la FASE 3): transiciones de `AppointmentStatus`; la relación con la consulta la decide la
+  FASE 4.
 * **Consultas:** qué se edita después de cerrar; quién puede reabrir.
 * **Stock:** el consumo en consulta descuenta del depósito de la sucursal; lote obligatorio si `tracks_lots`.
 * **Facturación:** emisión con timbrado (`invoice_stamps.next_number` con `lockForUpdate`), envío a SIFEN por cola,

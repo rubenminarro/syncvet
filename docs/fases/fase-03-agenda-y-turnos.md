@@ -1,7 +1,7 @@
 # FASE 3 — Agenda y turnos
 
 Etapa: Atención. Estado: **PENDIENTE**: diseño **aprobado** por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047)
-y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Entregas 3.0 (R-049) y 3.1 (R-050) cerradas; sigue la 3.2a. El estado vigente de cada fase está en
+y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Entregas 3.0 (R-049), 3.1 (R-050) y 3.2a (R-051) cerradas; sigue la 3.2b. El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -19,7 +19,7 @@ los estados antes que la recurrencia para que la serie use las transiciones ya p
 |---|---|---|---|
 | 3.0 | Deuda 16: zona fija de la sesión de MySQL, sin migraciones | — | COMPLETADO ([resultado](#entrega-30), R-049) |
 | 3.1 | Agendas: ABM, horario semanal y bloqueos; los pendientes de Postman de la FASE 2 | 3.1 | COMPLETADO ([resultado](#entrega-31), R-050) |
-| 3.2a | Turnos únicos: alta, edición y mover, sin superposición, con el horario y los bloqueos; sobreturno | 3.2 | PENDIENTE |
+| 3.2a | Turnos únicos: alta, edición y mover, sin superposición, con el horario y los bloqueos; sobreturno | 3.2 | COMPLETADO ([resultado](#entrega-32a), R-051) |
 | 3.2b | Estados: confirmar, fichar, atendido, ausente (y deshacerlo el mismo día) y cancelar | 3.3 | PENDIENTE |
 | 3.3 | Turnos recurrentes: la serie entera o nada; cancelar uno o los siguientes | 3.2 | PENDIENTE |
 | 3.4 | Disponibilidad por agenda y cola del día | 3.4 y 3.5 | PENDIENTE |
@@ -383,98 +383,7 @@ en un bloqueo → 422; mover; listado del día.
 
 #### Pendiente para el cierre (3.2a)
 
-Implementación en `feature/fase-03-02a-turnos` (commits WIP "WIP 3.2a turnos, sin revisar" y "WIP 3.2a turnos, correcciones de la
-revisión"), revisada y corregida; falta validarla con Postman. Lo que el cierre tiene que llevar al resultado, a `CLAUDE.md` y al
-registro.
-
-**Cifras.** Migraciones 34 → 35 (`2026_11_10_000000_add_contact_and_overbook_to_appointments`); rutas 66 → 70 (`GET`/`POST
-appointments`, `GET`/`PATCH`/`PUT appointments/{appointment}`; `DELETE` → 405); permisos 130 → 131 (`appointments.overbook`, del
-administrador y la recepción). Suite del 2026-11-10, después de las correcciones de la revisión: 1212 casos; en SQLite (`composer
-test`), 12835 aserciones con 10 omitidos (los 8 de MySQL de antes y los 2 de `AppointmentConcurrencyTest`); en MySQL (`composer
-test:mysql`), 12879 aserciones sin omitidos; `composer test:fast`, 12833 aserciones. `tests/Feature/Appointments`: 99 casos (Store 34,
-ScheduleRules 11, Overlap 11, Overbook 5, Update 18, Index 5, Lock 13, Concurrency 2). Antes de la revisión: 1200 casos, 12752 y
-12791 aserciones.
-
-**Desvíos y decisiones de la implementación.** La revisión (2026-11-10) los aceptó todos, del 1 al 12; el 5 y el 13 cambiaron con las
-correcciones (abajo, **Revisión**):
-
-| # | Desvío o decisión | Motivo |
-|---|---|---|
-| 1 | El alta y la edición también toman el **cliente** con `sharedLock`, después del paciente (agenda → paciente → cliente → turno) | La baja del cliente ahora lo bloquea antes de revisar el uso (pregunta 21); sin el bloqueo, un turno con cliente y sin paciente podía quedar en un cliente eliminado. Ninguna operación bloquea un cliente y después un paciente |
-| 2 | Una edición que no mueve (notas, motivo, servicio, paciente) no bloquea el veterinario ni las agendas: solo el servicio, el paciente y el cliente que llegan y el turno | El horario no cambia; se respeta el orden con un subconjunto. Mover (llega `schedule_id`, `starts_at` o `ends_at`) bloquea todo como dice el diseño |
-| 3 | Mover sin `ends_at` conserva la duración del turno | El diseño solo dice que cambiar el servicio no recalcula `ends_at` |
-| 4 | Al mover (también dentro de la misma agenda) se exigen la agenda activa y su veterinario activo; sin mover, un turno de una agenda inactiva se sigue editando | Un turno movido es como uno nuevo; pregunta 24 (la recepción reprograma los turnos de una agenda inactiva) |
-| 5 | Reintentos: hasta 3 (`AppointmentService::ATTEMPTS`) si cambian el veterinario o el servicio de la agenda, la agenda, el paciente, el cliente o el estado del turno entre la lectura y el bloqueo, o si MySQL informa un *deadlock* (`DetectsConcurrencyErrors`: 40001 y 1213). Después, 409 `CONFLICT` ("La agenda cambió mientras se guardaba el turno: volvé a intentarlo.") con `AppointmentException`. **Una espera vencida (1205) no se repite: 409 `CONFLICT` enseguida** (decisión del usuario en la revisión, hallazgo 7) | Pendiente de la 3.1 (hallazgo 1): nunca un 500. `CONFLICT` de turnos va a `CLAUDE.md` §4 |
-| 6 | Al editar, el paciente que el turno ya tiene se acepta aunque haya fallecido (el formulario lo reenvía); otro fallecido → 422 | Como las especies y razas inactivas (§6.2) |
-| 7 | Con paciente, mandar otro `client_id` (también sin `patient_id`) → 422 en `patient_id`, "El paciente no es de ese cliente." Precisado en la revisión (hallazgo 2): el cliente del turno es el **dueño actual** del paciente; al editar se acepta también el `client_id` guardado en el turno del mismo paciente, y queda el dueño actual | El cliente del turno es el dueño del paciente |
-| 8 | `contact_name`: al menos una letra, sin caracteres de control ni `<` `>` (regex propia) | El diseño dice "texto libre con al menos una letra" |
-| 9 | Listado: el rango filtra por `starts_at`; con solo `from` o solo `to`, el otro es el mismo día; `status` acepta uno (`status=confirmed`) o una lista (`status[]=…`) | Precisa el diseño |
-| 10 | Al mover, `is_overbooked` se recalcula (un sobreturno movido a un horario libre deja de serlo); `overbook` sin mover se ignora (no pide nada más que el permiso) | P2 |
-| 11 | `StoredScheduleBlockResource` suma `contact_name` y `contact_phone` a los turnos afectados | Cierra el desvío 1 de la 3.1 |
-| 12 | La baja del cliente sigue contando solo los pacientes no eliminados (como hasta ahora); suma los turnos y revisa todo con la fila bloqueada | Pregunta 21, sin cambiar lo demás |
-| 13 | Mensajes que el diseño no fija: "La agenda es obligatoria.", "El paciente no existe.", "El cliente no existe.", "El paciente falleció: no se le pueden dar turnos.", "El nombre y el teléfono de contacto van solo en un turno sin cliente ni paciente.", "Ingresá el nombre y el teléfono de contacto juntos.", "El fin del turno debe ser posterior a su inicio.", "El turno no puede durar más de 720 minutos.", "El turno tiene que empezar y terminar el mismo día.", "El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible." (con las etiquetas en español desde la revisión; antes mostraba los valores internos), "El rango no puede superar los 31 días." y los de los campos `prohibited` | — |
-
-**Tests de concurrencia.** `AppointmentLockTest` (SQLite y MySQL): el orden veterinario → servicio → agenda → paciente → cliente y
-los tramos, bloqueos y superposición leídos después de la agenda; mover con las dos agendas por id y el turno después; las bajas de
-cliente y paciente con su fila bloqueada antes de revisar los turnos; el reintento si cambia el veterinario de la agenda y 409
-después de 3; un *deadlock* simulado (un *listener* que hace fallar el bloqueo del veterinario con el mensaje de MySQL 1213) que se
-repite y, si sigue, 409 en el alta y al mover. `AppointmentConcurrencyTest` (solo MySQL) es el criterio de cierre con **dos
-conexiones reales**: dos procesos de PHP aparte (`tests/Support/concurrent-request.php`) piden el mismo turno por la API mientras una
-tercera conexión del test tiene tomada la fila del veterinario; el test espera a verlos a los dos en el `SELECT … FOR UPDATE` del
-veterinario (`information_schema.processlist`), suelta el bloqueo y verifica un 201 y un 409 `APPOINTMENT_OVERLAP`. Para que los
-procesos vean los datos, el test no usa la transacción de `RefreshDatabase` (`$connectionsToTransact = []`) y borra al final los
-datos de su clínica (comprobado: la base de test queda vacía). Desde la revisión, el mismo test con una **agenda solo de servicio**
-(sin veterinario): la tercera conexión toma el servicio y lo único que ordena las dos altas es el bloqueo de la agenda.
-
-**Mutaciones** (cada una con tests que fallan): `<` por `<=` en la superposición (`AppointmentOverlapTest`, los que se tocan);
-contar los cancelados y ausentes como ocupados, y no contar los fichados y atendidos (`AppointmentOverlapTest`, por estado); quitar
-el chequeo de bloqueos (3 tests de ScheduleRules, Overbook y Update); quitar el permiso del sobreturno (`AppointmentOverbookTest`);
-quitar el veterinario de la superposición entre agendas (`AppointmentOverlapTest`, pregunta 15); quitar el `lockForUpdate` de la
-agenda (en MySQL, los dos de orden de `AppointmentLockTest` y, desde la revisión, el de dos procesos con la agenda solo de servicio:
-dos 201 en el mismo horario, 2 de 2 corridas; el de la agenda con veterinario sigue pasando porque el veterinario ya serializa); quitar
-el `lockForUpdate` del veterinario (en MySQL, `AppointmentConcurrencyTest` y 4 de `AppointmentLockTest`); la baja del cliente sin
-bloquear la fila (`AppointmentLockTest`) o sin contar los turnos (`ClientDeleteTest`). En SQLite los tests de orden no ven el
-`FOR UPDATE` (como en la 3.1): esa parte solo se verifica en MySQL.
-
-**Deuda 2 (`Appointment`).** Relaciones y casts revisados: coinciden con las claves foráneas; los instantes con `AppDateTime`;
-suma `contact_name`, `contact_phone` e `is_overbooked` (cast `boolean`) y los valores por defecto de la base en `$attributes`
-(estado a confirmar, origen recepción, sin sobreturno). `Client` suma la relación `appointments()`.
-
-**Postman.** `syncvet-fase-03-turnos` (37 requests: los 34 de la implementación y, de la revisión, "24a Cambio de dueño del paciente
-al cliente B", "24b Editar solo las notas del turno del paciente con el formulario completo (el cliente anterior) → 200" y "24c Turno
-que cruza dos franjas pegadas (lunes de 13:30 a 14:30) → 201"; la agenda del request 07 tiene el lunes en dos franjas pegadas,
-08:00–14:00 y 14:00–20:00), **todavía no corrida**. Antes de correrla: `php artisan migrate` y
-`php artisan db:seed --class=RolesAndPermissionsSeeder`. No prueba "mover un turno cancelado → 422": la API todavía no cancela
-(3.2b); lo cubre `AppointmentUpdateTest`. Los turnos, los dos clientes y el paciente de cada corrida quedan en la base (un turno no se
-elimina y es uso del cliente y del paciente); la agenda, el servicio, el veterinario y el usuario se inactivan, y el bloqueo se
-elimina.
-
-**Revisión (2026-11-10).** Un revisor que no escribió la entrega encontró 8 hallazgos; el usuario decidió cómo corregirlos y aceptó
-los desvíos 1 a 12 (el 10 tal como está). Todo corregido en el commit WIP "WIP 3.2a turnos, correcciones de la revisión":
-
-| # | Hallazgo | Corrección y decisión del usuario | Tests (cada uno falla con la regla rota: mutación comprobada) |
-|---|---|---|---|
-| 1 | El test de dos procesos usaba una agenda con veterinario: quitar el `lockForUpdate` de la agenda no lo hacía fallar, y con una agenda solo de servicio daba dos 201 en el mismo horario (3 de 3 corridas) | Test de dos procesos con una agenda solo de servicio (la tercera conexión toma el servicio) | `AppointmentConcurrencyTest::test_in_a_schedule_without_a_veterinarian_the_schedule_lock_orders_the_bookings` (MySQL) |
-| 2 | Después de un cambio de dueño, reenviar el formulario (el paciente y el cliente anterior) daba 422, y cada camino comparaba contra otro dueño | **Decisión:** con paciente, el cliente del turno es el dueño actual. Al editar se acepta `client_id` igual al guardado en el turno (del mismo paciente) o al dueño actual, y queda el dueño actual; otro → 422. Reenviar el mismo `patient_id` actualiza el cliente al dueño actual. Sin tocar el paciente ni el cliente, el turno queda como estaba. `client_id` se suma a la lectura y al rechequeo del reintento | `AppointmentUpdateTest::test_after_a_change_of_owner_the_client_is_the_current_owner` y `test_resending_the_patient_or_the_stored_client_takes_the_current_owner` (con `change-owner` por la API) |
-| 3 | Ningún test con el reloj cerca de la medianoche: "hoy" en UTC pasaba | Test a las 22:30 de Asunción (01:30 UTC del día siguiente): un turno de hoy a las 20:00 → 201 y uno del día anterior a las 21:30 → 422 | `AppointmentStoreTest::test_near_midnight_today_is_still_the_day_of_asuncion` (falla con `->utc()->startOfDay()`) |
-| 4 | Los rechequeos del reintento al mover no tenían test | Tests: cambia el veterinario de la agenda de destino; el turno cambia de agenda; 409 después de los intentos | `AppointmentLockTest::test_moving_is_retried_if_the_veterinarian_of_the_target_schedule_changes_while_locking`, `test_moving_is_retried_if_the_appointment_changes_its_schedule_while_locking` y `test_after_the_attempts_moving_answers_409` |
-| 5 | El sobreturno fuera del horario o en un bloqueo no tenía otro turno en el horario | El test pone un turno en cada horario y comprueba también que el mismo choque, dentro del horario, entra como sobreturno | `AppointmentOverbookTest::test_an_overbooked_appointment_still_respects_the_hours_and_the_blocks` |
-| 6 | El contacto en `affected_appointments` (desvío 11) no tenía test | Test | `ScheduleBlockTest::test_affected_appointments_show_the_contact` |
-| 7 | Una espera vencida (1205) se reintentaba 3 veces: hasta 3 × `innodb_lock_wait_timeout` | **Decisión:** 1205 no se repite, 409 `CONFLICT` enseguida (`AppointmentService::isLockWaitTimeout`, por el código o el mensaje); el *deadlock* (1213) se sigue repitiendo hasta 3 veces | `AppointmentLockTest::test_a_lock_wait_timeout_is_not_retried_and_answers_409` (alta y mover) |
-| 8 | `PatientService::changeOwner` no usaba transacción ni bloqueo (de la FASE 1): un cambio de dueño simultáneo con la baja del dueño nuevo podía dejar el paciente en un cliente eliminado | **Decisión:** en una transacción, el paciente (`lockForUpdate`) y después los dos clientes, el actual y el nuevo, por id (`lockForUpdate`): el mismo sentido que los turnos (paciente → cliente). El usuario había pedido clientes → paciente; se cambió porque chocaba con el orden de los turnos (desvío 1) y podía dar un *deadlock* con un 500 en el cambio de dueño. Compatible con la baja del cliente, que bloquea solo su fila. El dueño nuevo eliminado entre la validación y el bloqueo → 422 en `client_id` ("El cliente seleccionado no existe."); el mismo dueño se revisa con el paciente bloqueado | `AppointmentLockTest::test_changing_the_owner_locks_the_patient_then_both_clients_by_id` y `test_changing_to_an_owner_deleted_while_locking_is_rejected` |
-| — | Franjas pegadas: un turno de 11:30 a 12:30 con tramos 08:00–12:00 y 12:00–16:00 daba 422 | **Decisión del usuario:** dos tramos del mismo día que se tocan son un horario continuo (`AppointmentService::insideHours` los une en orden); un hueco real sigue dando 422 `APPOINTMENT_OUTSIDE_HOURS` | `AppointmentScheduleRulesTest::test_touching_ranges_are_one_continuous_range_and_a_gap_is_not` (los dos casos) |
-| — | Desvío 13: el mensaje de `source` mostraba los valores internos | **Decisión:** "El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible." | `AppointmentStoreTest::test_the_online_source_is_rejected`, con el texto |
-
-La guía de Postman ya dice que filtrar solo con `from` (o solo con `to`) trae solo ese día (desvío 9).
-
-**Documentación pendiente para el cierre**, como en las entregas anteriores: `CLAUDE.md` §1, §3 (orden con el cliente, reintentos
-con 1205 sin repetir, y `changeOwner`: paciente → clientes por id), §4 (`APPOINTMENT_*` y `CONFLICT` de turnos), §6.1 (`CLIENT_IN_USE`
-con turnos y la fila bloqueada), §6.2 (la baja del paciente con la fila bloqueada, y el cambio de dueño con el paciente y los clientes
-bloqueados), §6.10 (turnos: el cliente es el dueño actual del paciente; los tramos que se tocan son un horario continuo; el mensaje de
-`source`) y §6.11 (sale la regla de turnos); la guía de Postman (la sección de la 3.2a, que hoy tiene solo la nota del filtro); el
-registro (R-051, con las decisiones de la revisión: franjas pegadas, dueño actual, 1205 y el orden de `changeOwner`), el roadmap, los
-módulos y el handoff. En esta entrega solo se agregó a `CLAUDE.md` §2 la regla de escribir los pendientes en el repositorio (pedido del
-usuario).
+Vacía: lo que tenía (cifras, desvíos, revisión, mutaciones y Postman) pasó al [resultado de la 3.2a](#entrega-32a) (R-051).
 
 ### 3.2b Estados del turno
 
@@ -663,6 +572,11 @@ válida e inválida. Cada regla con su test con el rol de la operación, y cada 
 clínica. La deuda 16 resuelta. Los pendientes de Postman de la FASE 2 probados. Suite en verde en SQLite y en MySQL, y `composer audit`
 sin avisos.
 
+**Avance (R-051).** Cumplido en la 3.2a el primer punto: `AppointmentConcurrencyTest` (MySQL) lanza dos altas simultáneas del mismo
+horario en dos procesos de PHP aparte, con una agenda con veterinario y con una agenda solo de servicio, y en los dos casos una entra
+(201) y la otra recibe 409 `APPOINTMENT_OVERLAP`. También la deuda 16 (R-049) y los pendientes de Postman de la FASE 2 (R-050). Faltan
+los tests de cada transición (3.2b), el resto de las rutas nuevas (3.2b a 3.4) y `composer audit` al cierre de la fase.
+
 ## Prompt de implementación (paso 4)
 
 Usar solo con el diseño aprobado, una entrega por vez.
@@ -830,3 +744,106 @@ Además, el usuario decidió que crear y borrar bloqueos sigue siendo solo del a
 El 2026-11-10 el usuario corrió en Postman, en otra PC, con el Collection Runner y una iteración, la colección
 `syncvet-fase-03-agendas`: 35 requests, 68 de 68 pruebas, 0 errores. Las correcciones de la revisión no cambian la API: la edición
 solo cambia el orden de los bloqueos y suma un 409 `CONFLICT` que aparece únicamente con ediciones simultáneas. Suite: la del cierre.
+
+### Entrega 3.2a
+
+Implementación en `feature/fase-03-02a-turnos`, creada desde `feature/fase-03-01-agendas`, revisada en una sesión de Claude Code
+aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-051)) y validada por el usuario
+([validación del usuario](#validación-del-usuario-r-051)). La implementación quedó en el commit WIP `fa03b6f` y las correcciones en
+`b0dd969`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-051](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `AppointmentController`; `AppointmentMessages`, `IndexAppointmentRequest`, `StoreAppointmentRequest`, `UpdateAppointmentRequest`; `AppointmentResource`, `ShowAppointmentResource`; `AppointmentService`; la migración `2026_11_10_000000_add_contact_and_overbook_to_appointments`; `tests/Concerns/InteractsWithAppointments`, `tests/Feature/Appointments` (8 clases) y `tests/Support/concurrent-request.php` (un pedido a la API en un proceso de PHP aparte); la colección `syncvet-fase-03-turnos` |
+| Cambiados | `Appointment` (contacto, sobreturno, valores por defecto; deuda 2) y `Client` (`appointments()`); `ClientService` y `PatientService` (las bajas revisan el uso con la fila bloqueada; el cambio de dueño en una transacción con el paciente y los clientes bloqueados, revisión); `AppointmentException` y `ScheduleChangedWhileLocking` (sus comentarios); `StoredScheduleBlockResource` (el contacto en `affected_appointments`); `RolesAndPermissionsSeeder` (`appointments.overbook`); `routes/api.php`; `lang/es/validation.php` (atributos); `RoleAccessTest`, `RouteBindingTest`, `ValidationTranslationsTest`, `ClientDeleteTest`, `ScheduleBlockTest` y `tests/Fixtures/clinic-roles.json` |
+| Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo de turnos con el cliente, el cambio de dueño y los reintentos), §4 (`APPOINTMENT_*` y `CONFLICT` de turnos), §6.1, §6.2, §6.10 (turnos) y §6.11; en la implementación, §2 (los pendientes se escriben en el repositorio, pedido del usuario); la guía de Postman (turnos); este documento, el registro (R-051), la deuda técnica (deuda 2), el roadmap, los módulos y el handoff |
+
+**Endpoints.** 4 rutas nuevas (66 → 70): `GET`/`POST appointments` y `GET`/`PATCH`/`PUT appointments/{appointment}` (el `PUT` es la
+misma ruta que el `PATCH`); sin `DELETE` (405): un turno se cancela (3.2b). Permisos 130 → 131: `appointments.overbook`, del
+administrador y la recepción, un permiso de un campo (`overbook: true`) revisado en el `authorize()` del Form Request, no de una
+ruta. Migraciones 34 → 35: `contact_name`, `contact_phone`, `is_overbooked` y el índice `(veterinarian_id, starts_at)`.
+
+**Tests.** Suite del 2026-11-10 sobre el código de `b0dd969` (el cierre solo cambia documentación), corrida en serie en SQLite
+(`composer test`) y después en MySQL (`composer test:mysql`): 1212 casos con los *data providers*; en SQLite, 12835 aserciones con 10
+omitidos (los 8 de MySQL de antes y los 2 de `AppointmentConcurrencyTest`); contra MySQL (`syncvet_test_mysql`), 12879 aserciones sin
+omitidos. `composer test:fast`, 1212 casos en verde. Frente a la 3.1 (1108 casos; 11845 y 11879 aserciones): 104 casos más, 990
+aserciones más en SQLite y 1000 en MySQL. `tests/Feature/Appointments`: 99 casos; 555 aserciones en SQLite y 565 en MySQL.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `AppointmentStoreTest` | 34 | 142 | Alta con paciente (el cliente es su dueño; sucursal y veterinario de la agenda), con cliente sin paciente y con contacto; sin ninguno; paciente de otro cliente, fallecido o de otra clínica; contacto con cliente o paciente; `ends_at` por defecto (servicio o `slot_minutes`); el mismo instante con `Z`, con desplazamiento y sin zona; campos que fija el sistema (`prohibited`); `source: online` con el mensaje en español (revisión); día pasado y hoy más temprano; cerca de la medianoche, hoy sigue siendo el día de Asunción (revisión); fuera de la grilla, fin no posterior, cruce de medianoche, más de 720 minutos y exactamente 720; agenda inactiva, veterinario inactivo, servicio inactivo; agenda sin veterinario; el veterinario (403) y la recepción con su rol |
+| `AppointmentScheduleRulesTest` | 11 | 50 | Fuera del horario (antes, empieza dentro y termina fuera, entre tramos, abarca dos tramos con un hueco, después, día sin tramos) → 422 `APPOINTMENT_OUTSIDE_HOURS`; los bordes exactos; los tramos que se tocan como horario continuo y un hueco real fuera (revisión); el día de la semana de Asunción; un bloqueo que se superpone → 422 `APPOINTMENT_IN_BLOCK` y uno que se toca → 201; el bloqueo de otra agenda |
+| `AppointmentOverlapTest` | 11 | 40 | El mismo horario y superposiciones parciales → 409 `APPOINTMENT_OVERLAP`; los que se tocan → 201; por estado (a confirmar, confirmado, fichado y atendido ocupan; ausente y cancelado no); el mismo veterinario en otra agenda → 409 y otro veterinario o una agenda sin veterinario → 201; un turno común contra un sobreturno → 409 |
+| `AppointmentOverbookTest` | 5 | 20 | Sobreturno con permiso (`is_overbooked: true`), sin choque (`false`), sin permiso (403; `overbook: false` no lo pide), la recepción con su rol; con otro turno en el horario, igual respeta el horario y los bloqueos (revisión) |
+| `AppointmentUpdateTest` | 18 | 118 | Mover dentro de la agenda sin chocar consigo mismo, con la duración y el estado; a otra agenda (copia sucursal y veterinario); a un horario ocupado → 409; horario, bloqueos y día al mover; agenda inactiva al mover y otros datos sin mover; solo a confirmar o confirmado (`APPOINTMENT_NOT_EDITABLE`); de contacto a cliente y de cliente a paciente; el paciente de ese cliente; el cliente es el dueño actual después de un cambio de dueño, con el formulario completo y con el paciente reenviado (revisión); el paciente fallecido ya asignado; solo el servicio no recalcula `ends_at`; sobreturno sin permiso; sin `DELETE` y el veterinario (403); `PUT` parcial |
+| `AppointmentIndexTest` | 5 | 69 | Hoy por defecto; `from`/`to`, más de 31 días → 422; filtros; `search` literal; otra clínica |
+| `AppointmentLockTest` | 13 | 116 | Orden del alta (veterinario → servicio → agenda → paciente → cliente, y el horario, los bloqueos y la superposición después de la agenda) y de mover (las dos agendas y después el turno); las bajas de cliente y paciente con su fila bloqueada; reintento si cambia el veterinario de la agenda y 409 después de 3; al mover, reintento si cambia el veterinario de la agenda de destino o la agenda del turno, y 409 después de 3 (revisión); *deadlock* repetido y 409, en el alta y al mover; espera vencida (1205) sin repetir, 409 (revisión); el cambio de dueño con el paciente y después los dos clientes por id, y el dueño nuevo eliminado en el medio → 422 (revisión) |
+| `AppointmentConcurrencyTest` (MySQL) | 2 | 10 | Dos procesos de PHP aparte piden el mismo turno mientras una tercera conexión tiene tomada una fila (el veterinario; con una agenda solo de servicio, el servicio, revisión); al soltarla, un 201 y un 409 `APPOINTMENT_OVERLAP` |
+| Otros | — | — | `RoleAccessTest` (las 4 rutas por rol), `RouteBindingTest` (un turno de otra clínica → 404; una agenda, un paciente, un cliente o un servicio de otra clínica → 422), `ValidationTranslationsTest`, `ClientDeleteTest` (un cliente con un turno → 409 `CLIENT_IN_USE`) y `ScheduleBlockTest` (el contacto en `affected_appointments`, revisión) |
+
+**Mutaciones**, cada una con tests que fallan. De la implementación: `<` por `<=` en la superposición (`AppointmentOverlapTest`, los
+que se tocan); contar los cancelados y ausentes como ocupados, y no contar los fichados y atendidos (`AppointmentOverlapTest`, por
+estado); quitar el chequeo de bloqueos (3 tests de ScheduleRules, Overbook y Update); quitar el permiso del sobreturno
+(`AppointmentOverbookTest`); quitar el veterinario de la superposición entre agendas (`AppointmentOverlapTest`); quitar el
+`lockForUpdate` del veterinario (en MySQL, `AppointmentConcurrencyTest` y 4 de `AppointmentLockTest`); la baja del cliente sin bloquear
+la fila (`AppointmentLockTest`) o sin contar los turnos (`ClientDeleteTest`). Quitar el `lockForUpdate` de la agenda, en la
+implementación, solo hacía fallar los dos tests de orden en MySQL; en la revisión dio dos 201 en el mismo horario con una agenda solo
+de servicio (3 de 3 corridas) y en las correcciones hace fallar el test de dos procesos nuevo (2 de 2). De las correcciones: "hoy" en
+UTC (`->utc()->startOfDay()`), quitar los rechequeos del reintento al mover, reintentar la espera vencida, no aceptar el cliente
+guardado, no unir los tramos que se tocan y bloquear un cliente antes que el paciente en el cambio de dueño: cada una hace fallar su
+test nuevo. En SQLite los tests de orden no ven el `FOR UPDATE` (como en la 3.1): esa parte solo se verifica en MySQL.
+
+**Desvíos del diseño.** Los 13 de la implementación, aceptados por el usuario en la revisión; el 5, el 7 y el 13 cambiaron con las
+correcciones.
+
+| # | Desvío | Motivo | Quién |
+|---|---|---|---|
+| 1 | El alta y la edición también toman el **cliente** con `sharedLock`, después del paciente (agenda → paciente → cliente → turno) | La baja del cliente lo bloquea antes de revisar el uso (pregunta 21); sin el bloqueo, un turno con cliente y sin paciente podía quedar en un cliente eliminado. Ninguna operación bloquea un cliente y después un paciente | Implementación; aceptado por el usuario |
+| 2 | Una edición que no mueve (notas, motivo, servicio, paciente) no bloquea el veterinario ni las agendas: solo el servicio, el paciente y el cliente que llegan y el turno | El horario no cambia; se respeta el orden con un subconjunto. Mover (llega `schedule_id`, `starts_at` o `ends_at`) bloquea todo | Implementación; aceptado por el usuario |
+| 3 | Mover sin `ends_at` conserva la duración del turno | El diseño solo dice que cambiar el servicio no recalcula `ends_at` | Implementación; aceptado por el usuario |
+| 4 | Al mover (también dentro de la misma agenda) se exigen la agenda activa y su veterinario activo; sin mover, un turno de una agenda inactiva se sigue editando | Un turno movido es como uno nuevo; pregunta 24 | Implementación; aceptado por el usuario |
+| 5 | Reintentos: hasta 3 (`AppointmentService::ATTEMPTS`) si cambian el veterinario o el servicio de la agenda, la agenda, el paciente, el cliente o el estado del turno entre la lectura y el bloqueo, o si MySQL informa un *deadlock* (40001 o 1213); después, 409 `CONFLICT`. Una espera vencida (1205) no se repite: 409 enseguida (revisión, hallazgo 7) | Pendiente de la 3.1: nunca un 500 | Implementación; 1205, decisión del usuario |
+| 6 | Al editar, el paciente que el turno ya tiene se acepta aunque haya fallecido; otro fallecido → 422 | El formulario lo reenvía, como las especies y razas inactivas | Implementación; aceptado por el usuario |
+| 7 | Con paciente, otro `client_id` → 422 en `patient_id`, "El paciente no es de ese cliente." El cliente del turno es el **dueño actual** del paciente; al editar se acepta también el `client_id` guardado en el turno del mismo paciente, y queda el dueño actual (revisión, hallazgo 2) | Después de un cambio de dueño, el formulario completo daba 422 | Implementación; dueño actual, decisión del usuario |
+| 8 | `contact_name`: al menos una letra, sin caracteres de control ni `<` `>` (regex propia) | El diseño dice "texto libre con al menos una letra" | Implementación; aceptado por el usuario |
+| 9 | Listado: el rango filtra por `starts_at`; con solo `from` o solo `to`, el otro es el mismo día; `status` acepta uno o una lista | Precisa el diseño | Implementación; aceptado por el usuario |
+| 10 | `is_overbooked` marca solo el turno dado como sobreturno, si al guardarlo se superponía; al mover se recalcula; `overbook` sin mover se ignora (pide solo el permiso). No cambia si después se cancela el otro turno | P2 | Implementación; aceptado por el usuario tal como está |
+| 11 | `StoredScheduleBlockResource` suma `contact_name` y `contact_phone` a los turnos afectados | Cierra el desvío 1 de la 3.1 | Implementación; aceptado por el usuario |
+| 12 | La baja del cliente sigue contando solo los pacientes no eliminados; suma los turnos y revisa todo con la fila bloqueada | Pregunta 21, sin cambiar lo demás | Implementación; aceptado por el usuario |
+| 13 | Mensajes que el diseño no fija: "La agenda es obligatoria.", "El paciente no existe.", "El cliente no existe.", "El paciente falleció: no se le pueden dar turnos.", "El nombre y el teléfono de contacto van solo en un turno sin cliente ni paciente.", "Ingresá el nombre y el teléfono de contacto juntos.", "El fin del turno debe ser posterior a su inicio.", "El turno no puede durar más de 720 minutos.", "El turno tiene que empezar y terminar el mismo día.", "El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible." (con las etiquetas en español desde la revisión), "El rango no puede superar los 31 días." y los de los campos `prohibited` | — | Implementación; aceptado por el usuario |
+
+**Deuda 2 (`Appointment`).** Relaciones y casts revisados: coinciden con las claves foráneas; los instantes con `AppDateTime`; suma
+`contact_name`, `contact_phone` e `is_overbooked` (cast `boolean`) y los valores por defecto de la base en `$attributes` (a confirmar,
+recepción, sin sobreturno). `Client` suma `appointments()`.
+
+#### Correcciones de la revisión (R-051)
+
+La revisión, en una sesión aparte de la implementación, confirmó: el orden de bloqueo del alta, del mover y de las bajas de cliente y
+paciente, compatible con la 3.1 y la FASE 2; que dentro de la transacción no hay lecturas sin bloqueo antes de los bloqueos (en MySQL,
+lo que se lee después ve lo último confirmado); que cada reintento vuelve a leer todo; la superposición con los bordes que se tocan; el
+sobreturno; el horario en el borde exacto; los roles (el veterinario no da ni mueve turnos, 403). Lo que encontró y el usuario pidió
+corregir:
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Alta | El test de dos procesos usaba una agenda con veterinario: sin el `lockForUpdate` de la agenda seguía pasando, y con una agenda solo de servicio daba dos turnos en el mismo horario | Test de dos procesos con una agenda solo de servicio (la tercera conexión toma el servicio) | `AppointmentConcurrencyTest::test_in_a_schedule_without_a_veterinarian_the_schedule_lock_orders_the_bookings` |
+| 2 | Media | Después de un cambio de dueño, reenviar el formulario (el paciente y el cliente anterior) daba 422, y cada camino comparaba contra otro dueño | El cliente del turno es el dueño actual del paciente; se acepta el guardado o el actual, y queda el actual; reenviar el paciente lo actualiza; `client_id` en la lectura y el rechequeo del reintento | `AppointmentUpdateTest::test_after_a_change_of_owner_the_client_is_the_current_owner` y `test_resending_the_patient_or_the_stored_client_takes_the_current_owner` |
+| 3 | Media | Ningún test con el reloj cerca de la medianoche | A las 22:30 de Asunción (01:30 UTC del día siguiente), un turno de hoy a las 20:00 → 201 | `AppointmentStoreTest::test_near_midnight_today_is_still_the_day_of_asuncion` |
+| 4 | Media | Los rechequeos del reintento al mover sin test | Tests del veterinario de la agenda de destino y de la agenda del turno que cambian, y 409 después de 3 | `AppointmentLockTest` (3 tests de mover) |
+| 5 | Baja | El sobreturno fuera del horario o en un bloqueo, sin otro turno en el horario | Un turno en cada horario | `AppointmentOverbookTest::test_an_overbooked_appointment_still_respects_the_hours_and_the_blocks` |
+| 6 | Baja | El contacto en `affected_appointments` (desvío 11) sin test | Test | `ScheduleBlockTest::test_affected_appointments_show_the_contact` |
+| 7 | Baja | La espera vencida (1205) se reintentaba: hasta 3 × `innodb_lock_wait_timeout` | 409 `CONFLICT` enseguida; el *deadlock* sigue con hasta 3 intentos | `AppointmentLockTest::test_a_lock_wait_timeout_is_not_retried_and_answers_409` |
+| 8 | Baja | `PatientService::changeOwner` sin transacción ni bloqueo (de la FASE 1): un cambio de dueño simultáneo con la baja del dueño nuevo podía dejar el paciente en un cliente eliminado | En una transacción, el paciente (`lockForUpdate`) y después los dos clientes por id; el dueño nuevo eliminado en el medio → 422 en `client_id`. El usuario había pedido clientes → paciente y eligió este orden al ver que el otro chocaba con el de los turnos | `AppointmentLockTest::test_changing_the_owner_locks_the_patient_then_both_clients_by_id` y `test_changing_to_an_owner_deleted_while_locking_is_rejected` |
+
+Además, el usuario decidió que los tramos del mismo día que se tocan (08:00–12:00 y 12:00–16:00) cuentan como un horario continuo (un
+hueco real sigue dando 422; `AppointmentScheduleRulesTest::test_touching_ranges_are_one_continuous_range_and_a_gap_is_not`), y que el
+mensaje de `source` use las etiquetas en español. Los dos pendientes de la 3.1 quedan resueltos: mover una agenda con turnos (422
+`SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`) están en la colección, y el alta y el mover
+reintentan ante un *deadlock*.
+
+#### Validación del usuario (R-051)
+
+El 2026-11-10, después de las correcciones de la revisión, el usuario corrió en Postman, con el Collection Runner y una iteración, la
+colección `syncvet-fase-03-turnos` (37 requests): 67 de 67 pruebas, 0 errores. Suite: la del cierre.

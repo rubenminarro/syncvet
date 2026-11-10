@@ -1074,3 +1074,31 @@ de la revisión y el cierre van en el commit de cierre. El detalle está en el [
 
 **Qué no cambió.** Migraciones (34), las colecciones de Postman anteriores y los contratos, permisos y `error_code` de las fases
 anteriores.
+
+# R-051 Entrega 3.2a de la FASE 3: turnos únicos, revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-02a-turnos`, desde `feature/fase-03-01-agendas`. Implementación en el commit WIP `fa03b6f`, correcciones de la
+revisión en `b0dd969` y el cierre en un commit aparte, solo de documentación. El detalle está en el
+[resultado de la 3.2a](../fases/fase-03-agenda-y-turnos.md#entrega-32a).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Turnos únicos según el diseño (P2, P4 a P7, preguntas 15 a 17 y 21): alta, detalle, listado, edición y mover, sin superposición en la agenda ni con el mismo veterinario en otra agenda (409 `APPOINTMENT_OVERLAP`), dentro del horario (422 `APPOINTMENT_OUTSIDE_HOURS`), fuera de los bloqueos (422 `APPOINTMENT_IN_BLOCK`), editables solo a confirmar o confirmados (422 `APPOINTMENT_NOT_EDITABLE`), y el sobreturno con `appointments.overbook`. 4 rutas nuevas (66 → 70), 1 permiso nuevo (130 → 131) y 1 migración (34 → 35: contacto, sobreturno y el índice `(veterinarian_id, starts_at)`). `CLIENT_IN_USE` suma los turnos, y las bajas del cliente y del paciente revisan el uso con su fila bloqueada | Diseño (R-047, R-048) |
+| Desvíos 1 a 13 | Aceptados: (1) el cliente con `sharedLock` después del paciente; (2) una edición que no mueve no bloquea el veterinario ni las agendas; (3) mover sin `ends_at` conserva la duración; (4) mover exige la agenda y su veterinario activos; (5) reintentos ante cambios entre la lectura y el bloqueo y ante un *deadlock*; (6) el paciente fallecido ya asignado se acepta al editar; (7) con paciente, otro cliente → 422; (8) `contact_name` con su regex; (9) el listado por `starts_at`, solo `from` es solo ese día, `status` uno o varios; (10) `is_overbooked` tal como está; (11) el contacto en `affected_appointments`; (12) la baja del cliente con los pacientes no eliminados y los turnos; (13) los mensajes que el diseño no fija. El 5, el 7 y el 13 cambiaron con las decisiones de abajo | Usuario |
+| Cliente del turno | Con paciente, el cliente del turno es el **dueño actual** del paciente. Al editar se acepta `client_id` igual al guardado en el turno (del mismo paciente) o al dueño actual, y queda el dueño actual; otro → 422. Reenviar el mismo `patient_id` actualiza el cliente al dueño actual; sin tocar el paciente ni el cliente, el turno queda como estaba (hallazgo 2 de la revisión: después de un cambio de dueño, el formulario completo daba 422) | Usuario |
+| Reintentos | Un *deadlock* (40001 o 1213) se repite hasta 3 veces (`AppointmentService::ATTEMPTS`); una espera vencida (1205) no se repite y responde 409 `CONFLICT` enseguida, para no triplicar `innodb_lock_wait_timeout` (hallazgo 7). Nunca un 500 | Usuario |
+| Horario | Dos tramos del mismo día que se tocan (08:00–12:00 y 12:00–16:00) cuentan como un horario continuo: un turno de 11:30 a 12:30 entra. Un hueco real entre tramos sigue dando 422 `APPOINTMENT_OUTSIDE_HOURS`. Cambia la regla del diseño ("dentro de **un** tramo") | Usuario (en la revisión) |
+| Sobreturno | `is_overbooked` marca solo el turno dado como sobreturno, si al guardarlo se superponía con otro; se recalcula al moverlo y no cambia si después se cancela el otro turno (desvío 10) | Usuario |
+| Cambio de dueño | `PatientService::changeOwner` en una transacción: el paciente (`lockForUpdate`) y después los dos clientes, el actual y el nuevo, por id (`lockForUpdate`), en el sentido de los turnos (paciente → cliente); el dueño nuevo eliminado entre la validación y el bloqueo → 422 en `client_id` (hallazgo 8). El usuario había pedido clientes → paciente; eligió este orden cuando se le mostró que el otro chocaba con el de los turnos y podía dar un *deadlock* con un 500 en el cambio de dueño | Usuario |
+| Mensaje de `source` | "El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible.", con las etiquetas en español en lugar de los valores internos (desvío 13) | Usuario |
+| Tests de la revisión | Dos procesos con una agenda solo de servicio, donde el bloqueo de la agenda es lo único que ordena (hallazgo 1: sin él, dos 201 en el mismo horario y ningún test fallaba); el reloj cerca de la medianoche (3); los rechequeos del reintento al mover (4); el sobreturno con otro turno en el horario (5); el contacto en `affected_appointments` (6). Cada test nuevo falla con su mutación | Revisión, pedidos por el usuario |
+| Criterio de cierre de la fase | Cumplido el primer punto: dos altas simultáneas del mismo horario, una 201 y la otra 409, en MySQL con dos procesos aparte, con una agenda con veterinario y con una solo de servicio | Cierre |
+| Pendientes de la 3.1 | Resueltos: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`) en la colección de turnos; los reintentos ante un *deadlock* en el alta y el mover | Implementación |
+| Deuda 2 | Revisado `Appointment` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Validación | El 2026-11-10, después de las correcciones, con el Collection Runner (una iteración): `syncvet-fase-03-turnos`, 37 requests, 67 de 67 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-10 sobre `b0dd969`, en serie: 1212 casos; 12835 aserciones en SQLite (10 omitidos, solo de MySQL) y 12879 en MySQL, sin omitidos; `composer test:fast`, 1212 casos en verde | Cierre |
+| Siguiente | Entrega 3.2b (estados del turno) en `feature/fase-03-02b-estados`, creada desde `feature/fase-03-02a-turnos`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Las colecciones de Postman anteriores y los contratos, permisos y `error_code` de las fases anteriores, salvo el
+mensaje de `CLIENT_IN_USE` (suma los turnos, pregunta 21) y el cambio de dueño, que ahora responde 422 en `client_id` si el dueño nuevo
+se elimina en el medio.
