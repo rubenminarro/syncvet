@@ -1,7 +1,7 @@
 # FASE 3 — Agenda y turnos
 
-Etapa: Atención. Estado: **PENDIENTE**: diseño propuesto el 2026-11-10 con las preguntas de negocio 1 a 12 respondidas (R-047); faltan
-las [preguntas del diseño](#preguntas-del-diseño) y su aprobación. El estado vigente de cada fase está en
+Etapa: Atención. Estado: **PENDIENTE**: diseño **aprobado** por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047)
+y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Sigue la entrega 3.0. El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -20,7 +20,7 @@ los estados antes que la recurrencia para que la serie use las transiciones ya p
 | 3.0 | Deuda 16: zona fija de la sesión de MySQL, sin migraciones | — | PENDIENTE |
 | 3.1 | Agendas: ABM, horario semanal y bloqueos; los pendientes de Postman de la FASE 2 | 3.1 | PENDIENTE |
 | 3.2a | Turnos únicos: alta, edición y mover, sin superposición, con el horario y los bloqueos; sobreturno | 3.2 | PENDIENTE |
-| 3.2b | Estados: confirmar, fichar, atendido, ausente y cancelar | 3.3 | PENDIENTE |
+| 3.2b | Estados: confirmar, fichar, atendido, ausente (y deshacerlo el mismo día) y cancelar | 3.3 | PENDIENTE |
 | 3.3 | Turnos recurrentes: la serie entera o nada; cancelar uno o los siguientes | 3.2 | PENDIENTE |
 | 3.4 | Disponibilidad por agenda y cola del día | 3.4 y 3.5 | PENDIENTE |
 
@@ -76,7 +76,7 @@ Análisis con [`docs/project/principios.md`](../project/principios.md).
 | Tema | Decisión |
 |---|---|
 | Permisos | Existen `schedules.*` y `appointments.index/store/show/update/confirm/check-in/cancel`. Nuevos: `schedule-blocks.index`, `schedule-blocks.store` y `schedule-blocks.destroy` (3.1), `appointments.overbook` (3.2a), `appointments.attend` y `appointments.no-show` (3.2b), y `schedules.availability` y `appointments.queue` (3.4): **127 → 135**. Asignación en la [tabla de permisos](#permisos-por-rol) |
-| Rutas | Hoy 58. Suman 8 (3.1), 4 (3.2a), 5 (3.2b), 0 (3.3: la serie va en el alta) y 2 (3.4): **77** al cerrar la fase |
+| Rutas | Hoy 58. Suman 8 (3.1), 4 (3.2a), 6 (3.2b, con deshacer el ausente, pregunta 19), 0 (3.3: la serie va en el alta) y 2 (3.4): **78** al cerrar la fase |
 | Migraciones | Dos nuevas: los datos de contacto, el sobreturno y un índice de turnos (3.2a), y `attended_at` y `no_show_at` (3.2b). **34 → 36**. La 3.0 y la 3.1 no tienen migraciones |
 | Fechas con hora | Instantes (`starts_at`, `ends_at`, `confirmed_at`…) con `AppDateTime`: llegan con zona o en hora de Asunción y salen en UTC (`Z`). Los horarios semanales (`schedule_hours`) son **hora de reloj de Asunción** (`"09:00"`, sin zona): no son un instante. Los filtros por día usan `ApiDateTime::startOf`/`endOf` |
 | Grilla | Horas en múltiplos de 5 minutos y sin segundos (horarios, turnos y duración), como la duración de los servicios (pregunta 22 de la FASE 2). Un turno no cruza la medianoche |
@@ -87,7 +87,7 @@ Análisis con [`docs/project/principios.md`](../project/principios.md).
 | Deuda 2 | Cada entrega revisa las relaciones y los casts de los modelos que usa (`Schedule`, `ScheduleHour`, `ScheduleBlock` en la 3.1; `Appointment` en la 3.2a) y lo anota en su resultado |
 | Deuda 5 | Sin claves foráneas compuestas: cada referencia (agenda, veterinario, servicio, sucursal, paciente, cliente) se valida por clínica y tiene su test de aislamiento (`tests/Feature/Tenancy`) |
 | Excepciones | `ScheduleException` (nueva) para agendas y bloqueos; `AppointmentException` (existe, vacía) para turnos. Los verbos nuevos de los mensajes (elegir, cargar, marcar, inactivar, crear…) se suman a la lista de `VoseoTest` |
-| Orden de bloqueo | Se suma a `CLAUDE.md` §3: clínica → agenda → veterinario → servicio (agendas); agenda → veterinario → servicio → paciente → turno (turnos; con dos agendas, por id); turno (transiciones). Detalle en cada entrega |
+| Orden de bloqueo | Uno solo para toda la fase, en el [orden de bloqueo](#orden-de-bloqueo): clínica → veterinario → servicio → agenda → paciente → turno. Se suma a `CLAUDE.md` §3 |
 
 ### Permisos por rol
 
@@ -115,10 +115,36 @@ El administrador pasa todo por `Gate::before`; los tests usan un rol propio.
 | A confirmar | `confirm` | `check-in` | — | `no-show` | `cancel` |
 | Confirmado | — | `check-in` | — | `no-show` | `cancel` |
 | Fichado | — | — | `attend` | — | `cancel` |
-| Atendido, ausente, cancelado | Finales: ninguna transición | | | | |
+| Ausente | `undo-no-show`, solo el día del turno ([pregunta 19](#preguntas-del-diseño)) | — | — | — | — |
+| Atendido, cancelado | Finales: ninguna transición | | | | |
 
 Las reglas de cada transición están en la [3.2b](#32b-estados-del-turno). `AppointmentStatus` suma `canTransitionTo()` y
 `occupiesSlot()`, y la transición se compara con enums, nunca con textos.
+
+### Orden de bloqueo
+
+Pregunta 15 (R-048): la superposición por veterinario se controla con su fila bloqueada (`lockForUpdate` sobre `veterinarians`)
+**antes** que la de la agenda. Para que ninguna operación tome dos filas en sentido contrario, toda la fase usa un solo orden:
+
+**clínica → veterinario → servicio → agenda → paciente → turno**
+
+Ninguna operación bloquea un veterinario o un servicio después de una agenda, ni una agenda después de un turno. Con varias filas del
+mismo tipo, por id ascendente.
+
+| Operación | Bloqueos, en orden |
+|---|---|
+| Alta de una agenda, o cambio de su veterinario o de su servicio (3.1) | Clínica (`CatalogLock`, si se crea o cambia el nombre) → veterinario (`sharedLock`) → servicio (`sharedLock`) → agenda (`lockForUpdate`, al editar) |
+| Horario, bloqueos, inactivación, baja o cambio de nombre de una agenda (3.1) | Clínica (`CatalogLock`, solo si cambia el nombre) → agenda (`lockForUpdate`) |
+| Alta de un turno o de una serie (3.2a, 3.3) | Se lee la agenda **sin** bloqueo para saber su veterinario y su servicio. Después: veterinario de la agenda (`lockForUpdate`; serializa sus turnos entre agendas) → servicio del turno (`sharedLock`) → agenda (`lockForUpdate`) → paciente (`sharedLock`). Con la agenda bloqueada se vuelve a leer: si cambió su veterinario o su servicio por defecto en el medio, se deshace la transacción y se repite (hasta 3 veces; después, 409 `CONFLICT`). Una agenda sin veterinario saltea el primer paso |
+| Edición o mover un turno (3.2a) | Se lee el turno sin bloqueo. Después: veterinario de la agenda de destino (`lockForUpdate`) → servicio (`sharedLock`) → agendas de origen y destino (`lockForUpdate`, por id) → paciente (`sharedLock`, si cambia) → turno (`lockForUpdate`). Con el turno bloqueado se verifica que no cambiaron su agenda ni su estado; si cambiaron, se repite como en el alta |
+| Transiciones (3.2b) | Solo el turno (`lockForUpdate`): liberan horario, nunca lo ocupan. Excepción: **deshacer el ausente** vuelve a ocupar el horario y bloquea como un alta: veterinario → agenda → turno |
+| Cancelar los siguientes de una serie (3.3) | Los turnos de la serie, por id (`lockForUpdate`) |
+
+**Compatibilidad con la FASE 2.** Las operaciones de la FASE 2 que tocan estas filas las toman en el mismo sentido y nunca bloquean una
+agenda ni un turno después: la baja del veterinario (veterinario `lockForUpdate` → revisa el uso), el alta y la restauración del
+veterinario (clínica → usuario → veterinario → serie), la baja y el cambio de nombre del servicio (servicio `lockForUpdate` → revisa el
+uso) y, desde la 3.2a, la baja del paciente y la del cliente (su fila `lockForUpdate` → revisa el uso). El uso se revisa con lecturas
+sin bloqueo dentro de la transacción. El alta de un turno no toma `CatalogLock`.
 
 ### Relación con la consulta (FASE 4)
 
@@ -226,11 +252,12 @@ tramos: no necesitan excepción en `ROUTES_WITH_ANOTHER_PERMISSION`. `ScheduleRe
 
 Los demás, 422 `VALIDATION_ERROR` en su campo (nombre repetido, veterinario o servicio inactivo, sucursal, tramos superpuestos).
 
-**Concurrencia.** Alta y cambio de nombre: la clínica (`CatalogLock`) antes de leer los nombres; después el veterinario y el servicio
-con `sharedLock` (una baja simultánea del veterinario, que lo bloquea con `lockForUpdate` antes de revisar el uso, ve la agenda o
-hace fallar el alta con 422). Edición, horario, inactivación, bloqueos y baja: la agenda con `lockForUpdate` (después de la clínica si
-cambia el nombre) antes de revisar los turnos, el uso o reemplazar el horario; el alta de un turno toma la misma fila, así que un
-turno y un cambio de horario o un bloqueo no se cruzan. Orden: clínica → agenda → veterinario → servicio.
+**Concurrencia** ([orden de bloqueo](#orden-de-bloqueo)). Alta y cambio de nombre: la clínica (`CatalogLock`) antes de leer los
+nombres. El alta y el cambio de veterinario o de servicio toman el veterinario y el servicio con `sharedLock` **antes** que la agenda
+(una baja simultánea del veterinario, que lo bloquea con `lockForUpdate` antes de revisar el uso, ve la agenda o hace fallar el alta
+con 422). Edición, horario, inactivación, bloqueos y baja: la agenda con `lockForUpdate` antes de revisar los turnos, el uso o
+reemplazar el horario; el alta de un turno toma la misma fila, así que un turno y un cambio de horario o un bloqueo no se cruzan.
+Orden: clínica → veterinario → servicio → agenda.
 
 **Tests** (`tests/Feature/Schedules`, con un rol de test con `schedules.*` y `schedule-blocks.*`; la recepción para el 403 de escritura):
 
@@ -278,7 +305,7 @@ bloqueos; sobreturno (P2, P4 a P7).
 | Dentro del horario (P6) | El rango entero dentro de **un** tramo de `schedule_hours` del día de la semana de `starts_at` (en hora de Asunción). Si no → 422 `APPOINTMENT_OUTSIDE_HOURS` |
 | Bloqueos (P6) | Un bloqueo de la agenda que se superpone con el rango → 422 `APPOINTMENT_IN_BLOCK` |
 | Superposición | Un turno de la misma agenda que ocupa el horario y se superpone → 409 `APPOINTMENT_OVERLAP`. También choca con un turno del **mismo veterinario en otra agenda** ([pregunta 15](#preguntas-del-diseño)) |
-| Sobreturno (P2) | `overbook: true` necesita `appointments.overbook` (si no, 403 `FORBIDDEN`, en el `authorize()` del Form Request). Saltea solo la superposición, no el horario ni los bloqueos. `is_overbooked` queda en `true` solo si al guardar se superpone con otro; sin choque queda en `false`. Un turno común que se superpone con un sobreturno también recibe 409 |
+| Sobreturno (P2) | `overbook: true` necesita `appointments.overbook` (si no, 403 `FORBIDDEN`, en el `authorize()` del Form Request). Saltea solo la superposición (en la agenda y con los turnos del mismo veterinario en otra agenda, pregunta 15), no el horario ni los bloqueos. `is_overbooked` queda en `true` solo si al guardar se superpone con otro; sin choque queda en `false`. Un turno común que se superpone con un sobreturno también recibe 409 |
 | Origen | `source`: `reception` (por defecto), `phone` o `whatsapp`; `online` → 422 ([decisiones comunes](#decisiones-comunes)) |
 | Otros | `reason` hasta 255, `notes` hasta 1000. `status`, `series_id`, `is_overbooked`, `confirmed_at`, `checked_in_at`, `cancelled_*` y `created_by`: no se reciben (`prohibited` o los fija el Service) |
 | Edición y mover (P7) | `PATCH appointments/{appointment}` solo a confirmar o confirmado (si no, 422 `APPOINTMENT_NOT_EDITABLE`). Mover es cambiar `starts_at`, `ends_at` o `schedule_id` (a otra agenda activa de la clínica: copia otra vez la sucursal y el veterinario): se revisan otra vez el horario, los bloqueos y la superposición (sin contarse a sí mismo). Un turno movido conserva su estado ([pregunta 17](#preguntas-del-diseño)). Si solo cambia el servicio, `ends_at` no se recalcula |
@@ -313,11 +340,12 @@ bloqueos; sobreturno (P2, P4 a P7).
 | `APPOINTMENT_IN_BLOCK` | 422 | La agenda está bloqueada en ese horario. |
 | `APPOINTMENT_NOT_EDITABLE` | 422 | Solo se modifican los turnos a confirmar o confirmados. |
 
-**Concurrencia.** Alta, edición y mover en `DB::transaction`: primero la agenda con `lockForUpdate` (al mover a otra, las dos, por id
-ascendente), y con ella bloqueada se leen los tramos, los bloqueos y los turnos que se superponen. Si cuenta el mismo veterinario en
-otra agenda (pregunta 15), después la fila del veterinario con `lockForUpdate` (serializa sus turnos entre agendas); si no, con
-`sharedLock`. Después el servicio y el paciente con `sharedLock` (sus bajas los bloquean antes de revisar el uso), y al editar, el
-turno con `lockForUpdate`. Orden: agenda → veterinario → servicio → paciente → turno. **La baja del paciente** pasa a bloquear la fila
+**Concurrencia** ([orden de bloqueo](#orden-de-bloqueo)). Alta, edición y mover en `DB::transaction`: primero el veterinario de la
+agenda con `lockForUpdate` (pregunta 15: serializa sus turnos entre todas sus agendas), después el servicio con `sharedLock`, después
+la agenda con `lockForUpdate` (al mover, las dos, por id ascendente), y con todo eso bloqueado se leen los tramos, los bloqueos, los
+turnos de la agenda y los del veterinario en sus otras agendas que se superponen. Después el paciente con `sharedLock` (su baja lo
+bloquea antes de revisar el uso) y, al editar, el turno con `lockForUpdate`. Orden: veterinario → servicio → agenda → paciente →
+turno. **La baja del paciente** pasa a bloquear la fila
 del paciente (`lockForUpdate`) y a revisar el uso dentro de su transacción: hoy (`PatientService::delete`) lo revisa antes, sin
 bloqueo, y un turno simultáneo podría quedar en un paciente eliminado. El cliente, igual en `ClientService::delete`.
 
@@ -327,7 +355,7 @@ bloqueo, y un turno simultáneo podría quedar en un paciente eliminado. El clie
 |---|---|
 | `AppointmentStoreTest` | Alta con paciente (el cliente es su dueño), con cliente sin paciente y con contacto; sin ninguno → 422; paciente de otro cliente, fallecido o de otra clínica → 422; contacto con cliente → 422; `ends_at` por defecto con servicio y sin servicio; `branch_id`, `veterinarian_id`, `status` o `series_id` en el cuerpo → 422; `source: online` → 422; fecha pasada → 422; fuera de la grilla de 5 o cruzando la medianoche → 422; agenda inactiva o con veterinario inactivo → 422 |
 | `AppointmentScheduleRulesTest` | Fuera del horario, empezando dentro y terminando fuera, en un día sin tramos → 422 `APPOINTMENT_OUTSIDE_HOURS`; en el borde exacto del tramo → 201; con un bloqueo que se superpone → 422 `APPOINTMENT_IN_BLOCK` y uno que se toca → 201 |
-| `AppointmentOverlapTest` | El mismo horario → 409; que se tocan → 201; contra un cancelado o un ausente → 201; contra un fichado o un atendido → 409; el mismo veterinario en otra agenda → 409 (si se aprueba la pregunta 15) |
+| `AppointmentOverlapTest` | El mismo horario → 409; que se tocan → 201; contra un cancelado o un ausente → 201; contra un fichado o un atendido → 409; el mismo veterinario en otra agenda → 409, y con `overbook: true` → 201 (pregunta 15); el log de consultas muestra el `FOR UPDATE` de `veterinarians` antes que el de `schedules` (MySQL) |
 | `AppointmentOverbookTest` | `overbook: true` con permiso → 201 con `is_overbooked`; sin choque → `is_overbooked: false`; sin permiso → 403; con sobreturno, fuera del horario o en un bloqueo → 422 |
 | `AppointmentUpdateTest` | Mover dentro de la misma agenda sin chocar consigo mismo; a otra agenda (copia sucursal y veterinario); mover a un horario ocupado → 409; editar un fichado, atendido, ausente o cancelado → 422 `APPOINTMENT_NOT_EDITABLE`; de contacto a cliente y de cliente a paciente |
 | `AppointmentConcurrencyTest` (solo MySQL) | Una segunda conexión toma la agenda con `FOR UPDATE`; el alta, con `innodb_lock_wait_timeout = 1`, espera y falla por el tiempo de espera (prueba que pide el bloqueo antes de leer); el log de consultas muestra el `FOR UPDATE` de `schedules` antes del `SELECT` de la superposición. Más el criterio de cierre: dos altas seguidas en el mismo horario, una 201 y la otra 409 |
@@ -362,11 +390,12 @@ sirve para consultas de negocio ([pregunta 20](#preguntas-del-diseño)).
 | Confirmar | `POST appointments/{appointment}/confirm` | A confirmar | — | `status`, `confirmed_at` |
 | Fichar | `POST appointments/{appointment}/check-in` | A confirmar, confirmado | El turno tiene paciente (si no, 422 `APPOINTMENT_PATIENT_REQUIRED`), no fallecido; solo el día del turno en Asunción (si no, 422 `APPOINTMENT_CHECK_IN_NOT_TODAY`) | `status`, `checked_in_at` |
 | Atendido | `POST appointments/{appointment}/attend` | Fichado | Un usuario con ficha de veterinario y sin `appointments.update` marca solo los turnos de su ficha o de agendas sin veterinario (si no, 403; [pregunta 18](#preguntas-del-diseño)) | `status`, `attended_at` |
-| Ausente (P12) | `POST appointments/{appointment}/no-show` | A confirmar, confirmado | Solo cuando llegó la hora del turno (`starts_at <= now`; si no, 422 `APPOINTMENT_NO_SHOW_TOO_EARLY`). No se deshace ([pregunta 19](#preguntas-del-diseño)) | `status`, `no_show_at` |
+| Ausente (P12) | `POST appointments/{appointment}/no-show` | A confirmar, confirmado | Solo cuando llegó la hora del turno (`starts_at <= now`; si no, 422 `APPOINTMENT_NO_SHOW_TOO_EARLY`) | `status`, `no_show_at` |
+| Deshacer el ausente (pregunta 19) | `POST appointments/{appointment}/undo-no-show` | Ausente | Solo el día del turno en Asunción (si no, 422 `APPOINTMENT_NO_SHOW_NOT_UNDOABLE`). Vuelve a ocupar el horario: se revisa la superposición como en un alta, sin contarse a sí mismo (ocupado → 409 `APPOINTMENT_OVERLAP`, salvo un sobreturno, `is_overbooked`, que se recalcula); el horario y los bloqueos no se vuelven a revisar. Queda en la auditoría (`updated`, de ausente a confirmado) | `status` (confirmado) y `no_show_at` en `null`; `confirmed_at`, la hora actual si no tenía |
 | Cancelar (P3) | `POST appointments/{appointment}/cancel` | A confirmar, confirmado, fichado | `cancellation_reason` obligatorio, de 3 a 500; sin límite de anticipación | `status`, `cancelled_at`, `cancelled_by`, `cancellation_reason` |
 
 Otra transición (también repetir la misma: confirmar un confirmado) → 422 `APPOINTMENT_INVALID_TRANSITION`. Responden 200 con
-`ShowAppointmentResource`. Atendido, ausente y cancelado son finales.
+`ShowAppointmentResource`. Atendido y cancelado son finales; el ausente también, pasado el día del turno.
 
 **Endpoints:**
 
@@ -376,6 +405,7 @@ Otra transición (también repetir la misma: confirmar un confirmado) → 422 `A
 | POST | `appointments/{appointment}/check-in` | `appointments.check-in` (existe) | — | 404; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_PATIENT_REQUIRED`, `APPOINTMENT_CHECK_IN_NOT_TODAY` |
 | POST | `appointments/{appointment}/attend` | `appointments.attend` (nuevo) | — | 403; 404; 422 `APPOINTMENT_INVALID_TRANSITION` |
 | POST | `appointments/{appointment}/no-show` | `appointments.no-show` (nuevo) | — | 404; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_NO_SHOW_TOO_EARLY` |
+| POST | `appointments/{appointment}/undo-no-show` | `appointments.undo-no-show` → `appointments.no-show` | — | 404; 409 `APPOINTMENT_OVERLAP`; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_NO_SHOW_NOT_UNDOABLE` |
 | POST | `appointments/{appointment}/cancel` | `appointments.cancel` (existe) | `CancelAppointmentRequest`: `cancellation_reason` (y `scope` en la 3.3) | 404; 422 `APPOINTMENT_INVALID_TRANSITION`; 422 |
 
 **Errores** (`AppointmentException`):
@@ -386,19 +416,29 @@ Otra transición (también repetir la misma: confirmar un confirmado) → 422 `A
 | `APPOINTMENT_PATIENT_REQUIRED` | 422 | Para fichar el turno, cargá el paciente. |
 | `APPOINTMENT_CHECK_IN_NOT_TODAY` | 422 | Solo se fichan los turnos del día. |
 | `APPOINTMENT_NO_SHOW_TOO_EARLY` | 422 | El turno todavía no empezó: no se puede marcar como ausente. |
+| `APPOINTMENT_NO_SHOW_NOT_UNDOABLE` | 422 | El ausente solo se deshace el mismo día del turno. |
+
+`appointments.undo-no-show` usa el permiso `appointments.no-show` (pregunta 19: lo deshacen el administrador y la recepción): va en
+`ROUTES_WITH_ANOTHER_PERMISSION` con su motivo y no suma un permiso.
 
 **Concurrencia.** Cada transición, en `DB::transaction` con el turno `lockForUpdate` antes de leer su estado: dos clics simultáneos
 (confirmar y cancelar) no dejan un estado imposible. No bloquea la agenda: una transición solo libera horario (cancelado, ausente),
-nunca lo ocupa. El fichado toma un `sharedLock` del paciente (orden turno → paciente; la baja del paciente ya ve el turno como uso).
+nunca lo ocupa. Deshacer el ausente sí lo ocupa: bloquea veterinario → agenda → turno, como un alta. El fichado no bloquea al
+paciente: el turno ya existe, así que la baja del paciente lo ve como uso.
 
 **Tests** (`tests/Feature/Appointments/Transitions`): uno por transición válida (estado, hora y auditoría `updated` con el estado
 anterior y el nuevo) y, con un *data provider*, cada transición inválida de la tabla → 422; fichar sin paciente → 422, otro día → 422
 (con `freezeTime()`); ausente antes de la hora → 422; cancelar sin motivo → 422; un cancelado o un ausente liberan el horario (un alta
 en el mismo horario → 201); el veterinario marca atendido un turno de su ficha (200) y de otra ficha (403); la recepción no marca
 atendido (403) y el veterinario no confirma ni cancela (403); el log de consultas muestra el `FOR UPDATE` del turno (MySQL).
+`UndoNoShowTest`: el mismo día → 200, confirmado, `no_show_at` nulo y la auditoría; al día siguiente → 422
+`APPOINTMENT_NO_SHOW_NOT_UNDOABLE` (con `freezeTime()`); un turno que no está ausente → 422 `APPOINTMENT_INVALID_TRANSITION`; con el
+horario tomado por otro turno → 409 y, si era un sobreturno, 200; el veterinario → 403; la ruta, con su excepción en
+`ROUTES_WITH_ANOTHER_PERMISSION` (`tests/Feature/Access`).
 
 **Mutaciones críticas:** permitir fichado → cancelado → fichado (quitar los finales); quitar el chequeo del paciente al fichar; quitar
-el chequeo de la hora del ausente; quitar el `lockForUpdate` del turno; que el cancelado siga ocupando el horario.
+el chequeo de la hora del ausente; quitar el `lockForUpdate` del turno; que el cancelado siga ocupando el horario; deshacer el ausente
+sin el chequeo del día o sin revisar la superposición.
 
 **Postman:** `syncvet-fase-03-turnos` suma las transiciones: confirmar, fichar (un turno de hoy, con la agenda abierta todo el día),
 atender con el token del veterinario, ausente, cancelar con motivo, y una transición inválida → 422.
@@ -427,7 +467,7 @@ atender con el token del veterinario, ausente, cancelar con motivo, y una transi
 |---|---|---|
 | `APPOINTMENT_SERIES_CONFLICT` | 409 | Hay fechas de la serie que no se pueden dar: revisá la lista. |
 
-**Concurrencia.** La serie entera en una transacción, con la agenda bloqueada una vez (el mismo orden de la 3.2a). Cancelar los
+**Concurrencia.** La serie entera en una transacción, con el veterinario y la agenda bloqueados una vez (el mismo orden de la 3.2a). Cancelar los
 siguientes bloquea los turnos de la serie con `lockForUpdate` por id ascendente.
 
 **Tests** (`tests/Feature/Appointments/Series`): serie por cantidad y por fecha de fin (las fechas y la hora de reloj, también en una
@@ -495,23 +535,23 @@ recepción y con el del veterinario).
 
 ## Preguntas del diseño
 
-Lo que el diseño no puede decidir solo, con su propuesta. Esperan la respuesta del usuario.
+Lo que el diseño no podía decidir solo, con su propuesta y la respuesta del usuario (R-048).
 
 | # | Pregunta | Propuesta | Respuesta | Fecha |
 |---|---|---|---|---|
-| 13 | ¿La baja de una agenda es física o con `SoftDeletes`? | Física: sin turnos no hay historia que conservar, queda en la auditoría y libera al veterinario y al servicio (con `SoftDeletes`, la fila eliminada seguiría contando como uso en `VeterinarianService::USAGE` y `ServiceCatalogService::USAGE`). Es una excepción a "datos maestros con `SoftDeletes`" (`CLAUDE.md` §3) | | |
-| 14 | Una agenda con turnos, ¿puede cambiar de sucursal o de veterinario? | No: 422 `SCHEDULE_NOT_EDITABLE`; se crea otra agenda y se inactiva esta (los turnos guardan la sucursal y el veterinario). El servicio sí cambia | | |
-| 15 | ¿Un veterinario puede tener dos turnos a la misma hora en dos agendas distintas? | No: 409 `APPOINTMENT_OVERLAP` también entre sus agendas, con la fila del veterinario bloqueada (`lockForUpdate`) para serializar sus turnos. Un sobreturno lo permite | | |
-| 16 | ¿Se dan turnos en el pasado? | Desde el comienzo del día de hoy (para cargar a alguien que llegó sin turno o un turno de esta mañana); un día anterior → 422 | | |
-| 17 | Un turno confirmado que se mueve, ¿vuelve a "a confirmar"? | No: conserva el estado (la recepción lo mueve hablando con el cliente) | | |
-| 18 | ¿El veterinario marca atendido cualquier turno? | Solo los de su ficha o los de agendas sin veterinario; el administrador y quien tiene `appointments.update`, cualquiera. Fichar, cualquiera (con `appointments.check-in`) | | |
-| 19 | Un ausente marcado por error, ¿se puede deshacer? | No en el MVP: si el cliente llega tarde, se le da otro turno (o un sobreturno) | | |
-| 20 | ¿`attended_at` y `no_show_at` como columnas o alcanza la auditoría? | Columnas `datetime` (migración de la 3.2b): la cola, la demora y el ausentismo los consultan; la auditoría guarda quién | | |
-| 21 | ¿Los turnos cuentan como uso del cliente? Y la baja del paciente, ¿con bloqueo? | Sí: `CLIENT_IN_USE` suma los turnos, y su mensaje cambia a "El cliente tiene pacientes, turnos, consultas o facturas y no puede eliminarse." (§6.1). La baja del paciente y la del cliente revisan el uso con la fila bloqueada, dentro de su transacción (hoy lo revisan antes, sin bloqueo) | | |
-| 22 | Un bloqueo sobre turnos que ya existen, ¿se rechaza? | No: se crea, y la respuesta lista los turnos afectados (`affected_appointments`) para que la recepción los reprograme | | |
-| 23 | ¿`ScheduleBlock` también es auditable? | Sí, como `Schedule` y `ScheduleHour` (P11): un bloqueo cierra la agenda y conviene saber quién lo puso o lo sacó | | |
-| 24 | ¿Se inactiva una agenda con turnos futuros? | Sí: los turnos siguen y la recepción los reprograma o cancela; la agenda no recibe turnos nuevos | | |
-| 25 | ¿La cola del veterinario es una restricción o una vista por defecto? | Vista por defecto (sus turnos, y `all=1` para la sucursal): el veterinario ya lista todos los turnos con `appointments.index` (P8 no pide ocultárselos). Si se quiere restringir, se le quita `appointments.index` | | |
+| 13 | ¿La baja de una agenda es física o con `SoftDeletes`? | Física: sin turnos no hay historia que conservar, queda en la auditoría y libera al veterinario y al servicio (con `SoftDeletes`, la fila eliminada seguiría contando como uso en `VeterinarianService::USAGE` y `ServiceCatalogService::USAGE`). Es una excepción a "datos maestros con `SoftDeletes`" (`CLAUDE.md` §3) | Aprobada (usuario) | 2026-11-10 |
+| 14 | Una agenda con turnos, ¿puede cambiar de sucursal o de veterinario? | No: 422 `SCHEDULE_NOT_EDITABLE`; se crea otra agenda y se inactiva esta (los turnos guardan la sucursal y el veterinario). El servicio sí cambia | Aprobada (usuario) | 2026-11-10 |
+| 15 | ¿Un veterinario puede tener dos turnos a la misma hora en dos agendas distintas? | No: 409 `APPOINTMENT_OVERLAP` también entre sus agendas, con la fila del veterinario bloqueada (`lockForUpdate`) para serializar sus turnos. Un sobreturno lo permite | Aprobada (usuario), con dos precisiones: el sobreturno (`overbook: true`) también se superpone con otro turno del mismo veterinario en otra agenda; y la fila del veterinario se bloquea (`lockForUpdate`) **antes** que la de la agenda ([orden de bloqueo](#orden-de-bloqueo)) | 2026-11-10 |
+| 16 | ¿Se dan turnos en el pasado? | Desde el comienzo del día de hoy (para cargar a alguien que llegó sin turno o un turno de esta mañana); un día anterior → 422 | Aprobada (usuario) | 2026-11-10 |
+| 17 | Un turno confirmado que se mueve, ¿vuelve a "a confirmar"? | No: conserva el estado (la recepción lo mueve hablando con el cliente) | Aprobada (usuario) | 2026-11-10 |
+| 18 | ¿El veterinario marca atendido cualquier turno? | Solo los de su ficha o los de agendas sin veterinario; el administrador y quien tiene `appointments.update`, cualquiera. Fichar, cualquiera (con `appointments.check-in`) | Aprobada (usuario) | 2026-11-10 |
+| 19 | Un ausente marcado por error, ¿se puede deshacer? | No en el MVP: si el cliente llega tarde, se le da otro turno (o un sobreturno) | Cambiada (usuario): el ausente se deshace el mismo día del turno, por el administrador y la recepción (`appointments.no-show`), con `POST appointments/{appointment}/undo-no-show`: vuelve a confirmado, `no_show_at` en `null`, queda en la auditoría; pasado el día, 422 `APPOINTMENT_NO_SHOW_NOT_UNDOABLE` ([3.2b](#32b-estados-del-turno)) | 2026-11-10 |
+| 20 | ¿`attended_at` y `no_show_at` como columnas o alcanza la auditoría? | Columnas `datetime` (migración de la 3.2b): la cola, la demora y el ausentismo los consultan; la auditoría guarda quién | Aprobada (usuario) | 2026-11-10 |
+| 21 | ¿Los turnos cuentan como uso del cliente? Y la baja del paciente, ¿con bloqueo? | Sí: `CLIENT_IN_USE` suma los turnos, y su mensaje cambia a "El cliente tiene pacientes, turnos, consultas o facturas y no puede eliminarse." (§6.1). La baja del paciente y la del cliente revisan el uso con la fila bloqueada, dentro de su transacción (hoy lo revisan antes, sin bloqueo) | Aprobada (usuario) | 2026-11-10 |
+| 22 | Un bloqueo sobre turnos que ya existen, ¿se rechaza? | No: se crea, y la respuesta lista los turnos afectados (`affected_appointments`) para que la recepción los reprograme | Aprobada (usuario) | 2026-11-10 |
+| 23 | ¿`ScheduleBlock` también es auditable? | Sí, como `Schedule` y `ScheduleHour` (P11): un bloqueo cierra la agenda y conviene saber quién lo puso o lo sacó | Aprobada (usuario) | 2026-11-10 |
+| 24 | ¿Se inactiva una agenda con turnos futuros? | Sí: los turnos siguen y la recepción los reprograma o cancela; la agenda no recibe turnos nuevos | Aprobada (usuario) | 2026-11-10 |
+| 25 | ¿La cola del veterinario es una restricción o una vista por defecto? | Vista por defecto (sus turnos, y `all=1` para la sucursal): el veterinario ya lista todos los turnos con `appointments.index` (P8 no pide ocultárselos). Si se quiere restringir, se le quita `appointments.index` | Aprobada (usuario) | 2026-11-10 |
 
 ## Criterio de cierre
 

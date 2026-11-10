@@ -1013,3 +1013,21 @@ ni migraciones, ni la API. El análisis (solo lectura) confirmó la FASE 2 cerra
 
 **Qué no cambió.** Código de `app/`, rutas, permisos, migraciones, `error_code` y colecciones de Postman: el diseño solo documenta.
 `CLAUDE.md` §3 suma desde ahora la regla de no usar la hora de MySQL en código nuevo; la zona fija de la sesión llega con la entrega 3.0.
+
+# R-048 Aprobación del diseño de la FASE 3 (2026-11-10)
+
+El usuario aprobó el diseño de la FASE 3 (R-047) y respondió las preguntas del diseño 13 a 25. Rama `docs/fase-03-diseno`; solo
+documentación. El detalle está en las [preguntas del diseño](../fases/fase-03-agenda-y-turnos.md#preguntas-del-diseño) y en el
+[orden de bloqueo](../fases/fase-03-agenda-y-turnos.md#orden-de-bloqueo).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Preguntas 13, 14, 16, 17, 18, 20, 21, 22, 23, 24 y 25 | Según la propuesta: baja física de la agenda (excepción a "datos maestros con `SoftDeletes`"); una agenda con turnos no cambia de sucursal ni de veterinario; turnos desde el comienzo del día de hoy; mover conserva el estado; el veterinario marca atendido solo lo suyo o de agendas sin veterinario; `attended_at` y `no_show_at` como columnas; los turnos son uso del cliente y las bajas de paciente y cliente revisan el uso con la fila bloqueada; un bloqueo sobre turnos se crea y los lista; `ScheduleBlock` auditable; una agenda con turnos futuros se inactiva; la cola del veterinario es una vista por defecto | Usuario |
+| Pregunta 15 | Según la propuesta (409 también con un turno del mismo veterinario en otra agenda), con dos precisiones: el sobreturno explícito también se superpone con el turno del mismo veterinario en otra agenda; y la fila del veterinario (`lockForUpdate` sobre `veterinarians`) se bloquea **antes** que la de la agenda | Usuario |
+| Orden de bloqueo | Uno solo para la fase, compatible con la FASE 2: clínica → veterinario → servicio → agenda → paciente → turno. Cambia el de R-047 (que bloqueaba la agenda antes que el veterinario y el servicio, también en la 3.1). El alta de un turno lee la agenda sin bloqueo, bloquea en orden y la vuelve a leer: si cambió su veterinario o su servicio, repite (hasta 3 veces; después, 409 `CONFLICT`). El fichado ya no bloquea al paciente | Diseño, aprobado por el usuario |
+| Pregunta 19 | Cambiada: el ausente se deshace el mismo día del turno, por el administrador y la recepción, con `POST appointments/{appointment}/undo-no-show` y el permiso `appointments.no-show` (excepción en `ROUTES_WITH_ANOTHER_PERMISSION`); vuelve a confirmado con `no_show_at` en `null` y queda en la auditoría; pasado el día, 422 `APPOINTMENT_NO_SHOW_NOT_UNDOABLE`. Como vuelve a ocupar el horario, revisa la superposición (409 `APPOINTMENT_OVERLAP`, salvo un sobreturno) | Usuario |
+| Cifras | Rutas 58 → **78** (una más que en R-047: deshacer el ausente); permisos 127 → **135** (sin cambios: deshacer usa `appointments.no-show`); migraciones 34 → 36 | Diseño |
+| Diseño | Aprobado | Usuario, el 2026-11-10 |
+| Siguiente | Entrega 3.0 (deuda 16) en `feature/fase-03-00-zona-mysql`, desde `docs/fase-03-diseno` | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, migraciones, `error_code` y colecciones: la aprobación solo documenta.
