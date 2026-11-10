@@ -59,6 +59,11 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // Zona de la sesión de MySQL (deuda 16, R-047): con ella se convierten las columnas
+            // timestamp al guardar y al leer, sin depender de la zona del servidor. Un desplazamiento
+            // fijo y no America/Asuncion: MySQL de Laragon no tiene cargadas las zonas con nombre.
+            // Las conversiones de la aplicación siguen en PHP, con America/Asuncion (AppDateTime).
+            'timezone' => env('DB_TIMEZONE', '-03:00'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -79,6 +84,8 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // La misma zona de sesión que la conexión mysql (deuda 16).
+            'timezone' => env('DB_TIMEZONE', '-03:00'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
