@@ -141,15 +141,20 @@ empezar una sesión.
   fracción), nunca `Date::parse` sin zona. La conversión usa la zona `America/Asuncion` de PHP, nunca un `-03:00` fijo: Paraguay es
   UTC-3 todo el año desde el 15/10/2024, pero las fechas anteriores tenían horario de verano. PHP necesita la base de zonas 2025a o
   posterior (o la extensión `timezonedb`; `development/setup.md`); `AsuncionTimezoneTest` falla con una base vieja.
-  **Zona de la sesión de MySQL** (deuda 16, R-047, entrega 3.0): la conexión `mysql` (y la `mariadb`) fija
-  `'timezone' => env('DB_TIMEZONE', '-03:00')`, y Laravel la aplica al conectar y al reconectar; así las columnas `timestamp` no
+  **Zona de la sesión de MySQL** (deuda 16, R-047 y R-049, entrega 3.0): la conexión `mysql` (y la `mariadb`) fija
+  `'timezone' => env('DB_TIMEZONE') ?: '-03:00'` (con `?:`, para que una variable vacía no mande `SET time_zone=''` y rompa toda
+  conexión; `DatabaseTimezoneConfigTest`), y Laravel la aplica al conectar y al reconectar; así las columnas `timestamp` no
   dependen de la zona del servidor (`MySqlSessionTimezoneTest`, solo en MySQL). Es la única excepción al "nunca un `-03:00` fijo":
-  en la sesión de MySQL el desplazamiento solo define cómo se guarda un `timestamp` por dentro, y la ida y la vuelta son exactas
-  aunque una fecha vieja haya tenido horario de verano; no se usa `America/Asuncion` porque MySQL de Laragon no tiene cargadas las
-  zonas con nombre. Las conversiones siguen en PHP, con `America/Asuncion`. Las horas de negocio las pone PHP (`now()` de Laravel,
-  `AppDateTime` o el valor del pedido): en código nuevo, nunca `NOW()`, `CURRENT_TIMESTAMP` ni `useCurrent()` (`NoDatabaseNowTest`,
-  con las dos columnas de hoy permitidas: `inventory_movements.created_at` y `failed_jobs.failed_at`), y las columnas nuevas de hora
-  de negocio son `datetime`, no `timestamp` (el tope de 2038 de `timestamp` es la deuda 17).
+  en la sesión de MySQL el desplazamiento solo define cómo se guarda un `timestamp` por dentro, y la ida y la vuelta por PHP son
+  exactas aunque una fecha vieja haya tenido otro desplazamiento; no se usa `America/Asuncion` porque MySQL de Laragon no tiene
+  cargadas las zonas con nombre. En una fecha anterior al 15/10/2024 en que Asunción estaba en UTC-4 (el 01/07/2023, por ejemplo),
+  el instante dentro de MySQL queda corrido una hora (`UNIX_TIMESTAMP()` da una hora menos): esas fechas no se comparan con la hora
+  de MySQL ni se convierten en SQL. Las conversiones siguen en PHP, con `America/Asuncion`. Las horas de negocio las pone PHP
+  (`now()` de Laravel, `AppDateTime` o el valor del pedido): en código nuevo, nunca el reloj de MySQL (`NOW()`, `CURRENT_TIMESTAMP`,
+  `CURDATE()`, `CURRENT_DATE`, `CURTIME()`, `SYSDATE()`, `LOCALTIME`, `UTC_TIMESTAMP()`, `UNIX_TIMESTAMP()` sin argumentos y las
+  demás) ni `useCurrent()` (`NoDatabaseNowTest`, en `app/`, `routes/` y las migraciones, los seeders y las factories, con las dos
+  columnas de hoy permitidas por archivo y columna: `inventory_movements.created_at` y `failed_jobs.failed_at`), y las columnas
+  nuevas de hora de negocio son `datetime`, no `timestamp` (el tope de 2038 de `timestamp` es la deuda 17).
 * Nombres de índices y claves foráneas: hasta 64 caracteres. Si el automático es largo, darle uno propio.
 * Dinero en `decimal(14,2)`, cantidades en `decimal(12,3)`, costos en `decimal(12,4)`. Cálculos con **BCMath** sobre
   strings (`App\Support\Decimal::round`), nunca `float`. Los importes en guaraníes (PYG) se redondean a **0 decimales**

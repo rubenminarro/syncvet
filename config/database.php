@@ -63,7 +63,9 @@ return [
             // timestamp al guardar y al leer, sin depender de la zona del servidor. Un desplazamiento
             // fijo y no America/Asuncion: MySQL de Laragon no tiene cargadas las zonas con nombre.
             // Las conversiones de la aplicación siguen en PHP, con America/Asuncion (AppDateTime).
-            'timezone' => env('DB_TIMEZONE', '-03:00'),
+            // Con ?: y no con el segundo argumento de env(): DB_TIMEZONE vacía tomaría "" y
+            // SET time_zone='' rompería toda conexión (DatabaseTimezoneConfigTest).
+            'timezone' => env('DB_TIMEZONE') ?: '-03:00',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -84,8 +86,8 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            // La misma zona de sesión que la conexión mysql (deuda 16).
-            'timezone' => env('DB_TIMEZONE', '-03:00'),
+            // La misma zona de sesión que la conexión mysql (deuda 16), también si está vacía.
+            'timezone' => env('DB_TIMEZONE') ?: '-03:00',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

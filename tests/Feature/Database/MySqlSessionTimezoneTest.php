@@ -9,7 +9,7 @@ use Tests\Concerns\InteractsWithClinics;
 use Tests\TestCase;
 
 /**
- * Deuda 16 (FASE 3, entrega 3.0; R-047): la sesión de MySQL tiene una zona fija
+ * Deuda 16 (FASE 3, entrega 3.0; R-047 y R-049): la sesión de MySQL tiene una zona fija
  * (`timezone` de la conexión, `DB_TIMEZONE`, -03:00 por defecto), así que las columnas
  * `timestamp` no dependen de la zona del servidor. Solo en MySQL: SQLite no tiene zona.
  */
@@ -77,6 +77,28 @@ class MySqlSessionTimezoneTest extends TestCase
         $read = $patient->fresh()->deceased_at;
         $this->assertTrue($read->equalTo($instant));
         $this->assertSame('2026-07-01T12:00:00.000000Z', $read->toISOString());
+    }
+
+    public function test_an_old_daylight_saving_date_keeps_its_instant_in_php(): void
+    {
+        // El 01/07/2023 Asunción estaba en UTC-4 (horario de invierno, antes de quedar en
+        // UTC-3 todo el año): AppDateTime guarda 08:00:00 y la sesión (-03:00) lo toma como
+        // 11:00 UTC. La ida y la vuelta por PHP son exactas; el instante dentro de MySQL
+        // queda corrido una hora, por eso no se compara con la hora de MySQL (CLAUDE.md §3).
+        $instant = Carbon::parse('2023-07-01T12:00:00Z');
+        $patient = $this->patientOf($this->clientIn($this->createClinic()), ['deceased_at' => '2023-07-01T12:00:00Z']);
+
+        $row = DB::selectOne(
+            'SELECT deceased_at, UNIX_TIMESTAMP(deceased_at) AS epoch FROM patients WHERE id = ?',
+            [$patient->id],
+        );
+
+        $this->assertSame('2023-07-01 08:00:00', $row->deceased_at);
+        $this->assertSame($instant->getTimestamp() - 3600, (int) $row->epoch);
+
+        $read = $patient->fresh()->deceased_at;
+        $this->assertTrue($read->equalTo($instant));
+        $this->assertSame('2023-07-01T12:00:00.000000Z', $read->toISOString());
     }
 
     public function test_use_current_gives_asuncion_time(): void
