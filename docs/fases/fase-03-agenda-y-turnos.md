@@ -1,7 +1,7 @@
 # FASE 3 — Agenda y turnos
 
 Etapa: Atención. Estado: **PENDIENTE**: diseño **aprobado** por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047)
-y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Sigue la entrega 3.0. El estado vigente de cada fase está en
+y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Entrega 3.0 cerrada (R-049); sigue la 3.1. El estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -17,7 +17,7 @@ los estados antes que la recurrencia para que la serie use las transiciones ya p
 
 | Entrega | Contenido | Antes era | Estado |
 |---|---|---|---|
-| 3.0 | Deuda 16: zona fija de la sesión de MySQL, sin migraciones | — | PENDIENTE |
+| 3.0 | Deuda 16: zona fija de la sesión de MySQL, sin migraciones | — | COMPLETADO ([resultado](#entrega-30), R-049) |
 | 3.1 | Agendas: ABM, horario semanal y bloqueos; los pendientes de Postman de la FASE 2 | 3.1 | PENDIENTE |
 | 3.2a | Turnos únicos: alta, edición y mover, sin superposición, con el horario y los bloqueos; sobreturno | 3.2 | PENDIENTE |
 | 3.2b | Estados: confirmar, fichar, atendido, ausente (y deshacerlo el mismo día) y cancelar | 3.3 | PENDIENTE |
@@ -576,5 +576,73 @@ Implementa la entrega 3.X de la FASE 3 según docs/fases/fase-03-agenda-y-turnos
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre de cada entrega ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
+Lo completa el cierre de cada entrega ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
 aserciones, desvíos del diseño y por qué.
+
+### Entrega 3.0
+
+Implementación en `feature/fase-03-00-zona-mysql`, creada desde `docs/fase-03-diseno`, revisada en una sesión de Claude Code aparte
+de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-049)) y validada por el usuario
+([validación del usuario](#validación-del-usuario-r-049)). La implementación y las correcciones quedaron en dos commits WIP (`7c92097`
+y `a0f9a4e`), y el cierre va en un commit aparte. Decisiones en R-047 y [R-049](../decisions/registro.md).
+
+**Archivos.**
+
+| Tipo | Archivos |
+|---|---|
+| Nuevos | `tests/Feature/Database/MySqlSessionTimezoneTest` (solo MySQL), `tests/Feature/Database/DatabaseTimezoneConfigTest` y `tests/Unit/NoDatabaseNowTest` |
+| Cambiados | `config/database.php` (`'timezone' => env('DB_TIMEZONE') ?: '-03:00'` en `mysql` y `mariadb`) y `.env.example` (`DB_TIMEZONE=-03:00`, con su comentario) |
+| Documentación | `CLAUDE.md` §1, §3 (la zona de la sesión de MySQL, su excepción al "nunca un `-03:00` fijo", las fechas viejas en UTC-4 y el reloj de MySQL prohibido en código nuevo) y §7 (deuda 16 resuelta); `development/setup.md` (sección nueva, `DB_TIMEZONE`) y `development/deployment.md` (la variable en el servidor); deuda técnica, roadmap, módulos, handoff y el registro (R-049) |
+
+**Endpoints.** Ninguno: la entrega no cambia la API. Rutas en 58, permisos en 127 y migraciones en 34, sin cambios.
+
+**Tests.** Suite del 2026-11-10, sobre el código de `a0f9a4e` (el cierre solo cambia documentación), corrida en SQLite y después en
+MySQL: 1007 casos con los *data providers*; en SQLite, 10851 aserciones con 8 omitidos (solo de MySQL: los 5 de
+`MySqlSessionTimezoneTest` y 3 de antes); contra MySQL (`syncvet_test_mysql`), 10885 aserciones sin omitidos. `composer test:fast`,
+1007 casos en verde. Frente a la corrida de R-046 (991 casos; 10833 y 10853 aserciones): 16 casos más, 18 aserciones más en SQLite y
+32 en MySQL.
+
+| Clase | Tests | Aserciones | Verifica |
+|---|---|---|---|
+| `MySqlSessionTimezoneTest` (MySQL) | 5 | 14 | La sesión en `-03:00`; otra zona en la sesión y, al reconectar, otra vez `-03:00` (sobre una copia de la conexión); un `timestamp` de 2026 guardado por Eloquent con el mismo `UNIX_TIMESTAMP()` que PHP y leído igual; uno de 2023 (Asunción en UTC-4) guardado como `08:00:00` y leído igual, con el instante dentro de MySQL una hora corrido; `useCurrent()` de `inventory_movements` con la hora de Asunción |
+| `DatabaseTimezoneConfigTest` | 3 | 6 | `DB_TIMEZONE` vacía o sin la variable → `-03:00`; otro desplazamiento se respeta; en `mysql` y en `mariadb` |
+| `NoDatabaseNowTest` | 8 | 12 | Sin el reloj de MySQL ni `useCurrent()` en las migraciones, `app/`, los seeders, las factories y las rutas (un caso por carpeta); las dos columnas permitidas siguen existiendo; la excepción se identifica por archivo y columna (la misma línea con otra columna no pasa); el buscador encuentra cada forma, en cualquier combinación de mayúsculas, y no marca `now()` de Laravel, los comentarios, `UNIX_TIMESTAMP(columna)` ni palabras que solo empiezan igual |
+
+**Mutaciones.** Las cuatro del diseño, en la implementación, cada una con tests que fallan: sin `timezone`, fallan los dos primeros
+tests de `MySqlSessionTimezoneTest` (los del instante y `useCurrent()` pasan en Laragon, que ya está en UTC-3; en un servidor en otra
+zona también fallan); con `+00:00`, fallan los cuatro de entonces; `useCurrent()` en una migración nueva y `DB::raw('NOW()')` en
+`AuditLogger`, falla `NoDatabaseNowTest`. En la revisión, `DB_TIMEZONE=+00:00` (lo mismo que un servidor en UTC sin la configuración)
+hizo fallar los cuatro. En las correcciones: `curdate()` en un seeder y una segunda columna con `useCurrent()` en la migración permitida
+hacen fallar `NoDatabaseNowTest`; volver a `env('DB_TIMEZONE', '-03:00')` hace fallar `DatabaseTimezoneConfigTest` con la variable
+vacía.
+
+**Desvíos del diseño.**
+
+| # | Desvío | Motivo | Quién |
+|---|---|---|---|
+| 1 | El test de reconexión reconecta una copia de la conexión `mysql` (`mysql_timezone_probe`), no la principal | Reconectar la principal cortaría la transacción con la que `RefreshDatabase` deshace cada test; Laravel aplica `timezone` igual en cada conexión nueva | Implementación; aceptado por el usuario |
+| 2 | `NoDatabaseNowTest` busca con el tokenizer de PHP, no con expresiones regulares sobre el archivo | Con regex marcaba el `now()` de Laravel; el tokenizer revisa solo los textos (el SQL) y las llamadas a `useCurrent`, sin los comentarios | Implementación; aceptado por el usuario |
+| 3 | La documentación de `development/`, la deuda técnica, el registro y el roadmap, en el cierre y no en la implementación | El pedido de implementación incluía solo `CLAUDE.md` | Implementación; aceptado por el usuario |
+| 4 | La regresión de Postman no se corrió en la implementación | Quedó para la validación del usuario, que la hizo ([validación](#validación-del-usuario-r-049)) | Implementación |
+
+#### Correcciones de la revisión (R-049)
+
+La revisión, en una sesión aparte de la implementación, confirmó: `timezone` se aplica en toda conexión nueva, también al reconectar,
+en los workers de la cola (`database`, sobre la conexión por defecto) y en un paralelo sobre MySQL (`test:fast` corre en SQLite); los
+tests fallan en un servidor con otra zona; `NoDatabaseNowTest` detecta `DB::raw("now()")`, `->default(DB::raw('CURRENT_TIMESTAMP'))` y
+`selectRaw('NOW()')`; y `CLAUDE.md` §3 no contradice la regla de `AppDateTime` ni la de la base de zonas. Lo que encontró y el usuario
+pidió corregir:
+
+| # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
+|---|---|---|---|---|
+| 1 | Media | `NoDatabaseNowTest` buscaba solo `NOW()` y `CURRENT_TIMESTAMP`: `CURDATE()`, `SYSDATE()`, `UTC_TIMESTAMP()` y las demás, que también dependen de la zona de la sesión, pasaban (la cola del día de la 3.4 invita a usar `CURDATE()`) | También `CURDATE()`, `CURRENT_DATE`, `CURTIME()`, `CURRENT_TIME`, `SYSDATE()`, `LOCALTIME`, `LOCALTIMESTAMP`, `UTC_TIMESTAMP()`, `UTC_DATE()`, `UTC_TIME()` y `UNIX_TIMESTAMP()` sin argumentos, en cualquier combinación de mayúsculas | `NoDatabaseNowTest::test_the_scanner_finds_each_form` |
+| 2 | Baja | Con `DB_TIMEZONE=` vacía, `env()` devolvía `""` y Laravel mandaba `SET time_zone=''`, que MySQL rechaza: ninguna conexión abría | `env('DB_TIMEZONE') ?: '-03:00'` en `mysql` y `mariadb` | `DatabaseTimezoneConfigTest` (variable vacía) |
+| 3 | Baja | `CLAUDE.md` §3 decía que la ida y la vuelta son exactas con una fecha vieja, sin test; y no avisaba que el instante dentro de MySQL queda corrido | Caso de `2023-07-01T12:00:00Z` (UTC-4): se guarda `08:00:00`, se lee igual y `UNIX_TIMESTAMP()` da una hora menos; §3 dice que esas fechas no se comparan con la hora de MySQL | `MySqlSessionTimezoneTest::test_an_old_daylight_saving_date_keeps_its_instant_in_php` |
+| 4 | Baja | El escáner no revisaba los seeders, las factories ni las rutas, y la excepción se reconocía por el texto de la línea (una segunda línea igual en el mismo archivo pasaba) | Revisa también `database/seeders`, `database/factories` y `routes`; `ALLOWED` identifica la excepción por archivo y columna | `NoDatabaseNowTest` (un caso por carpeta y `test_the_allowed_column_is_identified_by_its_name_not_by_the_line`) |
+
+#### Validación del usuario (R-049)
+
+El 2026-11-10 el usuario, con `DB_TIMEZONE=-03:00` en su `.env`, corrió en Postman la colección `syncvet-fase-02-auditoria` contra la
+base de desarrollo, como regresión (la entrega no tiene endpoints): 47 de 47 pruebas, 0 errores. Suite: la del cierre (1007 casos;
+10851 aserciones en SQLite con 8 omitidos y 10885 en MySQL). Con este cierre la deuda 16 queda resuelta; la 17 (el tope de 2038)
+sigue abierta.

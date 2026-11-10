@@ -1031,3 +1031,23 @@ documentación. El detalle está en las [preguntas del diseño](../fases/fase-03
 | Siguiente | Entrega 3.0 (deuda 16) en `feature/fase-03-00-zona-mysql`, desde `docs/fase-03-diseno` | Usuario |
 
 **Qué no cambió.** Código, rutas, permisos, migraciones, `error_code` y colecciones: la aprobación solo documenta.
+
+# R-049 Entrega 3.0 de la FASE 3: zona de la sesión de MySQL (deuda 16), revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-00-zona-mysql`, desde `docs/fase-03-diseno`. Implementación en el commit WIP `7c92097`, correcciones de la
+revisión en `a0f9a4e` y el cierre en un commit aparte. El detalle está en el
+[resultado de la 3.0](../fases/fase-03-agenda-y-turnos.md#entrega-30).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Zona de la sesión | `'timezone' => env('DB_TIMEZONE') ?: '-03:00'` en las conexiones `mysql` y `mariadb`, como decidió R-047, con `?:` en lugar del segundo argumento de `env()`: una variable vacía daba `""` y `SET time_zone=''` rompía toda conexión (hallazgo 2 de la revisión). `DB_TIMEZONE=-03:00` en `.env.example`. Sin migraciones ni cambios en los datos | Usuario (R-047); `?:`, revisión, corrección pedida por el usuario |
+| Reloj de MySQL | `NoDatabaseNowTest` rechaza en `app/`, `routes/`, las migraciones, los seeders y las factories `useCurrent()` y toda función de reloj de MySQL dentro de un texto, en cualquier combinación de mayúsculas: `NOW()`, `CURRENT_TIMESTAMP`, `CURDATE()`, `CURRENT_DATE`, `CURTIME()`, `CURRENT_TIME`, `SYSDATE()`, `LOCALTIME`, `LOCALTIMESTAMP`, `UTC_TIMESTAMP()`, `UTC_DATE()`, `UTC_TIME()` y `UNIX_TIMESTAMP()` sin argumentos. Las dos columnas de hoy (`inventory_movements.created_at` y `failed_jobs.failed_at`) quedan permitidas por archivo y columna (hallazgos 1 y 4) | Diseño (R-047); ampliación, revisión, pedida por el usuario |
+| Fechas viejas | En una fecha anterior al 15/10/2024 con Asunción en UTC-4, la ida y la vuelta por PHP son exactas, pero el instante dentro de MySQL queda corrido una hora: esas fechas no se comparan con la hora de MySQL ni se convierten en SQL (`CLAUDE.md` §3; caso de 2023 en `MySqlSessionTimezoneTest`; hallazgo 3) | Revisión, pedida por el usuario |
+| Desvíos 1 a 3 | Aceptados: la reconexión sobre una copia de la conexión `mysql` (para no cortar la transacción de `RefreshDatabase`); el buscador con el tokenizer de PHP; la documentación de `development/`, la deuda técnica, el registro y el roadmap en el cierre. El 4 (Postman en la implementación) lo cubre la validación | Usuario |
+| Documentación | `development/setup.md` (sección nueva, `DB_TIMEZONE`) y `development/deployment.md`: la variable en el `.env`, sin dejarla vacía | Usuario |
+| Deudas | 16 resuelta; 17 (el tope de 2038 de `timestamp`) sigue abierta, de prioridad baja | Usuario |
+| Validación | El 2026-11-10, con `DB_TIMEZONE=-03:00` en su `.env`, la colección `syncvet-fase-02-auditoria` como regresión (la entrega no tiene endpoints): 47 de 47 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-10 sobre `a0f9a4e`: 1007 casos; 10851 aserciones en SQLite (8 omitidos, solo de MySQL) y 10885 en MySQL, sin omitidos; `composer test:fast`, 1007 casos en verde | Implementación |
+| Siguiente | Entrega 3.1 (agendas, horario semanal y bloqueos) en `feature/fase-03-01-agendas`, creada desde `feature/fase-03-00-zona-mysql`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Código de `app/`, rutas (58), permisos (127), migraciones (34), `error_code`, la API y las colecciones de Postman.
