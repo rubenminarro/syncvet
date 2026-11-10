@@ -186,6 +186,65 @@ class AppointmentUpdateTest extends TestCase
     }
 
     /**
+     * Revisión de la 3.2a (hallazgo 2, decisión del usuario): con paciente, el cliente del turno
+     * es el dueño actual del paciente. Después de un cambio de dueño, el formulario completo
+     * (el paciente y el cliente guardado) se acepta y queda el dueño actual; el dueño actual
+     * también; cualquier otro cliente, 422.
+     */
+    public function test_after_a_change_of_owner_the_client_is_the_current_owner(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $former = $this->clientIn($clinic);
+        $current = $this->clientIn($clinic);
+        $other = $this->clientIn($clinic);
+        $patient = $this->patientOf($former);
+        $this->actingIn($clinic, [...self::APPOINTMENT_PERMISSIONS, 'patients.change-owner']);
+        $id = $this->booked($schedule, ['patient_id' => $patient->id, 'contact_name' => null, 'contact_phone' => null]);
+
+        $this->postJson("/api/patients/{$patient->id}/change-owner", ['client_id' => $current->id])->assertOk();
+
+        // El formulario completo, que cambia solo las notas: el cliente pasa al dueño actual.
+        $this->patchJson("/api/appointments/{$id}", [
+            'schedule_id' => $schedule->id, 'starts_at' => $this->at('10:00'), 'patient_id' => $patient->id,
+            'client_id' => $former->id, 'contact_name' => null, 'contact_phone' => null, 'notes' => 'Ahora es de otro dueño',
+        ])->assertOk()
+            ->assertJsonPath('data.client.id', $current->id)
+            ->assertJsonPath('data.notes', 'Ahora es de otro dueño');
+
+        // Ya guardado el dueño actual, el anterior es "otro cliente".
+        $this->patchJson("/api/appointments/{$id}", ['patient_id' => $patient->id, 'client_id' => $former->id])
+            ->assertUnprocessable()->assertJsonPath('errors.patient_id.0', AppointmentMessages::PATIENT_NOT_OF_CLIENT);
+        $this->patchJson("/api/appointments/{$id}", ['client_id' => $other->id])
+            ->assertUnprocessable()->assertJsonPath('errors.patient_id.0', AppointmentMessages::PATIENT_NOT_OF_CLIENT);
+        $this->patchJson("/api/appointments/{$id}", ['client_id' => $current->id])
+            ->assertOk()->assertJsonPath('data.client.id', $current->id);
+    }
+
+    public function test_resending_the_patient_or_the_stored_client_takes_the_current_owner(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $former = $this->clientIn($clinic);
+        $current = $this->clientIn($clinic);
+        $patient = $this->patientOf($former);
+        $this->actingIn($clinic, [...self::APPOINTMENT_PERMISSIONS, 'patients.change-owner']);
+        $first = $this->booked($schedule, ['patient_id' => $patient->id, 'contact_name' => null, 'contact_phone' => null]);
+        $second = $this->booked($schedule, ['patient_id' => $patient->id, 'contact_name' => null, 'contact_phone' => null, 'starts_at' => $this->at('11:00')]);
+
+        $this->postJson("/api/patients/{$patient->id}/change-owner", ['client_id' => $current->id])->assertOk();
+
+        // Sin tocar el paciente ni el cliente, el turno queda como estaba.
+        $this->patchJson("/api/appointments/{$first}", ['notes' => 'x'])->assertOk()->assertJsonPath('data.client.id', $former->id);
+
+        $this->patchJson("/api/appointments/{$first}", ['patient_id' => $patient->id])
+            ->assertOk()->assertJsonPath('data.client.id', $current->id);
+        $this->patchJson("/api/appointments/{$second}", ['client_id' => $former->id])
+            ->assertOk()->assertJsonPath('data.client.id', $current->id);
+        $this->assertSame($current->id, (int) $this->appointmentRow($second)->client_id);
+    }
+
+    /**
      * El paciente que el turno ya tiene se acepta aunque haya fallecido (el formulario lo
      * reenvía); otro fallecido, no.
      */

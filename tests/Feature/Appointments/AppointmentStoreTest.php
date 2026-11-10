@@ -261,7 +261,8 @@ class AppointmentStoreTest extends TestCase
 
         $this->book($schedule, ['source' => 'online'])
             ->assertUnprocessable()
-            ->assertJsonPath('errors.source.0', AppointmentMessages::SOURCE_INVALID);
+            // Con las etiquetas en español, no los valores internos (revisión de la 3.2a, desvío 13).
+            ->assertJsonPath('errors.source.0', 'El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible.');
 
         $this->book($schedule, ['source' => 'phone'])->assertCreated()->assertJsonPath('data.source.label', 'Teléfono');
     }
@@ -286,6 +287,27 @@ class AppointmentStoreTest extends TestCase
             ->assertJsonPath('errors.starts_at.0', AppointmentMessages::PAST_DAY);
 
         $this->book($schedule, ['starts_at' => $this->at('08:00', self::TODAY)])->assertCreated();
+    }
+
+    /**
+     * Revisión de la 3.2a (hallazgo 3): a las 22:30 de Asunción ya es el día siguiente en UTC
+     * (01:30 del 11), pero "hoy" sigue siendo el martes 10 de Asunción. Un turno de hoy a las
+     * 20:00 entra; uno del lunes 9 a las 21:30 (00:30 UTC del 10), no.
+     */
+    public function test_near_midnight_today_is_still_the_day_of_asuncion(): void
+    {
+        $this->freezeToday('22:30:00');
+        $this->assertSame('2026-11-11 01:30', now()->utc()->format('Y-m-d H:i'));
+        $clinic = $this->createClinic();
+        $schedule = $this->scheduleIn($this->defaultBranchIn($clinic), ['veterinarian_id' => null, 'service_id' => $this->serviceIn($clinic)->id]);
+        $this->hoursFor($schedule, [[1, '08:00', '23:00'], [2, '08:00', '23:00']]);
+        $this->actAsReception($clinic);
+
+        $this->book($schedule, ['starts_at' => $this->at('20:00', self::TODAY), 'ends_at' => $this->at('20:30', self::TODAY)])->assertCreated();
+
+        $this->book($schedule, ['starts_at' => '2026-11-10T00:30:00Z', 'ends_at' => '2026-11-10T01:00:00Z'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.starts_at.0', AppointmentMessages::PAST_DAY);
     }
 
     public static function badTimes(): array

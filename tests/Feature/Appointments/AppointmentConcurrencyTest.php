@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Appointments;
 
+use App\Models\Clinic;
+use App\Models\Schedule;
 use App\Models\User;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +21,8 @@ use Tests\TestCase;
  * ese bloqueo (el test lo ve en information_schema.innodb_trx) y, al soltarlo, uno bloquea el
  * veterinario y la agenda, inserta y confirma; el otro lee la superposición después y recibe
  * 409. Que los dos esperen prueba además que el alta pide el bloqueo antes de leer el horario.
+ * Con una agenda solo de servicio (sin veterinario), la conexión del test toma el servicio y lo
+ * que ordena las dos altas es solo el bloqueo de la agenda (revisión de la 3.2a, hallazgo 1).
  *
  * Los procesos aparte no ven la transacción de RefreshDatabase: este test confirma sus datos
  * ($connectionsToTransact vacío) y los borra al terminar (los de su clínica).
@@ -59,6 +63,45 @@ class AppointmentConcurrencyTest extends TestCase
         $clinic = $this->createClinic();
         $this->clinicId = $clinic->id;
         $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+
+        $this->assertOneWinsAndTheOtherGets409(
+            $clinic,
+            $schedule,
+            'select id from veterinarians where id = ? for update',
+            $schedule->veterinarian_id,
+            'select * from `veterinarians` where %for update'
+        );
+    }
+
+    /**
+     * Revisión de la 3.2a (hallazgo 1): en una agenda solo de servicio, sin veterinario, el
+     * bloqueo de la agenda es lo único que ordena las dos altas. La tercera conexión toma el
+     * servicio (FOR UPDATE): los dos pedidos esperan su sharedLock y, al soltarlo, lo obtienen
+     * a la vez; sin el lockForUpdate de la agenda, los dos leen el horario libre y responden 201.
+     */
+    public function test_in_a_schedule_without_a_veterinarian_the_schedule_lock_orders_the_bookings(): void
+    {
+        $clinic = $this->createClinic();
+        $this->clinicId = $clinic->id;
+        $service = $this->serviceIn($clinic);
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic), ['veterinarian_id' => null, 'service_id' => $service->id]);
+
+        $this->assertOneWinsAndTheOtherGets409(
+            $clinic,
+            $schedule,
+            'select id from services where id = ? for update',
+            $service->id,
+            'select * from `services` where %lock in share mode'
+        );
+    }
+
+    /**
+     * Los dos pedidos piden el mismo turno mientras una tercera conexión tiene tomada la fila
+     * ($lockSql con $lockedId); el test espera a verlos a los dos en la consulta $waitingLike,
+     * suelta el bloqueo y verifica un 201 y un 409 APPOINTMENT_OVERLAP.
+     */
+    private function assertOneWinsAndTheOtherGets409(Clinic $clinic, Schedule $schedule, string $lockSql, int $lockedId, string $waitingLike): void
+    {
         // Reloj real: los procesos aparte no ven el reloj congelado de un test.
         $startsAt = now()->addDays(2)->format('Y-m-d') . 'T10:00:00';
         $tokens = [
@@ -68,7 +111,7 @@ class AppointmentConcurrencyTest extends TestCase
 
         $holder = $this->secondConnection();
         $holder->beginTransaction();
-        $holder->select('select id from veterinarians where id = ? for update', [$schedule->veterinarian_id]);
+        $holder->select($lockSql, [$lockedId]);
 
         $processes = [];
 
@@ -82,7 +125,7 @@ class AppointmentConcurrencyTest extends TestCase
                 ]);
             }
 
-            $this->waitUntilLockWaits(DB::connection(), 2, $processes);
+            $this->waitUntilLockWaits(DB::connection(), 2, $processes, $waitingLike);
         } finally {
             $holder->rollBack();
         }
@@ -140,20 +183,20 @@ class AppointmentConcurrencyTest extends TestCase
     }
 
     /**
-     * Espera (hasta 30 segundos) a que $count pedidos estén esperando el bloqueo del veterinario.
+     * Espera (hasta 30 segundos) a que $count pedidos estén esperando el bloqueo de la fila tomada.
      *
      * @param list<Process> $processes
      */
-    private function waitUntilLockWaits(Connection $connection, int $count, array $processes): void
+    private function waitUntilLockWaits(Connection $connection, int $count, array $processes, string $waitingLike): void
     {
         $deadline = microtime(true) + 30;
 
         while (microtime(true) < $deadline) {
-            // Las consultas de los otros procesos que siguen en el SELECT … FOR UPDATE del
-            // veterinario: con la fila tomada por el test, están esperando ese bloqueo.
+            // Las consultas de los otros procesos que siguen en la lectura con bloqueo de la
+            // fila tomada por el test: están esperando ese bloqueo.
             $waiting = (int) $connection->selectOne(
                 'select count(*) as total from information_schema.processlist where db = database() and id <> connection_id() and info like ?',
-                ['select * from `veterinarians` where %for update']
+                [$waitingLike]
             )->total;
 
             if ($waiting >= $count) {
@@ -162,7 +205,7 @@ class AppointmentConcurrencyTest extends TestCase
 
             foreach ($processes as $process) {
                 if (! $process->isRunning()) {
-                    $this->fail("Un pedido terminó sin esperar el bloqueo del veterinario:\n" . $process->getOutput() . $process->getErrorOutput());
+                    $this->fail("Un pedido terminó sin esperar el bloqueo:\n" . $process->getOutput() . $process->getErrorOutput());
                 }
             }
 
@@ -171,7 +214,7 @@ class AppointmentConcurrencyTest extends TestCase
 
         $processList = $connection->select('select id, command, time, state, info from information_schema.processlist where db = database()');
 
-        $this->fail("Los dos pedidos no llegaron a esperar el bloqueo del veterinario en 30 segundos.\n"
+        $this->fail("Los dos pedidos no llegaron a esperar el bloqueo en 30 segundos.\n"
             . json_encode($processList, JSON_PRETTY_PRINT) . "\n"
             . implode("\n", array_map(fn (Process $process) => $process->getIncrementalOutput() . $process->getIncrementalErrorOutput(), $processes)));
     }

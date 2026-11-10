@@ -70,6 +70,31 @@ class AppointmentScheduleRulesTest extends TestCase
     }
 
     /**
+     * Decisión del usuario (revisión de la 3.2a): dos tramos del mismo día que se tocan
+     * (08:00–12:00 y 12:00–16:00, y 16:00–18:00 detrás) son un horario continuo; un turno que
+     * cruza el punto donde se tocan entra. Con un hueco real (18:30–20:00) sigue fuera.
+     */
+    public function test_touching_ranges_are_one_continuous_range_and_a_gap_is_not(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->scheduleIn($this->defaultBranchIn($clinic), ['veterinarian_id' => null, 'service_id' => $this->serviceIn($clinic)->id]);
+        // Cargados fuera de orden: el Service los ordena.
+        $this->hoursFor($schedule, [[1, '12:00', '16:00'], [1, '08:00', '12:00'], [1, '16:00', '18:00'], [1, '18:30', '20:00']]);
+        $this->actAsReception($clinic);
+
+        $this->book($schedule, ['starts_at' => $this->at('11:30'), 'ends_at' => $this->at('12:30')])->assertCreated();
+        $this->book($schedule, ['starts_at' => $this->at('15:30'), 'ends_at' => $this->at('16:30')])->assertCreated();
+        // Cruza los dos puntos donde se tocan (12:00 y 16:00), sin chocar con los anteriores: el otro lunes.
+        $this->book($schedule, ['starts_at' => $this->at('08:00', '2026-11-23'), 'ends_at' => $this->at('18:00', '2026-11-23')])->assertCreated();
+
+        foreach ([['17:30', '18:45'], ['18:00', '18:30'], ['17:00', '19:00']] as [$from, $to]) {
+            $this->assertErrorCode($this->book($schedule, ['starts_at' => $this->at($from), 'ends_at' => $this->at($to)]), 422, 'APPOINTMENT_OUTSIDE_HOURS');
+        }
+
+        $this->book($schedule, ['starts_at' => $this->at('18:30'), 'ends_at' => $this->at('20:00')])->assertCreated();
+    }
+
+    /**
      * El día de la semana sale de la hora de Asunción: el lunes 16 a las 23:30 UTC ya es el
      * lunes 16 a las 20:30 en Asunción, fuera del horario; el lunes 16 a las 02:00 UTC es el
      * domingo 15 a las 23:00, también fuera.

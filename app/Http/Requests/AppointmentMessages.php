@@ -68,7 +68,7 @@ class AppointmentMessages
 
     public const OFF_GRID = 'La hora debe estar en múltiplos de 5 minutos, sin segundos.';
 
-    public const SOURCE_INVALID = 'El origen debe ser reception, phone o whatsapp: la reserva online no está disponible.';
+    public const SOURCE_INVALID = 'El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible.';
 
     /**
      * Los orígenes que acepta la API: todos menos ONLINE (reserva online, fuera del MVP).

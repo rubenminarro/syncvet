@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 3: validación de turnos",
-        "description": "Validación manual de turnos únicos (FASE 3, entrega 3.2a). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, la migración de la 3.2a (php artisan migrate) y los permisos al día (php artisan db:seed --class=RolesAndPermissionsSeeder, por el permiso nuevo appointments.overbook). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en los documentos ficticios de sus dos clientes, el email del veterinario y los nombres) y el lunes que viene, el día de los turnos. La corrida crea su veterinario, su servicio, una agenda abierta todos los días de 08:00 a 20:00 con un bloqueo de 15:00 a 16:00, dos clientes y un paciente; da los turnos con el recepcionista (con paciente, con cliente sin paciente, con contacto y un sobreturno) y prueba la superposición, el horario, el bloqueo, el paciente de otro cliente, mover, la baja del cliente con un turno y los pendientes de la 3.1 (SCHEDULE_NOT_EDITABLE y SCHEDULE_IN_USE con turnos reales). Al final elimina el bloqueo e inactiva la agenda, el servicio, el veterinario y el usuario. Los turnos, los clientes y el paciente quedan: un turno no se elimina (se cancela, entrega 3.2b) y es uso del cliente y del paciente. Mover un turno cancelado (422 APPOINTMENT_NOT_EDITABLE) no está: la API todavía no cancela (3.2b); lo cubre AppointmentUpdateTest. La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "description": "Validación manual de turnos únicos (FASE 3, entrega 3.2a). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, la migración de la 3.2a (php artisan migrate) y los permisos al día (php artisan db:seed --class=RolesAndPermissionsSeeder, por el permiso nuevo appointments.overbook). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en los documentos ficticios de sus dos clientes, el email del veterinario y los nombres) y el lunes que viene, el día de los turnos. La corrida crea su veterinario, su servicio, una agenda abierta todos los días de 08:00 a 20:00 (el lunes, en dos franjas pegadas: 08:00–14:00 y 14:00–20:00) con un bloqueo de 15:00 a 16:00, dos clientes y un paciente; da los turnos con el recepcionista (con paciente, con cliente sin paciente, con contacto y un sobreturno) y prueba la superposición, el horario, el bloqueo, el paciente de otro cliente, mover, un turno que cruza las dos franjas pegadas, la edición del turno de un paciente que cambió de dueño (el formulario completo con el cliente anterior: queda el dueño actual), la baja del cliente con un turno y los pendientes de la 3.1 (SCHEDULE_NOT_EDITABLE y SCHEDULE_IN_USE con turnos reales). Al final elimina el bloqueo e inactiva la agenda, el servicio, el veterinario y el usuario. Los turnos, los clientes y el paciente quedan: un turno no se elimina (se cancela, entrega 3.2b) y es uso del cliente y del paciente. Mover un turno cancelado (422 APPOINTMENT_NOT_EDITABLE) no está: la API todavía no cancela (3.2b); lo cubre AppointmentUpdateTest. La contraseña va en el Environment \"SyncVet local\" (demo_password).",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -398,7 +398,7 @@
             }
         },
         {
-            "name": "07 Alta de la agenda con veterinario, servicio y horario (todos los días de 08:00 a 20:00)",
+            "name": "07 Alta de la agenda con veterinario, servicio y horario (todos los días de 08:00 a 20:00; el lunes, en dos franjas pegadas)",
             "event": [
                 {
                     "listen": "test",
@@ -434,7 +434,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Turnos Postman {{run}}\",\n    \"veterinarian_id\": {{vet_id}},\n    \"service_id\": {{service_id}},\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        }\n    ]\n}",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Turnos Postman {{run}}\",\n    \"veterinarian_id\": {{vet_id}},\n    \"service_id\": {{service_id}},\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"14:00\"\n        },\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"14:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        }\n    ]\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -1426,6 +1426,187 @@
                         {
                             "key": "token",
                             "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24a Cambio de dueño del paciente al cliente B",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('El dueño es el cliente B', () => pm.expect(pm.response.json().data.client.id).to.eql(Number(pm.collectionVariables.get('client_b_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/change-owner",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "change-owner"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"client_id\": {{client_b_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24b Editar solo las notas del turno del paciente con el formulario completo (el cliente anterior) → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const data = pm.response.json().data;",
+                            "pm.test('El cliente pasa al dueño actual (el cliente B)', () => pm.expect(data.client.id).to.eql(Number(pm.collectionVariables.get('client_b_id'))));",
+                            "pm.test('Cambian las notas y no el horario', () => {",
+                            "    pm.expect(data.notes).to.eql('El paciente cambió de dueño');",
+                            "    pm.expect(data.starts_at).to.eql(pm.collectionVariables.get('monday') + 'T13:00:00.000000Z');",
+                            "    pm.expect(data.ends_at).to.eql(pm.collectionVariables.get('monday') + 'T13:30:00.000000Z');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{appointment_patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{appointment_patient_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"starts_at\": \"{{monday}}T10:00:00-03:00\",\n    \"patient_id\": {{patient_id}},\n    \"client_id\": {{client_a_id}},\n    \"contact_name\": null,\n    \"contact_phone\": null,\n    \"reason\": \"Control anual\",\n    \"notes\": \"El paciente cambió de dueño\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24c Turno que cruza dos franjas pegadas (lunes de 13:30 a 14:30) → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const data = pm.response.json().data;",
+                            "pm.test('De 13:30 a 14:30 de Asunción, en UTC', () => {",
+                            "    pm.expect(data.starts_at).to.eql(pm.collectionVariables.get('monday') + 'T16:30:00.000000Z');",
+                            "    pm.expect(data.ends_at).to.eql(pm.collectionVariables.get('monday') + 'T17:30:00.000000Z');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"starts_at\": \"{{monday}}T13:30:00-03:00\",\n    \"ends_at\": \"{{monday}}T14:30:00-03:00\",\n    \"contact_name\": \"Franjas pegadas {{run}}\",\n    \"contact_phone\": \"981123456\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
                             "type": "string"
                         }
                     ]

@@ -80,20 +80,43 @@ class PatientService
 
     /**
      * Cambio de dueño (venta, adopción, reasignación por error de carga).
+     *
+     * Orden de bloqueo (FASE 3, entrega 3.2a, revisión): el paciente (lockForUpdate) y después
+     * los dos clientes, el dueño actual y el nuevo, por id (lockForUpdate), en el mismo sentido
+     * que los turnos (paciente → cliente). La baja del cliente bloquea solo su fila y revisa el
+     * uso sin bloquear pacientes, así que no se cruzan; si el dueño nuevo se eliminó entre la
+     * validación y el bloqueo, 422 en client_id.
      */
     public function changeOwner(Patient $patient, Client $newOwner): Patient
     {
-        if ($patient->client_id === $newOwner->id) {
-            throw new PatientException(
-                'El paciente ya pertenece a ese cliente.',
-                422,
-                'PATIENT_SAME_OWNER'
-            );
-        }
+        return DB::transaction(function () use ($patient, $newOwner) {
+            $patient = Patient::query()->whereKey($patient->getKey())->lockForUpdate()->firstOrFail();
+            $newOwnerId = (int) $newOwner->getKey();
 
-        $patient->update(['client_id' => $newOwner->id]);
+            if ((int) $patient->client_id === $newOwnerId) {
+                throw new PatientException(
+                    'El paciente ya pertenece a ese cliente.',
+                    422,
+                    'PATIENT_SAME_OWNER'
+                );
+            }
 
-        return $patient;
+            $clientIds = [(int) $patient->client_id, $newOwnerId];
+            sort($clientIds);
+            $clients = [];
+
+            foreach ($clientIds as $clientId) {
+                $clients[$clientId] = Client::query()->whereKey($clientId)->lockForUpdate()->first();
+            }
+
+            if ($clients[$newOwnerId] === null) {
+                throw ValidationException::withMessages(['client_id' => 'El cliente seleccionado no existe.']);
+            }
+
+            $patient->update(['client_id' => $newOwnerId]);
+
+            return $patient;
+        });
     }
 
     /**

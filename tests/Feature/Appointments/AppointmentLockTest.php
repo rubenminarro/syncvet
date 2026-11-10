@@ -23,6 +23,10 @@ class AppointmentLockTest extends TestCase
     use InspectsQueries;
     use InteractsWithAppointments;
 
+    private const DEADLOCK = 'SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction';
+
+    private const LOCK_WAIT_TIMEOUT = 'SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded; try restarting transaction';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -161,6 +165,179 @@ class AppointmentLockTest extends TestCase
     }
 
     /**
+     * Revisión de la 3.2a (hallazgo 4): al mover, si el veterinario de la agenda de destino
+     * cambia entre la lectura y el bloqueo, el que se bloqueó ya no es el suyo: se repite.
+     */
+    public function test_moving_is_retried_if_the_veterinarian_of_the_target_schedule_changes_while_locking(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $schedule = $this->openSchedule($branch);
+        $target = $this->openSchedule($branch);
+        $changed = $this->veterinarianIn($branch);
+        $this->actAsReception($clinic);
+        $id = $this->booked($schedule);
+
+        $reads = $this->afterEachScheduleRead(function (int $read) use ($target, $changed) {
+            if ($read === 1) {
+                DB::table('schedules')->where('id', $target->id)->update(['veterinarian_id' => $changed->id]);
+            }
+        });
+
+        $this->patchJson("/api/appointments/{$id}", ['schedule_id' => $target->id])
+            ->assertOk()
+            ->assertJsonPath('data.schedule.id', $target->id)
+            ->assertJsonPath('data.veterinarian.id', $changed->id);
+        $this->assertSame(2, $reads->count);
+    }
+
+    /**
+     * Revisión de la 3.2a (hallazgo 4): si el turno cambia de agenda entre la lectura y el
+     * bloqueo, las agendas bloqueadas ya no son las suyas: se repite con la agenda nueva, y
+     * después de los intentos, 409 CONFLICT sin cambios.
+     */
+    public function test_moving_is_retried_if_the_appointment_changes_its_schedule_while_locking(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $schedule = $this->openSchedule($branch);
+        $other = $this->openSchedule($branch);
+        $this->actAsReception($clinic);
+        $id = $this->booked($schedule);
+
+        $reads = $this->afterEachAppointmentRead(function (int $read) use ($id, $other) {
+            if ($read === 1) {
+                DB::table('appointments')->where('id', $id)->update(['schedule_id' => $other->id, 'veterinarian_id' => $other->veterinarian_id]);
+            }
+        });
+
+        $this->patchJson("/api/appointments/{$id}", ['starts_at' => $this->at('11:00')])
+            ->assertOk()
+            ->assertJsonPath('data.schedule.id', $other->id)
+            ->assertJsonPath('data.starts_at', '2026-11-16T14:00:00.000000Z');
+        $this->assertSame(2, $reads->count);
+    }
+
+    public function test_after_the_attempts_moving_answers_409(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $schedule = $this->openSchedule($branch);
+        $other = $this->openSchedule($branch);
+        $this->actAsReception($clinic);
+        $id = $this->booked($schedule);
+
+        $reads = $this->afterEachAppointmentRead(function (int $read) use ($id, $schedule, $other) {
+            $to = $read % 2 === 1 ? $other : $schedule;
+            DB::table('appointments')->where('id', $id)->update(['schedule_id' => $to->id, 'veterinarian_id' => $to->veterinarian_id]);
+        });
+
+        $this->assertErrorCode($this->patchJson("/api/appointments/{$id}", ['starts_at' => $this->at('11:00')]), 409, 'CONFLICT');
+        $this->assertSame(AppointmentService::ATTEMPTS, $reads->count);
+        $this->assertSame('2026-11-16 10:00:00', $this->appointmentRow($id)->starts_at);
+    }
+
+    /**
+     * Revisión de la 3.2a (hallazgo 7): una espera vencida de MySQL (1205) no se repite: 409
+     * CONFLICT enseguida, en el alta y al mover. El deadlock (1213) sí se repite (arriba).
+     */
+    public function test_a_lock_wait_timeout_is_not_retried_and_answers_409(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $this->actAsReception($clinic);
+        $id = $this->booked($schedule);
+
+        $timeouts = $this->failOnVeterinarianLock(PHP_INT_MAX, self::LOCK_WAIT_TIMEOUT);
+        $response = $this->book($schedule, ['starts_at' => $this->at('11:00')]);
+        $this->assertErrorCode($response, 409, 'CONFLICT');
+        $response->assertJsonPath('message', 'La agenda cambió mientras se guardaba el turno: volvé a intentarlo.');
+        $this->assertSame(1, $timeouts->count);
+
+        $this->assertErrorCode($this->patchJson("/api/appointments/{$id}", ['starts_at' => $this->at('12:00')]), 409, 'CONFLICT');
+        $this->assertSame(2, $timeouts->count);
+        $this->assertSame(1, DB::table('appointments')->count());
+        $this->assertSame('2026-11-16 10:00:00', $this->appointmentRow($id)->starts_at);
+    }
+
+    /**
+     * Revisión de la 3.2a (hallazgo 8): el cambio de dueño bloquea el paciente y después los dos
+     * clientes por id, en el sentido de los turnos (paciente → cliente).
+     */
+    public function test_changing_the_owner_locks_the_patient_then_both_clients_by_id(): void
+    {
+        $clinic = $this->createClinic();
+        $newOwner = $this->clientIn($clinic);
+        $patient = $this->patientOf($this->clientIn($clinic));
+        $this->actingIn($clinic, ['patients.change-owner']);
+
+        $clientLocks = [];
+        $base = DB::transactionLevel();
+        DB::listen(function ($query) use (&$clientLocks, $base) {
+            if ($query->connection->transactionLevel() > $base && ($this->lockOf('clients'))(strtolower($query->sql))) {
+                $clientLocks[] = (int) $query->bindings[0];
+            }
+        });
+
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/patients/{$patient->id}/change-owner", ['client_id' => $newOwner->id])->assertOk());
+
+        $this->assertBefore($queries, $this->lockOf('patients'), $this->lockOf('clients'), 'Se bloqueó un cliente antes que el paciente.');
+        $this->assertNoneAfter($queries, $this->lockOf('clients'), $this->lockOf('patients'), 'Se bloqueó el paciente después de un cliente.');
+        $expected = [$newOwner->id, $patient->client_id];
+        sort($expected);
+        $this->assertSame($expected, $clientLocks);
+    }
+
+    /**
+     * Si el dueño nuevo se elimina entre la validación y el bloqueo, 422 en client_id y el
+     * paciente no cambia.
+     */
+    public function test_changing_to_an_owner_deleted_while_locking_is_rejected(): void
+    {
+        $clinic = $this->createClinic();
+        $newOwner = $this->clientIn($clinic);
+        $patient = $this->patientOf($this->clientIn($clinic));
+        $this->actingIn($clinic, ['patients.change-owner']);
+
+        $deleting = false;
+        DB::listen(function ($query) use ($newOwner, &$deleting) {
+            if (! $deleting && ($this->lockOf('patients'))(strtolower($query->sql))) {
+                $deleting = true;
+                DB::table('clients')->where('id', $newOwner->id)->update(['deleted_at' => now()]);
+            }
+        });
+
+        $this->postJson("/api/patients/{$patient->id}/change-owner", ['client_id' => $newOwner->id])
+            ->assertUnprocessable()->assertJsonPath('errors.client_id.0', 'El cliente seleccionado no existe.');
+        $this->assertNotSame($newOwner->id, (int) DB::table('patients')->where('id', $patient->id)->value('client_id'));
+    }
+
+    /**
+     * Después de cada lectura sin bloqueo del turno (al editar), corre $change con el número de
+     * lectura (desde 1): simula otra edición antes del bloqueo.
+     *
+     * @param callable(int): void $change
+     */
+    private function afterEachAppointmentRead(callable $change): object
+    {
+        $reads = (object) ['count' => 0];
+        $changing = false;
+
+        DB::listen(function ($query) use ($change, $reads, &$changing) {
+            if ($changing || preg_match('/^select [`"]id[`"], [`"]schedule_id[`"], [`"]patient_id[`"], [`"]client_id[`"], [`"]status[`"] from [`"]appointments[`"]/i', $query->sql) !== 1) {
+                return;
+            }
+
+            $reads->count++;
+            $changing = true;
+            $change($reads->count);
+            $changing = false;
+        });
+
+        return $reads;
+    }
+
+    /**
      * Después de cada lectura sin bloqueo de la agenda (su veterinario y su servicio), corre
      * $change con el número de lectura (desde 1): simula otra edición antes del bloqueo.
      *
@@ -191,15 +368,24 @@ class AppointmentLockTest extends TestCase
      */
     private function deadlockOnVeterinarianLock(int $times): object
     {
+        return $this->failOnVeterinarianLock($times, self::DEADLOCK);
+    }
+
+    /**
+     * Las primeras $times veces que se bloquea un veterinario, la consulta falla con el error
+     * de MySQL $message (un deadlock o una espera vencida).
+     */
+    private function failOnVeterinarianLock(int $times, string $message): object
+    {
         $deadlocks = (object) ['count' => 0, 'active' => true];
 
-        DB::listen(function ($query) use ($times, $deadlocks) {
+        DB::listen(function ($query) use ($times, $message, $deadlocks) {
             if (! $deadlocks->active || $deadlocks->count >= $times || ! ($this->lockOf('veterinarians'))(strtolower($query->sql))) {
                 return;
             }
 
             $deadlocks->count++;
-            $error = new PDOException('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction');
+            $error = new PDOException($message);
 
             throw new QueryException($query->connectionName, $query->sql, $query->bindings, $error);
         });

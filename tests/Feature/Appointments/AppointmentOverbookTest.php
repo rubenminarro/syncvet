@@ -79,9 +79,20 @@ class AppointmentOverbookTest extends TestCase
             'starts_at' => CarbonImmutable::parse(self::MONDAY . ' 12:00', 'America/Asuncion'),
             'ends_at' => CarbonImmutable::parse(self::MONDAY . ' 13:00', 'America/Asuncion'),
         ]);
+        // Revisión de la 3.2a (hallazgo 5): hay otro turno en cada horario, así que el sobreturno
+        // se superpondría; igual respeta el horario y el bloqueo. Cargados sin la API: uno fuera
+        // del horario y otro dentro del bloqueo.
+        $this->appointmentIn($schedule, CarbonImmutable::parse(self::MONDAY . ' 20:00', 'America/Asuncion'));
+        $this->appointmentIn($schedule, CarbonImmutable::parse(self::MONDAY . ' 12:30', 'America/Asuncion'));
         $this->actAsReception($clinic, overbook: true);
 
         $this->assertErrorCode($this->book($schedule, ['overbook' => true, 'starts_at' => $this->at('20:00')]), 422, 'APPOINTMENT_OUTSIDE_HOURS');
         $this->assertErrorCode($this->book($schedule, ['overbook' => true, 'starts_at' => $this->at('12:30')]), 422, 'APPOINTMENT_IN_BLOCK');
+        $this->assertSame(2, DB::table('appointments')->count());
+
+        // Dentro del horario y fuera del bloqueo, el mismo choque sí entra como sobreturno.
+        $this->appointmentIn($schedule, CarbonImmutable::parse(self::MONDAY . ' 15:00', 'America/Asuncion'));
+        $this->book($schedule, ['overbook' => true, 'starts_at' => $this->at('15:00')])
+            ->assertCreated()->assertJsonPath('data.is_overbooked', true);
     }
 }

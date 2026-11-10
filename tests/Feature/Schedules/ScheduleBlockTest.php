@@ -123,6 +123,35 @@ class ScheduleBlockTest extends TestCase
         );
     }
 
+    /**
+     * Entrega 3.2a (desvío 11; revisión, hallazgo 6): un turno sin cliente ni paciente se muestra
+     * con su nombre y su teléfono de contacto; uno con paciente, con los dos en null.
+     */
+    public function test_affected_appointments_show_the_contact(): void
+    {
+        [$clinic, $schedule] = $this->schedule();
+        $day = CarbonImmutable::parse('2026-11-20 00:00:00', 'America/Asuncion');
+        $withPatient = $this->appointmentIn($schedule, $day->setTime(9, 0));
+        $withContact = $this->appointmentIn($schedule, $day->setTime(10, 0));
+        DB::table('appointments')->where('id', $withContact)->update([
+            'patient_id' => null, 'client_id' => null, 'contact_name' => 'Juan, el de la perra Luna', 'contact_phone' => '981123456',
+        ]);
+        $this->actAsScheduleManager($clinic);
+
+        $response = $this->postJson("/api/schedules/{$schedule->id}/blocks", [
+            'starts_at' => '2026-11-20T08:00:00-03:00',
+            'ends_at' => '2026-11-20T12:00:00-03:00',
+        ])->assertCreated();
+
+        $this->assertSame([$withPatient, $withContact], array_column($response->json('data.affected_appointments'), 'id'));
+        $response->assertJsonPath('data.affected_appointments.0.contact_name', null)
+            ->assertJsonPath('data.affected_appointments.0.contact_phone', null)
+            ->assertJsonPath('data.affected_appointments.1.patient', null)
+            ->assertJsonPath('data.affected_appointments.1.client', null)
+            ->assertJsonPath('data.affected_appointments.1.contact_name', 'Juan, el de la perra Luna')
+            ->assertJsonPath('data.affected_appointments.1.contact_phone', '981123456');
+    }
+
     public function test_an_inactive_schedule_is_also_blocked_and_blocks_may_overlap(): void
     {
         [$clinic, $schedule] = $this->schedule(['is_active' => false]);

@@ -424,3 +424,12 @@ clínica (404, `RouteBindingTest`).
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-03-agendas.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
+
+#### Turnos (3.2a)
+
+La colección es [`postman/syncvet-fase-03-turnos.postman_collection.json`](postman/syncvet-fase-03-turnos.postman_collection.json);
+esta sección se completa al cerrar la entrega.
+
+**Filtro por fechas del listado.** `GET appointments` filtra por el inicio del turno (`starts_at`). Sin `from` ni `to`, trae los de
+hoy. **Solo `from` (o solo `to`) es solo ese día**, no "desde ese día": `from=2026-11-16` trae los turnos del lunes 16, de 00:00 a
+23:59:59 de Asunción. Para un rango, mandar los dos (hasta 31 días).
