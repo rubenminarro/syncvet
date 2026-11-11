@@ -1,7 +1,7 @@
 ---
 name: retomar
 description: Informa dónde está el proyecto y propone el siguiente paso. Usar al empezar una sesión o cuando se pida retomar o continuar el trabajo. Solo lectura.
-allowed-tools: Read Grep Glob Bash(git status *) Bash(git log *) Bash(git fetch *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git diff --stat *) Bash(git branch --show-current) Bash(git -C ../syncvet-frontend status *) Bash(git -C ../syncvet-frontend log *) Bash(git -C ../syncvet-frontend fetch *) Bash(git -C ../syncvet-frontend rev-list *)
+allowed-tools: Read Grep Glob Bash(git status *) Bash(git log *) Bash(git fetch *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git diff --stat *) Bash(git branch --show-current)
 ---
 
 # Retomar el proyecto
@@ -20,7 +20,10 @@ git log --oneline -5
 git rev-list --left-right --count HEAD...origin/main
 ```
 
-Hacer lo mismo en `../syncvet-frontend` con `git -C`. Si esa carpeta no existe, indicarlo y seguir: no es un error.
+El backend y el frontend están en el mismo repositorio (monorepo, R-057): un solo estado de Git.
+
+Leer el [`CLAUDE.md`](../../../CLAUDE.md) de la raíz y [`backend/CLAUDE.md`](../../../backend/CLAUDE.md) (y [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md) si
+la tarea es del frontend): Claude Code no carga solo el de una subcarpeta hasta leer un archivo de ella.
 
 ## 2. Último commit y último checkpoint validado
 
@@ -29,7 +32,7 @@ Son dos datos distintos y hay que informar los dos:
 | Dato | Qué es | De dónde sale |
 |---|---|---|
 | **Último commit** | Lo más reciente del repositorio. No implica que esté probado | Git |
-| **Último checkpoint validado** | El último commit con un resultado de tests registrado | `docs/handoff.md`, sección **Punto de continuidad** |
+| **Último checkpoint validado** | El último commit con un resultado de tests registrado | `docs/03-plan-desarrollo/handoff.md`, sección **Punto de continuidad** |
 
 Leer esa sección y **Próximas tareas**. No copiar su contenido a esta Skill. Para cada commit citado ahí:
 
@@ -44,15 +47,15 @@ que no se pudo determinar el checkpoint.
 ## 3. Bloqueos
 
 Revisar cada tarea de **Próximas tareas**. Comparar las fechas de bloqueo con la fecha actual. Si hace falta el detalle de una tarea,
-consultar `docs/roadmap/README.md` o `docs/modules/README.md`, según `docs/README.md`.
+consultar `docs/03-plan-desarrollo/README.md` o `docs/03-plan-desarrollo/modulos.md`, según `docs/README.md`.
 
 ## 4. Informe
 
 Responder con este formato:
 
 ```text
-Estado de Git     Rama, cambios sin commitear y diferencia con origin/main, por repositorio
-Último commit     Hash y mensaje, por repositorio
+Estado de Git     Rama, cambios sin commitear y diferencia con origin/main
+Último commit     Hash y mensaje
 Checkpoint        Último commit validado, con fecha y tests registrados
 Desde entonces    Commits posteriores: solo documentación, o con código sin validar
 Próximas tareas   Las del handoff, con su bloqueo vigente

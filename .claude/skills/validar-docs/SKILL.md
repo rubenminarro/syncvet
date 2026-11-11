@@ -17,7 +17,7 @@ Desde la raíz del repositorio:
 php .claude/skills/validar-docs/scripts/check-docs.php --detalle
 ```
 
-El script revisa enlaces y anclas, documentos huérfanos desde `docs/README.md`, rutas citadas que no existen y las cifras de los documentos
+El script revisa enlaces y anclas (también de los `CLAUDE.md` y `README.md` de la raíz, `backend/` y `frontend/`), documentos huérfanos desde `docs/README.md`, rutas citadas que no existen (`docs/…` desde la raíz; `app/…`, `tests/…` y las demás carpetas de Laravel, desde `backend/`) y las cifras de los documentos
 vivos contra el código. Código de salida 1 si hay hallazgos.
 
 Toda cifra se compara salvo una marca explícita en su misma cláusula: datos históricos, de otro proyecto, ejemplos o diferencias. La cifra
@@ -27,12 +27,12 @@ de una clase de test se valida contra esa clase. **Revisar la lista de excluidas
 
 Lo que un script no puede juzgar. Comparar según las fuentes de verdad de `docs/README.md`:
 
-* `docs/handoff.md`: que el punto de continuidad exista en Git y que **Próximas tareas** coincida con el estado de `docs/roadmap/README.md`.
-* `docs/modules/README.md` y `docs/roadmap/README.md`: que no se contradigan, y que lo marcado `COMPLETADO` o `PENDIENTE` coincida con el
+* `docs/03-plan-desarrollo/handoff.md`: que el punto de continuidad exista en Git y que **Próximas tareas** coincida con el estado de `docs/03-plan-desarrollo/README.md`.
+* `docs/03-plan-desarrollo/modulos.md` y `docs/03-plan-desarrollo/README.md`: que no se contradigan, y que lo marcado `COMPLETADO` o `PENDIENTE` coincida con el
   código. Buscar en rutas, modelos y tests; no fiarse de otro documento.
-* `CLAUDE.md`, sección 7, contra `docs/roadmap/deuda-tecnica.md`: las mismas deudas abiertas.
+* `backend/CLAUDE.md`, sección 7, contra `docs/03-plan-desarrollo/deuda-tecnica.md`: las mismas deudas abiertas.
 
-`docs/decisions/registro.md` es registro histórico: su contenido viejo no es un hallazgo, salvo que un documento vivo se apoye en él. La
+`docs/01-arquitectura/decisiones/registro.md` es registro histórico: su contenido viejo no es un hallazgo, salvo que un documento vivo se apoye en él. La
 excepción son los enlaces, que sí deben funcionar.
 
 ## 3. Informe

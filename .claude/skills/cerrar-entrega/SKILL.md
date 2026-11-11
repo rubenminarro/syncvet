@@ -21,12 +21,14 @@ Antes de editar, confirmar cada punto. Si alguno falta, **detenerse e informar q
 * La suite completa pasó sobre el código actual, en esta sesión o según un resultado que el usuario haya indicado. No suponerlo ni
   deducirlo de los commits.
 * El usuario confirmó que la entrega está validada, si requiere revisión manual.
+* **En un cierre de fase:** Newman pasó con **todas** las colecciones de `docs/05-pruebas/postman`, no solo las de la fase (`CLAUDE.md`
+  de la raíz, §2, Cierre de fase), o cada falla está corregida o registrada como deuda. Informar la cifra de cada colección.
 
 Sin entrega indicada en los argumentos, preguntar cuál es.
 
 ## 2. Reunir los hechos
 
-Leer `docs/README.md`, secciones **Fuente de verdad de cada tema** y **Mantenimiento**, y `CLAUDE.md`, sección 2, **Documentación por
+Leer `docs/README.md`, secciones **Fuente de verdad de cada tema** y **Mantenimiento**, y el `CLAUDE.md` de la raíz, sección 2, **Documentación por
 cambio**. Esas reglas mandan: esta Skill no las repite.
 
 Con `git log` y `git diff origin/main...HEAD`, y con los datos de la conversación, listar qué cambió, qué se decidió y quién lo decidió.
@@ -45,11 +47,11 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 |---|---|
 | No inventar | Ningún estado, fase, decisión, fecha ni resultado que no esté respaldado por el código, los tests o el usuario |
 | Sin certeza sobre un dato | Usar `PENDIENTE DE VERIFICACIÓN`, o preguntar |
-| Numeración | Mantener las fases. La sección nueva toma el número siguiente al último `R-NNN` de `docs/decisions/registro.md` (correlativo, no es el número de la entrega) |
+| Numeración | Mantener las fases. La sección nueva toma el número siguiente al último `R-NNN` de `docs/01-arquitectura/decisiones/registro.md` (correlativo, no es el número de la entrega) |
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |
-| Historial | `docs/decisions/registro.md` solo crece: no se corrigen secciones viejas |
-| `CLAUDE.md` | La sección 1 (**Estado actual**) se actualiza en cada cierre, con el estado de la fase y de la entrega. El resto, solo si cambió una regla, y solo esa regla |
+| Historial | `docs/01-arquitectura/decisiones/registro.md` solo crece: no se corrigen secciones viejas |
+| `backend/CLAUDE.md` (o `frontend/CLAUDE.md`) | La sección 1 (**Estado actual**) se actualiza en cada cierre, con el estado de la fase y de la entrega. El resto, solo si cambió una regla, y solo esa regla |
 | Roadmap | Solo cambia el estado de lo entregado. Sin fases nuevas sin aprobación |
 
 ## 5. Verificar

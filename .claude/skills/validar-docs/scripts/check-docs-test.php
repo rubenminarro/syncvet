@@ -59,33 +59,34 @@ foreach ([
 
 check('conserva el nombre de la clase', (typeOf('`Login` (9 tests)')['class'] ?? null) === 'Login');
 
-// Proyecto de ejemplo con 47 services, 58 controllers, 3 rutas y 9 tests en LoginTest.
+// Proyecto de ejemplo (monorepo: el backend en backend/) con 47 services, 58 controllers, 3 rutas y 9 tests en LoginTest.
 function fixture(array $live): string
 {
     $root = sys_get_temp_dir() . '/check-docs-' . uniqid();
 
-    foreach (['app/Services', 'app/Http/Controllers/Api', 'docs/project', 'docs/modules', 'docs/development', 'docs/roadmap', 'docs/decisions', 'tests/Feature/Auth', 'tests/Unit'] as $dir) {
+    foreach (['backend/app/Services', 'backend/app/Http/Controllers/Api', 'backend/tests/Feature/Auth', 'backend/tests/Unit', 'frontend', 'docs/00-vision', 'docs/01-arquitectura/decisiones', 'docs/02-requisitos', 'docs/03-plan-desarrollo', 'docs/04-desarrollo', 'docs/05-pruebas'] as $dir) {
         mkdir("$root/$dir", 0777, true);
     }
 
     for ($i = 0; $i < 47; $i++) {
-        touch("$root/app/Services/S$i.php");
+        touch("$root/backend/app/Services/S$i.php");
     }
 
     for ($i = 0; $i < 58; $i++) {
-        touch("$root/app/Http/Controllers/Api/C$i.php");
+        touch("$root/backend/app/Http/Controllers/Api/C$i.php");
     }
 
-    file_put_contents("$root/tests/Feature/Auth/LoginTest.php", str_repeat("function test_x() {}\n", 9));
-    file_put_contents("$root/artisan", '<?php echo json_encode([1, 2, 3]);');
+    file_put_contents("$root/backend/tests/Feature/Auth/LoginTest.php", str_repeat("function test_x() {}\n", 9));
+    file_put_contents("$root/backend/artisan", '<?php echo json_encode([1, 2, 3]);');
 
-    $files = ['README.md' => '', 'CLAUDE.md' => '', 'docs/handoff.md' => '', 'docs/roadmap/README.md' => '', 'docs/decisions/README.md' => ''];
-    $index = "[a](handoff.md) [b](roadmap/README.md) [c](decisions/README.md)\n";
+    $fixed = ['docs/03-plan-desarrollo/handoff.md', 'docs/03-plan-desarrollo/README.md', 'docs/01-arquitectura/decisiones/README.md'];
+    $files = ['README.md' => '', 'CLAUDE.md' => ''] + array_fill_keys($fixed, '');
+    $index = "[a](03-plan-desarrollo/handoff.md) [b](03-plan-desarrollo/README.md) [c](01-arquitectura/decisiones/README.md)\n";
 
     foreach ($live + $files as $file => $text) {
         file_put_contents("$root/$file", $text);
 
-        if (str_starts_with($file, 'docs/') && ! in_array($file, ['docs/handoff.md', 'docs/roadmap/README.md', 'docs/decisions/README.md'], true)) {
+        if (str_starts_with($file, 'docs/') && ! in_array($file, $fixed, true)) {
             $index .= '[x](' . substr($file, 5) . ")\n";
         }
     }
@@ -123,19 +124,19 @@ check('sale con 1', $code === 1);
 remove($root);
 
 echo "\nCaso 2: cifras por clase\n";
-$root = fixture(['docs/modules/a.md' => "`Login` (9 tests) y `Login` 9\n"]);
+$root = fixture(['docs/03-plan-desarrollo/modulos.md' => "`Login` (9 tests) y `Login` 9\n"]);
 [$output, $code] = run($root);
 check('sin falso positivo con la clase correcta', str_contains($output, 'Sin hallazgos.') && $code === 0, $output);
 remove($root);
 
-$root = fixture(['docs/modules/a.md' => "`Login` (8 tests)\n", 'docs/project/b.md' => "`Fantasma` (2 tests)\n"]);
+$root = fixture(['docs/03-plan-desarrollo/modulos.md' => "`Login` (8 tests)\n", 'docs/04-desarrollo/b.md' => "`Fantasma` (2 tests)\n"]);
 [$output] = run($root);
 check('detecta una cifra de clase incorrecta', str_contains($output, 'LoginTest tiene 9 tests, no 8'), $output);
 check('detecta una clase inexistente', str_contains($output, 'cita FantasmaTest, que no existe'), $output);
 remove($root);
 
 echo "\nCaso 3: historia, otros proyectos y ejemplos\n";
-$root = fixture(['docs/project/a.md' => implode("\n", [
+$root = fixture(['docs/04-desarrollo/a.md' => implode("\n", [
     'Antes: 460 tests con M9.',
     'La línea base eran 374 tests.',
     'Frontend: 43 tests.',
@@ -148,36 +149,48 @@ $root = fixture(['docs/project/a.md' => implode("\n", [
 [$output, $code] = run($root, '--detalle');
 check('no confunde historia con estado actual', str_contains($output, 'Sin hallazgos.') && $code === 0, $output);
 check('informa cuántas excluyó', str_contains($output, 'Excluidas por una marca explícita: 6.'), $output);
-check('--detalle las lista', str_contains($output, 'excluida: historical: docs/project/a.md:1: 460 tests'), $output);
+check('--detalle las lista', str_contains($output, 'excluida: historical: docs/04-desarrollo/a.md:1: 460 tests'), $output);
 remove($root);
 
-$root = fixture(['docs/project/a.md' => "Hay 460 tests.\nAntes: 460 tests. Hoy hay 450 tests.\n"]);
+$root = fixture(['docs/04-desarrollo/a.md' => "Hay 460 tests.\nAntes: 460 tests. Hoy hay 450 tests.\n"]);
 [$output] = run($root);
 check('sin marca, la misma cifra sí se reporta', str_contains($output, 'a.md:1: dice 460 tests'), $output);
 check('la marca solo cubre su cláusula', str_contains($output, 'a.md:2: dice 450 tests') && ! str_contains($output, 'a.md:2: dice 460 tests'), $output);
 remove($root);
 
-$root = fixture(['docs/project/a.md' => "| Frontend y backend | 45 services |\n"]);
+$root = fixture(['docs/04-desarrollo/a.md' => "| Frontend y backend | 45 services |\n"]);
 [$output] = run($root);
 check('una marca en otra celda no excluye la cifra', str_contains($output, 'a.md:1: dice 45 services'), $output);
 remove($root);
 
 echo "\nCaso 4: migraciones\n";
 $root = fixture(['README.md' => "| `database/migrations` | 3 migraciones |\n", 'CLAUDE.md' => "`Seeder` (2 migraciones) y `Login` (9 tests)\n"]);
-mkdir("$root/database/migrations", 0777, true);
-touch("$root/database/migrations/a.php");
-touch("$root/database/migrations/b.php");
+mkdir("$root/backend/database/migrations", 0777, true);
+touch("$root/backend/database/migrations/a.php");
+touch("$root/backend/database/migrations/b.php");
 [$output, $code] = run($root, '--detalle');
 check('detecta 3 frente a 2', str_contains($output, 'README.md:1: dice 3 migraciones; el código tiene 2'), $output);
 check('compara una cifra que no es de tests junto a una clase', str_contains($output, 'Cifras comparadas: 3.') && ! str_contains($output, 'excluida'), $output);
 remove($root);
 
 echo "\nCaso 5: rutas citadas\n";
-$root = fixture(['docs/project/a.md' => "`database/testing.sqlite_test_N` y `database/fantasma.sqlite`\n"]);
+$root = fixture(['docs/04-desarrollo/a.md' => "`database/testing.sqlite_test_N` y `database/fantasma.sqlite`\n"]);
 [$output] = run($root);
 check('no reporta la base que crea la suite en paralelo', ! str_contains($output, 'testing.sqlite_test_N'), $output);
 check('sigue reportando una ruta inexistente', str_contains($output, 'database/fantasma.sqlite'), $output);
 remove($root);
 
+echo "\nCaso 6: monorepo (rutas de código desde backend/, docs desde la raíz)\n";
+$root = fixture([
+    'docs/04-desarrollo/a.md' => "`app/Services/S1.php`, `backend/app/Services/S2.php`, `docs/03-plan-desarrollo/handoff.md` y `app/Services/Fantasma.php`\n",
+    'backend/CLAUDE.md' => "[h](../docs/03-plan-desarrollo/handoff.md) [r](../CLAUDE.md) [x](../docs/fantasma.md) `docs/04-desarrollo/a.md` `tests/Feature/Auth/LoginTest.php`\n",
+]);
+[$output] = run($root);
+check('resuelve app/ desde backend/', ! str_contains($output, 'app/Services/S1.php'), $output);
+check('resuelve backend/ y docs/ desde la raíz', ! str_contains($output, 'S2.php') && ! str_contains($output, ': docs/03-plan-desarrollo/handoff.md') && ! str_contains($output, ': docs/04-desarrollo/a.md'), $output);
+check('reporta una ruta de código inexistente', str_contains($output, 'app/Services/Fantasma.php'), $output);
+check('valida los enlaces de backend/CLAUDE.md hacia docs/', str_contains($output, 'backend/CLAUDE.md: ../docs/fantasma.md') && ! str_contains($output, '../docs/03-plan-desarrollo/handoff.md') && ! str_contains($output, ': ../CLAUDE.md'), $output);
+check('resuelve tests/ de backend/CLAUDE.md desde backend/', ! str_contains($output, 'LoginTest.php'), $output);
+remove($root);
 printf("\n%d correctas, %d fallidas.\n", $passed, $failures);
 exit($failures === 0 ? 0 : 1);
