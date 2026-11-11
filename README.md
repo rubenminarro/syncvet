@@ -2,7 +2,7 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en `CLAUDE.md`.
 
-Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes) y FASE 2 (datos maestros) completadas; sigue la FASE 3, agenda y turnos. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos maestros) y FASE 3 (agenda y turnos) completadas; sigue decidir entre el frontend y la FASE 4, historia clínica. El estado de cada fase está en
 [`docs/roadmap/README.md`](docs/roadmap/README.md) y el punto de continuidad, en [`docs/handoff.md`](docs/handoff.md).
 
 ## Qué incluye
@@ -54,8 +54,9 @@ La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y
 `clinic:create`, el `DemoSeeder` y la regla de contraseñas (`tests/Feature/Console`, `Seeders`, `Security` y `tests/Unit`, 0.4); y el
 acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo ficticios (`tests/Feature/Access` y `Database`,
 0.5); cada regla de clientes, pacientes, especies y razas (FASE 1) y de sucursales y depósitos, usuarios, veterinarios, servicios,
-la configuración y la auditoría (FASE 2), con los mensajes en voseo y las fechas con hora. Al cierre de la FASE 2: 988 casos, en
-SQLite y en MySQL ([cierre](docs/fases/fase-02-datos-maestros.md#cierre-de-la-fase-2)).
+la configuración y la auditoría (FASE 2), y de las agendas, los turnos con sus estados y sus series, la disponibilidad y la cola del
+día (FASE 3, con la concurrencia en MySQL), con los mensajes en voseo y las fechas con hora. Al cierre de la FASE 3: 1395 casos, en
+SQLite y en MySQL ([cierre](docs/fases/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3)).
 
 ## Instalación
 

@@ -1186,3 +1186,25 @@ correcciones de la revisión en `4862658` y el cierre en un commit aparte, solo 
 
 **Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el orden de bloqueo (la 3.4 no bloquea nada); las reglas del
 alta, la serie, mover y deshacer el ausente (ahora en `ScheduleOccupancy`, con los mismos tests).
+
+# R-056 Cierre de la FASE 3 y merge a `main` (2026-11-11)
+
+Cierre de la FASE 3 (agenda y turnos), con las seis entregas cerradas y validadas por el usuario (R-049 a R-055). El detalle está en el
+[cierre de la fase](../fases/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | 3.0 (R-049), 3.1 (R-050), 3.2a (R-051), 3.2b (R-053), 3.3 (R-054) y 3.4 (R-055): COMPLETADO, cada una con su validación de Postman y sus cifras en el documento de la fase | Cierre |
+| FASE 3 | COMPLETADO: el criterio de cierre de la fase se cumple, punto por punto en el cierre de la fase | Usuario |
+| Criterio de cierre | Dos altas simultáneas del mismo horario (agenda con veterinario y solo de servicio): un 201 y un 409 `APPOINTMENT_OVERLAP` (`AppointmentConcurrencyTest`, MySQL); cada transición, válida e inválida (`AppointmentTransitionTest` y `UndoNoShowTest`). Corridos en el cierre en MySQL: 55 tests y 263 aserciones, sin omitidos | Cierre |
+| Regresión de Postman | Newman, 2026-11-11, servidor en el puerto 8001: `syncvet-fase-03-agendas` (35 pedidos, 68 aserciones), `-turnos` (58 y 107), `-series` (25 y 42), `-disponibilidad` (50 y 81), `syncvet-fase-02-veterinarios` (32 y 75) y `-servicios` (27 y 64), sin fallas. La guía de Postman de veterinarios y servicios apunta sus pendientes a la colección de agendas (pedidos 21 a 23) | Cierre |
+| `composer audit` | Sin avisos; nada que actualizar (R-046) | Cierre |
+| Cifras al cerrar | Rutas de la API de 58 a 78; permisos de 127 a 135; migraciones de 34 a 36. Suite sobre el código de `4862658` (lo posterior solo cambia documentación): 1395 casos; 13960 aserciones en SQLite con 14 omitidos (solo de MySQL) y 14034 en MySQL (`syncvet_test_mysql`), sin omitidos | Cierre |
+| Deudas | Resuelta en la fase: 16 (R-049). Nueva: 17 (R-047). La 2, revisada en los modelos de la fase (`Schedule`, `ScheduleHour`, `ScheduleBlock` y `Appointment`) y abierta para las fases siguientes. Abiertas: 2, 3, 5, 6, 15 y 17 | Cierre |
+| Módulos | Agenda y turnos: COMPLETADO (`docs/modules/README.md`) | Cierre |
+| Pendiente para la FASE 4 | La relación entre "atendido" y la consulta, con la propuesta de la FASE 3 (la consulta se abre desde un turno fichado y lo marca atendido en la misma transacción); anotado también en el documento de la FASE 4 | Usuario |
+| Merge a `main` | Autorizado por el usuario el 2026-11-11: merge `--no-ff` desde `feature/fase-03-04-disponibilidad`, que contiene el diseño (`docs/fase-03-diseno`) y las seis entregas encadenadas. Antes del push de `main`, la suite completa en `main`, en serie, en SQLite y después en MySQL. Las ramas de la fase se conservan. El hash del merge no puede ir en el commit que lo precede: se informa al usuario y se anota en el handoff al empezar lo siguiente | Usuario |
+| Siguiente | Decidir con el usuario entre empezar el frontend y el análisis de la FASE 4 (historia clínica) | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta (y corrige en la
+guía de Postman los pendientes de veterinarios y servicios, ya probados en la colección de agendas).

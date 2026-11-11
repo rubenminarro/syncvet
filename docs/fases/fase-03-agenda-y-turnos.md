@@ -1,7 +1,9 @@
 # FASE 3 — Agenda y turnos
 
-Etapa: Atención. Estado: **PENDIENTE**: diseño **aprobado** por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047)
-y las [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Entregas 3.0 (R-049), 3.1 (R-050), 3.2a (R-051), 3.2b (R-053), 3.3 (R-054) y 3.4 (R-055) cerradas; sigue el cierre de la fase. El estado vigente de cada fase está en
+Etapa: Atención. Estado: **COMPLETADO** el 2026-11-11 (R-056): entregas 3.0 (R-049), 3.1 (R-050), 3.2a (R-051), 3.2b (R-053), 3.3
+(R-054) y 3.4 (R-055) cerradas; diseño aprobado por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047) y las
+[preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Ver el [cierre de la fase](#cierre-de-la-fase-3). El
+estado vigente de cada fase está en
 [`docs/roadmap/README.md`](../roadmap/README.md).
 
 ## Objetivo
@@ -600,6 +602,9 @@ Faltan las rutas de la 3.4 y `composer audit` al cierre de la fase.
 **Avance (R-055).** La 3.4 suma 2 rutas (la disponibilidad y la cola del día), con su acceso por rol (`RoleAccessTest`) y su
 aislamiento por clínica (una agenda o un servicio de otra clínica, 404 o 422; ningún turno de otra clínica en la cola), y cada regla
 con su test con el rol de la operación. Cumplido todo menos `composer audit` sin avisos, que va en el cierre de la fase.
+
+**Cumplido (R-056).** En el cierre de la fase, `composer audit` sin avisos. El criterio, punto por punto, en el
+[cierre de la fase](#cierre-de-la-fase-3).
 
 ## Prompt de implementación (paso 4)
 
@@ -1218,3 +1223,88 @@ servidor en el puerto 8001, dos veces seguidas sin recrear la base): 50 pedidos 
 El 2026-11-11, después de las correcciones de la revisión, el usuario corrió en Postman, con el Collection Runner y una iteración:
 `syncvet-fase-03-disponibilidad` (50 requests), 81 de 81 pruebas, 0 errores. Suite: la del cierre (la última corrida en serie, en
 SQLite y en MySQL, sobre `4862658`).
+
+## Cierre de la FASE 3
+
+Completada el 2026-11-11 (R-056). La recepción da turnos sin superposiciones y el veterinario ve su cola del día: agendas con su
+horario semanal y sus bloqueos (baja física solo sin turnos), turnos únicos con paciente, con cliente o con un contacto (dentro del
+horario, fuera de los bloqueos, sin superponerse en la agenda ni con otro turno del mismo veterinario, con sobreturno explícito), sus
+estados (confirmar, fichar, atendido, ausente y deshacerlo el mismo día, cancelar con motivo), las series semanales (todas las fechas
+o ninguna; cancelar uno, los siguientes o toda la serie), la disponibilidad de cada agenda (los horarios que el alta aceptaría, con
+las mismas reglas en `ScheduleOccupancy`) y la cola del día de la sucursal actual; antes, la zona fija de la sesión de MySQL (deuda
+16). Las ramas se encadenaron (`docs/fase-03-diseno` → `feature/fase-03-00-zona-mysql` → `feature/fase-03-01-agendas` →
+`feature/fase-03-02a-turnos` → `feature/fase-03-02b-estados` → `feature/fase-03-03-recurrentes` →
+`feature/fase-03-04-disponibilidad`), todas en GitHub, y se integran a `main` con un merge `--no-ff` desde
+`feature/fase-03-04-disponibilidad`, autorizado por el usuario (R-056). Las ramas de la fase se conservan.
+
+| Entrega | Contenido | Commits | Suite al cerrar |
+|---|---|---|---|
+| Diseño | Análisis, preguntas 1 a 25 y entregas | `e510d73` (R-047), `c1778c0` (R-048) | — |
+| [3.0](#entrega-30) | Zona de la sesión de MySQL (deuda 16), sin API | `7c92097`, `a0f9a4e` (cierre `5475048`) | 1007 casos; 10851 aserciones en SQLite y 10885 en MySQL |
+| [3.1](#entrega-31) | Agendas: ABM, horario semanal y bloqueos; los pendientes de Postman de la FASE 2 | `aa96fed` (correcciones y cierre `2c0448c`) | 1108 casos; 11845 y 11879 |
+| [3.2a](#entrega-32a) | Turnos únicos: alta, edición y mover, sin superposición; sobreturno | `fa03b6f`, `b0dd969` (cierre `7fb853d`) | 1212 casos; 12835 y 12879 |
+| [3.2b](#entrega-32b) | Estados del turno | `a1a1ab4`, `d811fa1` (cierre `6fbe3c1`; en la rama, `964db22`, R-052) | 1303 casos; 13373 y 13422 |
+| [3.3](#entrega-33) | Turnos recurrentes y cancelar con alcance | `04789c9`, `e4fe8c5` (cierre `615c015`) | 1363 casos; 13681 y 13755 |
+| [3.4](#entrega-34) | Disponibilidad por agenda y cola del día | `38ca91a`, `4862658` (cierre `fe8553d`) | 1395 casos; 13960 y 14034 |
+
+**Rutas, permisos y migraciones.** Las rutas de la API pasan de 58 a 78 (20 nuevas): agendas y bloqueos (8, 3.1), turnos (4, 3.2a),
+estados del turno (6, 3.2b), y la disponibilidad y la cola del día (2, 3.4); la 3.3 va en rutas existentes. Los permisos, de 127 a 135
+(`schedule-blocks.index`, `.store` y `.destroy`, `appointments.overbook`, `.attend`, `.no-show` y `.queue`, y `schedules.availability`).
+Las migraciones, de 34 a 36 (el contacto y el sobreturno de los turnos, 3.2a; `attended_at` y `no_show_at`, 3.2b). Los `error_code`
+nuevos (`SCHEDULE_*`, `APPOINTMENT_*` y el `CONFLICT` de agendas y turnos) están en `CLAUDE.md` §4.
+
+**Suite al cerrar la fase** (2026-11-11, código de `4862658`; los commits posteriores solo cambian documentación): 1395 casos con los
+*data providers*, en verde. SQLite: 13960 aserciones, 14 omitidos (solo de MySQL). MySQL (`syncvet_test_mysql`): 14034 aserciones, sin
+omitidos. Frente al cierre de la FASE 2 (988 casos; 10816 y 10836 aserciones): 407 casos más. La corrida en `main` después del merge,
+antes del push, la informa el cierre (R-056).
+
+**Colecciones de Postman** (`docs/testing/postman`; se corren más de una vez sin recrear la base, [guía](../testing/guia-postman.md)).
+Regresión del cierre (2026-11-11, Newman, base de desarrollo, servidor en el puerto 8001): las cuatro de la FASE 3 y las de
+veterinarios y servicios de la FASE 2, sin fallas.
+
+| Colección | Entrega | Requests | Pruebas | Validación del usuario | Newman del cierre |
+|---|---|---|---|---|---|
+| Agendas | 3.1 | 35 | 68 | 2026-11-10, en verde; regresión el 2026-11-11 | 35 y 68, sin fallas |
+| Turnos | 3.2a y 3.2b | 58 | 107 | 2026-11-10 (3.2a: 37 requests y 67 pruebas; 3.2b), en verde | 58 y 107, sin fallas |
+| Series | 3.3 | 25 | 42 | 2026-11-11, en verde | 25 y 42, sin fallas |
+| Disponibilidad y cola | 3.4 | 50 | 81 | 2026-11-11, en verde | 50 y 81, sin fallas |
+| Veterinarios (FASE 2) | 2.3 | 32 | 75 | 2026-11-09 | 32 y 75, sin fallas |
+| Servicios (FASE 2) | 2.4 | 27 | 64 | 2026-11-09 | 27 y 64, sin fallas |
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| Dos turnos simultáneos en el mismo horario: uno entra y el otro recibe 409 | `AppointmentConcurrencyTest` (solo MySQL): dos altas en dos procesos de PHP aparte, con una agenda con veterinario y con una agenda solo de servicio; en los dos casos, un 201 y un 409 `APPOINTMENT_OVERLAP`. Además, dos transiciones simultáneas (`AppointmentTransitionConcurrencyTest`), dos series que comparten una fecha y dos cancelaciones de la misma serie. Corridos otra vez en el cierre, en MySQL, junto con las transiciones: 55 tests y 263 aserciones, sin omitidos |
+| Tests de cada transición, válida e inválida | `AppointmentTransitionTest`: cada transición válida desde cada estado de origen y la matriz de las inválidas (también repetir la misma); deshacer el ausente en `UndoNoShowTest`; las reglas propias en `AppointmentCheckInTest`, `AppointmentAttendTest` y `AppointmentNoShowAndCancelTest` |
+| Cada regla con su test con el rol de la operación | `tests/Feature/Schedules` y `tests/Feature/Appointments` (con `Transitions` y `Series`), con un administrador real y los roles propios en los 403; las protecciones críticas, quitadas de a una en la implementación y en la revisión de cada entrega (mutaciones de cada resultado) |
+| Cada ruta nueva con su acceso por rol y su aislamiento por clínica | `RoleAccessTest` prueba el acceso por rol de las 78 rutas; el 404 de un registro de otra clínica, en los tests de cada módulo y en `RouteBindingTest`; la cola del día sin turnos de otra clínica |
+| La deuda 16 resuelta | Entrega 3.0 (R-049) |
+| Los pendientes de Postman de la FASE 2 probados | `syncvet-fase-03-agendas`, pedidos 21 a 23 (R-050); la guía de veterinarios y servicios los apunta ahí |
+| Suite en verde en SQLite y en MySQL | La suite del cierre, en las dos bases, una después de la otra |
+| `composer audit` sin avisos | 2026-11-11: "No security vulnerability advisories found."; nada que actualizar |
+
+**Deudas** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resuelta en la fase: 16 (la zona de la sesión de MySQL, R-049). Nueva:
+17 (el tope de 2038 de las columnas `timestamp`, R-047; prioridad baja). La 2, cumplida en los modelos de la fase (`Schedule`,
+`ScheduleHour` y `ScheduleBlock` en la 3.1; `Appointment` en la 3.2a y la 3.2b) y abierta para los demás. Abiertas al cerrar: 2, 3
+(códigos SIFEN sin verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en ráfagas con la caché `database`), 15 (foto
+con un `photo_path` fuera de su carpeta) y 17.
+
+**Decisiones de la fase.** R-047 (análisis, preguntas de negocio y solución de la deuda 16), R-048 (aprobación del diseño, preguntas 13
+a 25), R-049 (3.0), R-050 (3.1), R-051 (3.2a), R-052 (las skills de lectura, sin relación con la API), R-053 (3.2b), R-054 (3.3), R-055
+(3.4) y R-056 (cierre y merge), en el [registro](../decisions/registro.md). Las que cambian reglas de fases anteriores: los turnos son
+uso del cliente, con el mensaje nuevo de `CLIENT_IN_USE`, y las bajas del cliente y del paciente revisan el uso con su fila bloqueada
+(pregunta 21, R-051); el cambio de dueño del paciente en una transacción con el paciente y los dos clientes bloqueados (R-051); la zona
+fija de la sesión de MySQL y el reloj de MySQL prohibido en código nuevo (R-049); la baja física de las agendas, excepción a "datos
+maestros con `SoftDeletes`" (pregunta 13, R-048).
+
+**Pendiente para la FASE 4** ([historia clínica](fase-04-historia-clinica.md)):
+
+* La relación entre "atendido" y la consulta, que decide el diseño de la FASE 4. La propuesta está en
+  [Relación con la consulta](#relación-con-la-consulta-fase-4): la consulta se abre desde un turno fichado
+  (`consultations.appointment_id`, única) y lo marca atendido en la misma transacción; `POST appointments/{appointment}/attend` sigue
+  para los turnos sin historia clínica; un turno atendido no se cancela y cancelar la consulta no lo vuelve a fichado; la consulta sin
+  turno (urgencia) sigue siendo posible. El orden de bloqueo de esa transacción se suma al de la FASE 3 (`CLAUDE.md` §3).
+* El veterinario y el servicio que use la consulta, con un `sharedLock` (como los turnos, `CLAUDE.md` §3).
+* Fuera del MVP o para más adelante, sin fase asignada: el ausente automático (P12), la reserva online (`online_booking` y
+  `AppointmentSource::ONLINE`) y mover una serie entera (R-054).

@@ -19,6 +19,14 @@ El diseño (paso 2) completa cada entrega con reglas de negocio, datos, endpoint
 | 4.5 | Cierre, reapertura y anulación | PENDIENTE |
 | 4.6 | Historial del paciente | PENDIENTE |
 
+## Pendiente de la FASE 3
+
+La relación entre "atendido" y la consulta la decide este diseño. La FASE 3 dejó una propuesta
+([relación con la consulta](fase-03-agenda-y-turnos.md#relación-con-la-consulta-fase-4)) y lo pendiente en su
+[cierre](fase-03-agenda-y-turnos.md#cierre-de-la-fase-3) (R-056): la consulta se abre desde un turno fichado y lo marca atendido en la
+misma transacción; `POST appointments/{appointment}/attend` sigue para los turnos sin historia clínica; la consulta sin turno sigue
+siendo posible.
+
 ## Preguntas de negocio
 
 Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).

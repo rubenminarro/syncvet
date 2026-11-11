@@ -33,13 +33,12 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   (R-030 y R-031), 2.2a, usuarios (R-032 y R-033), 2.2b, usuarios inactivos, baja, sucursal actual y contraseña propia (R-034 y
   R-035), 2.3, veterinarios (R-036 y R-037), 2.4, servicios (R-038 y R-039), 2.5, configuración de la clínica, logo y archivos
   huérfanos (deuda 14 resuelta; R-040 y R-041), y 2.6, consulta de la auditoría y fechas con hora (deuda 13 resuelta; R-042 y
-  R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) tiene el diseño aprobado (R-047 y R-048) y la
-  entrega 3.0 cerrada (zona de la sesión de MySQL, deuda 16 resuelta; R-049), validada por el usuario con Postman como regresión, y
-  la 3.1 cerrada (agendas, horario semanal y bloqueos; R-050), la 3.2a cerrada (turnos únicos; R-051), la 3.2b cerrada (estados
-  del turno; R-053), la 3.3 cerrada (turnos recurrentes; R-054) y la 3.4 cerrada (disponibilidad por agenda y cola del día; R-055),
-  las cinco validadas por el usuario con Postman; sigue el cierre de la fase (`composer audit` sin avisos, el módulo de agenda y
-  turnos COMPLETADO y el merge a `main`). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la 3.4, 1395 casos
-  (13960 aserciones en SQLite y 14034 en MySQL).
+  R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) está completada (R-056) e integrada a `main`:
+  diseño aprobado (R-047 y R-048); entregas 3.0, zona de la sesión de MySQL (deuda 16 resuelta; R-049), 3.1, agendas, horario
+  semanal y bloqueos (R-050), 3.2a, turnos únicos (R-051), 3.2b, estados del turno (R-053), 3.3, turnos recurrentes (R-054), y 3.4,
+  disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Sigue decidir con el usuario entre
+  el frontend y el análisis de la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la
+  FASE 3, 1395 casos (13960 aserciones en SQLite y 14034 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,

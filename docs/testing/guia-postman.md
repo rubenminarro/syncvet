@@ -271,9 +271,9 @@ usuario. El usuario no se puede eliminar, porque la ficha eliminada cuenta como 
 
 **Usuarios.** `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`).
 
-**Lo que no está en la colección.** La baja de un veterinario con uso (409 `VETERINARIAN_IN_USE`): la API todavía no crea agendas,
-turnos ni consultas, y ninguna ficha de la demo tiene uso. La cubre `VeterinarianDeleteTest`, y se suma a Postman en la FASE 3, con
-las agendas (anotado en el [documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md)). También la concurrencia y el orden de los
+**Lo que no está en la colección.** La baja de un veterinario con uso (409 `VETERINARIAN_IN_USE`): ninguna ficha de la demo tiene uso.
+La prueba la colección de agendas de la FASE 3 (`syncvet-fase-03-agendas`, pedido 21: la baja del veterinario con una agenda; R-050),
+y la cubre `VeterinarianDeleteTest`. También la concurrencia y el orden de los
 bloqueos (`VeterinarianLockTest`), el índice único como respaldo de la matrícula y el Service sin el Form Request
 (`VeterinarianRestoreTest`), y la bajada de la migración (`VeterinarianLicenseMigrationTest`).
 
@@ -299,8 +299,8 @@ quedan eliminados con el sufijo de baja en el nombre, así que los nombres queda
 **Usuarios.** `admin-a@example.com` (`{{token_admin}}`) y `recepcion-a@example.com` (`{{token}}`).
 
 **Lo que no está en la colección.** Un servicio usado: la baja (409 `SERVICE_IN_USE`) y el cambio de nombre (422
-`SERVICE_NAME_NOT_EDITABLE`). La API todavía no crea agendas, turnos ni consultas; los cubren `ServiceDeleteTest` y
-`ServiceUpdateTest`, y se suman a Postman en la FASE 3 (anotado en el [documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md)).
+`SERVICE_NAME_NOT_EDITABLE`). Los prueba la colección de agendas de la FASE 3 (`syncvet-fase-03-agendas`, pedidos 22 y 23, con un
+servicio usado por una agenda; R-050), y los cubren `ServiceDeleteTest` y `ServiceUpdateTest`.
 También la concurrencia y el orden de los bloqueos (`ServiceLockTest`), el índice único como respaldo del nombre y el código repetido
 (409 `DOCUMENT_CODE_CONFLICT`) (`ServiceStoreTest`).
 
