@@ -3,12 +3,12 @@
 namespace App\Services;
 
 use App\Enums\AppointmentTransition;
+use App\Enums\UserRole;
 use App\Exceptions\AppointmentException;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\User;
 use App\Models\Veterinarian;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,9 +22,10 @@ use Illuminate\Validation\ValidationException;
  * - Fichar: el turno tiene paciente (422 APPOINTMENT_PATIENT_REQUIRED), no fallecido, y es de hoy
  *   en Asunción (422 APPOINTMENT_CHECK_IN_NOT_TODAY); fija checked_in_at.
  * - Atendido: fija attended_at.
- * - Fichar y atendido, por un veterinario: un usuario con ficha de veterinario y sin
- *   appointments.update marca solo los turnos de su ficha o los de agendas sin veterinario (si
- *   no, 403; pregunta 18 y decisión del usuario en la 3.2b, que la extiende al fichado).
+ * - Fichar y atendido, por un veterinario: un usuario con el rol veterinario (o con ficha) y sin
+ *   appointments.update marca solo los turnos de su ficha o los de agendas sin veterinario; sin
+ *   ficha, o con la ficha eliminada, solo los de agendas sin veterinario (si no, 403
+ *   APPOINTMENT_NOT_YOURS; pregunta 18 y decisiones del usuario en la 3.2b).
  * - Ausente (P12): solo desde la hora de inicio del turno (422 APPOINTMENT_NO_SHOW_TOO_EARLY);
  *   fija no_show_at.
  * - Cancelar (P3): con motivo (CancelAppointmentRequest), sin límite de anticipación; fija
@@ -89,9 +90,9 @@ class AppointmentTransitionService
         });
     }
 
-    public function undoNoShow(Appointment $appointment): Appointment
+    public function undoNoShow(Appointment $appointment, bool $overbook = false): Appointment
     {
-        return $this->appointments->undoNoShow($appointment);
+        return $this->appointments->undoNoShow($appointment, $overbook);
     }
 
     public function cancel(Appointment $appointment, string $reason): Appointment
@@ -133,26 +134,32 @@ class AppointmentTransitionService
     }
 
     /**
-     * Pregunta 18: un usuario con ficha de veterinario (no eliminada) y sin
-     * appointments.update ficha y marca atendido solo los turnos de su ficha o los de agendas
-     * sin veterinario; si no, 403. El administrador (Gate::before) y quien tiene
-     * appointments.update, cualquiera.
+     * Pregunta 18 (decisiones del usuario en la 3.2b): un usuario con el rol veterinario o con
+     * una ficha de veterinario, y sin appointments.update, ficha y marca atendido solo los turnos
+     * de su ficha (no eliminada) o los de agendas sin veterinario; sin ficha, o con la ficha
+     * eliminada, solo los de agendas sin veterinario. Si no, 403 APPOINTMENT_NOT_YOURS. El
+     * administrador (Gate::before) y quien tiene appointments.update, cualquiera.
      */
     private function ensureOwnAppointment(Appointment $appointment): void
     {
         /** @var User $user */
         $user = Auth::user();
 
-        if ($user->can('appointments.update')) {
+        if ($user->can('appointments.update') || $appointment->veterinarian_id === null) {
             return;
         }
 
+        // Solo una ficha no eliminada (el scope de SoftDeletes).
         $ownId = Veterinarian::query()->where('user_id', $user->getKey())->value('id');
 
-        if ($ownId === null || $appointment->veterinarian_id === null || (int) $appointment->veterinarian_id === (int) $ownId) {
+        if ($ownId === null && ! $user->hasRole(UserRole::VETERINARIAN->value, 'api')) {
             return;
         }
 
-        throw new AuthorizationException();
+        if ($ownId !== null && (int) $appointment->veterinarian_id === (int) $ownId) {
+            return;
+        }
+
+        throw AppointmentException::notYours();
     }
 }

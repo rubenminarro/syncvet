@@ -457,17 +457,18 @@ atender con el token del veterinario, ausente, cancelar con motivo, y una transi
 
 #### Pendiente para el cierre (3.2b)
 
-Implementación en `feature/fase-03-02b-estados` (commit WIP "WIP 3.2b estados, sin revisar"), sin revisar ni validar con Postman.
-Lo que el cierre tiene que llevar al resultado, a `CLAUDE.md` y al registro.
+Implementación en `feature/fase-03-02b-estados` (commit WIP `a1a1ab4`, "WIP 3.2b estados, sin revisar"), revisada y corregida
+(commit WIP "WIP 3.2b estados, correcciones de la revisión"; ver [Correcciones de la revisión](#correcciones-de-la-revisión-32b)),
+sin validar con Postman. Lo que el cierre tiene que llevar al resultado, a `CLAUDE.md` y al registro.
 
 **Cifras.** Migraciones 35 → 36 (`2026_11_10_000001_add_attended_and_no_show_to_appointments`: `attended_at` y `no_show_at`,
 `datetime` nulas); rutas 70 → 76 (`POST appointments/{appointment}/confirm`, `/check-in`, `/attend`, `/no-show`, `/undo-no-show` y
 `/cancel`); permisos 131 → 133 (`appointments.attend`, del administrador y el veterinario, y `appointments.no-show`, del administrador
-y la recepción; `appointments.undo-no-show` usa `appointments.no-show`, en `ROUTES_WITH_ANOTHER_PERMISSION`). Suite del 2026-11-10, en serie:
-1290 casos; en SQLite (`composer test`), 13316 aserciones con 11 omitidos (los de MySQL de antes y
-`AppointmentTransitionConcurrencyTest`); en MySQL (`composer test:mysql`), 13365 aserciones sin omitidos; `composer test:fast`, 1290
-casos en verde. Frente al cierre de la 3.2a (1212 casos; 12835 y 12879 aserciones): 78 casos más (72 de las transiciones y 6 de
-`RouteBindingTest`).
+y la recepción; `appointments.undo-no-show` usa `appointments.no-show`, en `ROUTES_WITH_ANOTHER_PERMISSION`). Suite del 2026-11-10, después de las
+correcciones de la revisión, en serie: 1303 casos; en SQLite (`composer test`), 13373 aserciones con 11 omitidos (los de MySQL de
+antes y `AppointmentTransitionConcurrencyTest`); en MySQL (`composer test:mysql`), 13422 aserciones sin omitidos; `composer
+test:fast`, 1303 casos en verde. Frente al cierre de la 3.2a (1212 casos; 12835 y 12879 aserciones): 91 casos más (85 de las
+transiciones y 6 de `RouteBindingTest`). Antes de la revisión eran 1290 casos (13316 y 13365 aserciones).
 
 **Decisión del usuario (en la implementación).** Fichar también queda restringido como marcar atendido: un usuario con ficha de
 veterinario y sin `appointments.update` ficha solo los turnos de su ficha o de agendas sin veterinario (403 si no). Cambia la
@@ -477,11 +478,11 @@ respuesta a la pregunta 18 ("Fichar, cualquiera"); va al registro.
 
 | # | Desvío o decisión | Motivo |
 |---|---|---|
-| 1 | Las transiciones viven en `App\Enums\AppointmentTransition` (cada acción con sus estados de origen, `origins()`, y su destino, `to()`); `AppointmentStatus` suma `canTransitionTo()` e `isFinal()` sobre esa tabla | El destino solo no alcanza: confirmar y deshacer el ausente llevan los dos a confirmado, desde estados distintos |
+| 1 | Las transiciones viven en `App\Enums\AppointmentTransition` (cada acción con sus estados de origen, `origins()`, y su destino, `to()`). `AppointmentStatus` sumaba `canTransitionTo()` e `isFinal()`, sin uso: se borraron en la revisión (hallazgo 5), así que `AppointmentStatus` no suma `canTransitionTo()`, a diferencia de lo que dice la [tabla de estados](#estados-del-turno) | El destino solo no alcanza: confirmar y deshacer el ausente llevan los dos a confirmado, desde estados distintos |
 | 2 | `AppointmentTransitionController` y `AppointmentTransitionService` aparte; deshacer el ausente vive en `AppointmentService::undoNoShow`, que comparte los bloqueos, la superposición y los reintentos del alta | El Service de turnos ya era grande; el ausente vuelve a ocupar el horario como un alta |
 | 3 | Fichar un turno con el paciente fallecido → 422 `VALIDATION_ERROR` en `patient_id`, "El paciente falleció: no se puede fichar el turno." | El diseño dice "no fallecido" sin un código |
 | 4 | En fichar y atendido, el permiso de la ficha se revisa antes que el estado (un turno ajeno sin fichar también da 403) | Un veterinario no averigua el estado de un turno ajeno por el error |
-| 5 | El 403 de la ficha usa el mensaje genérico ("No tenés permisos para realizar esta acción.", `FORBIDDEN`) | El diseño dice solo "403" |
+| 5 | ~~El 403 de la ficha usa el mensaje genérico (`FORBIDDEN`)~~ **Cambió en la revisión** (hallazgo 1): 403 `APPOINTMENT_NOT_YOURS`, "Ese turno no es de tu agenda." | El diseño dice solo "403" |
 | 6 | Todas las transiciones van por `AppointmentService::withRetries`: un *deadlock* se repite hasta 3 veces y después 409 `CONFLICT`; una espera vencida (1205), 409 enseguida (R-051). Deshacer el ausente repite también si la agenda cambió de veterinario o el turno de agenda entre la lectura y el bloqueo | Nunca un 500, como el alta |
 | 7 | Deshacer el ausente no revisa que la agenda siga activa ni que su veterinario siga activo | El diseño solo excluye el horario y los bloqueos; el turno ya existía en esa agenda |
 | 8 | Fichar se permite el día del turno a cualquier hora (antes de su inicio: el cliente llegó temprano); el ausente, desde la hora de inicio, también días después | Precisa el diseño ("solo el día del turno"; "`starts_at <= now`") |
@@ -490,7 +491,10 @@ respuesta a la pregunta 18 ("Fichar, cualquiera"); va al registro.
 | 11 | Mensajes que el diseño no fija: "Turno confirmado.", "Turno fichado.", "Turno marcado como atendido.", "Turno marcado como ausente.", "Se deshizo el ausente: el turno volvió a confirmado.", "Turno cancelado.", y los de `cancellation_reason` ("Ingresá el motivo de la cancelación.", al menos 3 y hasta 500 caracteres) | — |
 | 12 | Postman: una segunda agenda de la corrida, "del día" (todos los días de 00:00 a 23:55, con el mismo veterinario), para los turnos de hoy; el login del veterinario de la corrida y el de `vet-a@example.com` (otra ficha, para el 403); cada corrida deja también esa agenda inactiva y sus dos turnos de hoy | La colección corre a cualquier hora: el turno de las 00:00 ya empezó (ausente) y es de hoy (fichar) |
 
-**Tests** (`tests/Feature/Appointments/Transitions`): 72 casos; 336 aserciones en SQLite y 341 en MySQL.
+**Tests** (`tests/Feature/Appointments/Transitions`): 85 casos después de la revisión (72 antes); 391 aserciones en SQLite y 396 en
+MySQL (336 y 341 antes). La tabla es la de la implementación; los de la revisión están en
+[Correcciones de la revisión](#correcciones-de-la-revisión-32b): `AppointmentCheckInTest` pasa a 9 tests y 39 aserciones,
+`AppointmentAttendTest` a 6 y 25 y `UndoNoShowTest` a 15 y 58.
 
 | Clase | Tests | Aserciones | Verifica |
 |---|---|---|---|
@@ -520,8 +524,41 @@ logins de los dos veterinarios, atendido por otra ficha → 403 y por la suya �
 (los permisos nuevos `appointments.attend` y `appointments.no-show`).
 
 **Documentación pendiente para el cierre:** `CLAUDE.md` §1, §3 (orden de las transiciones y de deshacer el ausente), §4 (los
-`APPOINTMENT_*` nuevos), §6.10 (estados) y §6.11; la guía de Postman (las transiciones en la colección de turnos); el registro
-(R-052, con la decisión de fichar), el roadmap, los módulos, la deuda 2 (`Appointment` suma dos casts) y el handoff.
+`APPOINTMENT_*` nuevos, también el 403 `APPOINTMENT_NOT_YOURS` de la revisión), §6.10 (estados, con la regla por el rol y el
+sobreturno de deshacer el ausente) y §6.11; la guía de Postman (las transiciones en la colección de turnos, con 24j1, 24j2 y el 24p
+nuevo); el registro (**R-053**, con la decisión de fichar y las de la revisión: R-052 ya es el cambio de las skills de lectura), el
+roadmap, los módulos, la deuda 2 (`Appointment` suma dos casts) y el handoff.
+
+#### Correcciones de la revisión (3.2b)
+
+Revisión del 2026-11-10 sobre `a1a1ab4`. El usuario aceptó los desvíos 1 a 4 y 6 a 12; el 5 cambió (hallazgo 1). Decisiones del
+usuario para el registro (R-053):
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | El 403 de un turno ajeno usaba el mensaje genérico (`FORBIDDEN`) | 403 `APPOINTMENT_NOT_YOURS`, "Ese turno no es de tu agenda." (`AppointmentException::notYours()`), al fichar y al marcar atendido. Va a `CLAUDE.md` §4 en el cierre |
+| 2 | Un usuario con el rol `veterinario` y sin ficha (o con la ficha eliminada) fichaba y marcaba atendido cualquier turno | La regla se aplica por el rol (o la ficha): sin `appointments.update`, un veterinario con ficha (no eliminada) marca los de su ficha y los de agendas sin veterinario; sin ficha, o con la ficha eliminada, solo los de agendas sin veterinario; los demás, 403 `APPOINTMENT_NOT_YOURS`. El administrador (`Gate::before`) y quien tiene `appointments.update`, cualquiera (`AppointmentTransitionService::ensureOwnAppointment`) |
+| 3 | Deshacer el ausente no admitía el sobreturno: con el horario tomado por otro turno, la recepción no podía forzarlo | `UndoNoShowAppointmentRequest`: `overbook` (booleano) con `appointments.overbook`, como el alta (sin el permiso, 403 `FORBIDDEN` en `authorize()`). Con el horario tomado: con `overbook: true` entra e `is_overbooked` queda en `true`; sin él, 409 `APPOINTMENT_OVERLAP`. Un turno que ya era sobreturno vuelve sin `overbook` (como antes), pero exige `appointments.overbook`, con el horario tomado o libre (si no, 403 `FORBIDDEN`, revisado con el turno bloqueado, después del estado y del día). `is_overbooked` queda en si se superpone (con `overbook: true` y el horario libre, `false`) |
+| 4 | Faltaban los tests de medianoche; en deshacer el ausente, calcular el día en UTC no hacía fallar ningún test | 5 tests: fichar un turno de las 23:30 a las 23:50 → 200; uno de ayer a las 23:30, a las 00:10 → 422; deshacer el ausente de uno de las 20:00 a las 23:50 → 200; de uno de ayer a las 23:30, a las 00:10 → 422; de uno de hace 3 días marcado ausente hoy → 422. Con `startsToday()` en UTC fallan los dos de medianoche de deshacer el ausente |
+| 5 | `AppointmentStatus::canTransitionTo()` e `isFinal()` sin uso ni tests | Borrados |
+| 6 | El documento reservaba R-052 para el cierre, que ya es el cambio de las skills | El cierre usa R-053 |
+| 7 | Restaurar un sobreturno sin el permiso del sobreturno | Cubierto por el 3 |
+
+**Tests nuevos** (13 casos): `AppointmentCheckInTest` (veterinario sin ficha y con la ficha eliminada, con un *data provider*; los
+dos de medianoche), `AppointmentAttendTest` (los mismos dos casos del rol) y `UndoNoShowTest` (con `overbook` y el horario tomado:
+sin él 409, con él 200 y sobreturno; `overbook` con el horario libre no marca; `overbook` no booleano → 422; un rol de test con
+`appointments.no-show` y sin `appointments.overbook`: `overbook: true` → 403, sin él → 409, un sobreturno con el horario tomado o
+libre → 403, un turno común con el horario libre → 200; los tres de medianoche). Las aserciones de `FORBIDDEN` del turno ajeno pasan a
+`APPOINTMENT_NOT_YOURS` con el mensaje (`assertNotYours` en `InteractsWithAppointments`).
+
+**Mutaciones** (cada una con tests que fallan): `startsToday()` en UTC (`UndoNoShowTest`, los dos de medianoche); el veterinario sin
+ficha sin restricción (`AppointmentAttendTest` y `AppointmentCheckInTest`, los dos casos de cada uno); deshacer el ausente sin mirar
+`overbook` (`UndoNoShowTest`, con el horario tomado); sin el permiso para un sobreturno que vuelve (`UndoNoShowTest`, sin el
+permiso); `authorize()` sin el permiso de `overbook: true` (`UndoNoShowTest`, sin el permiso).
+
+**Postman.** `syncvet-fase-03-turnos`, de 56 a 58 requests y de 102 a 107 pruebas: 24j1 (otro turno de hoy a las 00:00 toma el
+horario que liberó el ausente), 24j2 (deshacer el ausente sin `overbook` → 409 `APPOINTMENT_OVERLAP`), 24k ahora con `overbook: true`
+→ 200 con `is_overbooked: true`, y 24p (`vet-a`) → 403 `APPOINTMENT_NOT_YOURS` con el mensaje. Sin correr en esta sesión.
 
 ### 3.3 Turnos recurrentes
 

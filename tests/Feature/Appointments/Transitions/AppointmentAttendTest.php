@@ -7,7 +7,9 @@ use App\Models\Schedule;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Support\CurrentClinic;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithAppointments;
 use Tests\TestCase;
 
@@ -36,8 +38,32 @@ class AppointmentAttendTest extends TestCase
         $this->transition($own['id'], 'attend')->assertOk()->assertJsonPath('data.status.value', 'attended');
         $this->transition($free['id'], 'attend')->assertOk();
 
-        $this->assertErrorCode($this->transition($other['id'], 'attend'), 403, 'FORBIDDEN');
+        $this->assertNotYours($this->transition($other['id'], 'attend'));
         $this->assertSame('checked_in', $this->appointmentRow($other['id'])->status);
+    }
+
+    /**
+     * Por el rol: un veterinario sin ficha, o con la ficha eliminada, marca solo los turnos de
+     * agendas sin veterinario; uno de una agenda con veterinario (también la de su ficha
+     * eliminada), 403 APPOINTMENT_NOT_YOURS sin cambios.
+     */
+    #[DataProvider('veterinariansWithoutRecord')]
+    public function test_a_veterinarian_without_a_record_attends_only_unassigned_appointments(bool $deletedRecord): void
+    {
+        [$own, , $free] = $this->appointments();
+        $user = $deletedRecord
+            ? $this->withDeletedRecord($own['schedule'])
+            : $this->userWithRoles($own['schedule']->clinic, ['veterinario']);
+        Sanctum::actingAs($user);
+
+        $this->assertNotYours($this->transition($own['id'], 'attend'));
+        $this->assertSame('checked_in', $this->appointmentRow($own['id'])->status);
+        $this->transition($free['id'], 'attend')->assertOk();
+    }
+
+    public static function veterinariansWithoutRecord(): array
+    {
+        return ['sin ficha' => [false], 'con la ficha eliminada' => [true]];
     }
 
     public function test_reception_cannot_attend(): void
@@ -79,7 +105,7 @@ class AppointmentAttendTest extends TestCase
 
         Sanctum::actingAs($this->veterinarianUserOf($own['schedule']));
 
-        $this->assertErrorCode($this->transition($other['id'], 'attend'), 403, 'FORBIDDEN');
+        $this->assertNotYours($this->transition($other['id'], 'attend'));
     }
 
     /**
@@ -105,5 +131,16 @@ class AppointmentAttendTest extends TestCase
     private function veterinarianUserOf(Schedule $schedule): User
     {
         return CurrentClinic::run($schedule->clinic, fn () => Veterinarian::findOrFail($schedule->veterinarian_id)->user);
+    }
+
+    /**
+     * El usuario (con el rol veterinario) de la ficha de la agenda, con la ficha eliminada.
+     */
+    private function withDeletedRecord(Schedule $schedule): User
+    {
+        $user = $this->veterinarianUserOf($schedule);
+        DB::table('veterinarians')->where('id', $schedule->veterinarian_id)->update(['deleted_at' => now()]);
+
+        return $user;
     }
 }

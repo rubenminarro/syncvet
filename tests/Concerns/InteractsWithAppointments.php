@@ -136,6 +136,15 @@ trait InteractsWithAppointments
     }
 
     /**
+     * 403 APPOINTMENT_NOT_YOURS: el veterinario ficha o marca atendido un turno que no es suyo.
+     */
+    protected function assertNotYours(TestResponse $response): void
+    {
+        $this->assertErrorCode($response, 403, 'APPOINTMENT_NOT_YOURS');
+        $response->assertJsonPath('message', 'Ese turno no es de tu agenda.');
+    }
+
+    /**
      * Cambia el estado sin la API (para preparar cada caso).
      */
     protected function setStatus(int $id, \App\Enums\AppointmentStatus $status, array $attributes = []): void

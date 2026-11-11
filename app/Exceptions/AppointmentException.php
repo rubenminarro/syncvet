@@ -13,10 +13,19 @@ use App\Enums\AppointmentStatus;
  * Las transiciones (3.2b): un cambio de estado que el turno no admite (422
  * APPOINTMENT_INVALID_TRANSITION), fichar sin paciente (422 APPOINTMENT_PATIENT_REQUIRED) u otro
  * día (422 APPOINTMENT_CHECK_IN_NOT_TODAY), el ausente antes de la hora (422
- * APPOINTMENT_NO_SHOW_TOO_EARLY) y deshacerlo otro día (422 APPOINTMENT_NO_SHOW_NOT_UNDOABLE).
+ * APPOINTMENT_NO_SHOW_TOO_EARLY), deshacerlo otro día (422 APPOINTMENT_NO_SHOW_NOT_UNDOABLE) y
+ * un veterinario que ficha o marca atendido un turno que no es suyo (403 APPOINTMENT_NOT_YOURS).
  */
 class AppointmentException extends AppException
 {
+    /**
+     * 403 APPOINTMENT_NOT_YOURS: el veterinario ficha o marca atendido un turno de otra ficha.
+     */
+    public static function notYours(): self
+    {
+        return new self('Ese turno no es de tu agenda.', 403, 'APPOINTMENT_NOT_YOURS');
+    }
+
     /**
      * 422 APPOINTMENT_INVALID_TRANSITION, con la etiqueta del estado actual.
      */

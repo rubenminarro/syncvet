@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Support\ApiDateTime;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\DetectsConcurrencyErrors;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
@@ -598,17 +599,20 @@ class AppointmentService
      * del turno en Asunción. Vuelve a ocupar el horario, así que bloquea como un alta: se lee el
      * turno y su agenda sin bloqueo; después, el veterinario de la agenda (lockForUpdate) → la
      * agenda (lockForUpdate) → el turno (lockForUpdate), y con eso bloqueado se revisa la
-     * superposición sin contarse a sí mismo. Ocupado → 409 APPOINTMENT_OVERLAP, salvo un
-     * sobreturno (is_overbooked), que entra y recalcula la marca. El horario semanal y los
-     * bloqueos no se vuelven a revisar. confirmed_at, la hora actual si no tenía.
+     * superposición sin contarse a sí mismo. Ocupado → 409 APPOINTMENT_OVERLAP, salvo con
+     * $overbook (overbook: true, con appointments.overbook: lo revisa el Form Request) o si el
+     * turno ya era sobreturno; is_overbooked queda en si se superpone. Un turno que ya era
+     * sobreturno exige appointments.overbook (si no, 403), con o sin el horario tomado (decisión
+     * del usuario en la revisión). El horario semanal y los bloqueos no se vuelven a revisar.
+     * confirmed_at, la hora actual si no tenía.
      */
-    public function undoNoShow(Appointment $appointment): Appointment
+    public function undoNoShow(Appointment $appointment, bool $overbook = false): Appointment
     {
-        return $this->withRetries(function () use ($appointment) {
+        return $this->withRetries(function () use ($appointment, $overbook) {
             $read = Appointment::query()->whereKey($appointment->getKey())->firstOrFail(['id', 'schedule_id']);
             $schedule = Schedule::query()->whereKey($read->schedule_id)->firstOrFail(['id', 'veterinarian_id']);
 
-            return DB::transaction(function () use ($read, $schedule) {
+            return DB::transaction(function () use ($read, $schedule, $overbook) {
                 // Orden de bloqueo: veterinario → agenda → turno.
                 $this->lockVeterinarian($this->id($schedule->veterinarian_id));
                 $locked = $this->lockSchedules([(int) $schedule->id])[(int) $schedule->id];
@@ -631,9 +635,14 @@ class AppointmentService
                     );
                 }
 
+                // Un turno que ya era sobreturno vuelve solo con el permiso del sobreturno.
+                if ($appointment->is_overbooked && ! Auth::user()?->can('appointments.overbook')) {
+                    throw new AuthorizationException();
+                }
+
                 $overlaps = $this->overlapsAnother($locked, $appointment->starts_at->toImmutable(), $appointment->ends_at->toImmutable(), $appointment);
 
-                if ($overlaps && ! $appointment->is_overbooked) {
+                if ($overlaps && ! $overbook && ! $appointment->is_overbooked) {
                     throw self::overlapException();
                 }
 

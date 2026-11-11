@@ -1990,7 +1990,112 @@
             }
         },
         {
-            "name": "24k Deshacer el ausente (el mismo día) → confirmado",
+            "name": "24j1 Otro turno de hoy a las 00:00 con un contacto (toma el horario que liberó el ausente)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.test('No es sobreturno', () => pm.expect(pm.response.json().data.is_overbooked).to.eql(false));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_today_id}},\n    \"contact_name\": \"Toma el horario {{run}}\",\n    \"contact_phone\": \"+595981700010\",\n    \"starts_at\": \"{{today}}T00:00:00-03:00\",\n    \"ends_at\": \"{{today}}T00:30:00-03:00\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24j2 Deshacer el ausente con el horario tomado, sin overbook → 409 APPOINTMENT_OVERLAP",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "pm.test('APPOINTMENT_OVERLAP', () => pm.expect(pm.response.json().error_code).to.eql('APPOINTMENT_OVERLAP'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{appointment_today_id}}/undo-no-show",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{appointment_today_id}}",
+                        "undo-no-show"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24k Deshacer el ausente con overbook: true (el mismo día, el horario tomado) → confirmado, sobreturno",
             "event": [
                 {
                     "listen": "test",
@@ -1999,10 +2104,11 @@
                         "exec": [
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const data = pm.response.json().data;",
-                            "pm.test('Confirmado, sin la hora del ausente', () => {",
+                            "pm.test('Confirmado, sin la hora del ausente, como sobreturno', () => {",
                             "    pm.expect(data.status.value).to.eql('confirmed');",
                             "    pm.expect(data.no_show_at).to.eql(null);",
                             "    pm.expect(data.confirmed_at).to.match(/Z$/);",
+                            "    pm.expect(data.is_overbooked).to.eql(true);",
                             "});"
                         ]
                     }
@@ -2030,6 +2136,15 @@
                         "{{appointment_today_id}}",
                         "undo-no-show"
                     ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"overbook\": true\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
                 },
                 "auth": {
                     "type": "bearer",
@@ -2244,7 +2359,7 @@
             }
         },
         {
-            "name": "24p Atendido por un veterinario de otra ficha → 403",
+            "name": "24p Atendido por un veterinario de otra ficha (vet-a) → 403 APPOINTMENT_NOT_YOURS",
             "event": [
                 {
                     "listen": "test",
@@ -2252,7 +2367,8 @@
                         "type": "text/javascript",
                         "exec": [
                             "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
-                            "pm.test('FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                            "pm.test('APPOINTMENT_NOT_YOURS', () => pm.expect(pm.response.json().error_code).to.eql('APPOINTMENT_NOT_YOURS'));",
+                            "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.eql('Ese turno no es de tu agenda.'));"
                         ]
                     }
                 }

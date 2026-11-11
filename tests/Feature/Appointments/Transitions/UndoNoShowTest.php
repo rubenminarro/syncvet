@@ -120,6 +120,106 @@ class UndoNoShowTest extends TestCase
         $this->transition($free, 'undo-no-show')->assertOk()->assertJsonPath('data.is_overbooked', false);
     }
 
+    /**
+     * Con el horario tomado por otro turno: sin overbook, 409 y sigue ausente; con overbook: true
+     * (la recepción tiene appointments.overbook), vuelve como sobreturno.
+     */
+    public function test_with_overbook_a_taken_slot_comes_back_as_overbooked(): void
+    {
+        $id = $this->absent('10:00');
+        $this->appointmentIn($this->schedule, $this->today('10:00'));
+
+        $this->assertErrorCode($this->transition($id, 'undo-no-show', ['overbook' => false]), 409, 'APPOINTMENT_OVERLAP');
+        $this->assertSame('no_show', $this->appointmentRow($id)->status);
+
+        $this->transition($id, 'undo-no-show', ['overbook' => true])
+            ->assertOk()
+            ->assertJsonPath('data.status.value', 'confirmed')
+            ->assertJsonPath('data.is_overbooked', true);
+    }
+
+    /**
+     * overbook: true con el horario libre no lo marca como sobreturno.
+     */
+    public function test_overbook_with_a_free_slot_is_not_overbooked(): void
+    {
+        $id = $this->absent('10:00');
+
+        $this->transition($id, 'undo-no-show', ['overbook' => true])->assertOk()->assertJsonPath('data.is_overbooked', false);
+    }
+
+    public function test_overbook_must_be_a_boolean(): void
+    {
+        $id = $this->absent('10:00');
+
+        $this->transition($id, 'undo-no-show', ['overbook' => 'quizás'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.overbook.0', 'El sobreturno debe ser verdadero o falso.');
+    }
+
+    /**
+     * Un rol con appointments.no-show y sin appointments.overbook: deshace el ausente de un turno
+     * común con el horario libre (200), pero overbook: true → 403, y deshacer el de un turno que ya
+     * era sobreturno → 403 (con el horario tomado o libre), sin cambios.
+     */
+    public function test_without_the_overbook_permission(): void
+    {
+        $this->actingIn($this->clinic, ['appointments.no-show']);
+
+        $common = $this->absent('10:00');
+        $this->appointmentIn($this->schedule, $this->today('10:00'));
+        $this->assertErrorCode($this->transition($common, 'undo-no-show', ['overbook' => true]), 403, 'FORBIDDEN');
+        $this->assertErrorCode($this->transition($common, 'undo-no-show'), 409, 'APPOINTMENT_OVERLAP');
+
+        $overbookedTaken = $this->absent('10:00', ['is_overbooked' => true]);
+        $overbookedFree = $this->absent('12:00', ['is_overbooked' => true]);
+        $this->assertErrorCode($this->transition($overbookedTaken, 'undo-no-show'), 403, 'FORBIDDEN');
+        $this->assertErrorCode($this->transition($overbookedFree, 'undo-no-show'), 403, 'FORBIDDEN');
+
+        foreach ([$common, $overbookedTaken, $overbookedFree] as $id) {
+            $this->assertSame('no_show', $this->appointmentRow($id)->status);
+        }
+
+        $free = $this->absent('13:00');
+        $this->transition($free, 'undo-no-show')->assertOk()->assertJsonPath('data.status.value', 'confirmed');
+    }
+
+    /**
+     * A las 23:50 de Asunción (02:50 UTC del 11) se deshace el ausente de un turno de hoy a las
+     * 20:00 (23:00 UTC del 10: otro día en UTC).
+     */
+    public function test_at_23_50_a_turn_of_20_00_is_undone(): void
+    {
+        $id = $this->absent('20:00');
+        $this->travelTo($this->today('23:50'));
+
+        $this->transition($id, 'undo-no-show')->assertOk();
+    }
+
+    /**
+     * A las 00:10 de Asunción del 11 (03:10 UTC del 11), un turno de ayer a las 23:30 (02:30 UTC
+     * del 11: el mismo día en UTC) ya no se deshace.
+     */
+    public function test_at_00_10_a_turn_of_yesterday_23_30_is_not_undone(): void
+    {
+        $id = $this->absent('23:30');
+        $this->travelTo($this->today('00:10')->addDay());
+
+        $this->assertErrorCode($this->transition($id, 'undo-no-show'), 422, 'APPOINTMENT_NO_SHOW_NOT_UNDOABLE');
+        $this->assertSame('no_show', $this->appointmentRow($id)->status);
+    }
+
+    /**
+     * Un turno de hace 3 días marcado ausente hoy: el día es el del turno, no el de la marca.
+     */
+    public function test_a_turn_of_three_days_ago_marked_absent_today_is_not_undone(): void
+    {
+        $id = $this->appointmentIn($this->schedule, $this->today('10:00')->subDays(3));
+        $this->setStatus($id, AppointmentStatus::NO_SHOW, ['no_show_at' => self::TODAY . ' 10:30:00']);
+
+        $this->assertErrorCode($this->transition($id, 'undo-no-show'), 422, 'APPOINTMENT_NO_SHOW_NOT_UNDOABLE');
+    }
+
     public function test_the_veterinarian_cannot_undo(): void
     {
         $id = $this->absent('10:00');

@@ -37,28 +37,6 @@ enum AppointmentStatus: string
     }
 
     /**
-     * Si alguna acción (AppointmentTransition) lleva de este estado a $to (FASE 3, entrega 3.2b).
-     */
-    public function canTransitionTo(self $to): bool
-    {
-        foreach (AppointmentTransition::cases() as $transition) {
-            if ($transition->to() === $to && $transition->allowsFrom($this)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Atendido y cancelado no cambian más (el ausente, solo el mismo día del turno).
-     */
-    public function isFinal(): bool
-    {
-        return $this === self::ATTENDED || $this === self::CANCELLED;
-    }
-
-    /**
      * Los valores de los estados que ocupan el horario, para las consultas.
      *
      * @return list<string>

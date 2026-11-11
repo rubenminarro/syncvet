@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CancelAppointmentRequest;
+use App\Http\Requests\UndoNoShowAppointmentRequest;
 use App\Http\Resources\ShowAppointmentResource;
 use App\Models\Appointment;
 use App\Services\AppointmentService;
@@ -59,9 +60,12 @@ class AppointmentTransitionController extends Controller implements HasMiddlewar
         return $this->respond('Turno marcado como ausente.', $this->transitions->noShow($appointment));
     }
 
-    public function undoNoShow(Appointment $appointment): JsonResponse
+    public function undoNoShow(UndoNoShowAppointmentRequest $request, Appointment $appointment): JsonResponse
     {
-        return $this->respond('Se deshizo el ausente: el turno volvió a confirmado.', $this->transitions->undoNoShow($appointment));
+        return $this->respond(
+            'Se deshizo el ausente: el turno volvió a confirmado.',
+            $this->transitions->undoNoShow($appointment, (bool) $request->validated('overbook', false))
+        );
     }
 
     public function cancel(CancelAppointmentRequest $request, Appointment $appointment): JsonResponse
