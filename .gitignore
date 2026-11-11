@@ -1,0 +1,20 @@
+# Comunes a todo el repositorio. Cada proyecto tiene además el suyo (backend/.gitignore).
+.env
+.env.backup
+.env.production
+*.log
+.DS_Store
+Thumbs.db
+
+# Editores (configuración local)
+/.idea
+/.vscode
+/.zed
+/.nova
+/.cursor/
+/.codex
+*.code-workspace
+
+# Claude Code: estado local de la sesión
+/.claude/scheduled_tasks.lock
+/.claude/settings.local.json
