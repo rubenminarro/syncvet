@@ -18,8 +18,8 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes) y FASE 2 (datos
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
 | `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | 76 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, y los turnos (únicos o en series) con sus estados |
-| `database/seeders` | `RolesAndPermissionsSeeder` (133 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
+| `routes/api.php` | 78 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, los turnos (únicos o en series) con sus estados, la disponibilidad de cada agenda y la cola del día |
+| `database/seeders` | `RolesAndPermissionsSeeder` (135 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
 
@@ -47,7 +47,7 @@ Con el código de Laravel 13:
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
-* Los 133 permisos de los Controllers y de los roles existen en el seeder.
+* Los 135 permisos de los Controllers y de los roles existen en el seeder.
 
 La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y de las rutas, y las respuestas de error en JSON
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);

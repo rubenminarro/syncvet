@@ -1162,3 +1162,27 @@ la revisión en `e4fe8c5` y el cierre en un commit aparte, solo de documentació
 
 **Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el turno único responde igual (`ShowAppointmentResource` sin
 `meta`). La cancelación de un turno suma `meta.cancelled_count` (antes `meta` era `null`).
+
+# R-055 Entrega 3.4 de la FASE 3: disponibilidad y cola del día, revisada, corregida y cerrada (2026-11-11)
+
+Rama `feature/fase-03-04-disponibilidad`, desde `feature/fase-03-03-recurrentes`. Implementación en el commit WIP `38ca91a`,
+correcciones de la revisión en `4862658` y el cierre en un commit aparte, solo de documentación. El detalle está en el
+[resultado de la 3.4](../fases/fase-03-agenda-y-turnos.md#entrega-34).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Disponibilidad por agenda (`GET schedules/{schedule}/availability`) y cola del día (`GET appointments/queue`, P8), solo lectura; 2 rutas (76 → 78) y 2 permisos (`schedules.availability` y `appointments.queue`, de los tres roles; 133 → 135), sin migraciones (36) | Diseño (R-047, R-048) |
+| Reglas compartidas (desvío 1) | Las reglas del horario (el horario semanal con los tramos que se tocan como uno, los bloqueos y la superposición en la agenda y del veterinario en sus otras agendas) pasan a `App\Services\ScheduleOccupancy`, que usan el alta, la serie, mover, deshacer el ausente y la disponibilidad: la disponibilidad ofrece un horario solo si el alta lo aceptaría. La revisión confirmó que no cambió ninguna regla del alta y que las lecturas siguen después de los bloqueos | Implementación; aceptada por el usuario |
+| D1 | Con ficha de veterinario y sin `veterinarian_id`, la cola muestra sus turnos y los de las agendas sin veterinario de su sucursal actual (desde la 3.2b los ficha y los marca atendidos, R-053); con `veterinarian_id`, solo ese. `meta.includes_unassigned` | Usuario (en la revisión) |
+| D2 | La disponibilidad acepta `duration_minutes` opcional (entero de 5 a 720 en múltiplos de 5), que manda sobre la duración del servicio y `slot_minutes` (para un turno con `ends_at` propio); si llega `service_id`, se sigue revisando que esté activo | Usuario (en la revisión) |
+| D3 | La cola sigue cortando en 200 pero avisa con `meta.truncated` (`true` si cortó, `false` si no) | Usuario (en la revisión) |
+| Agenda de otra sucursal (H11, desvío 11) | La disponibilidad de una agenda de otra sucursal que la actual del usuario se consulta, coherente con el alta, que da turnos en cualquier agenda de la clínica | Usuario (en la revisión) |
+| Desvíos 2 a 9 | Aceptados: (2) `schedule_id` en la cola; (3) `meta` de la cola; (4) `veterinarian_id` manda sobre la ficha y `all`; (5) el veterinario o el servicio inactivos, 422 como en el alta; (6) un día anterior a hoy, `slots` vacío; (7) se ofrece si `starts_at >= ahora` (el alta acepta un horario de hoy que ya empezó); (8) fechas solas `Y-m-d`; (9) la colección `syncvet-fase-03-disponibilidad` | Usuario |
+| Correcciones de la revisión | Tests reales del tope de 200 y del orden por id en los empates (también en el SQL: el índice `(branch_id, starts_at)` ya los devuelve por id); la raza en el test de N+1; la misma cantidad de consultas de la disponibilidad con un día y con 7 días de 00:00 a 23:55 cada 5 minutos; tres grillas completas que comparan el motivo de cada rechazo; `ScheduleOccupancy` carga solo lo necesario (deshacer el ausente, solo los turnos; el alta, los tramos del día) y calcula el texto local de cada horario una vez | Usuario |
+| Postman | Colección aparte, `syncvet-fase-03-disponibilidad`: 50 requests y 81 pruebas (47 y 72 antes de las correcciones) | Implementación y revisión |
+| Validación | El 2026-11-11, después de las correcciones, con el Collection Runner y una iteración: `syncvet-fase-03-disponibilidad`, 81 de 81 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-11 sobre `4862658`, en serie: 1395 casos; 13960 aserciones en SQLite (14 omitidos, solo de MySQL) y 14034 en MySQL, sin omitidos | Cierre |
+| Siguiente | El cierre de la FASE 3 (`composer audit` sin avisos, el módulo de agenda y turnos COMPLETADO y el merge a `main`). Sin merge a `main` en este cierre | Usuario |
+
+**Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el orden de bloqueo (la 3.4 no bloquea nada); las reglas del
+alta, la serie, mover y deshacer el ausente (ahora en `ScheduleOccupancy`, con los mismos tests).
