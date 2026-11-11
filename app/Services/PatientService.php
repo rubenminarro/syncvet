@@ -80,35 +80,66 @@ class PatientService
 
     /**
      * Cambio de dueño (venta, adopción, reasignación por error de carga).
+     *
+     * Orden de bloqueo (FASE 3, entrega 3.2a, revisión): el paciente (lockForUpdate) y después
+     * los dos clientes, el dueño actual y el nuevo, por id (lockForUpdate), en el mismo sentido
+     * que los turnos (paciente → cliente). La baja del cliente bloquea solo su fila y revisa el
+     * uso sin bloquear pacientes, así que no se cruzan; si el dueño nuevo se eliminó entre la
+     * validación y el bloqueo, 422 en client_id.
      */
     public function changeOwner(Patient $patient, Client $newOwner): Patient
     {
-        if ($patient->client_id === $newOwner->id) {
-            throw new PatientException(
-                'El paciente ya pertenece a ese cliente.',
-                422,
-                'PATIENT_SAME_OWNER'
-            );
-        }
+        return DB::transaction(function () use ($patient, $newOwner) {
+            $patient = Patient::query()->whereKey($patient->getKey())->lockForUpdate()->firstOrFail();
+            $newOwnerId = (int) $newOwner->getKey();
 
-        $patient->update(['client_id' => $newOwner->id]);
+            if ((int) $patient->client_id === $newOwnerId) {
+                throw new PatientException(
+                    'El paciente ya pertenece a ese cliente.',
+                    422,
+                    'PATIENT_SAME_OWNER'
+                );
+            }
 
-        return $patient;
+            $clientIds = [(int) $patient->client_id, $newOwnerId];
+            sort($clientIds);
+            $clients = [];
+
+            foreach ($clientIds as $clientId) {
+                $clients[$clientId] = Client::query()->whereKey($clientId)->lockForUpdate()->first();
+            }
+
+            if ($clients[$newOwnerId] === null) {
+                throw ValidationException::withMessages(['client_id' => 'El cliente seleccionado no existe.']);
+            }
+
+            $patient->update(['client_id' => $newOwnerId]);
+
+            return $patient;
+        });
     }
 
+    /**
+     * Solo sin consultas, aplicaciones o turnos. El uso se revisa dentro de la transacción,
+     * con la fila del paciente bloqueada (lockForUpdate; FASE 3, entrega 3.2a, pregunta 21):
+     * el alta de un turno toma el paciente con sharedLock, así que un turno simultáneo no
+     * queda en un paciente eliminado.
+     */
     public function delete(Patient $patient): void
     {
-        if ($patient->consultations()->exists()
-            || $patient->applications()->exists()
-            || $patient->appointments()->exists()) {
-            throw new PatientException(
-                'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registrá la fecha de fallecimiento.',
-                409,
-                'PATIENT_IN_USE'
-            );
-        }
-
         DB::transaction(function () use ($patient) {
+            $patient = Patient::query()->whereKey($patient->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($patient->consultations()->exists()
+                || $patient->applications()->exists()
+                || $patient->appointments()->exists()) {
+                throw new PatientException(
+                    'El paciente tiene consultas, aplicaciones o turnos y no puede eliminarse. Si falleció, registrá la fecha de fallecimiento.',
+                    409,
+                    'PATIENT_IN_USE'
+                );
+            }
+
             if ($patient->microchip) {
                 // La columna tiene 60 caracteres (entrega 1.3): 30 del chip más el
                 // sufijo entero, con el id; sin cortar, dos bajas del mismo chip no chocan.

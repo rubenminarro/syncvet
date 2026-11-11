@@ -1,0 +1,1550 @@
+{
+  "info": {
+    "name": "SyncVet — FASE 3: validación de turnos recurrentes",
+    "description": "Validación manual de las series de turnos (FASE 3, entrega 3.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Necesita internet: el email del veterinario de la corrida es @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el email, el nombre del servicio y el de la agenda) y el lunes que viene; cada corrida crea su veterinario, su servicio y su agenda (todos los días de 08:00 a 20:00), con un bloqueo el tercer lunes de 12:00 a 13:00, así que sus series no chocan con las de otra corrida. Prueba con el recepcionista: una serie semanal de 4 (201, el mismo series_id y la misma hora de reloj), una cada 2 semanas con fecha de fin (la fecha de fin entra), una con una fecha en el bloqueo (409 APPOINTMENT_SERIES_CONFLICT con la lista, y ningún turno creado), más de 52 (422), mover un turno de la serie (conserva su series_id), y cancelar uno, este y los siguientes y toda la serie (meta.cancelled_count). Al final elimina el bloqueo e inactiva la agenda, el servicio, el veterinario y el usuario; los turnos quedan (cancelados). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01a Login del administrador (clínica A)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base. Cada corrida crea",
+              "// su veterinario y su agenda, así que sus series no chocan con las de una corrida anterior.",
+              "const run = 100000 + Math.floor(Math.random() * 899999);",
+              "pm.collectionVariables.set('run', String(run));",
+              "// El lunes que viene en Asunción (UTC-3 todo el año) y las fechas de la corrida, en semanas desde ese lunes.",
+              "// Las series van a las 10:00, 11:00 y 12:00 de Asunción: la API responde 13:00, 14:00 y 15:00 UTC (Z).",
+              "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",
+              "const daysToMonday = ((8 - asuncion.getUTCDay()) % 7) || 7;",
+              "const day = d => new Date(Date.UTC(asuncion.getUTCFullYear(), asuncion.getUTCMonth(), asuncion.getUTCDate() + daysToMonday + d)).toISOString().slice(0, 10);",
+              "pm.collectionVariables.set('monday', day(0));",
+              "pm.collectionVariables.set('week1', day(7));",
+              "pm.collectionVariables.set('week2', day(14));",
+              "pm.collectionVariables.set('week3', day(21));",
+              "pm.collectionVariables.set('week6', day(42));",
+              "pm.collectionVariables.set('week4_minus1', day(27));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('token_admin', pm.response.json().data.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "01b Login del recepcionista (clínica A)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('token_reception', pm.response.json().data.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "02 Sucursal por defecto",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const branch = pm.response.json().data.find(b => b.is_default);",
+              "pm.collectionVariables.set('default_branch_id', String(branch.id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/branches?per_page=100",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "branches"
+          ],
+          "query": [
+            {
+              "key": "per_page",
+              "value": "100"
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 Alta del usuario de la corrida con el rol veterinario",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('vet_user_id', String(pm.response.json().data.id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/users",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"first_name\": \"Serena\",\n    \"last_name\": \"Postman\",\n    \"email\": \"series{{run}}@mailinator.com\",\n    \"password\": \"Clave-Series-{{run}}!\",\n    \"roles\": [\n        \"veterinario\"\n    ],\n    \"branch_ids\": [\n        {{default_branch_id}}\n    ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "04 Alta de su ficha de veterinario",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('vet_id', String(pm.response.json().data.id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/veterinarians",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "veterinarians"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"user_id\": {{vet_user_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "05 Alta del servicio de la corrida (30 minutos)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('service_id', String(pm.response.json().data.id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/services",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "services"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Control series {{run}}\",\n    \"category\": \"consultation\",\n    \"standard_price\": 120000,\n    \"duration_minutes\": 30\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 Alta de la agenda de la corrida (todos los días de 08:00 a 20:00)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('schedule_id', String(pm.response.json().data.id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/schedules",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "schedules"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Series Postman {{run}}\",\n    \"veterinarian_id\": {{vet_id}},\n    \"service_id\": {{service_id}},\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"20:00\"\n        }\n    ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "07 Bloqueo del tercer lunes (dentro de dos semanas) de 12:00 a 13:00",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('block_id', String(pm.response.json().data.id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/schedules/{{schedule_id}}/blocks",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "schedules",
+            "{{schedule_id}}",
+            "blocks"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"starts_at\": \"{{week2}}T12:00:00-03:00\",\n    \"ends_at\": \"{{week2}}T13:00:00-03:00\",\n    \"reason\": \"Capacitación\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "08 Serie semanal de 4 turnos (los lunes a las 10:00) → 201",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.test('4 turnos con el mismo series_id', () => {",
+              "    pm.expect(json.data).to.have.length(4);",
+              "    json.data.forEach(a => pm.expect(a.series_id).to.eql(json.meta.series_id));",
+              "});",
+              "pm.test('Un lunes por semana, a las 10:00 de Asunción (13:00 UTC)', () => {",
+              "    const days = ['monday', 'week1', 'week2', 'week3'].map(v => pm.collectionVariables.get(v));",
+              "    pm.expect(json.data.map(a => a.starts_at.slice(0, 16))).to.eql(days.map(d => `${d}T13:00`));",
+              "});",
+              "pm.collectionVariables.set('weekly_series_id', json.meta.series_id);",
+              "json.data.forEach((a, i) => pm.collectionVariables.set(`weekly_${i}`, String(a.id)));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"starts_at\": \"{{monday}}T10:00:00-03:00\",\n    \"contact_name\": \"Serie semanal {{run}}\",\n    \"contact_phone\": \"981123456\",\n    \"recurrence\": {\n        \"count\": 4\n    }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "09 Serie cada 2 semanas con fecha de fin (los lunes a las 11:00, hasta dentro de 6 semanas) → 201, 4 turnos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const json = pm.response.json();",
+              "pm.test('4 turnos: semanas 0, 2, 4 y 6 (la fecha de fin entra)', () => {",
+              "    pm.expect(json.data).to.have.length(4);",
+              "    pm.expect(json.data[0].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('monday'));",
+              "    pm.expect(json.data[1].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('week2'));",
+              "    pm.expect(json.data[3].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('week6'));",
+              "});",
+              "pm.collectionVariables.set('biweekly_1', String(json.data[1].id));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"starts_at\": \"{{monday}}T11:00:00-03:00\",\n    \"contact_name\": \"Serie quincenal {{run}}\",\n    \"contact_phone\": \"981123456\",\n    \"recurrence\": {\n        \"every_weeks\": 2,\n        \"until\": \"{{week6}}\"\n    }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "10 Serie con una fecha en el bloqueo (los lunes a las 12:00) → 409 APPOINTMENT_SERIES_CONFLICT con la lista",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('error_code APPOINTMENT_SERIES_CONFLICT', () => pm.expect(pm.response.json().error_code).to.eql('APPOINTMENT_SERIES_CONFLICT'));",
+              "const conflicts = pm.response.json().errors.conflicts;",
+              "pm.test('Una sola fecha en conflicto: la del bloqueo, con su motivo', () => {",
+              "    pm.expect(conflicts).to.have.length(1);",
+              "    pm.expect(conflicts[0].reason).to.eql('in_block');",
+              "    pm.expect(conflicts[0].starts_at.slice(0, 16)).to.eql(`${pm.collectionVariables.get('week2')}T15:00`);",
+              "    pm.expect(conflicts[0].message).to.eql('La agenda está bloqueada en ese horario.');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"starts_at\": \"{{monday}}T12:00:00-03:00\",\n    \"contact_name\": \"Serie rechazada {{run}}\",\n    \"contact_phone\": \"981123456\",\n    \"recurrence\": {\n        \"count\": 4\n    }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "11 Listado de las cuatro semanas: ningún turno de la serie rechazada (todo o nada)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const rows = pm.response.json().data;",
+              "pm.test('Ningún turno a las 12:00 (15:00 UTC)', () => pm.expect(rows.filter(a => a.starts_at.slice(11, 16) === '15:00')).to.have.length(0));",
+              "pm.test('Los 4 de la semanal y 2 de la quincenal', () => pm.expect(rows).to.have.length(6));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments?from={{monday}}&to={{week4_minus1}}&schedule_id={{schedule_id}}&per_page=100",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "from",
+              "value": "{{monday}}"
+            },
+            {
+              "key": "to",
+              "value": "{{week4_minus1}}"
+            },
+            {
+              "key": "schedule_id",
+              "value": "{{schedule_id}}"
+            },
+            {
+              "key": "per_page",
+              "value": "100"
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "12 Serie de más de 52 turnos → 422",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+              "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+              "pm.test('Mensaje en recurrence.count', () => pm.expect(pm.response.json().errors['recurrence.count'][0]).to.eql('La serie no puede tener más de 52 turnos.'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"starts_at\": \"{{monday}}T13:00:00-03:00\",\n    \"contact_name\": \"Serie larga {{run}}\",\n    \"contact_phone\": \"981123456\",\n    \"recurrence\": {\n        \"count\": 53\n    }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "13 Mover un turno de la serie (el segundo, a las 14:00 del mismo día) → 200, conserva su series_id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Misma serie', () => pm.expect(pm.response.json().data.series_id).to.eql(pm.collectionVariables.get('weekly_series_id')));",
+              "pm.test('Movido a las 14:00 (17:00 UTC)', () => pm.expect(pm.response.json().data.starts_at.slice(0, 16)).to.eql(`${pm.collectionVariables.get('week1')}T17:00`));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{weekly_1}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{weekly_1}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"starts_at\": \"{{week1}}T14:00:00-03:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "14 Cancelar solo un turno (el primero, scope single) → cancelled_count 1",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Cancelado, uno solo', () => { pm.expect(pm.response.json().data.status.value).to.eql('cancelled'); pm.expect(pm.response.json().meta.cancelled_count).to.eql(1); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{weekly_0}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{weekly_0}}",
+            "cancel"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"cancellation_reason\": \"El cliente avisó que no viene\",\n    \"scope\": \"single\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "15 Cancelar este y los siguientes (desde el tercero, scope following) → cancelled_count 2",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('El tercero y el cuarto', () => pm.expect(pm.response.json().meta.cancelled_count).to.eql(2));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{weekly_2}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{weekly_2}}",
+            "cancel"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"cancellation_reason\": \"El cliente se muda\",\n    \"scope\": \"following\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "16 El turno movido (anterior al tercero) sigue a confirmar",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('A confirmar', () => pm.expect(pm.response.json().data.status.value).to.eql('pending_confirmation'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{weekly_1}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{weekly_1}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "17 Cancelar toda la serie quincenal desde su segundo turno (scope series) → cancelled_count 4",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Los 4 de la serie', () => pm.expect(pm.response.json().meta.cancelled_count).to.eql(4));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{biweekly_1}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{biweekly_1}}",
+            "cancel"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"cancellation_reason\": \"Terminó el tratamiento\",\n    \"scope\": \"series\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "18 Cancelar toda la serie semanal desde el turno movido → cancelled_count 1 (los demás ya estaban cancelados)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Solo el que quedaba', () => pm.expect(pm.response.json().meta.cancelled_count).to.eql(1));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{weekly_1}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{weekly_1}}",
+            "cancel"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"cancellation_reason\": \"Terminó el tratamiento\",\n    \"scope\": \"series\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "19 Un alcance inválido → 422",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+              "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments/{{weekly_1}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments",
+            "{{weekly_1}}",
+            "cancel"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"cancellation_reason\": \"Prueba\",\n    \"scope\": \"all\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "20 Baja del bloqueo (limpieza)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/schedule-blocks/{{block_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "schedule-blocks",
+            "{{block_id}}"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "21 Inactivar la agenda (limpieza: con turnos no se elimina)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/schedules/{{schedule_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "schedules",
+            "{{schedule_id}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"is_active\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "22 Inactivar el servicio (limpieza: está usado)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/services/{{service_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "services",
+            "{{service_id}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"status\": \"inactive\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "23 Inactivar el veterinario (limpieza: tiene agenda y turnos)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "veterinarians",
+            "{{vet_id}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"status\": \"inactive\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "24 Inactivar al usuario de la corrida (limpieza)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/users/{{vet_user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "users",
+            "{{vet_user_id}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"is_active\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_admin}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8001/api",
+      "type": "string"
+    },
+    {
+      "key": "demo_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "run",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "monday",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "week1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "week2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "week3",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "week6",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "week4_minus1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_admin",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_reception",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "default_branch_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "vet_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "vet_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "service_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "schedule_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "block_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weekly_series_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weekly_0",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weekly_1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weekly_2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weekly_3",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "biweekly_1",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

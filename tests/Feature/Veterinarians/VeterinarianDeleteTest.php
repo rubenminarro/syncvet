@@ -91,6 +91,27 @@ class VeterinarianDeleteTest extends TestCase
         $this->assertSame('MV-1001', $row->license_number);
     }
 
+    /**
+     * FASE 3, entrega 3.1: una agenda creada por la API es uso; eliminada la agenda (sin
+     * turnos), deja de serlo.
+     */
+    public function test_a_veterinarian_with_a_schedule_created_by_the_api_is_not_deleted(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $veterinarian = $this->veterinarianOf($this->veterinarianUser($clinic, [$branch]));
+        $this->actingIn($clinic, ['schedules.store', 'schedules.destroy', 'veterinarians.destroy']);
+
+        $schedule = $this->postJson('/api/schedules', ['branch_id' => $branch->id, 'name' => 'Consultorio', 'veterinarian_id' => $veterinarian->id])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertErrorCode($this->deleteJson("/api/veterinarians/{$veterinarian->id}"), 409, 'VETERINARIAN_IN_USE');
+
+        $this->deleteJson("/api/schedules/{$schedule}")->assertOk();
+        $this->deleteJson("/api/veterinarians/{$veterinarian->id}")->assertOk();
+    }
+
     public function test_usage_covers_every_foreign_key_to_veterinarians(): void
     {
         $references = [];

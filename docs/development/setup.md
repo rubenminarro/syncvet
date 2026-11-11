@@ -187,3 +187,26 @@ Así se instaló en el entorno de desarrollo (PHP 8.3.16 de Laragon, que trae la
 
 Al cambiar de versión de PHP en Laragon hay que repetir los pasos con la DLL de esa versión. Cuando la IANA publique un cambio que
 afecte a Paraguay, actualizar la DLL con la versión nueva de PECL.
+
+## Zona de la sesión de MySQL
+
+Las columnas `timestamp` de MySQL se convierten con la zona de la sesión al guardar y al leer. Para que no dependan de la zona del
+servidor, las conexiones `mysql` y `mariadb` fijan `'timezone' => env('DB_TIMEZONE') ?: '-03:00'` (`config/database.php`; deuda 16,
+R-047 y R-049), y Laravel manda `SET time_zone='-03:00'` al conectar y al reconectar. En el `.env`:
+
+```dotenv
+DB_TIMEZONE=-03:00
+```
+
+Es la zona de la sesión de MySQL, no la de la aplicación (`America/Asuncion`, `config/app.php`). Va un desplazamiento fijo y no
+`America/Asuncion` porque MySQL de Laragon no tiene cargadas las zonas con nombre (`mysql.time_zone_name` vacía) y, si las tuviera,
+podrían traer el horario de verano viejo de Paraguay. No dejarla vacía: hoy una variable vacía toma `-03:00`, pero otro valor
+inválido rompe toda conexión. Las conversiones de las fechas siguen en PHP (`AppDateTime`), y las horas de negocio las pone PHP, nunca
+el reloj de MySQL (`CLAUDE.md` §3).
+
+Para comprobarlo:
+
+```bash
+php artisan tinker --execute="echo DB::scalar('SELECT @@session.time_zone'), PHP_EOL;"   # -03:00
+composer test:mysql                                                                       # MySqlSessionTimezoneTest, en verde
+```

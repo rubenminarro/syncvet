@@ -5,11 +5,14 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Patient;
+use App\Models\Schedule;
+use App\Models\ScheduleBlock;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Support\CurrentClinic;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithBranches;
 use Tests\TestCase;
@@ -245,6 +248,116 @@ class RouteBindingTest extends TestCase
             $this->assertSame('150000.00', $service?->standard_price, 'El servicio ajeno cambió o se eliminó.');
             $this->assertSame('active', $service->status->value);
         });
+    }
+
+    /**
+     * Agendas y bloqueos (FASE 3, entrega 3.1): una agenda o un bloqueo de otra clínica
+     * responde 404 en cada ruta y no cambia.
+     */
+    public static function scheduleRoutes(): array
+    {
+        return [
+            'GET schedules/{schedule}' => ['get', '/api/schedules/%d'],
+            'PATCH schedules/{schedule}' => ['patch', '/api/schedules/%d'],
+            'PUT schedules/{schedule}' => ['put', '/api/schedules/%d'],
+            'DELETE schedules/{schedule}' => ['delete', '/api/schedules/%d'],
+            'GET schedules/{schedule}/blocks' => ['get', '/api/schedules/%d/blocks'],
+            'POST schedules/{schedule}/blocks' => ['post', '/api/schedules/%d/blocks'],
+            'DELETE schedule-blocks/{scheduleBlock}' => ['delete', '/api/schedule-blocks/%d'],
+        ];
+    }
+
+    #[DataProvider('scheduleRoutes')]
+    public function test_schedule_or_block_of_another_clinic_is_not_found(string $method, string $uri): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreignBranch = $this->defaultBranchIn($foreignClinic);
+        $foreignCreator = User::factory()->for($foreignClinic)->create();
+
+        [$schedule, $block] = CurrentClinic::run($foreignClinic, function () use ($foreignBranch, $foreignCreator) {
+            $service = Service::create(['code' => 'SRV-000001', 'name' => 'Peluquería']);
+            $schedule = Schedule::factory()->create(['branch_id' => $foreignBranch->id, 'name' => 'Ajena', 'service_id' => $service->id]);
+
+            return [$schedule, ScheduleBlock::factory()->for($schedule)->create(['created_by' => $foreignCreator->id])];
+        });
+
+        $this->actingIn($this->createClinic(), [
+            'schedules.show', 'schedules.update', 'schedules.destroy',
+            'schedule-blocks.index', 'schedule-blocks.store', 'schedule-blocks.destroy',
+        ]);
+
+        $id = str_starts_with($uri, '/api/schedule-blocks') ? $block->id : $schedule->id;
+        $response = $this->json($method, sprintf($uri, $id), [
+            'name' => 'Cambiada', 'is_active' => false,
+            'starts_at' => '2030-01-01T10:00:00Z', 'ends_at' => '2030-01-01T11:00:00Z',
+        ]);
+
+        $this->assertErrorCode($response, 404, 'RESOURCE_NOT_FOUND');
+
+        CurrentClinic::run($foreignClinic, function () use ($schedule) {
+            $found = Schedule::find($schedule->id);
+
+            $this->assertSame('Ajena', $found?->name, 'La agenda ajena cambió o se eliminó.');
+            $this->assertTrue($found->is_active);
+            $this->assertSame(1, ScheduleBlock::query()->count(), 'Los bloqueos de la agenda ajena cambiaron.');
+        });
+    }
+
+    /**
+     * Turnos (FASE 3, entregas 3.2a y 3.2b): uno de otra clínica responde 404 en cada ruta,
+     * también en las transiciones, y no cambia.
+     */
+    public static function appointmentRoutes(): array
+    {
+        return [
+            'GET appointments/{appointment}' => ['get'],
+            'PATCH appointments/{appointment}' => ['patch'],
+            'PUT appointments/{appointment}' => ['put'],
+            'POST appointments/{appointment}/confirm' => ['post', '/confirm'],
+            'POST appointments/{appointment}/check-in' => ['post', '/check-in'],
+            'POST appointments/{appointment}/attend' => ['post', '/attend'],
+            'POST appointments/{appointment}/no-show' => ['post', '/no-show'],
+            'POST appointments/{appointment}/undo-no-show' => ['post', '/undo-no-show'],
+            'POST appointments/{appointment}/cancel' => ['post', '/cancel'],
+        ];
+    }
+
+    #[DataProvider('appointmentRoutes')]
+    public function test_appointment_of_another_clinic_is_not_found(string $method, string $action = ''): void
+    {
+        $foreignClinic = $this->createClinic();
+        $foreignBranch = $this->defaultBranchIn($foreignClinic);
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $schedule = CurrentClinic::run($foreignClinic, fn () => Schedule::factory()->create([
+            'branch_id' => $foreignBranch->id,
+            'service_id' => Service::create(['code' => 'SRV-000001', 'name' => 'Peluquería'])->id,
+        ]));
+        $id = DB::table('appointments')->insertGetId([
+            'clinic_id' => $foreignClinic->id,
+            'branch_id' => $foreignBranch->id,
+            'schedule_id' => $schedule->id,
+            'client_id' => $patient->client_id,
+            'patient_id' => $patient->id,
+            'starts_at' => '2030-01-01 10:00:00',
+            'ends_at' => '2030-01-01 10:30:00',
+            'notes' => 'Ajeno',
+            'created_by' => User::factory()->for($foreignClinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), [
+            'appointments.show', 'appointments.update', 'appointments.confirm', 'appointments.check-in',
+            'appointments.attend', 'appointments.no-show', 'appointments.cancel',
+        ]);
+
+        $this->assertErrorCode(
+            $this->json($method, "/api/appointments/{$id}{$action}", ['notes' => 'Cambiado', 'cancellation_reason' => 'Ajeno']),
+            404,
+            'RESOURCE_NOT_FOUND'
+        );
+        $this->assertSame('Ajeno', DB::table('appointments')->where('id', $id)->value('notes'));
+        $this->assertSame('pending_confirmation', DB::table('appointments')->where('id', $id)->value('status'));
     }
 
     public function test_own_records_are_found(): void

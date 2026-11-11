@@ -9,13 +9,13 @@ cambió.
 | # | Decisión | Registro |
 |---|---|---|
 | D1 | Una base compartida con `clinic_id` | [R-002](registro.md), ajustada en [R-004](registro.md) e implementada en [R-007](registro.md) |
+| D3 | Turnos recurrentes: todos al crear la serie (semanal o cada N semanas, hasta 52), la serie entera o nada | [R-047](registro.md) (pregunta P1 de la FASE 3) |
 
 ## Decisiones pendientes
 
 | # | Decisión | Recomendación | Antes de |
 |---|---|---|---|
 | D2 | Frontend en paralelo o al final | En paralelo, fase por fase | FASE 1 |
-| D3 | Turnos recurrentes | Generar hasta 6 meses y renovar con el scheduler | FASE 3 |
 | D4 | Qué se edita en una consulta cerrada | Nada: se reabre con permiso y queda auditado | FASE 4 |
 | D5 | Proveedor de WhatsApp | WhatsApp Cloud API oficial | FASE 7 |
 | D6 | Integración SIFEN | Propia, detrás de una interfaz | FASE 9 |

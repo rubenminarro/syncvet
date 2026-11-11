@@ -44,19 +44,28 @@ class ClientService
         });
     }
 
+    /**
+     * Solo sin uso: pacientes, turnos (FASE 3, entrega 3.2a; pregunta
+     * 21), consultas o facturas. El uso se revisa dentro de la transacción, con la fila del
+     * cliente bloqueada (lockForUpdate): el alta de un turno toma el cliente con sharedLock,
+     * así que un turno simultáneo no queda en un cliente eliminado.
+     */
     public function delete(Client $client): void
     {
-        if ($client->patients()->exists()
-            || $client->consultations()->exists()
-            || $client->invoices()->exists()) {
-            throw new ClientException(
-                'El cliente tiene pacientes, consultas o facturas y no puede eliminarse.',
-                409,
-                'CLIENT_IN_USE'
-            );
-        }
-
         DB::transaction(function () use ($client) {
+            $client = Client::query()->whereKey($client->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($client->patients()->exists()
+                || $client->appointments()->exists()
+                || $client->consultations()->exists()
+                || $client->invoices()->exists()) {
+                throw new ClientException(
+                    'El cliente tiene pacientes, turnos, consultas o facturas y no puede eliminarse.',
+                    409,
+                    'CLIENT_IN_USE'
+                );
+            }
+
             $suffix = DeletedSuffix::for($client);
 
             // Sin cortar: las columnas (50) admiten el documento (20) y el sufijo con un

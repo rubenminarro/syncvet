@@ -41,8 +41,16 @@ class RolesAndPermissionsSeeder extends Seeder
 
         /* agenda */
         'schedules.index', 'schedules.store', 'schedules.show', 'schedules.update', 'schedules.destroy',
+        // FASE 3, entrega 3.1: los bloqueos de una agenda.
+        'schedule-blocks.index', 'schedule-blocks.store', 'schedule-blocks.destroy',
         'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
         'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
+        // FASE 3, entrega 3.2a: el sobreturno (overbook: true), un permiso de un campo, no de una ruta.
+        'appointments.overbook',
+        // FASE 3, entrega 3.2b: marcar atendido y ausente (y deshacer el ausente).
+        'appointments.attend', 'appointments.no-show',
+        // FASE 3, entrega 3.4: la disponibilidad de una agenda y la cola del día.
+        'schedules.availability', 'appointments.queue',
 
         /* historia clínica */
         'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
@@ -113,8 +121,11 @@ class RolesAndPermissionsSeeder extends Seeder
                     // FASE 2, entrega 2.5: los documentos y recibos llevan los datos y el logo de la clínica.
                     'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
+                    'schedule-blocks.index',
                     'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
                     'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
+                    'appointments.overbook', 'appointments.no-show',
+                    'schedules.availability', 'appointments.queue',
                     'consultations.index', 'consultations.show',
                     'patient-applications.index', 'patient-documents.index', 'patient-documents.show',
                     'reminders.index', 'reminders.store', 'reminders.update', 'reminders.cancel',
@@ -138,7 +149,9 @@ class RolesAndPermissionsSeeder extends Seeder
                     // FASE 2, entrega 2.5: los documentos y recibos llevan los datos y el logo de la clínica.
                     'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
-                    'appointments.index', 'appointments.show', 'appointments.check-in',
+                    'schedule-blocks.index',
+                    'appointments.index', 'appointments.show', 'appointments.check-in', 'appointments.attend',
+                    'schedules.availability', 'appointments.queue',
                     'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
                     'consultations.close',
                     'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',

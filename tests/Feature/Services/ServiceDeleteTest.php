@@ -83,6 +83,30 @@ class ServiceDeleteTest extends TestCase
     }
 
     /**
+     * FASE 3, entrega 3.1: una agenda creada por la API es uso: el servicio no se elimina ni
+     * cambia de nombre; eliminada la agenda (sin turnos), deja de serlo.
+     */
+    public function test_a_service_with_a_schedule_created_by_the_api_is_not_deleted_nor_renamed(): void
+    {
+        $clinic = $this->createClinic();
+        $branch = $this->defaultBranchIn($clinic);
+        $service = $this->serviceIn($clinic, ['name' => 'Peluquería']);
+        $this->actingIn($clinic, ['schedules.store', 'schedules.destroy', 'services.update', 'services.destroy']);
+
+        $schedule = $this->postJson('/api/schedules', ['branch_id' => $branch->id, 'name' => 'Peluquería', 'service_id' => $service->id])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertErrorCode($this->deleteJson("/api/services/{$service->id}"), 409, 'SERVICE_IN_USE');
+        $this->assertErrorCode($this->patchJson("/api/services/{$service->id}", ['name' => 'Baño y corte']), 422, 'SERVICE_NAME_NOT_EDITABLE');
+        $this->patchJson("/api/services/{$service->id}", ['standard_price' => 90000])->assertOk();
+
+        $this->deleteJson("/api/schedules/{$schedule}")->assertOk();
+        $this->patchJson("/api/services/{$service->id}", ['name' => 'Baño y corte'])->assertOk();
+        $this->deleteJson("/api/services/{$service->id}")->assertOk();
+    }
+
+    /**
      * Precisión 2 del usuario: la lista de uso (para la baja y el nombre fijo) cubre toda
      * clave foránea a services.
      */

@@ -84,6 +84,14 @@ class Client extends Model
         return $this->hasMany(Patient::class);
     }
 
+    /**
+     * Los turnos del cliente (FASE 3, entrega 3.2a; pregunta 21): son uso del cliente.
+     */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
     public function consultations(): HasMany
     {
         return $this->hasMany(Consultation::class);

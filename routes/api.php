@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AppointmentTransitionController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
@@ -11,6 +13,8 @@ use App\Http\Controllers\Api\ClinicLogoController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ScheduleBlockController;
+use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SpeciesController;
 use App\Http\Controllers\Api\SystemSettingsController;
@@ -77,6 +81,35 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::post('system-settings/logo', [ClinicLogoController::class, 'store'])->name('system-settings.upload-logo');
     Route::get('system-settings/logo', [ClinicLogoController::class, 'show'])->name('system-settings.show-logo');
     Route::delete('system-settings/logo', [ClinicLogoController::class, 'destroy'])->name('system-settings.delete-logo');
+
+    // Agendas (FASE 3, entrega 3.1): las arma el administrador. Sin SoftDeletes: la baja, solo sin
+    // turnos. Los bloqueos se listan y se crean en su agenda y se eliminan fuera de ella; los nombres
+    // propios dan el permiso schedule-blocks.* por la regla de los dos últimos tramos.
+    Route::apiResource('schedules', ScheduleController::class);
+    Route::apiResource('schedules.blocks', ScheduleBlockController::class)->only(['index', 'store'])->names([
+        'index' => 'schedules.schedule-blocks.index',
+        'store' => 'schedules.schedule-blocks.store',
+    ]);
+    Route::delete('schedule-blocks/{scheduleBlock}', [ScheduleBlockController::class, 'destroy'])->name('schedule-blocks.destroy');
+    // Disponibilidad de una agenda (FASE 3, entrega 3.4): con las reglas del alta de un turno.
+    Route::get('schedules/{schedule}/availability', [ScheduleController::class, 'availability'])->name('schedules.availability');
+
+    // Cola del día (FASE 3, entrega 3.4; P8): antes de appointments/{appointment}, para que el
+    // route binding no tome "queue" como un turno.
+    Route::get('appointments/queue', [AppointmentController::class, 'queue'])->name('appointments.queue');
+
+    // Turnos (FASE 3, entrega 3.2a): los dan y los mueven el administrador y la recepción. Sin baja
+    // (DELETE → 405): un turno se cancela (3.2b). El sobreturno pide además appointments.overbook.
+    Route::apiResource('appointments', AppointmentController::class)->except(['destroy']);
+
+    // Estados del turno (FASE 3, entrega 3.2b). Deshacer el ausente usa el permiso appointments.no-show
+    // (pregunta 19; ROUTES_WITH_ANOTHER_PERMISSION).
+    Route::post('appointments/{appointment}/confirm', [AppointmentTransitionController::class, 'confirm'])->name('appointments.confirm');
+    Route::post('appointments/{appointment}/check-in', [AppointmentTransitionController::class, 'checkIn'])->name('appointments.check-in');
+    Route::post('appointments/{appointment}/attend', [AppointmentTransitionController::class, 'attend'])->name('appointments.attend');
+    Route::post('appointments/{appointment}/no-show', [AppointmentTransitionController::class, 'noShow'])->name('appointments.no-show');
+    Route::post('appointments/{appointment}/undo-no-show', [AppointmentTransitionController::class, 'undoNoShow'])->name('appointments.undo-no-show');
+    Route::post('appointments/{appointment}/cancel', [AppointmentTransitionController::class, 'cancel'])->name('appointments.cancel');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

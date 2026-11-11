@@ -6,6 +6,8 @@ use App\Enums\AuditEvent;
 use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\Clinic;
+use App\Models\Schedule;
+use App\Models\ScheduleBlock;
 use App\Models\Service;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -115,6 +117,30 @@ class RoleAccessTest extends TestCase
                 'code' => 'SRV-000001',
                 'name' => 'Consulta general',
             ])->id),
+            // Una agenda sin turnos con un servicio (FASE 3, entrega 3.1): editarla sin cuerpo
+            // responde 200 y la baja, 200 (cada pedido se revierte).
+            'schedule' => (string) ($schedule = CurrentClinic::run($this->clinic, fn () => Schedule::factory()->create([
+                'branch_id' => $branch->id,
+                'service_id' => Service::create(['code' => 'SRV-000002', 'name' => 'Peluquería'])->id,
+            ])))->id,
+            // Un bloqueo de esa agenda: la baja responde 200.
+            'scheduleBlock' => (string) CurrentClinic::run($this->clinic, fn () => ScheduleBlock::factory()->for($schedule)->create([
+                'created_by' => User::factory()->for($this->clinic)->create()->id,
+            ])->id),
+            // Un turno a confirmar de esa agenda (FASE 3, entrega 3.2a): editarlo sin cuerpo responde 200.
+            'appointment' => (string) DB::table('appointments')->insertGetId([
+                'clinic_id' => $this->clinic->id,
+                'branch_id' => $branch->id,
+                'schedule_id' => $schedule->id,
+                'service_id' => $schedule->service_id,
+                'client_id' => $client->id,
+                'patient_id' => $patient->id,
+                'starts_at' => now()->addDay()->setTime(10, 0)->format('Y-m-d H:i:s'),
+                'ends_at' => now()->addDay()->setTime(10, 30)->format('Y-m-d H:i:s'),
+                'created_by' => User::factory()->for($this->clinic)->create()->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]),
             // Un registro de auditoría de la clínica (FASE 2, entrega 2.6): solo se consulta.
             'auditLog' => (string) CurrentClinic::run($this->clinic, fn () => AuditLog::create([
                 'clinic_id' => $this->clinic->id,

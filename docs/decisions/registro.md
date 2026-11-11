@@ -983,3 +983,228 @@ Rama `chore/dependencias`, desde `main` (después del merge de `chore/suite-rapi
 | Resultado | `composer audit` sin avisos | Implementación |
 | Suite | `composer test:fast`: 991 casos en verde, 3 omitidos. Para el cierre, en serie: SQLite, 991 casos con 10833 aserciones y 3 omitidos (solo de MySQL); MySQL (`syncvet_test_mysql`), 991 casos con 10853 aserciones, sin omitidos. Las mismas cifras que en R-045 | Implementación |
 | Regla nueva | En cada cierre de fase, `composer audit` sin avisos (`CLAUDE.md` §2, `development/testing.md`) | Usuario |
+
+# R-047 Análisis y diseño de la FASE 3: agenda y turnos, y la solución de la deuda 16 (2026-11-10)
+
+Rama `docs/fase-03-diseno`, desde `main` (después de `115435b`). Solo documentación y el script de `/validar-docs`: ni código de `app/`,
+ni migraciones, ni la API. El análisis (solo lectura) confirmó la FASE 2 cerrada e integrada a `main` con el merge `cc78b38`, y después
+`27f3294` (R-045) y `115435b` (R-046); la suite en paralelo en verde (991 casos, 3 omitidos). El diseño está en
+[`fases/fase-03-agenda-y-turnos.md`](../fases/fase-03-agenda-y-turnos.md).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Deuda 16 | `'timezone' => env('DB_TIMEZONE', '-03:00')` en la conexión `mysql`, sin migraciones (la sesión de desarrollo ya es UTC-3, así que los datos no cambian). Regla en `CLAUDE.md` §3: las horas de negocio las pone PHP, nunca `NOW()`, `CURRENT_TIMESTAMP` ni `useCurrent()` en código nuevo; las columnas nuevas de hora de negocio, en `datetime`. Excepción documentada al "nunca un `-03:00` fijo": es la sesión de MySQL, no una conversión en PHP (MySQL de Laragon no tiene cargadas las zonas con nombre). Va como entrega 3.0 | Usuario |
+| Deuda 17 | Nueva, de prioridad baja: el tope de 2038 de las columnas `timestamp` | Usuario |
+| P1 Recurrentes (D3) | Todos al crear la serie (semanal o cada N semanas, con fecha de fin o cantidad, hasta 52), agrupados por `series_id`; si una fecha choca con otro turno, un bloqueo o el horario, se rechaza la serie entera con la lista de fechas en conflicto. D3 pasa a decidida | Usuario |
+| P2 Sobreturno | Solo explícito (`overbook: true`), con permiso propio del administrador y la recepción; columna `is_overbooked`; se superpone con otro turno, pero no sale del horario ni entra en un bloqueo | Usuario |
+| P3 Cancelación | Sin límite de anticipación; motivo obligatorio | Usuario |
+| P4 Sin paciente | Con paciente, con un cliente sin paciente, o con nombre y teléfono de contacto (columnas nuevas); para fichar hace falta el paciente | Usuario |
+| P5 Duración | `ends_at` por defecto: `starts_at` más la duración del servicio, o `slot_minutes` de la agenda; editable | Usuario |
+| P6 Fuera del horario | Fuera del horario o en un bloqueo → 422 siempre | Usuario |
+| P7 Mover y cancelar | El administrador y la recepción; el veterinario ficha y marca atendido; un turno fichado, atendido, ausente o cancelado no se mueve | Usuario |
+| P8 Cola del día | El veterinario, la de sus agendas en su sucursal actual; la recepción, la de toda la sucursal | Usuario |
+| P9 a P11 Agendas | Las arma solo el administrador; veterinario, servicio o los dos (al menos uno); un veterinario o servicio inactivo no recibe agendas nuevas; se inactiva siempre y se elimina solo sin turnos; `Schedule` y `ScheduleHour` auditables | Usuario |
+| P12 Ausente | Lo marca la recepción a mano; el automático, más adelante | Usuario |
+| Entregas | 3.0 (deuda 16), 3.1 (agendas, horario y bloqueos, con los pendientes de Postman de la FASE 2), 3.2a (turnos únicos), 3.2b (estados), 3.3 (recurrentes) y 3.4 (disponibilidad y cola del día): los estados antes que la recurrencia | Usuario |
+| Diseño propuesto | Permisos 127 → 135 (`schedule-blocks.index`, `.store` y `.destroy`, `appointments.overbook`, `.attend`, `.no-show` y `.queue`, y `schedules.availability`); rutas 58 → 77; migraciones 34 → 36. `branch_id` y `veterinarian_id` del turno salen de la agenda; `online_booking` fuera de la API y `AppointmentSource::ONLINE` rechazada en el MVP; `attended_at` y `no_show_at` como columnas `datetime`; "atendido" y la consulta de la FASE 4, como propuesta para esa fase. Preguntas del diseño 13 a 25, sin responder | Diseño, a aprobar por el usuario |
+| Hallazgos del análisis | `ClientService::delete` no cuenta los turnos como uso del cliente, y `PatientService::delete` revisa el uso antes de su transacción y sin bloqueo: el diseño los corrige en la 3.2a (pregunta 21) | Diseño, a aprobar por el usuario |
+| `/validar-docs` | `database/testing.sqlite_test_N` (`development/testing.md`) era un falso positivo de "rutas inexistentes": es la base que crea cada proceso de `composer test:fast`. El script suma `GENERATED_PATHS`, con su prueba de regresión | Implementación |
+| Handoff | Se anotan los merges `cc78b38` (FASE 2), `27f3294` (R-045) y `115435b` (R-046), y la suite de 991 casos | Implementación |
+
+**Qué no cambió.** Código de `app/`, rutas, permisos, migraciones, `error_code` y colecciones de Postman: el diseño solo documenta.
+`CLAUDE.md` §3 suma desde ahora la regla de no usar la hora de MySQL en código nuevo; la zona fija de la sesión llega con la entrega 3.0.
+
+# R-048 Aprobación del diseño de la FASE 3 (2026-11-10)
+
+El usuario aprobó el diseño de la FASE 3 (R-047) y respondió las preguntas del diseño 13 a 25. Rama `docs/fase-03-diseno`; solo
+documentación. El detalle está en las [preguntas del diseño](../fases/fase-03-agenda-y-turnos.md#preguntas-del-diseño) y en el
+[orden de bloqueo](../fases/fase-03-agenda-y-turnos.md#orden-de-bloqueo).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Preguntas 13, 14, 16, 17, 18, 20, 21, 22, 23, 24 y 25 | Según la propuesta: baja física de la agenda (excepción a "datos maestros con `SoftDeletes`"); una agenda con turnos no cambia de sucursal ni de veterinario; turnos desde el comienzo del día de hoy; mover conserva el estado; el veterinario marca atendido solo lo suyo o de agendas sin veterinario; `attended_at` y `no_show_at` como columnas; los turnos son uso del cliente y las bajas de paciente y cliente revisan el uso con la fila bloqueada; un bloqueo sobre turnos se crea y los lista; `ScheduleBlock` auditable; una agenda con turnos futuros se inactiva; la cola del veterinario es una vista por defecto | Usuario |
+| Pregunta 15 | Según la propuesta (409 también con un turno del mismo veterinario en otra agenda), con dos precisiones: el sobreturno explícito también se superpone con el turno del mismo veterinario en otra agenda; y la fila del veterinario (`lockForUpdate` sobre `veterinarians`) se bloquea **antes** que la de la agenda | Usuario |
+| Orden de bloqueo | Uno solo para la fase, compatible con la FASE 2: clínica → veterinario → servicio → agenda → paciente → turno. Cambia el de R-047 (que bloqueaba la agenda antes que el veterinario y el servicio, también en la 3.1). El alta de un turno lee la agenda sin bloqueo, bloquea en orden y la vuelve a leer: si cambió su veterinario o su servicio, repite (hasta 3 veces; después, 409 `CONFLICT`). El fichado ya no bloquea al paciente | Diseño, aprobado por el usuario |
+| Pregunta 19 | Cambiada: el ausente se deshace el mismo día del turno, por el administrador y la recepción, con `POST appointments/{appointment}/undo-no-show` y el permiso `appointments.no-show` (excepción en `ROUTES_WITH_ANOTHER_PERMISSION`); vuelve a confirmado con `no_show_at` en `null` y queda en la auditoría; pasado el día, 422 `APPOINTMENT_NO_SHOW_NOT_UNDOABLE`. Como vuelve a ocupar el horario, revisa la superposición (409 `APPOINTMENT_OVERLAP`, salvo un sobreturno) | Usuario |
+| Cifras | Rutas 58 → **78** (una más que en R-047: deshacer el ausente); permisos 127 → **135** (sin cambios: deshacer usa `appointments.no-show`); migraciones 34 → 36 | Diseño |
+| Diseño | Aprobado | Usuario, el 2026-11-10 |
+| Siguiente | Entrega 3.0 (deuda 16) en `feature/fase-03-00-zona-mysql`, desde `docs/fase-03-diseno` | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, migraciones, `error_code` y colecciones: la aprobación solo documenta.
+
+# R-049 Entrega 3.0 de la FASE 3: zona de la sesión de MySQL (deuda 16), revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-00-zona-mysql`, desde `docs/fase-03-diseno`. Implementación en el commit WIP `7c92097`, correcciones de la
+revisión en `a0f9a4e` y el cierre en un commit aparte. El detalle está en el
+[resultado de la 3.0](../fases/fase-03-agenda-y-turnos.md#entrega-30).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Zona de la sesión | `'timezone' => env('DB_TIMEZONE') ?: '-03:00'` en las conexiones `mysql` y `mariadb`, como decidió R-047, con `?:` en lugar del segundo argumento de `env()`: una variable vacía daba `""` y `SET time_zone=''` rompía toda conexión (hallazgo 2 de la revisión). `DB_TIMEZONE=-03:00` en `.env.example`. Sin migraciones ni cambios en los datos | Usuario (R-047); `?:`, revisión, corrección pedida por el usuario |
+| Reloj de MySQL | `NoDatabaseNowTest` rechaza en `app/`, `routes/`, las migraciones, los seeders y las factories `useCurrent()` y toda función de reloj de MySQL dentro de un texto, en cualquier combinación de mayúsculas: `NOW()`, `CURRENT_TIMESTAMP`, `CURDATE()`, `CURRENT_DATE`, `CURTIME()`, `CURRENT_TIME`, `SYSDATE()`, `LOCALTIME`, `LOCALTIMESTAMP`, `UTC_TIMESTAMP()`, `UTC_DATE()`, `UTC_TIME()` y `UNIX_TIMESTAMP()` sin argumentos. Las dos columnas de hoy (`inventory_movements.created_at` y `failed_jobs.failed_at`) quedan permitidas por archivo y columna (hallazgos 1 y 4) | Diseño (R-047); ampliación, revisión, pedida por el usuario |
+| Fechas viejas | En una fecha anterior al 15/10/2024 con Asunción en UTC-4, la ida y la vuelta por PHP son exactas, pero el instante dentro de MySQL queda corrido una hora: esas fechas no se comparan con la hora de MySQL ni se convierten en SQL (`CLAUDE.md` §3; caso de 2023 en `MySqlSessionTimezoneTest`; hallazgo 3) | Revisión, pedida por el usuario |
+| Desvíos 1 a 3 | Aceptados: la reconexión sobre una copia de la conexión `mysql` (para no cortar la transacción de `RefreshDatabase`); el buscador con el tokenizer de PHP; la documentación de `development/`, la deuda técnica, el registro y el roadmap en el cierre. El 4 (Postman en la implementación) lo cubre la validación | Usuario |
+| Documentación | `development/setup.md` (sección nueva, `DB_TIMEZONE`) y `development/deployment.md`: la variable en el `.env`, sin dejarla vacía | Usuario |
+| Deudas | 16 resuelta; 17 (el tope de 2038 de `timestamp`) sigue abierta, de prioridad baja | Usuario |
+| Validación | El 2026-11-10, con `DB_TIMEZONE=-03:00` en su `.env`, la colección `syncvet-fase-02-auditoria` como regresión (la entrega no tiene endpoints): 47 de 47 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-10 sobre `a0f9a4e`: 1007 casos; 10851 aserciones en SQLite (8 omitidos, solo de MySQL) y 10885 en MySQL, sin omitidos; `composer test:fast`, 1007 casos en verde | Implementación |
+| Siguiente | Entrega 3.1 (agendas, horario semanal y bloqueos) en `feature/fase-03-01-agendas`, creada desde `feature/fase-03-00-zona-mysql`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Código de `app/`, rutas (58), permisos (127), migraciones (34), `error_code`, la API y las colecciones de Postman.
+
+# R-050 Entrega 3.1 de la FASE 3: agendas, horario semanal y bloqueos, revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-01-agendas`, desde `feature/fase-03-00-zona-mysql`. Implementación en el commit WIP `aa96fed`; las correcciones
+de la revisión y el cierre van en el commit de cierre. El detalle está en el [resultado de la 3.1](../fases/fase-03-agenda-y-turnos.md#entrega-31).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Agendas con su horario semanal y sus bloqueos según el diseño (P9 a P11, preguntas 13, 14 y 22 a 24): 8 rutas nuevas (58 → 66), 3 permisos nuevos `schedule-blocks.index`, `.store` y `.destroy` (127 → 130), sin migraciones (34). `ScheduleException` nueva (409 `SCHEDULE_IN_USE` y 422 `SCHEDULE_NOT_EDITABLE`); `AppointmentStatus::occupiesSlot()`; `Schedule`, `ScheduleHour` y `ScheduleBlock` auditables | Diseño (R-047, R-048) |
+| Bloqueos | Crearlos y borrarlos sigue siendo solo del administrador en el MVP: el veterinario no bloquea su propia agenda (por vacaciones, por ejemplo); lo pide al administrador. El recepcionista y el veterinario solo los listan | Usuario (en la revisión) |
+| Orden de bloqueo de la edición | La edición de una agenda nunca bloquea un veterinario después de la agenda (hallazgo 1 de la revisión: un cambio de sucursal sin `veterinarian_id` leía el veterinario con la agenda ya bloqueada, y el alta de un turno de la 3.2a, veterinario → agenda, podía trabarse con ella). Lee el veterinario de la agenda sin bloquearla, bloquea con `sharedLock` ese y el nuevo (por id), después el servicio y la agenda, y con la agenda bloqueada verifica que su veterinario no cambió: si cambió, deshace y repite, hasta 3 intentos (`ScheduleService::UPDATE_ATTEMPTS`); después, 409 `CONFLICT`, "La agenda cambió mientras se editaba: volvé a intentarlo." (`CLAUDE.md` §3 y §4) | Revisión, corrección pedida por el usuario |
+| Tests de la revisión | Las cuatro reglas que pasaban con su mutación tienen test (veterinario nuevo inactivo al editar, sucursal de destino inactiva, nombre único al mover de sucursal, y fichados y atendidos en `affected_appointments`); el horario anterior queda intacto si la edición falla (por la validación y por `SCHEDULE_NOT_EDITABLE`); la superposición de tramos en el alta (hallazgos 2 y 3). Un comentario de `routes/api.php` y un docblock de `ServiceDeleteTest` en su lugar (hallazgo 4) | Revisión, pedida por el usuario |
+| Precisión del diseño | `DELETE schedule-blocks/{scheduleBlock}` no lleva la agenda en la URL, así que el caso "bloqueo de otra agenda en la URL → 404" de la tabla de tests del diseño no existe. El 404 de una agenda o un bloqueo de otra clínica está cubierto en las 7 rutas con parámetro (`RouteBindingTest`, `ScheduleBlockTest`) (hallazgo 5) | Revisión, registrada por pedido del usuario |
+| Desvíos 1 a 5 | Aceptados: (1) los turnos afectados por un bloqueo no muestran `contact_name` ni `contact_phone` hasta la 3.2a (las columnas llegan con su migración); (2) al mover una agenda de sucursal se revisa que el veterinario trabaje en la nueva, y si está inactivo se acepta igual (es el que la agenda ya tiene); (3) el listado de bloqueos muestra por defecto los que terminan desde hoy, con `from`/`to`, y `search` busca en el motivo; (4) el horario acepta hasta 6 tramos por día y 42 en total, y `hours: null` responde 422; (5) la documentación va en el cierre. El informe de la implementación no está en el repositorio: el resumen es del usuario | Usuario |
+| Pendientes para la 3.2a | En su colección de Postman: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`). En su diseño: evaluar `DB::transaction` con reintentos ante un *deadlock* (MySQL, 1213) en el alta y el mover de turnos, para que nunca respondan 500 (anotado en el [diseño de la 3.2a](../fases/fase-03-agenda-y-turnos.md#32a-turnos-únicos)) | Usuario |
+| Pendientes de la FASE 2 | Probados en la colección `syncvet-fase-03-agendas`: la baja del veterinario con una agenda (409 `VETERINARIAN_IN_USE`, R-037), la baja del servicio usado (409 `SERVICE_IN_USE`) y su cambio de nombre (422 `SERVICE_NAME_NOT_EDITABLE`) (entrega 2.4) | Diseño |
+| Deuda 2 | Revisados `Schedule`, `ScheduleHour` y `ScheduleBlock` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Validación | El 2026-11-10, en otra PC, con el Collection Runner (una iteración): `syncvet-fase-03-agendas`, 68 de 68 pruebas, 0 errores. Las correcciones de la revisión no cambian la API | Usuario |
+| Tests | Suite del 2026-11-10 sobre el código del cierre, en serie: 1108 casos; 11845 aserciones en SQLite (8 omitidos, solo de MySQL) y 11879 en MySQL, sin omitidos; `composer test:fast`, 1108 casos en verde | Cierre |
+| Siguiente | Entrega 3.2a (turnos únicos) en `feature/fase-03-02a-turnos`, creada desde `feature/fase-03-01-agendas`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Migraciones (34), las colecciones de Postman anteriores y los contratos, permisos y `error_code` de las fases
+anteriores.
+
+# R-051 Entrega 3.2a de la FASE 3: turnos únicos, revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-02a-turnos`, desde `feature/fase-03-01-agendas`. Implementación en el commit WIP `fa03b6f`, correcciones de la
+revisión en `b0dd969` y el cierre en un commit aparte, solo de documentación. El detalle está en el
+[resultado de la 3.2a](../fases/fase-03-agenda-y-turnos.md#entrega-32a).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Turnos únicos según el diseño (P2, P4 a P7, preguntas 15 a 17 y 21): alta, detalle, listado, edición y mover, sin superposición en la agenda ni con el mismo veterinario en otra agenda (409 `APPOINTMENT_OVERLAP`), dentro del horario (422 `APPOINTMENT_OUTSIDE_HOURS`), fuera de los bloqueos (422 `APPOINTMENT_IN_BLOCK`), editables solo a confirmar o confirmados (422 `APPOINTMENT_NOT_EDITABLE`), y el sobreturno con `appointments.overbook`. 4 rutas nuevas (66 → 70), 1 permiso nuevo (130 → 131) y 1 migración (34 → 35: contacto, sobreturno y el índice `(veterinarian_id, starts_at)`). `CLIENT_IN_USE` suma los turnos, y las bajas del cliente y del paciente revisan el uso con su fila bloqueada | Diseño (R-047, R-048) |
+| Desvíos 1 a 13 | Aceptados: (1) el cliente con `sharedLock` después del paciente; (2) una edición que no mueve no bloquea el veterinario ni las agendas; (3) mover sin `ends_at` conserva la duración; (4) mover exige la agenda y su veterinario activos; (5) reintentos ante cambios entre la lectura y el bloqueo y ante un *deadlock*; (6) el paciente fallecido ya asignado se acepta al editar; (7) con paciente, otro cliente → 422; (8) `contact_name` con su regex; (9) el listado por `starts_at`, solo `from` es solo ese día, `status` uno o varios; (10) `is_overbooked` tal como está; (11) el contacto en `affected_appointments`; (12) la baja del cliente con los pacientes no eliminados y los turnos; (13) los mensajes que el diseño no fija. El 5, el 7 y el 13 cambiaron con las decisiones de abajo | Usuario |
+| Cliente del turno | Con paciente, el cliente del turno es el **dueño actual** del paciente. Al editar se acepta `client_id` igual al guardado en el turno (del mismo paciente) o al dueño actual, y queda el dueño actual; otro → 422. Reenviar el mismo `patient_id` actualiza el cliente al dueño actual; sin tocar el paciente ni el cliente, el turno queda como estaba (hallazgo 2 de la revisión: después de un cambio de dueño, el formulario completo daba 422) | Usuario |
+| Reintentos | Un *deadlock* (40001 o 1213) se repite hasta 3 veces (`AppointmentService::ATTEMPTS`); una espera vencida (1205) no se repite y responde 409 `CONFLICT` enseguida, para no triplicar `innodb_lock_wait_timeout` (hallazgo 7). Nunca un 500 | Usuario |
+| Horario | Dos tramos del mismo día que se tocan (08:00–12:00 y 12:00–16:00) cuentan como un horario continuo: un turno de 11:30 a 12:30 entra. Un hueco real entre tramos sigue dando 422 `APPOINTMENT_OUTSIDE_HOURS`. Cambia la regla del diseño ("dentro de **un** tramo") | Usuario (en la revisión) |
+| Sobreturno | `is_overbooked` marca solo el turno dado como sobreturno, si al guardarlo se superponía con otro; se recalcula al moverlo y no cambia si después se cancela el otro turno (desvío 10) | Usuario |
+| Cambio de dueño | `PatientService::changeOwner` en una transacción: el paciente (`lockForUpdate`) y después los dos clientes, el actual y el nuevo, por id (`lockForUpdate`), en el sentido de los turnos (paciente → cliente); el dueño nuevo eliminado entre la validación y el bloqueo → 422 en `client_id` (hallazgo 8). El usuario había pedido clientes → paciente; eligió este orden cuando se le mostró que el otro chocaba con el de los turnos y podía dar un *deadlock* con un 500 en el cambio de dueño | Usuario |
+| Mensaje de `source` | "El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible.", con las etiquetas en español en lugar de los valores internos (desvío 13) | Usuario |
+| Tests de la revisión | Dos procesos con una agenda solo de servicio, donde el bloqueo de la agenda es lo único que ordena (hallazgo 1: sin él, dos 201 en el mismo horario y ningún test fallaba); el reloj cerca de la medianoche (3); los rechequeos del reintento al mover (4); el sobreturno con otro turno en el horario (5); el contacto en `affected_appointments` (6). Cada test nuevo falla con su mutación | Revisión, pedidos por el usuario |
+| Criterio de cierre de la fase | Cumplido el primer punto: dos altas simultáneas del mismo horario, una 201 y la otra 409, en MySQL con dos procesos aparte, con una agenda con veterinario y con una solo de servicio | Cierre |
+| Pendientes de la 3.1 | Resueltos: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`) en la colección de turnos; los reintentos ante un *deadlock* en el alta y el mover | Implementación |
+| Deuda 2 | Revisado `Appointment` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Validación | El 2026-11-10, después de las correcciones, con el Collection Runner (una iteración): `syncvet-fase-03-turnos`, 37 requests, 67 de 67 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-10 sobre `b0dd969`, en serie: 1212 casos; 12835 aserciones en SQLite (10 omitidos, solo de MySQL) y 12879 en MySQL, sin omitidos; `composer test:fast`, 1212 casos en verde | Cierre |
+| Siguiente | Entrega 3.2b (estados del turno) en `feature/fase-03-02b-estados`, creada desde `feature/fase-03-02a-turnos`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Las colecciones de Postman anteriores y los contratos, permisos y `error_code` de las fases anteriores, salvo el
+mensaje de `CLIENT_IN_USE` (suma los turnos, pregunta 21) y el cambio de dueño, que ahora responde 422 en `client_id` si el dueño nuevo
+se elimina en el medio.
+
+# R-052 Las skills de lectura no bloquean la edición de la sesión (2026-11-10)
+
+Rama `feature/fase-03-02b-estados`, en un commit aparte del trabajo de la 3.2b. Solo cambia el frontmatter de dos skills: ni el
+código, ni la API, ni los tests.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Problema | `/retomar` y `/validar-docs` declaraban `disallowed-tools: Edit Write NotebookEdit`: después de usarlas, la sesión seguía sin poder editar archivos, aunque el pedido siguiente fuera una corrección | Usuario |
+| Cambio | Se quita `disallowed-tools` de `.claude/skills/retomar/SKILL.md` y de `.claude/skills/validar-docs/SKILL.md`. `allowed-tools` queda: solo aprueba de antemano los comandos de lectura, no restringe | Usuario |
+| Solo lectura | La regla sigue escrita en el cuerpo de cada skill ("No modificar archivos…" y "Es de solo lectura…"): la cumple quien la usa, no el frontmatter | Usuario |
+
+# R-053 Entrega 3.2b de la FASE 3: estados del turno, revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-02b-estados`, desde `feature/fase-03-02a-turnos`. Implementación en el commit WIP `a1a1ab4`, correcciones de la
+revisión en `d811fa1` y el cierre en un commit aparte, solo de documentación. El cambio de las skills de lectura de la misma rama
+(`964db22`) es R-052. El detalle está en el [resultado de la 3.2b](../fases/fase-03-agenda-y-turnos.md#entrega-32b).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Las transiciones del turno según el diseño (P3, P7, P12 y preguntas 18 a 20): confirmar, fichar, atendido, ausente, deshacer el ausente el mismo día y cancelar con motivo, en `POST appointments/{appointment}/…`; cualquier otra, también repetir la misma, → 422 `APPOINTMENT_INVALID_TRANSITION`; atendido y cancelado son finales. 6 rutas nuevas (70 → 76), 2 permisos nuevos (`appointments.attend` y `appointments.no-show`; 131 → 133; `undo-no-show` usa `appointments.no-show`) y 1 migración (35 → 36: `attended_at` y `no_show_at`, `datetime`) | Diseño (R-047, R-048) |
+| Fichar (pregunta 18) | Fichar queda restringido igual que marcar atendido: cambia la respuesta "Fichar, cualquiera" | Usuario (en la implementación) |
+| Regla del veterinario | Se aplica por el rol (o la ficha): sin `appointments.update`, un veterinario con ficha (no eliminada) ficha y marca atendido los turnos de su ficha y los de agendas sin veterinario; sin ficha, o con la ficha eliminada, solo los de agendas sin veterinario. El administrador y quien tiene `appointments.update`, cualquiera (hallazgo 2: un usuario con el rol y sin ficha podía con cualquier turno) | Usuario (en la revisión) |
+| Turno ajeno | 403 `APPOINTMENT_NOT_YOURS`, "Ese turno no es de tu agenda.", en lugar del `FORBIDDEN` genérico (desvío 5, hallazgo 1) | Usuario (en la revisión) |
+| Deshacer el ausente | Acepta `overbook: true` con `appointments.overbook`, como el alta: con el horario tomado por otro turno, entra con `is_overbooked: true`; sin `overbook`, 409 `APPOINTMENT_OVERLAP` (hallazgo 3). Un turno que ya era sobreturno vuelve sin mandar `overbook`, pero exige el permiso, con el horario tomado o libre; sin el permiso, 403 `FORBIDDEN` | Usuario (en la revisión); las dos precisiones, propuestas por la implementación y aceptadas |
+| Desvíos 1 a 12 | Aceptados los 1 a 4 y 6 a 12: (1) `App\Enums\AppointmentTransition` con orígenes y destino; (2) controller y service aparte, y deshacer el ausente en `AppointmentService`; (3) paciente fallecido al fichar → 422 en `patient_id`; (4) la regla del veterinario antes que el estado; (6) todas las transiciones con los reintentos de la 3.2a; (7) deshacer el ausente sin revisar la agenda activa; (8) fichar el día del turno a cualquier hora y el ausente desde el inicio, también días después; (9) el test de dos procesos con fichar y ausente; (10) `RunsConcurrentRequests`; (11) los mensajes; (12) la agenda del día en Postman. El 5 cambió (arriba) | Usuario |
+| Correcciones de la revisión | Además de las de arriba: 5 tests de medianoche (fichar a las 23:50 y a las 00:10; deshacer el ausente a las 23:50 y a las 00:10, y de un turno de hace 3 días marcado ausente hoy), con los que calcular el día en UTC hace fallar deshacer el ausente (hallazgo 4); se borran `AppointmentStatus::canTransitionTo()` e `isFinal()`, sin uso (hallazgo 5); el cierre usa R-053, porque R-052 ya era el cambio de las skills (hallazgo 6) | Usuario |
+| Postman | `syncvet-fase-03-turnos`, de 37 a 58 requests y de 67 a 107 pruebas: las transiciones, la agenda del día de la corrida (de 00:00 a 23:55), deshacer el ausente con el horario tomado (409 sin `overbook`, 200 con él) y el 403 `APPOINTMENT_NOT_YOURS` con `vet-a` | Implementación y revisión |
+| Deuda 2 | `Appointment` suma `attended_at` y `no_show_at` con `AppDateTime` y `startsToday()` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Validación | El 2026-11-10, después de las correcciones, con el Collection Runner (una iteración): `syncvet-fase-03-turnos`, 58 requests, 107 de 107 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-10 sobre `d811fa1`, en serie: 1303 casos; 13373 aserciones en SQLite (11 omitidos, solo de MySQL) y 13422 en MySQL, sin omitidos; `composer test:fast`, 1303 casos en verde | Cierre |
+| Siguiente | Entrega 3.3 (turnos recurrentes) en `feature/fase-03-03-recurrentes`, creada desde `feature/fase-03-02b-estados`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el `PATCH` de turnos sigue rechazando un turno que no está a
+confirmar ni confirmado (422 `APPOINTMENT_NOT_EDITABLE`), así que un cancelado no se reabre por ningún camino.
+
+# R-054 Entrega 3.3 de la FASE 3: turnos recurrentes, revisada, corregida y cerrada (2026-11-11)
+
+Rama `feature/fase-03-03-recurrentes`, desde `feature/fase-03-02b-estados`. Implementación en el commit WIP `04789c9`, correcciones de
+la revisión en `e4fe8c5` y el cierre en un commit aparte, solo de documentación. El detalle está en el
+[resultado de la 3.3](../fases/fase-03-agenda-y-turnos.md#entrega-33).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Series de turnos al darlos (P1): `POST appointments` con `recurrence` (`every_weeks` de 1 a 12 y uno de `count`, de 2 a 52, o `until`), todas las fechas o ninguna (409 `APPOINTMENT_SERIES_CONFLICT` con `errors.conflicts`); cancelar con `scope`. Sin rutas, permisos ni migraciones nuevas (76, 133, 36) | Diseño (R-047, R-048) |
+| `overbook` en la serie (desvío 1) | Se acepta (el diseño lo prohibía): vale para todas las fechas, con `appointments.overbook`, y saltea solo la superposición; cada turno queda con `is_overbooked` si se superponía | Usuario (al pedir la entrega; confirmado en la revisión) |
+| Alcance `series` (desvío 2) | Un tercer alcance, toda la serie, además de `single` y `following` (`App\Enums\AppointmentCancelScope`) | Usuario (al pedir la entrega; confirmado en la revisión) |
+| Desvíos 3 a 5 | Aceptados: (3) con `following` y `series`, de los demás turnos solo los a confirmar o confirmados que todavía no empezaron; el pedido, con las reglas de siempre; (4) `meta.cancelled_count` en toda cancelación, también `single`; (5) mover la serie entera queda fuera del MVP, `recurrence` en el `PATCH` → 422 | Usuario |
+| Decisiones de implementación | Aceptadas: "los siguientes" por `starts_at` y por id en el mismo instante; con `until`, de 2 a 52 turnos; `recurrence: null` es un turno único; las reglas de toda la serie con su error de siempre sobre el primer turno y las de cada fecha en `errors.conflicts`, sin cortar en la primera; la serie responde `AppointmentResource` con `meta.series_id` | Implementación; aceptadas por el usuario |
+| Tope de un año con `count` (hallazgo 7) | La última fecha, como mucho un año después del primer turno, también con `count` (antes, `count: 52` con `every_weeks: 12` llegaba a 2038) | Usuario (en la revisión) |
+| Valores nulos (hallazgo 8) | `recurrence.every_weeks: null` es 1 y `scope: null` es `single` (el frontend manda el formulario completo) | Usuario (en la revisión) |
+| Una hora por cancelación (hallazgo 9) | `cancelled_at` es la misma en todos los turnos y es la que decide cuáles ya empezaron | Usuario (en la revisión) |
+| Correcciones de la revisión | Además: Newman (`const data` → `body` en 13 scripts de `syncvet-fase-03-turnos`, hallazgo 1); tests de `until` con `every_weeks` (2), de un error y de un *deadlock* a mitad de la serie (3), de dos cancelaciones simultáneas (4, MySQL), del desempate por id y del turno movido antes (5) y de una serie de otra clínica (6) | Usuario |
+| Postman | Colección aparte, `syncvet-fase-03-series` (25 requests, 42 pruebas); `syncvet-fase-03-turnos` sin cambios de pedidos (58 requests, 107 pruebas) | Implementación y revisión |
+| Validación | El 2026-11-11, después de las correcciones, en otra PC, con el Collection Runner y una iteración: `syncvet-fase-03-series`, 42 de 42 pruebas; `syncvet-fase-03-turnos`, 107 de 107; y `syncvet-fase-03-agendas` como regresión, 68 de 68; 0 errores en las tres | Usuario |
+| Tests | Suite del 2026-11-11 sobre `e4fe8c5`, en serie: 1363 casos; 13681 aserciones en SQLite (14 omitidos, solo de MySQL) y 13755 en MySQL, sin omitidos | Cierre |
+| Siguiente | Entrega 3.4 (disponibilidad y cola del día) en `feature/fase-03-04-disponibilidad`, creada desde `feature/fase-03-03-recurrentes`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el turno único responde igual (`ShowAppointmentResource` sin
+`meta`). La cancelación de un turno suma `meta.cancelled_count` (antes `meta` era `null`).
+
+# R-055 Entrega 3.4 de la FASE 3: disponibilidad y cola del día, revisada, corregida y cerrada (2026-11-11)
+
+Rama `feature/fase-03-04-disponibilidad`, desde `feature/fase-03-03-recurrentes`. Implementación en el commit WIP `38ca91a`,
+correcciones de la revisión en `4862658` y el cierre en un commit aparte, solo de documentación. El detalle está en el
+[resultado de la 3.4](../fases/fase-03-agenda-y-turnos.md#entrega-34).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Disponibilidad por agenda (`GET schedules/{schedule}/availability`) y cola del día (`GET appointments/queue`, P8), solo lectura; 2 rutas (76 → 78) y 2 permisos (`schedules.availability` y `appointments.queue`, de los tres roles; 133 → 135), sin migraciones (36) | Diseño (R-047, R-048) |
+| Reglas compartidas (desvío 1) | Las reglas del horario (el horario semanal con los tramos que se tocan como uno, los bloqueos y la superposición en la agenda y del veterinario en sus otras agendas) pasan a `App\Services\ScheduleOccupancy`, que usan el alta, la serie, mover, deshacer el ausente y la disponibilidad: la disponibilidad ofrece un horario solo si el alta lo aceptaría. La revisión confirmó que no cambió ninguna regla del alta y que las lecturas siguen después de los bloqueos | Implementación; aceptada por el usuario |
+| D1 | Con ficha de veterinario y sin `veterinarian_id`, la cola muestra sus turnos y los de las agendas sin veterinario de su sucursal actual (desde la 3.2b los ficha y los marca atendidos, R-053); con `veterinarian_id`, solo ese. `meta.includes_unassigned` | Usuario (en la revisión) |
+| D2 | La disponibilidad acepta `duration_minutes` opcional (entero de 5 a 720 en múltiplos de 5), que manda sobre la duración del servicio y `slot_minutes` (para un turno con `ends_at` propio); si llega `service_id`, se sigue revisando que esté activo | Usuario (en la revisión) |
+| D3 | La cola sigue cortando en 200 pero avisa con `meta.truncated` (`true` si cortó, `false` si no) | Usuario (en la revisión) |
+| Agenda de otra sucursal (H11, desvío 11) | La disponibilidad de una agenda de otra sucursal que la actual del usuario se consulta, coherente con el alta, que da turnos en cualquier agenda de la clínica | Usuario (en la revisión) |
+| Desvíos 2 a 9 | Aceptados: (2) `schedule_id` en la cola; (3) `meta` de la cola; (4) `veterinarian_id` manda sobre la ficha y `all`; (5) el veterinario o el servicio inactivos, 422 como en el alta; (6) un día anterior a hoy, `slots` vacío; (7) se ofrece si `starts_at >= ahora` (el alta acepta un horario de hoy que ya empezó); (8) fechas solas `Y-m-d`; (9) la colección `syncvet-fase-03-disponibilidad` | Usuario |
+| Correcciones de la revisión | Tests reales del tope de 200 y del orden por id en los empates (también en el SQL: el índice `(branch_id, starts_at)` ya los devuelve por id); la raza en el test de N+1; la misma cantidad de consultas de la disponibilidad con un día y con 7 días de 00:00 a 23:55 cada 5 minutos; tres grillas completas que comparan el motivo de cada rechazo; `ScheduleOccupancy` carga solo lo necesario (deshacer el ausente, solo los turnos; el alta, los tramos del día) y calcula el texto local de cada horario una vez | Usuario |
+| Postman | Colección aparte, `syncvet-fase-03-disponibilidad`: 50 requests y 81 pruebas (47 y 72 antes de las correcciones) | Implementación y revisión |
+| Validación | El 2026-11-11, después de las correcciones, con el Collection Runner y una iteración: `syncvet-fase-03-disponibilidad`, 81 de 81 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-11 sobre `4862658`, en serie: 1395 casos; 13960 aserciones en SQLite (14 omitidos, solo de MySQL) y 14034 en MySQL, sin omitidos | Cierre |
+| Siguiente | El cierre de la FASE 3 (`composer audit` sin avisos, el módulo de agenda y turnos COMPLETADO y el merge a `main`). Sin merge a `main` en este cierre | Usuario |
+
+**Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el orden de bloqueo (la 3.4 no bloquea nada); las reglas del
+alta, la serie, mover y deshacer el ausente (ahora en `ScheduleOccupancy`, con los mismos tests).
+
+# R-056 Cierre de la FASE 3 y merge a `main` (2026-11-11)
+
+Cierre de la FASE 3 (agenda y turnos), con las seis entregas cerradas y validadas por el usuario (R-049 a R-055). El detalle está en el
+[cierre de la fase](../fases/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | 3.0 (R-049), 3.1 (R-050), 3.2a (R-051), 3.2b (R-053), 3.3 (R-054) y 3.4 (R-055): COMPLETADO, cada una con su validación de Postman y sus cifras en el documento de la fase | Cierre |
+| FASE 3 | COMPLETADO: el criterio de cierre de la fase se cumple, punto por punto en el cierre de la fase | Usuario |
+| Criterio de cierre | Dos altas simultáneas del mismo horario (agenda con veterinario y solo de servicio): un 201 y un 409 `APPOINTMENT_OVERLAP` (`AppointmentConcurrencyTest`, MySQL); cada transición, válida e inválida (`AppointmentTransitionTest` y `UndoNoShowTest`). Corridos en el cierre en MySQL: 55 tests y 263 aserciones, sin omitidos | Cierre |
+| Regresión de Postman | Newman, 2026-11-11, servidor en el puerto 8001: `syncvet-fase-03-agendas` (35 pedidos, 68 aserciones), `-turnos` (58 y 107), `-series` (25 y 42), `-disponibilidad` (50 y 81), `syncvet-fase-02-veterinarios` (32 y 75) y `-servicios` (27 y 64), sin fallas. La guía de Postman de veterinarios y servicios apunta sus pendientes a la colección de agendas (pedidos 21 a 23) | Cierre |
+| `composer audit` | Sin avisos; nada que actualizar (R-046) | Cierre |
+| Cifras al cerrar | Rutas de la API de 58 a 78; permisos de 127 a 135; migraciones de 34 a 36. Suite sobre el código de `4862658` (lo posterior solo cambia documentación): 1395 casos; 13960 aserciones en SQLite con 14 omitidos (solo de MySQL) y 14034 en MySQL (`syncvet_test_mysql`), sin omitidos | Cierre |
+| Deudas | Resuelta en la fase: 16 (R-049). Nueva: 17 (R-047). La 2, revisada en los modelos de la fase (`Schedule`, `ScheduleHour`, `ScheduleBlock` y `Appointment`) y abierta para las fases siguientes. Abiertas: 2, 3, 5, 6, 15 y 17 | Cierre |
+| Módulos | Agenda y turnos: COMPLETADO (`docs/modules/README.md`) | Cierre |
+| Pendiente para la FASE 4 | La relación entre "atendido" y la consulta, con la propuesta de la FASE 3 (la consulta se abre desde un turno fichado y lo marca atendido en la misma transacción); anotado también en el documento de la FASE 4 | Usuario |
+| Merge a `main` | Autorizado por el usuario el 2026-11-11: merge `--no-ff` desde `feature/fase-03-04-disponibilidad`, que contiene el diseño (`docs/fase-03-diseno`) y las seis entregas encadenadas. Antes del push de `main`, la suite completa en `main`, en serie, en SQLite y después en MySQL. Las ramas de la fase se conservan. El hash del merge no puede ir en el commit que lo precede: se informa al usuario y se anota en el handoff al empezar lo siguiente | Usuario |
+| Siguiente | Decidir con el usuario entre empezar el frontend y el análisis de la FASE 4 (historia clínica) | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta (y corrige en la
+guía de Postman los pendientes de veterinarios y servicios, ya probados en la colección de agendas).
