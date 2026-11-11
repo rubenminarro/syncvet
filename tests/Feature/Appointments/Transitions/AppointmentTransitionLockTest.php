@@ -77,6 +77,10 @@ class AppointmentTransitionLockTest extends TestCase
         $overlap = $this->firstIndex($queries, fn (string $sql) => preg_match('/status[`"] in \(/', $sql) === 1 && ($this->readOf('appointments'))($sql));
         $this->assertNotNull($overlap, "No se revisó la superposición:\n" . implode("\n", $queries));
         $this->assertGreaterThan($lock, $overlap, 'Se revisó la superposición antes de bloquear el turno.');
+
+        // Pregunta 19: solo la superposición; el horario semanal y los bloqueos ni se leen.
+        $this->assertNull($this->firstIndex($queries, $this->readOf('schedule_hours')), "Se leyó el horario:\n" . implode("\n", $queries));
+        $this->assertNull($this->firstIndex($queries, $this->readOf('schedule_blocks')), "Se leyeron los bloqueos:\n" . implode("\n", $queries));
     }
 
     public function test_undoing_is_retried_if_the_veterinarian_of_the_schedule_changes_while_locking(): void

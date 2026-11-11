@@ -46,15 +46,17 @@ class AppointmentController extends Controller implements HasMiddleware
 
     /**
      * La cola del día (FASE 3, entrega 3.4; P8): los turnos del día en la sucursal actual del
-     * usuario, sin los cancelados, sin paginar. meta: el día, la sucursal y el veterinario por
-     * el que se filtró (el de la ficha del usuario por defecto; pregunta 25).
+     * usuario, sin los cancelados, sin paginar. meta: el día, la sucursal, el veterinario por el
+     * que se filtró (el de la ficha del usuario por defecto; pregunta 25), includes_unassigned (la
+     * vista por defecto de una ficha suma las agendas sin veterinario; D1) y truncated (cortó en
+     * AppointmentQueueService::LIMIT; D3).
      */
     public function queue(AppointmentQueueRequest $request, AppointmentQueueService $queue)
     {
         $day = $request->day();
         $user = $request->user();
 
-        [$appointments, $veterinarianId] = $queue->forUser(
+        $result = $queue->forUser(
             $user,
             $day,
             $request->filled('veterinarian_id') ? $request->integer('veterinarian_id') : null,
@@ -64,12 +66,14 @@ class AppointmentController extends Controller implements HasMiddleware
 
         return $this->successResponse(
             'Cola del día obtenida correctamente.',
-            QueueAppointmentResource::collection($appointments),
+            QueueAppointmentResource::collection($result['appointments']),
             200,
             [
                 'date' => $day->toDateString(),
                 'branch_id' => (int) $user->current_branch_id,
-                'veterinarian_id' => $veterinarianId,
+                'veterinarian_id' => $result['veterinarian_id'],
+                'includes_unassigned' => $result['includes_unassigned'],
+                'truncated' => $result['truncated'],
             ]
         );
     }

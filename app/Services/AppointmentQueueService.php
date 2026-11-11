@@ -12,13 +12,16 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Cola del día (FASE 3, entrega 3.4; P8 y pregunta 25): los turnos de un día en la sucursal
- * actual del usuario, sin los cancelados, por starts_at e id, hasta LIMIT, sin paginar.
+ * actual del usuario, sin los cancelados, por starts_at e id, hasta LIMIT, sin paginar. Si hay
+ * más, corta en LIMIT y lo avisa (truncated; decisión D3 de la revisión).
  *
  * Sin sucursal actual → 422 APPOINTMENT_QUEUE_NO_BRANCH. Es una vista por defecto, no una
- * restricción (pregunta 25): quien tiene una ficha de veterinario (no eliminada) ve por
- * defecto los turnos de su ficha, y con all los de toda la sucursal; la recepción y el
- * administrador, los de toda la sucursal. veterinarian_id, si llega, manda sobre los dos.
- * schedule_id filtra por una agenda. Todo con una cantidad fija de consultas (sin N+1).
+ * restricción (pregunta 25): quien tiene una ficha de veterinario (no eliminada) ve por defecto
+ * los turnos de su ficha y los de las agendas sin veterinario de su sucursal actual (decisión D1
+ * de la revisión: desde la 3.2b los ficha y los marca atendidos, R-053), y con all los de toda
+ * la sucursal; la recepción y el administrador, los de toda la sucursal. veterinarian_id, si
+ * llega, manda sobre los dos: solo los de ese veterinario. schedule_id filtra por una agenda.
+ * Todo con una cantidad fija de consultas (sin N+1).
  */
 class AppointmentQueueService
 {
@@ -29,7 +32,10 @@ class AppointmentQueueService
     ];
 
     /**
-     * @return array{0: Collection<int, Appointment>, 1: ?int} los turnos y el veterinario por el que se filtró
+     * Los turnos, el veterinario por el que se filtró, si se suman los turnos de las agendas sin
+     * veterinario (la vista por defecto de una ficha) y si cortó en LIMIT.
+     *
+     * @return array{appointments: Collection<int, Appointment>, veterinarian_id: ?int, includes_unassigned: bool, truncated: bool}
      */
     public function forUser(User $user, CarbonImmutable $day, ?int $veterinarianId, ?int $scheduleId, bool $all): array
     {
@@ -41,10 +47,16 @@ class AppointmentQueueService
             );
         }
 
+        $includesUnassigned = false;
+
         if ($veterinarianId === null && ! $all) {
             // Solo una ficha no eliminada (el scope de SoftDeletes).
             $own = Veterinarian::query()->where('user_id', $user->id)->value('id');
-            $veterinarianId = $own === null ? null : (int) $own;
+
+            if ($own !== null) {
+                $veterinarianId = (int) $own;
+                $includesUnassigned = true;
+            }
         }
 
         $appointments = Appointment::query()
@@ -53,13 +65,22 @@ class AppointmentQueueService
             ->where('status', '!=', AppointmentStatus::CANCELLED->value)
             ->where('starts_at', '>=', $day->startOfDay()->format('Y-m-d H:i:s'))
             ->where('starts_at', '<=', $day->endOfDay()->format('Y-m-d H:i:s'))
-            ->when($veterinarianId !== null, fn ($query) => $query->where('veterinarian_id', $veterinarianId))
+            ->when($veterinarianId !== null, fn ($query) => $query->where(fn ($query) => $query
+                ->where('veterinarian_id', $veterinarianId)
+                ->when($includesUnassigned, fn ($query) => $query->orWhereNull('veterinarian_id'))))
             ->when($scheduleId !== null, fn ($query) => $query->where('schedule_id', $scheduleId))
             ->orderBy('starts_at')
             ->orderBy('id')
-            ->limit(self::LIMIT)
+            ->limit(self::LIMIT + 1)
             ->get();
 
-        return [$appointments, $veterinarianId];
+        $truncated = $appointments->count() > self::LIMIT;
+
+        return [
+            'appointments' => $truncated ? $appointments->take(self::LIMIT) : $appointments,
+            'veterinarian_id' => $veterinarianId,
+            'includes_unassigned' => $includesUnassigned,
+            'truncated' => $truncated,
+        ];
     }
 }

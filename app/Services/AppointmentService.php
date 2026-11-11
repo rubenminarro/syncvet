@@ -747,7 +747,7 @@ class AppointmentService
 
                 $startsAt = $appointment->starts_at->toImmutable();
                 $endsAt = $appointment->ends_at->toImmutable();
-                $overlaps = ScheduleOccupancy::load($locked, $startsAt, $endsAt, $appointment)->overlaps($startsAt, $endsAt);
+                $overlaps = ScheduleOccupancy::loadAppointments($locked, $startsAt, $endsAt, $appointment)->overlaps($startsAt, $endsAt);
 
                 if ($overlaps && ! $overbook && ! $appointment->is_overbooked) {
                     throw self::overlapException();

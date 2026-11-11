@@ -121,7 +121,13 @@ class ScheduleController extends Controller implements HasMiddleware
 
         return $this->successResponse(
             'Disponibilidad obtenida correctamente.',
-            $availability->days($schedule, $from, $to, $request->filled('service_id') ? $request->integer('service_id') : null),
+            $availability->days(
+                $schedule,
+                $from,
+                $to,
+                $request->filled('service_id') ? $request->integer('service_id') : null,
+                $request->filled('duration_minutes') ? $request->integer('duration_minutes') : null
+            ),
             200
         );
     }

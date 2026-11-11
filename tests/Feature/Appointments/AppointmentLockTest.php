@@ -54,6 +54,10 @@ class AppointmentLockTest extends TestCase
         $this->assertBefore($queries, $this->lockOf('schedules'), $this->readOf('schedule_blocks'), 'Se leyeron los bloqueos antes de bloquear la agenda.');
         $this->assertBefore($queries, $this->lockOf('schedules'), $this->readOf('appointments'), 'Se leyó la superposición antes de bloquear la agenda.');
         $this->assertNoneAfter($queries, $this->lockOf('schedules'), $this->lockOf('veterinarians'), 'Se bloqueó un veterinario después de la agenda.');
+
+        // Solo los tramos del día del turno (ScheduleOccupancy lee los días de la ventana).
+        $hours = $queries[$this->firstIndex($queries, $this->readOf('schedule_hours'))];
+        $this->assertMatchesRegularExpression('/[`"]weekday[`"] in \(/', $hours);
     }
 
     public function test_moving_locks_the_veterinarian_then_both_schedules_then_the_appointment(): void

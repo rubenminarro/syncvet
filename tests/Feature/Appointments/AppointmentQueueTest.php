@@ -42,6 +42,10 @@ class AppointmentQueueTest extends TestCase
 
     private Schedule $elsewhere;
 
+    private Schedule $unassigned;
+
+    private Schedule $unassignedElsewhere;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -56,6 +60,10 @@ class AppointmentQueueTest extends TestCase
         $this->mine = $this->scheduleIn($this->branch, ['name' => 'Consultorio 1', 'veterinarian_id' => $this->veterinarianOf($this->vetUser)->id]);
         $this->colleague = $this->scheduleIn($this->branch, ['name' => 'Consultorio 2', 'veterinarian_id' => $this->veterinarianIn($this->branch)->id]);
         $this->elsewhere = $this->scheduleIn($this->otherBranch, ['veterinarian_id' => $this->veterinarianIn($this->otherBranch)->id]);
+        // Agendas solo de servicio (sin veterinario): una en la sucursal y otra en la otra (D1).
+        $service = $this->serviceIn($this->clinic, ['name' => 'Vacunación']);
+        $this->unassigned = $this->scheduleIn($this->branch, ['name' => 'Vacunatorio', 'service_id' => $service->id]);
+        $this->unassignedElsewhere = $this->scheduleIn($this->otherBranch, ['name' => 'Vacunatorio 2', 'service_id' => $service->id]);
     }
 
     private function queue(string $query = ''): TestResponse
@@ -80,8 +88,9 @@ class AppointmentQueueTest extends TestCase
     }
 
     /**
-     * Los turnos de hoy de las tres agendas: [mío 09:00, colega 08:00, mío cancelado 10:00,
-     * colega ausente 11:00, otra sucursal 09:00, mío de mañana 09:00].
+     * Los turnos de hoy de las agendas: [mío 09:00, colega 08:00, mío cancelado 10:00, colega
+     * ausente 11:00, otra sucursal 09:00, mío de mañana 09:00, agenda sin veterinario de la
+     * sucursal 10:30 y de la otra sucursal 10:30].
      *
      * @return array<string, int>
      */
@@ -94,6 +103,8 @@ class AppointmentQueueTest extends TestCase
             'absent' => $this->appointmentIn($this->colleague, $this->today('11:00'), AppointmentStatus::NO_SHOW),
             'elsewhere' => $this->appointmentIn($this->elsewhere, $this->today('09:00')),
             'tomorrow' => $this->appointmentIn($this->mine, $this->today('09:00')->addDay()),
+            'unassigned' => $this->appointmentIn($this->unassigned, $this->today('10:30')),
+            'unassigned_elsewhere' => $this->appointmentIn($this->unassignedElsewhere, $this->today('10:30')),
         ];
     }
 
@@ -102,40 +113,55 @@ class AppointmentQueueTest extends TestCase
         $day = $this->day();
         $this->actAsRole('recepcionista');
 
-        $this->assertSame([$day['colleague'], $day['mine'], $day['absent']], $this->ids());
+        $this->assertSame([$day['colleague'], $day['mine'], $day['unassigned'], $day['absent']], $this->ids());
         $this->queue()
             ->assertJsonPath('meta.date', self::TODAY)
             ->assertJsonPath('meta.branch_id', $this->branch->id)
-            ->assertJsonPath('meta.veterinarian_id', null);
+            ->assertJsonPath('meta.veterinarian_id', null)
+            ->assertJsonPath('meta.includes_unassigned', false)
+            ->assertJsonPath('meta.truncated', false);
 
         $this->assertSame([$day['mine']], $this->ids("veterinarian_id={$this->mine->veterinarian_id}"));
         $this->assertSame([$day['colleague'], $day['absent']], $this->ids("schedule_id={$this->colleague->id}"));
         $this->assertSame([$day['tomorrow']], $this->ids('date=2026-11-11'));
     }
 
-    public function test_the_veterinarian_sees_their_own_by_default_and_the_branch_with_all(): void
+    /**
+     * D1: por defecto, los de su ficha y los de las agendas sin veterinario de su sucursal actual
+     * (no los de otra sucursal); con veterinarian_id, solo los de ese veterinario, también el suyo.
+     */
+    public function test_the_veterinarian_sees_their_own_and_the_unassigned_by_default_and_the_branch_with_all(): void
     {
         $day = $this->day();
         Sanctum::actingAs($this->vetUser);
 
-        $this->assertSame([$day['mine']], $this->ids());
-        $this->queue()->assertJsonPath('meta.veterinarian_id', $this->mine->veterinarian_id);
+        $this->assertSame([$day['mine'], $day['unassigned']], $this->ids());
+        $this->queue()
+            ->assertJsonPath('meta.veterinarian_id', $this->mine->veterinarian_id)
+            ->assertJsonPath('meta.includes_unassigned', true);
 
         // Es una vista por defecto, no una restricción (pregunta 25).
-        $this->assertSame([$day['colleague'], $day['mine'], $day['absent']], $this->ids('all=1'));
-        $this->queue('all=1')->assertJsonPath('meta.veterinarian_id', null);
+        $this->assertSame([$day['colleague'], $day['mine'], $day['unassigned'], $day['absent']], $this->ids('all=1'));
+        $this->queue('all=1')
+            ->assertJsonPath('meta.veterinarian_id', null)
+            ->assertJsonPath('meta.includes_unassigned', false);
         $this->assertSame([$day['colleague'], $day['absent']], $this->ids("veterinarian_id={$this->colleague->veterinarian_id}"));
+
+        // Con su propio veterinarian_id, solo los suyos: sin las agendas sin veterinario.
+        $this->assertSame([$day['mine']], $this->ids("veterinarian_id={$this->mine->veterinarian_id}"));
+        $this->queue("veterinarian_id={$this->mine->veterinarian_id}")->assertJsonPath('meta.includes_unassigned', false);
     }
 
     public function test_a_veterinarian_without_a_card_or_with_a_deleted_one_sees_the_branch(): void
     {
         $day = $this->day();
         $this->actAsRole('veterinario');
-        $this->assertSame([$day['colleague'], $day['mine'], $day['absent']], $this->ids());
+        $this->assertSame([$day['colleague'], $day['mine'], $day['unassigned'], $day['absent']], $this->ids());
+        $this->queue()->assertJsonPath('meta.includes_unassigned', false);
 
         CurrentClinic::run($this->clinic, fn () => Veterinarian::query()->where('user_id', $this->vetUser->id)->firstOrFail()->delete());
         Sanctum::actingAs($this->vetUser->fresh());
-        $this->assertSame([$day['colleague'], $day['mine'], $day['absent']], $this->ids());
+        $this->assertSame([$day['colleague'], $day['mine'], $day['unassigned'], $day['absent']], $this->ids());
     }
 
     public function test_the_current_branch_decides_the_queue(): void
@@ -143,7 +169,7 @@ class AppointmentQueueTest extends TestCase
         $day = $this->day();
         $this->actAsRole('recepcionista', ['current_branch_id' => $this->otherBranch->id]);
 
-        $this->assertSame([$day['elsewhere']], $this->ids());
+        $this->assertSame([$day['elsewhere'], $day['unassigned_elsewhere']], $this->ids());
     }
 
     public function test_without_a_current_branch_422(): void
@@ -237,7 +263,8 @@ class AppointmentQueueTest extends TestCase
 
     /**
      * Sin N+1: la misma cantidad de consultas con un turno que con doce, cada uno con su
-     * paciente, su cliente y una de dos agendas con su veterinario y su servicio.
+     * paciente (con especie y raza: sin raza, la relación no consulta y no se probaría), su
+     * cliente y una de dos agendas con su veterinario y su servicio.
      */
     public function test_the_number_of_queries_does_not_grow_with_the_appointments(): void
     {
@@ -245,7 +272,8 @@ class AppointmentQueueTest extends TestCase
         DB::table('schedules')->whereIn('id', [$this->mine->id, $this->colleague->id])->update(['service_id' => $service->id]);
         $this->actAsRole('recepcionista');
         $this->appointmentIn($this->mine, $this->today('08:00'));
-        $this->queue()->assertOk();
+        $this->giveEveryPatientABreed();
+        $this->queue()->assertOk()->assertJsonPath('data.0.patient.breed.name', 'Labrador Retriever');
 
         $one = $this->countQueries(fn () => $this->queue()->assertOk()->assertJsonCount(1, 'data'));
 
@@ -253,19 +281,105 @@ class AppointmentQueueTest extends TestCase
             $this->appointmentIn($index % 2 === 0 ? $this->mine : $this->colleague, $this->today('08:00')->addMinutes(30 * $index));
         }
 
+        $this->giveEveryPatientABreed();
+
         $many = $this->countQueries(fn () => $this->queue()->assertOk()->assertJsonCount(12, 'data'));
 
         $this->assertSame($one, $many, 'La cantidad de consultas crece con los turnos (N+1).');
     }
 
-    public function test_at_most_the_limit_without_pagination(): void
+    /**
+     * D3: hasta LIMIT (200) sin paginar; con más, corta en 200 (los primeros por hora e id) y
+     * avisa con meta.truncated.
+     */
+    public function test_at_most_the_limit_and_it_warns_when_it_cuts(): void
+    {
+        $this->assertSame(200, AppointmentQueueService::LIMIT);
+        $this->actAsRole('recepcionista');
+        $ids = $this->manyAppointments(201);
+
+        $response = $this->queue()->assertOk()
+            ->assertJsonCount(200, 'data')
+            ->assertJsonPath('meta.truncated', true)
+            ->assertJsonMissingPath('meta.pagination');
+        $this->assertSame(array_slice($ids, 0, 200), $response->json('data.*.id'));
+
+        // Con 200 justos, no corta.
+        DB::table('appointments')->where('id', end($ids))->delete();
+        $this->queue()->assertOk()->assertJsonCount(200, 'data')->assertJsonPath('meta.truncated', false);
+    }
+
+    /**
+     * Dos turnos a la misma hora (un sobreturno): por starts_at y después por id, aunque el de
+     * id mayor se haya cargado primero.
+     */
+    public function test_appointments_at_the_same_time_are_ordered_by_id(): void
     {
         $this->actAsRole('recepcionista');
-        $this->appointmentIn($this->mine, $this->today('08:00'));
-        $this->appointmentIn($this->mine, $this->today('09:00'));
+        $first = $this->appointmentIn($this->mine, $this->today('09:00'));
+        $second = $this->appointmentIn($this->mine, $this->today('09:00'), AppointmentStatus::PENDING_CONFIRMATION);
+        $early = $this->appointmentIn($this->colleague, $this->today('08:00'));
+        DB::table('appointments')->where('id', $second)->update(['is_overbooked' => true]);
 
-        $this->assertSame(200, AppointmentQueueService::LIMIT);
-        $this->queue()->assertOk()->assertJsonMissingPath('meta.pagination');
+        // El cargado primero pasa a tener el id mayor.
+        $renumbered = $first + 1000;
+        DB::table('appointments')->where('id', $first)->update(['id' => $renumbered]);
+
+        $this->assertSame([$early, $second, $renumbered], $this->ids());
+
+        // Con el índice (branch_id, starts_at), SQLite y MySQL devuelven los empates por id aunque
+        // la consulta no lo pida: el orden tiene que estar en la consulta, no depender del plan.
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) {
+            $queries[] = $query->sql;
+        });
+        $this->queue()->assertOk();
+        $queue = array_values(array_filter($queries, fn (string $sql) => preg_match('/^select \* from [`"]appointments[`"]/', $sql) === 1));
+        $this->assertNotEmpty($queue, implode("\n", $queries));
+        $this->assertMatchesRegularExpression('/order by [`"]starts_at[`"] asc, [`"]id[`"] asc/', $queue[0]);
+    }
+
+    /**
+     * $count turnos de hoy en la agenda propia, cada 5 minutos desde las 00:00, con un solo
+     * paciente; devuelve los ids en el orden de la cola.
+     *
+     * @return list<int>
+     */
+    private function manyAppointments(int $count): array
+    {
+        $patient = $this->patientOf($this->clientIn($this->clinic));
+        $creator = User::factory()->for($this->clinic)->create()->id;
+        $rows = [];
+
+        for ($index = 0; $index < $count; $index++) {
+            $startsAt = $this->today('00:00')->addMinutes(5 * $index);
+            $rows[] = [
+                'clinic_id' => $this->clinic->id,
+                'branch_id' => $this->branch->id,
+                'schedule_id' => $this->mine->id,
+                'veterinarian_id' => $this->mine->veterinarian_id,
+                'client_id' => $patient->client_id,
+                'patient_id' => $patient->id,
+                'starts_at' => $startsAt->format('Y-m-d H:i:s'),
+                'ends_at' => $startsAt->addMinutes(5)->format('Y-m-d H:i:s'),
+                'status' => AppointmentStatus::CONFIRMED->value,
+                'created_by' => $creator,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::table('appointments')->insert($rows);
+
+        return DB::table('appointments')->where('schedule_id', $this->mine->id)->orderBy('starts_at')->orderBy('id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    private function giveEveryPatientABreed(): void
+    {
+        DB::table('patients')->where('clinic_id', $this->clinic->id)->update([
+            'species_id' => $this->globalSpeciesId('Canino'),
+            'breed_id' => $this->globalBreedId('Labrador Retriever'),
+        ]);
     }
 
     private function countQueries(callable $request): int

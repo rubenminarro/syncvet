@@ -13,8 +13,8 @@ use Carbon\CarbonImmutable;
  *
  * Usa las reglas del alta, no una copia: la agenda activa con su veterinario activo
  * (AppointmentService::ensureScheduleIsAvailable, con el error en "schedule"), el servicio
- * activo (ensureServiceIsAvailable), la duración (durationMinutes: la del servicio pedido, o la
- * del servicio de la agenda, o slot_minutes), el día y la duración (timingProblem) y el horario
+ * activo (ensureServiceIsAvailable), la duración (duration_minutes del pedido, que manda; si no,
+ * durationMinutes: la del servicio pedido, o la del servicio de la agenda, o slot_minutes), el día y la duración (timingProblem) y el horario
  * semanal con los tramos que se tocan como uno solo, los bloqueos y la superposición en la
  * agenda y del mismo veterinario en sus otras agendas (ScheduleOccupancy::fit, sin sobreturno).
  *
@@ -32,7 +32,7 @@ class ScheduleAvailabilityService
     /**
      * @return array{schedule_id: int, duration_minutes: int, days: list<array{date: string, slots: list<array{starts_at: string, ends_at: string}>}>}
      */
-    public function days(Schedule $schedule, CarbonImmutable $fromDay, CarbonImmutable $toDay, ?int $serviceId): array
+    public function days(Schedule $schedule, CarbonImmutable $fromDay, CarbonImmutable $toDay, ?int $serviceId, ?int $durationMinutes = null): array
     {
         $veterinarian = $schedule->veterinarian_id === null
             ? null
@@ -46,7 +46,9 @@ class ScheduleAvailabilityService
             $this->appointments->ensureServiceIsAvailable($service);
         }
 
-        $duration = AppointmentService::durationMinutes($service, $schedule);
+        // D2: la duración del pedido manda sobre la del servicio y slot_minutes (el servicio
+        // pedido se revisa igual, como en el alta con ends_at propio).
+        $duration = $durationMinutes ?? AppointmentService::durationMinutes($service, $schedule);
         $timezone = config('app.timezone');
         $from = CarbonImmutable::parse($fromDay->toDateString(), $timezone)->startOfDay();
         $to = CarbonImmutable::parse($toDay->toDateString(), $timezone)->endOfDay();
@@ -64,7 +66,6 @@ class ScheduleAvailabilityService
                     $startsAt->lessThan($end);
                     $startsAt = $startsAt->addMinutes((int) $schedule->slot_minutes)) {
                     $endsAt = $startsAt->addMinutes($duration);
-
                     // Hoy, solo los que todavía no empezaron.
                     if ($startsAt->lessThan($now)
                         || $this->appointments->timingProblem($startsAt, $endsAt) !== null

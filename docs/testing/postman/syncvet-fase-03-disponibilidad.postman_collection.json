@@ -864,6 +864,130 @@
             }
         },
         {
+            "name": "13b Disponibilidad con duration_minutes=90: manda sobre el servicio de 60 minutos; solo 11:30 (11:30 a 13:00, franjas pegadas)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const hhmm = iso => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(11, 16);",
+                            "const body = pm.response.json().data;",
+                            "pm.test('Dura 90 minutos (la del pedido, no la del servicio)', () => pm.expect(body.duration_minutes).to.eql(90));",
+                            "pm.test('Los horarios: 11:30, de 90 minutos', () => {",
+                            "    pm.expect(body.days[0].slots.map(s => hhmm(s.starts_at))).to.eql(['11:30']);",
+                            "    pm.expect(new Date(body.days[0].slots[0].ends_at) - new Date(body.days[0].slots[0].starts_at)).to.eql(90 * 60 * 1000);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}&service_id={{long_service_id}}&duration_minutes=90",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "service_id",
+                            "value": "{{long_service_id}}"
+                        },
+                        {
+                            "key": "duration_minutes",
+                            "value": "90"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13c duration_minutes=7 (no es múltiplo de 5) → 422 en duration_minutes",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('El error en duration_minutes, con voseo', () => {",
+                            "    const res = pm.response.json();",
+                            "    pm.expect(res.error_code).to.eql('VALIDATION_ERROR');",
+                            "    pm.expect(res.errors.duration_minutes[0]).to.eql('Ingresá una duración de 5 a 720 minutos, en múltiplos de 5.');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}&duration_minutes=7",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "duration_minutes",
+                            "value": "7"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "14 Dar el primer horario ofrecido (09:00, en UTC tal como lo devolvió la disponibilidad) → 201",
             "event": [
                 {
@@ -1313,7 +1437,7 @@
             }
         },
         {
-            "name": "22 Cola del día del veterinario: por defecto, solo los de su ficha",
+            "name": "22 Cola del día del veterinario: por defecto, los de su ficha y los de las agendas sin veterinario de su sucursal",
             "event": [
                 {
                     "listen": "test",
@@ -1323,14 +1447,20 @@
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const res = pm.response.json();",
                             "const ids = res.data.map(a => a.id);",
-                            "pm.test('Hoy, en su sucursal actual, filtrada por su ficha', () => {",
+                            "const vetId = Number(pm.collectionVariables.get('vet_id'));",
+                            "pm.test('Hoy, en su sucursal actual, su ficha más las agendas sin veterinario, sin cortar', () => {",
                             "    pm.expect(res.meta.date).to.eql(pm.collectionVariables.get('today'));",
                             "    pm.expect(res.meta.branch_id).to.eql(Number(pm.collectionVariables.get('default_branch_id')));",
-                            "    pm.expect(res.meta.veterinarian_id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "    pm.expect(res.meta.veterinarian_id).to.eql(vetId);",
+                            "    pm.expect(res.meta.includes_unassigned).to.eql(true);",
+                            "    pm.expect(res.meta.truncated).to.eql(false);",
                             "});",
-                            "pm.test('Su turno de la agenda A sí; el de la agenda C (sin veterinario), no', () => {",
+                            "pm.test('Su turno de la agenda A y el de la agenda C (sin veterinario)', () => {",
                             "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_a')));",
-                            "    pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('today_c')));",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_c')));",
+                            "});",
+                            "pm.test('Ningún turno de otro veterinario', () => {",
+                            "    res.data.forEach(a => pm.expect(a.veterinarian === null || a.veterinarian.id === vetId).to.eql(true));",
                             "});",
                             "pm.test('Cada turno con la agenda, el estado, el sobreturno, el contacto y checked_in_at', () => {",
                             "    const mine = res.data.find(a => a.id === Number(pm.collectionVariables.get('today_a')));",
@@ -1361,6 +1491,63 @@
                     "path": [
                         "appointments",
                         "queue"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22b Cola del veterinario con su propio veterinarian_id: solo los de su ficha (sin la agenda C)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "const ids = res.data.map(a => a.id);",
+                            "pm.test('Solo los de ese veterinario: la agenda A sí, la C no', () => {",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_a')));",
+                            "    pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('today_c')));",
+                            "    pm.expect(res.meta.includes_unassigned).to.eql(false);",
+                            "    pm.expect(res.meta.veterinarian_id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue?veterinarian_id={{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ],
+                    "query": [
+                        {
+                            "key": "veterinarian_id",
+                            "value": "{{vet_id}}"
+                        }
                     ]
                 },
                 "auth": {
@@ -1455,6 +1642,10 @@
                             "        pm.expect(a.branch.id).to.eql(Number(pm.collectionVariables.get('default_branch_id')));",
                             "    });",
                             "    pm.expect(res.meta).to.not.have.property('pagination');",
+                            "});",
+                            "pm.test('meta.truncated: false (no pasa de 200) e includes_unassigned: false (no tiene ficha)', () => {",
+                            "    pm.expect(res.meta.truncated).to.eql(false);",
+                            "    pm.expect(res.meta.includes_unassigned).to.eql(false);",
                             "});"
                         ]
                     }

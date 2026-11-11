@@ -544,48 +544,73 @@ recepción y con el del veterinario).
 
 #### Pendiente para el cierre (3.4)
 
-Implementación del 2026-11-11 (commit WIP "WIP 3.4 disponibilidad, sin revisar"), sin revisar.
+Implementación del 2026-11-11 (commit WIP "WIP 3.4 disponibilidad, sin revisar"), revisada el mismo día y corregida (commit WIP "WIP 3.4
+disponibilidad, correcciones de la revisión").
 
-**Desvíos del diseño, por el pedido de implementación o porque el diseño no lo decía:**
+**Desvíos del diseño, por el pedido de implementación o porque el diseño no lo decía** (aceptados en la revisión; el 3 y el 10,
+ajustados por las decisiones D1 y D3):
 
 | # | Tema | Diseño | Implementado | Motivo |
 |---|---|---|---|---|
 | 1 | Reglas compartidas | "Las mismas reglas que el alta" | Clase nueva `App\Services\ScheduleOccupancy`: el horario semanal (franjas pegadas como una), los bloqueos y la superposición en la agenda y del veterinario en sus otras agendas. La usan el alta, la serie, deshacer el ausente y la disponibilidad; `AppointmentService` expone `ensureScheduleIsAvailable` (con el campo del error), `ensureServiceIsAvailable`, `durationMinutes` y `timingProblem`, que la disponibilidad reutiliza | El pedido exige reutilizar el código del alta, no copiarlo. El alta ahora lee las filas de bloqueos y turnos de la ventana del turno (`select starts_at, ends_at`) en lugar de un `exists`, con las mismas condiciones; `AppointmentTransitionLockTest` y `AppointmentSeriesLockTest` reconocían el `exists` y se ajustaron |
 | 2 | Filtro de agenda en la cola | `date`, `all`, `veterinarian_id` | Suma `schedule_id` (una agenda de la clínica) | El pedido lo nombra entre los filtros |
-| 3 | `meta` de la cola | No lo dice | `meta.date`, `meta.branch_id` y `meta.veterinarian_id` (el veterinario por el que se filtró: el de la ficha por defecto, `null` con `all=1`) | Para que el frontend muestre qué cola está viendo |
-| 4 | `veterinarian_id` y `all` juntos | No lo dice | `veterinarian_id` manda sobre la ficha y sobre `all` | Es una vista (pregunta 25) |
-| 5 | Veterinario inactivo o servicio inactivo | Solo "una agenda inactiva → 422 en `schedule`" | Agenda con el veterinario inactivo → 422 en `schedule` ("El veterinario de la agenda está inactivo."); servicio pedido, o el de la agenda, inactivo o eliminado → 422 en `service_id` | Lo rechazaría el alta: ofrecer horarios que el alta rechaza rompería la garantía |
+| 3 | `meta` de la cola | No lo dice | `meta.date`, `meta.branch_id`, `meta.veterinarian_id` (el veterinario por el que se filtró: el de la ficha por defecto, `null` con `all=1`), `meta.includes_unassigned` (`true` solo en la vista por defecto de una ficha, que suma las agendas sin veterinario; D1) y `meta.truncated` (D3) | Para que el frontend muestre qué cola está viendo |
+| 4 | `veterinarian_id` y `all` juntos | No lo dice | `veterinarian_id` manda sobre la ficha y sobre `all`: solo los de ese veterinario, sin las agendas sin veterinario | Es una vista (pregunta 25) |
+| 5 | Veterinario inactivo o servicio inactivo | Solo "una agenda inactiva → 422 en `schedule`" | Agenda con el veterinario inactivo → 422 en `schedule` ("El veterinario de la agenda está inactivo."); servicio pedido, o el de la agenda, inactivo o eliminado → 422 en `service_id` (también con `duration_minutes`) | Lo rechazaría el alta: ofrecer horarios que el alta rechaza rompería la garantía |
 | 6 | Un día anterior a hoy | No lo dice | 200 con `slots` vacío (no un 422) | El alta lo rechaza (pregunta 16); se resuelve con la misma regla (`timingProblem`) |
-| 7 | "Ya empezó" | "Hoy, desde ahora" | Se ofrece si `starts_at >= ahora` (a las 09:30:00 en punto se ofrece el de las 09:30; a las 09:30:01, no) | Precisión |
+| 7 | "Ya empezó" | "Hoy, desde ahora" | Se ofrece si `starts_at >= ahora` (a las 09:30:00 en punto se ofrece el de las 09:30; a las 09:30:01, no). El alta sí acepta un horario de hoy que ya empezó: la garantía "todo candidato no ofrecido se rechaza" vale desde ahora (`test_today_a_slot_that_already_started_is_not_offered_but_the_booking_accepts_it`) | Precisión |
 | 8 | `from`/`to` y `date` | "Una fecha" | Solo `Y-m-d`: una fecha con hora → 422 ("Ingresá una fecha (2026-11-09).") | Precisión |
 | 9 | Nombre de la colección | `syncvet-fase-03-disponibilidad-y-cola` | `syncvet-fase-03-disponibilidad` | El pedido de implementación lo nombra así |
-| 10 | Más de 200 turnos en la cola | "Hasta 200" | Corta en 200, sin aviso en la respuesta | Precisión; ver la pregunta 3 |
+| 10 | Más de 200 turnos en la cola | "Hasta 200" | Corta en 200 y lo avisa con `meta.truncated` (D3) | Decisión del usuario |
+| 11 | Agenda de otra sucursal | No lo dice | La disponibilidad de una agenda de otra sucursal que la actual del usuario se consulta (200) | Coherente con el alta, que da turnos en cualquier agenda de la clínica (H11, aceptado) |
 
-**Preguntas para el usuario (no se supusieron):**
+**Decisiones del usuario en la revisión** (respuestas a las tres preguntas de la implementación):
 
-1. **La cola por defecto del veterinario y las agendas sin veterinario.** El diseño dice "los de su ficha": los turnos de una agenda
-   solo de servicio (`veterinarian_id` nulo) no aparecen en su cola por defecto, aunque desde la 3.2b (R-053) el veterinario puede
-   fichar y marcar atendidos esos turnos. ¿Se suman a su cola por defecto? Hoy los ve con `all=1`.
-2. **"La duración indicada en el pedido".** Se interpretó como la del servicio que llega en `service_id` (el diseño). ¿Hace falta
-   además un `duration_minutes` en la disponibilidad, para un turno con `ends_at` propio?
-3. **El tope de 200.** ¿Alcanza con cortar, o conviene un `meta.truncated` (o paginar) si una sucursal pasa los 200 turnos en un día?
+| # | Decisión | Implementación |
+|---|---|---|
+| D1 | Con ficha de veterinario y sin `veterinarian_id`, la cola muestra sus turnos y los de las agendas sin veterinario (`veterinarian_id IS NULL`) de su sucursal actual. Con `veterinarian_id`, solo ese | `AppointmentQueueService::forUser` (`orWhereNull` solo en la vista por defecto de una ficha); `meta.includes_unassigned` |
+| D2 | La disponibilidad acepta `duration_minutes` opcional (entero de 5 a 720 en múltiplos de 5), que manda sobre la duración del servicio y `slot_minutes` y sale en `data.duration_minutes`. Si llega `service_id`, se sigue revisando que esté activo | `ScheduleAvailabilityRequest` (`nullable`, `integer`, `between:5,720` y `multiple_of:5`, un solo mensaje: "Ingresá una duración de 5 a 720 minutos, en múltiplos de 5.") y `ScheduleAvailabilityService::days` |
+| D3 | La cola sigue cortando en 200 pero avisa con `meta.truncated` (`true` si cortó, `false` si no) | Trae `LIMIT + 1` filas y devuelve las primeras 200 |
 
-**Mutaciones** (cada una con sus tests; todas murieron): no descontar los turnos (la disponibilidad con sobreturno), no descontar los
-bloqueos, ofrecer los horarios que ya empezaron, la cola sin el filtro de sucursal, el veterinario sin el filtro de su ficha (las cinco
-del diseño), y además la superposición sin el veterinario en sus otras agendas, las franjas pegadas no continuas, la cola con los
-cancelados y la cola sin cargar la especie y la raza (el test de N+1).
+**Revisión** (2026-11-11). La extracción a `ScheduleOccupancy` no cambió ninguna regla del alta (comparada con la versión de la 3.3),
+las lecturas siguen después de los bloqueos y los tests de orden de bloqueo ajustados prueban lo mismo. Hallazgos y correcciones:
 
-**Postman:** `syncvet-fase-03-disponibilidad`, 47 pedidos y 72 aserciones; corrida del 2026-11-11 con Newman contra la base de
-desarrollo, dos veces seguidas sin recrearla, sin fallas. Las dos rutas nuevas las tienen los tres roles: no hay un 403 propio de la
-3.4 con los roles de la demo; la colección prueba el 403 del veterinario que intenta dar un horario ofrecido, y `RoleAccessTest` el de
-un rol sin el permiso. El usuario sin sucursal actual (422 `APPOINTMENT_QUEUE_NO_BRANCH`) lo cubre `AppointmentQueueTest`.
+| # | Gravedad | Hallazgo | Corrección | Tests |
+|---|---|---|---|---|
+| D1–D3 | Alta | Las tres preguntas de la implementación sin resolver | Las decisiones de arriba | `AppointmentQueueTest` (una agenda solo de servicio en la sucursal y otra en otra sucursal; el propio `veterinarian_id`), `ScheduleAvailabilityTest::test_the_requested_duration_wins_and_is_validated` (bordes 4, 5, 7, 720 y 725, decimales y texto) y `test_at_most_the_limit_and_it_warns_when_it_cuts` (201 turnos y 200 justos) |
+| H4 | Media | El tope de 200 sin test real: quitar el `limit` pasaba | Test con 201 turnos (corta, `truncated: true`, los primeros 200 por hora e id) y con 200 (`false`) | `test_at_most_the_limit_and_it_warns_when_it_cuts` |
+| H5 | Media | El orden con turnos a la misma hora sin test | Test con dos turnos a las 09:00 (uno sobreturno) en el que el cargado primero tiene el id mayor. Con el índice `(branch_id, starts_at)`, SQLite y MySQL devuelven los empates por id aunque la consulta no lo pida: quitar `orderBy('id')` seguía pasando, así que el test exige además el `order by starts_at, id` en la consulta | `test_appointments_at_the_same_time_are_ordered_by_id` |
+| H6 | Media | El rendimiento de la disponibilidad sin test (medido: 8 consultas fijas, ~360 ms para 7 días de 00:00 a 23:55 cada 5 minutos con 60 turnos) | Test que cuenta las consultas con un día y un turno y con 7 días, 41 turnos y dos bloqueos (más de 1800 horarios): la misma cantidad. `ScheduleOccupancy::fit` calcula el texto local del horario una sola vez | `test_the_number_of_queries_does_not_grow_with_the_slots_or_the_appointments` |
+| H7 | Media | El test de N+1 tenía pacientes sin raza (con la clave nula, Laravel no consulta la relación): quitar `patient.breed` pasaba | Los pacientes del test con especie y raza | `test_the_number_of_queries_does_not_grow_with_the_appointments` |
+| H8 | Media | La grilla completa con un solo escenario y cualquier 409 o 422 como rechazo | Tres grillas completas que comparan el `error_code` de cada horario rechazado (`APPOINTMENT_OUTSIDE_HOURS`, `APPOINTMENT_IN_BLOCK`, `APPOINTMENT_OVERLAP`) y exigen que lo esperado cubra toda la grilla: con veterinario (suma un sobreturno existente, que ocupa, y un ausente, que no), con `duration_minutes` (el alta con `ends_at`) y en una agenda sin veterinario (otra agenda sin veterinario a la misma hora no cuenta). El horario de hoy que ya empezó, en su propio test (desvío 7) | `test_every_offered_slot_is_booked_and_every_other_candidate_is_rejected_for_its_reason`, `test_with_its_own_duration_every_offered_slot_is_booked_with_ends_at`, `test_in_a_schedule_without_veterinarian_every_offered_slot_is_booked` |
+| H9 | Baja | Deshacer el ausente leía los tramos y los bloqueos sin usarlos, con el turno bloqueado | `ScheduleOccupancy::loadAppointments` (solo los turnos) | `AppointmentTransitionLockTest`: deshacer el ausente no lee `schedule_hours` ni `schedule_blocks` |
+| H10 | Baja | El alta leía los tramos de toda la semana | `load()` lee los tramos de los días de la semana de la ventana (el alta, uno) | `AppointmentLockTest`: la lectura de los tramos lleva `weekday in (…)` |
+| H11 | Baja | La disponibilidad de una agenda de otra sucursal, sin test | Se acepta (desvío 11) | `test_a_schedule_of_another_branch_than_the_current_one_is_available` |
 
-**Suite del WIP:** 1388 casos, en serie: 13905 aserciones en SQLite (14 omitidos, los de solo MySQL) y 13979 en MySQL, sin fallas.
-Tests nuevos: `ScheduleAvailabilityTest` (13) y `AppointmentQueueTest` (12).
+**Mutaciones** (cada una con sus tests; todas murieron). De la implementación: no descontar los turnos (la disponibilidad con
+sobreturno), no descontar los bloqueos, ofrecer los horarios que ya empezaron, la cola sin el filtro de sucursal, el veterinario sin el
+filtro de su ficha (las cinco del diseño), la superposición sin el veterinario en sus otras agendas, las franjas pegadas no continuas,
+la cola con los cancelados y la cola sin cargar la especie y la raza. De la revisión: la cola sin `patient.breed` (H7), sin
+`orderBy('id')` (H5), sin el `+ 1` (D3), sin `orWhereNull` y con `includes_unassigned` siempre en `false` (D1); la disponibilidad que
+ignora `duration_minutes` (D2), con una consulta por horario (H6), sin el filtro de estado de los turnos (cuenta el cancelado y el
+ausente), sin las otras agendas del veterinario, sin los bloqueos y con los tramos de otro día (H10); deshacer el ausente con `load()`
+(H9).
 
-**Pendiente del cierre:** la revisión, `CLAUDE.md` (§1 con 78 rutas y 135 permisos, §4 con `APPOINTMENT_QUEUE_NO_BRANCH`, §6.10 con
-la disponibilidad y la cola, §3 sin cambios de orden de bloqueo: la 3.4 no bloquea), el resultado de la 3.4 y el cierre de la fase
-(`composer audit`, roadmap, registro de decisiones).
+**Postman:** `syncvet-fase-03-disponibilidad`, 50 pedidos y 81 aserciones (antes 47 y 72): suma la disponibilidad con
+`duration_minutes=90`, que manda sobre el servicio de 60 (solo 11:30), y con `duration_minutes=7` (422); la cola por defecto del
+veterinario con el turno de la agenda C (sin veterinario), `includes_unassigned: true` y ningún turno de otro veterinario; la cola con su
+propio `veterinarian_id` (sin la agenda C); y `meta.truncated: false` en la del veterinario y la de la recepción. Corrida del
+2026-11-11 con Newman contra la base de desarrollo, dos veces seguidas sin recrearla, sin fallas. Las dos rutas nuevas las tienen los
+tres roles: no hay un 403 propio de la 3.4 con los roles de la demo; la colección prueba el 403 del veterinario que intenta dar un
+horario ofrecido, y `RoleAccessTest` el de un rol sin el permiso. El usuario sin sucursal actual (422 `APPOINTMENT_QUEUE_NO_BRANCH`) y
+más de 200 turnos (`truncated: true`) los cubre `AppointmentQueueTest`.
+
+**Suite de las correcciones:** 1395 casos (antes 1388). En serie: 13960 aserciones en SQLite (14 omitidos, los de solo MySQL) y 14034 en MySQL, sin fallas;
+`composer test:fast`, 13958 aserciones, sin fallas. Tests: `ScheduleAvailabilityTest` 19 (antes 13) y `AppointmentQueueTest` 13 (antes 12).
+
+**Pendiente del cierre:** la validación del usuario con Postman, `CLAUDE.md` (§1 con 78 rutas y 135 permisos, §4 con
+`APPOINTMENT_QUEUE_NO_BRANCH`, §6.10 con la disponibilidad, `duration_minutes`, la cola, D1 y `meta.truncated`, §3 sin cambios de orden
+de bloqueo: la 3.4 no bloquea), el resultado de la 3.4 y el cierre de la fase (`composer audit`, roadmap, registro de decisiones).
 
 ## Documentación por entrega
 
