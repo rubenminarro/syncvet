@@ -4,7 +4,7 @@ Requisitos: PHP 8.3+ con `bcmath`, `pdo_mysql`, `pdo_sqlite`, `intl`; Composer; 
 
 ```bash
 git clone https://github.com/rubenminarro/syncvet.git syncvet
-cd syncvet
+cd syncvet/backend
 composer install
 cp .env.example .env
 php artisan key:generate
@@ -13,7 +13,10 @@ php artisan migrate --seed
 php artisan test
 ```
 
-El detalle de las variables de entorno está en el [`README.md`](../../backend/README.md) de la raíz.
+El repositorio es un monorepo (R-057): los comandos de Laravel se corren desde `backend/`; Claude Code, las skills y Newman, desde la
+raíz. El detalle de las variables de entorno está en el [`README.md`](../../backend/README.md) del backend.
+
+En Laragon, el vhost de nginx tiene que apuntar a `backend/public`: ver el paso 5 de [Migración al monorepo](#migración-al-monorepo-r-057).
 
 En Laragon, `mysql.exe` no está en el `PATH`: está en `C:\laragon\bin\mysql\<versión>\bin\`.
 
@@ -210,3 +213,23 @@ Para comprobarlo:
 php artisan tinker --execute="echo DB::scalar('SELECT @@session.time_zone'), PHP_EOL;"   # -03:00
 composer test:mysql                                                                       # MySqlSessionTimezoneTest, en verde
 ```
+
+## Migración al monorepo (R-057)
+
+En cada PC que ya tenía el repositorio con el backend en la raíz, una sola vez, después del merge de `chore/monorepo` a `main` (o
+antes, con `git switch chore/monorepo`):
+
+1. Cerrar Laragon (Stop All), VS Code y todo `php artisan serve`: si algo tiene tomada una carpeta, Git no la puede mover. Después,
+   `git pull`.
+2. Mover `.env` a `backend/.env`. Si hay fotos o logos subidos, mover `storage/app/private/*` a `backend/storage/app/private/`.
+3. Revisar lo que quedó en la raíz con `git status --ignored`: borrar `vendor/` y `.phpunit.result.cache`, y `bootstrap/`,
+   `database/` y `storage/` si solo les quedan archivos ignorados (cachés, bases de prueba, logs).
+4. `cd backend && composer install && php artisan optimize:clear`.
+5. Laragon: en `C:\laragontc
+ginx\sites-enabled\`, copiar `auto.syncvet.test.conf` como `syncvet.test.conf`, cambiar `root` a
+   `"C:/laragon/www/syncvet/backend/public"` y borrar el `auto.` (Laragon lo regenera con la raíz
+   vieja). Iniciar Laragon: `http://syncvet.test/api/me` responde 401 en JSON.
+6. Servidor para Postman: `cd backend && php artisan serve --port=8001`. Newman, desde la raíz.
+7. Postman: la carpeta de trabajo sigue siendo la raíz del repositorio; volver a importar las colecciones de `docs/05-pruebas/postman/`
+   (el Environment no cambia).
+8. Claude Code, siempre desde la raíz.

@@ -1208,3 +1208,27 @@ Cierre de la FASE 3 (agenda y turnos), con las seis entregas cerradas y validada
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta (y corrige en la
 guía de Postman los pendientes de veterinarios y servicios, ya probados en la colección de agendas).
+
+# R-057 Monorepo: backend, frontend y documentación en un solo repositorio (2026-11-11)
+
+El frontend, que iba a vivir en otro repositorio (`syncvet-frontend`), pasa al mismo repositorio que el backend, con la documentación
+de los dos en `docs/`. Rama `chore/monorepo`, desde `main` en `3ead398` (el merge de la FASE 3, R-056; etiqueta local
+`pre-monorepo`).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Motivo | Un solo estado de Git, una sola documentación y un solo `/retomar` para el backend y el frontend: el usuario trabaja en más de una PC y un cambio de la API y su pantalla van juntos | Usuario |
+| Estructura | `CLAUDE.md`, `README.md` y `.gitignore` en la raíz; `.claude/skills/`; `backend/` (todo Laravel, con su `CLAUDE.md` y su `README.md`); `frontend/` (vacío hasta la F0 del frontend, con `README.md` y `CLAUDE.md`); `docs/` en `00-vision`, `01-arquitectura`, `02-requisitos`, `03-plan-desarrollo`, `04-desarrollo` y `05-pruebas` | Usuario |
+| Historia | El movimiento va en un commit propio, solo de renombres (`git mv`, 563 archivos al 100 %), para que `git log --follow` siga cada archivo; el merge a `main`, `--no-ff` y sin squash | Usuario |
+| Reparto de `CLAUDE.md` | El de la raíz tiene el proceso y las reglas comunes (metodología, voseo, Git, documentación por cambio); `backend/CLAUDE.md`, el estado, las convenciones, la arquitectura, las reglas de negocio (§6) y la deuda (§7) del backend; `frontend/CLAUDE.md`, las del frontend. Sin `@import`: el `CLAUDE.md` de la raíz pide leer el del proyecto antes de tocarlo y `/retomar` lee los dos | Usuario |
+| Documentos | Las reglas de negocio siguen en `backend/CLAUDE.md` §6 y `docs/02-requisitos/README.md` apunta ahí; el estado por módulo pasa a `docs/03-plan-desarrollo/modulos.md`; `principios.md` y las referencias de la competencia, a `00-vision`; `architecture.md` y `technology-stack.md`, a `01-arquitectura`; las fases del backend, a `docs/03-plan-desarrollo/fases/backend/` | Usuario |
+| Convención de rutas | Entre comillas invertidas, `docs/…`, `backend/…` y `frontend/…` se leen desde la raíz; `app/`, `tests/`, `config/`, `routes/`, `database/`, `lang/` y `bootstrap/`, desde `backend/`. Los enlaces de Markdown, relativos a su archivo. `/validar-docs` la aplica | Implementación; aprobada por el usuario |
+| Carpetas de trabajo | Claude Code, las skills y Newman, desde la raíz (las colecciones suben archivos con rutas relativas a la raíz); `php artisan` y `composer`, desde `backend/` | Implementación; aprobada por el usuario |
+| `FictitiousDocumentsTest` | Revisa también las colecciones de Postman (`docs/05-pruebas/postman/*.json`), resueltas desde la raíz del repositorio. Encontró `99300002-8` en la de clientes: una base ficticia con el dígito verificador mal a propósito (para el 422), anotada en `ALLOWED` con su motivo | Usuario |
+| Laragon | El vhost automático de nginx apuntaba a `public/` de la raíz: se reemplaza por uno propio, `syncvet.test.conf`, con `root` en `backend/public` (sin el prefijo `auto.`, que Laragon regenera). Pasos por PC en [`setup.md`](../../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Implementación |
+| Verificación | Suite en serie desde `backend/`: 1395 casos en SQLite (14 omitidos) con 13964 aserciones y en MySQL con 14038, sin omitidos (13960 y 14034 antes; las 4 de más son de `FictitiousDocumentsTest`). Newman de las 14 colecciones, servidor en el puerto 8001 levantado desde `backend/`: 13 sin fallas y 1 falla en clientes (deuda 18). `/validar-docs` sin hallazgos; su prueba de regresión, 40 de 40 | Implementación |
+| Discrepancia encontrada | La colección de clientes espera el mensaje del 409 de la baja sin "turnos"; la API lo cambió en la 3.2a (`fa03b6f`). Ya estaba en `main`: no la causa el monorepo. Se registra como deuda 18, sin tocar la colección | Implementación |
+| Merge a `main` | Pendiente de la autorización del usuario | Usuario |
+
+**Qué no cambió.** Código de `app/`, rutas, permisos, `error_code`, contrato de respuesta, migraciones y las colecciones (salvo la ruta
+de la guía en sus descripciones).
