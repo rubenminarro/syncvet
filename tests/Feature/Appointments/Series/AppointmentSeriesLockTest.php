@@ -43,7 +43,7 @@ class AppointmentSeriesLockTest extends TestCase
 
         // Las cuatro fechas se revisan antes de insertar la primera (todo o nada).
         $inserts = array_keys(array_filter($queries, fn (string $sql) => str_starts_with($sql, 'insert into') && str_contains($sql, 'appointments')));
-        $overlapReads = array_keys(array_filter($queries, fn (string $sql) => str_starts_with($sql, 'select exists') && str_contains($sql, 'appointments')));
+        $overlapReads = array_keys(array_filter($queries, fn (string $sql) => str_starts_with($sql, 'select') && preg_match('/status[`"] in \(/', $sql) === 1 && ($this->readOf('appointments'))($sql)));
         $this->assertCount(4, $inserts);
         $this->assertCount(4, $overlapReads, implode("\n", $queries));
         $this->assertLessThan(min($inserts), max($overlapReads), 'Se insertó un turno antes de revisar todas las fechas.');

@@ -1,0 +1,2769 @@
+{
+    "info": {
+        "name": "SyncVet — FASE 3: validación de la disponibilidad y la cola del día",
+        "description": "Validación manual de la disponibilidad por agenda y la cola del día (FASE 3, entrega 3.4). Correrla entera y en orden con el Collection Runner o con Newman, sobre una base con el DemoSeeder y los roles vueltos a sembrar (php artisan db:seed --class=RolesAndPermissionsSeeder: la 3.4 suma schedules.availability y appointments.queue). Necesita internet: el email del veterinario de la corrida es @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida y calcula hoy y el lunes que viene en Asunción; cada corrida crea su veterinario (con ficha y la sucursal por defecto como actual), dos servicios (30 y 60 minutos) y tres agendas: A (el veterinario, todos los días de 08:00 a 12:00 y de 12:00 a 13:00, franjas pegadas), B (el mismo veterinario, de 08:00 a 13:00) y C (solo el servicio, sin veterinario). Prueba: un bloqueo y turnos el lunes, la disponibilidad sin ellos (y sin el horario en que el veterinario está en la otra agenda), un servicio de 60 minutos que cruza las franjas pegadas, dar un horario ofrecido (201) y que deje de figurar, una semana entera y más de 7 días (422); turnos de hoy en A y en C, la cola del veterinario (solo su ficha), con all=1, la de la recepción (toda la sucursal, por hora), los filtros de agenda, veterinario y fecha, una fecha con hora (422), el veterinario que consulta la disponibilidad (200) y no da turnos (403), y un cancelado que sale de la cola. Al final cancela los turnos, elimina el bloqueo, prueba la disponibilidad de una agenda inactiva (422) e inactiva las agendas, los servicios, el veterinario y el usuario. La contraseña va en el Environment \"SyncVet local\" (demo_password). En los scripts no se declara data (es una variable global de Newman).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "01a Login del administrador (clínica A)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base. Cada corrida crea",
+                            "// su veterinario, sus servicios y sus agendas, así que sus turnos no chocan con los de una corrida anterior.",
+                            "const run = 100000 + Math.floor(Math.random() * 899999);",
+                            "pm.collectionVariables.set('run', String(run));",
+                            "// Hoy y el lunes que viene en Asunción (UTC-3 todo el año). Las horas van sin zona (hora de Asunción) y la API",
+                            "// responde en UTC (Z): 09:00 de Asunción son las 12:00 Z.",
+                            "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",
+                            "const daysToMonday = ((8 - asuncion.getUTCDay()) % 7) || 7;",
+                            "const day = d => new Date(Date.UTC(asuncion.getUTCFullYear(), asuncion.getUTCMonth(), asuncion.getUTCDate() + d)).toISOString().slice(0, 10);",
+                            "pm.collectionVariables.set('today', day(0));",
+                            "pm.collectionVariables.set('monday', day(daysToMonday));",
+                            "pm.collectionVariables.set('sunday', day(daysToMonday + 6));",
+                            "pm.collectionVariables.set('next_monday', day(daysToMonday + 7));"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_admin', String(pm.response.json().data.token));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01b Login del recepcionista (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_reception', String(pm.response.json().data.token));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "02 Sucursal por defecto",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const branch = pm.response.json().data.find(b => b.is_default);",
+                            "pm.collectionVariables.set('default_branch_id', String(branch.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/branches?per_page=100",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "branches"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "100"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 Alta del usuario de la corrida con el rol veterinario (su sucursal actual es la por defecto)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('vet_user_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"first_name\": \"Dora\",\n    \"last_name\": \"Postman\",\n    \"email\": \"dispo{{run}}@mailinator.com\",\n    \"password\": \"Clave-Dispo-{{run}}!\",\n    \"roles\": [\n        \"veterinario\"\n    ],\n    \"branch_ids\": [\n        {{default_branch_id}}\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Alta de su ficha de veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('vet_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": {{vet_user_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05a Alta del servicio de 30 minutos",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('service_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Control dispo {{run}}\",\n    \"category\": \"consultation\",\n    \"standard_price\": 120000,\n    \"duration_minutes\": 30\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05b Alta del servicio de 60 minutos",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('long_service_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Cirugia dispo {{run}}\",\n    \"category\": \"consultation\",\n    \"standard_price\": 300000,\n    \"duration_minutes\": 60\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Agenda A del veterinario: todos los días de 08:00 a 12:00 y de 12:00 a 13:00 (franjas pegadas), cada 30 minutos",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('schedule_a', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Dispo A {{run}}\",\n    \"veterinarian_id\": {{vet_id}},\n    \"service_id\": {{service_id}},\n    \"slot_minutes\": 30,\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"12:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"12:00\",\n            \"ends_at\": \"13:00\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "07 Agenda B del mismo veterinario: todos los días de 08:00 a 13:00",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('schedule_b', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Dispo B {{run}}\",\n    \"veterinarian_id\": {{vet_id}},\n    \"service_id\": {{service_id}},\n    \"slot_minutes\": 30,\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "08 Agenda C solo del servicio (sin veterinario): todos los días de 08:00 a 13:00",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('schedule_c', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Dispo C {{run}}\",\n    \"service_id\": {{service_id}},\n    \"slot_minutes\": 30,\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"08:00\",\n            \"ends_at\": \"13:00\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Bloqueo de la agenda A el lunes de 08:00 a 09:00",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('block_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/blocks",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "blocks"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"starts_at\": \"{{monday}}T08:00:00\",\n    \"ends_at\": \"{{monday}}T09:00:00\",\n    \"reason\": \"Reunión de equipo\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 Turno en la agenda A el lunes a las 11:00 → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('monday_a_1100', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_a}},\n    \"starts_at\": \"{{monday}}T11:00:00\",\n    \"contact_name\": \"Marta, la de Toby\",\n    \"contact_phone\": \"981000111\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 Turno del mismo veterinario en la agenda B el lunes a las 10:00 → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('monday_b_1000', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_b}},\n    \"starts_at\": \"{{monday}}T10:00:00\",\n    \"contact_name\": \"Pedro, el de Coco\",\n    \"contact_phone\": \"981000222\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "12 Disponibilidad de la agenda A el lunes: sin el bloqueo, sin el turno de las 11:00 y sin las 10:00 (el veterinario está en la agenda B)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const hhmm = iso => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(11, 16);",
+                            "const body = pm.response.json().data;",
+                            "const monday = pm.collectionVariables.get('monday');",
+                            "pm.test('La agenda, la duración del servicio y el día en Asunción', () => {",
+                            "    pm.expect(body.schedule_id).to.eql(Number(pm.collectionVariables.get('schedule_a')));",
+                            "    pm.expect(body.duration_minutes).to.eql(30);",
+                            "    pm.expect(body.days).to.have.lengthOf(1);",
+                            "    pm.expect(body.days[0].date).to.eql(monday);",
+                            "});",
+                            "pm.test('Los horarios: 09:00, 09:30, 10:30, 11:30, 12:00 y 12:30', () => {",
+                            "    pm.expect(body.days[0].slots.map(s => hhmm(s.starts_at))).to.eql(['09:00', '09:30', '10:30', '11:30', '12:00', '12:30']);",
+                            "});",
+                            "pm.test('En UTC (Z): 09:00 de Asunción son las 12:00 Z, y dura 30 minutos', () => {",
+                            "    pm.expect(body.days[0].slots[0].starts_at).to.match(/^\\d{4}-\\d{2}-\\d{2}T12:00:00(\\.0+)?Z$/);",
+                            "    pm.expect(new Date(body.days[0].slots[0].ends_at) - new Date(body.days[0].slots[0].starts_at)).to.eql(30 * 60 * 1000);",
+                            "});",
+                            "pm.collectionVariables.set('offered_slot', String(body.days[0].slots[0].starts_at));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13 Disponibilidad con el servicio de 60 minutos: 11:30 cruza las franjas pegadas (11:30 a 12:30)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const hhmm = iso => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(11, 16);",
+                            "const body = pm.response.json().data;",
+                            "pm.test('Dura 60 minutos', () => pm.expect(body.duration_minutes).to.eql(60));",
+                            "pm.test('Los horarios: 09:00, 11:30 y 12:00', () => {",
+                            "    pm.expect(body.days[0].slots.map(s => hhmm(s.starts_at))).to.eql(['09:00', '11:30', '12:00']);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}&service_id={{long_service_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "service_id",
+                            "value": "{{long_service_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "14 Dar el primer horario ofrecido (09:00, en UTC tal como lo devolvió la disponibilidad) → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('monday_a_0900', String(pm.response.json().data.id));",
+                            "pm.test('Empieza en el horario ofrecido', () => {",
+                            "    pm.expect(new Date(pm.response.json().data.starts_at).getTime()).to.eql(new Date(pm.collectionVariables.get('offered_slot')).getTime());",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_a}},\n    \"starts_at\": \"{{offered_slot}}\",\n    \"contact_name\": \"Lucía, la de Luna\",\n    \"contact_phone\": \"981000333\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15 Ese horario ya no figura en la disponibilidad",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const hhmm = iso => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(11, 16);",
+                            "const slots = pm.response.json().data.days[0].slots;",
+                            "pm.test('Sin las 09:00', () => {",
+                            "    pm.expect(slots.map(s => hhmm(s.starts_at))).to.eql(['09:30', '10:30', '11:30', '12:00', '12:30']);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16 La agenda B tampoco ofrece las 09:00: el veterinario ya tiene ese horario en la agenda A",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const hhmm = iso => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString().slice(11, 16);",
+                            "const starts = pm.response.json().data.days[0].slots.map(s => hhmm(s.starts_at));",
+                            "pm.test('Sin 09:00 (agenda A), 10:00 (su turno) ni 11:00 (agenda A)', () => {",
+                            "    pm.expect(starts).to.eql(['08:00', '08:30', '09:30', '10:30', '11:30', '12:00', '12:30']);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_b}}/availability?from={{monday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_b}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "17 Disponibilidad de una semana (lunes a domingo): 7 días; los que no tienen turnos ni bloqueos, 10 horarios",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const days = pm.response.json().data.days;",
+                            "pm.test('7 días, del lunes al domingo', () => {",
+                            "    pm.expect(days).to.have.lengthOf(7);",
+                            "    pm.expect(days[0].date).to.eql(pm.collectionVariables.get('monday'));",
+                            "    pm.expect(days[6].date).to.eql(pm.collectionVariables.get('sunday'));",
+                            "});",
+                            "pm.test('El martes, de 08:00 a 12:30', () => pm.expect(days[1].slots).to.have.lengthOf(10));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}&to={{sunday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "to",
+                            "value": "{{sunday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "18 Más de 7 días → 422 en to",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('VALIDATION_ERROR en to', () => {",
+                            "    pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR');",
+                            "    pm.expect(pm.response.json().errors).to.have.property('to');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}&to={{next_monday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "to",
+                            "value": "{{next_monday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "19 Turno de hoy en la agenda A a las 08:00 → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('today_a', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_a}},\n    \"starts_at\": \"{{today}}T08:00:00\",\n    \"contact_name\": \"Ana, la de Firulais\",\n    \"contact_phone\": \"981000444\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "20 Turno de hoy en la agenda C (sin veterinario) a las 08:30 → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('today_c', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_c}},\n    \"starts_at\": \"{{today}}T08:30:00\",\n    \"contact_name\": \"Raúl, el de Michi\",\n    \"contact_phone\": \"981000555\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21 Login del veterinario de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_vet', String(pm.response.json().data.token));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"dispo{{run}}@mailinator.com\",\n    \"password\": \"Clave-Dispo-{{run}}!\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "22 Cola del día del veterinario: por defecto, solo los de su ficha",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "const ids = res.data.map(a => a.id);",
+                            "pm.test('Hoy, en su sucursal actual, filtrada por su ficha', () => {",
+                            "    pm.expect(res.meta.date).to.eql(pm.collectionVariables.get('today'));",
+                            "    pm.expect(res.meta.branch_id).to.eql(Number(pm.collectionVariables.get('default_branch_id')));",
+                            "    pm.expect(res.meta.veterinarian_id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "});",
+                            "pm.test('Su turno de la agenda A sí; el de la agenda C (sin veterinario), no', () => {",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_a')));",
+                            "    pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('today_c')));",
+                            "});",
+                            "pm.test('Cada turno con la agenda, el estado, el sobreturno, el contacto y checked_in_at', () => {",
+                            "    const mine = res.data.find(a => a.id === Number(pm.collectionVariables.get('today_a')));",
+                            "    pm.expect(mine.schedule.id).to.eql(Number(pm.collectionVariables.get('schedule_a')));",
+                            "    pm.expect(mine.status.value).to.eql('pending_confirmation');",
+                            "    pm.expect(mine.is_overbooked).to.eql(false);",
+                            "    pm.expect(mine.contact_name).to.eql('Ana, la de Firulais');",
+                            "    pm.expect(mine.patient).to.eql(null);",
+                            "    pm.expect(mine).to.have.property('checked_in_at', null);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23 Cola del veterinario con all=1: toda la sucursal (es una vista por defecto, no una restricción)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "const ids = res.data.map(a => a.id);",
+                            "pm.test('Los dos turnos de hoy, sin filtro de veterinario', () => {",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_a')));",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_c')));",
+                            "    pm.expect(res.meta.veterinarian_id).to.eql(null);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue?all=1",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ],
+                    "query": [
+                        {
+                            "key": "all",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Cola del día de la recepción: toda la sucursal, por hora",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "const ids = res.data.map(a => a.id);",
+                            "pm.test('Los dos turnos de hoy', () => {",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_a')));",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_c')));",
+                            "    pm.expect(res.meta.veterinarian_id).to.eql(null);",
+                            "});",
+                            "pm.test('Ordenada por starts_at, sin cancelados ni otras sucursales, sin paginar', () => {",
+                            "    const starts = res.data.map(a => new Date(a.starts_at).getTime());",
+                            "    pm.expect(starts).to.eql([...starts].sort((x, y) => x - y));",
+                            "    res.data.forEach(a => {",
+                            "        pm.expect(a.status.value).to.not.eql('cancelled');",
+                            "        pm.expect(a.branch.id).to.eql(Number(pm.collectionVariables.get('default_branch_id')));",
+                            "    });",
+                            "    pm.expect(res.meta).to.not.have.property('pagination');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25 Cola de la recepción filtrada por la agenda C",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "pm.test('Solo los turnos de la agenda C', () => {",
+                            "    pm.expect(res.data.map(a => a.id)).to.eql([Number(pm.collectionVariables.get('today_c'))]);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue?schedule_id={{schedule_c}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ],
+                    "query": [
+                        {
+                            "key": "schedule_id",
+                            "value": "{{schedule_c}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 Cola de la recepción filtrada por el veterinario de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "pm.test('Solo el turno de la agenda A', () => {",
+                            "    pm.expect(res.data.map(a => a.id)).to.eql([Number(pm.collectionVariables.get('today_a'))]);",
+                            "    pm.expect(res.meta.veterinarian_id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue?veterinarian_id={{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ],
+                    "query": [
+                        {
+                            "key": "veterinarian_id",
+                            "value": "{{vet_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "27 Cola del lunes del veterinario de la corrida (date): 09:00 y 11:00 en A y 10:00 en B, por hora",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const res = pm.response.json();",
+                            "pm.test('Los tres turnos del lunes, por hora', () => {",
+                            "    pm.expect(res.meta.date).to.eql(pm.collectionVariables.get('monday'));",
+                            "    pm.expect(res.data.map(a => a.id)).to.eql([",
+                            "        Number(pm.collectionVariables.get('monday_a_0900')),",
+                            "        Number(pm.collectionVariables.get('monday_b_1000')),",
+                            "        Number(pm.collectionVariables.get('monday_a_1100')),",
+                            "    ]);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue?date={{monday}}&veterinarian_id={{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ],
+                    "query": [
+                        {
+                            "key": "date",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "veterinarian_id",
+                            "value": "{{vet_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "28 Cola con una fecha con hora → 422 en date",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('VALIDATION_ERROR en date', () => pm.expect(pm.response.json().errors).to.have.property('date'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue?date={{today}}T10:00:00Z",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ],
+                    "query": [
+                        {
+                            "key": "date",
+                            "value": "{{today}}T10:00:00Z"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "29 El veterinario consulta la disponibilidad → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Los mismos horarios que ve la recepción', () => pm.expect(pm.response.json().data.days[0].slots).to.have.lengthOf(5));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30 El veterinario intenta dar un horario ofrecido → 403 (no tiene appointments.store)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_a}},\n    \"starts_at\": \"{{monday}}T12:30:00\",\n    \"contact_name\": \"Nadie\",\n    \"contact_phone\": \"981000666\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "31 Cancelar el turno de hoy de la agenda A",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{today_a}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{today_a}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Prueba de la cola del día\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "32 La cola ya no muestra el cancelado",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const ids = pm.response.json().data.map(a => a.id);",
+                            "pm.test('Sin el cancelado; el de la agenda C sigue', () => {",
+                            "    pm.expect(ids).to.not.include(Number(pm.collectionVariables.get('today_a')));",
+                            "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('today_c')));",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/queue",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "queue"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "33a Cancelar el turno de hoy de la agenda C (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{today_c}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{today_c}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Limpieza de la colección de disponibilidad\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "33b Cancelar el turno del lunes a las 09:00 (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{monday_a_0900}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{monday_a_0900}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Limpieza de la colección de disponibilidad\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "33c Cancelar el turno del lunes a las 10:00 (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{monday_b_1000}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{monday_b_1000}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Limpieza de la colección de disponibilidad\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "33d Cancelar el turno del lunes a las 11:00 (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{monday_a_1100}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{monday_a_1100}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Limpieza de la colección de disponibilidad\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "34 Baja del bloqueo (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedule-blocks/{{block_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedule-blocks",
+                        "{{block_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "35a Inactivar la agenda A (limpieza: con turnos no se elimina)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36 Disponibilidad de una agenda inactiva → 422 en schedule",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('VALIDATION_ERROR en schedule', () => {",
+                            "    pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR');",
+                            "    pm.expect(pm.response.json().errors.schedule[0]).to.eql('La agenda no existe o está inactiva.');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_a}}/availability?from={{monday}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_a}}",
+                        "availability"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "35b Inactivar la agenda B (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_b}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_b}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "35c Inactivar la agenda C (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules/{{schedule_c}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules",
+                        "{{schedule_c}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "37a Inactivar el servicio de 30 minutos (limpieza: está usado)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services/{{service_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services",
+                        "{{service_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"status\": \"inactive\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "37b Inactivar el servicio de 60 minutos (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services/{{long_service_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services",
+                        "{{long_service_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"status\": \"inactive\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "38 Inactivar el veterinario (limpieza: tiene agendas y turnos)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians/{{vet_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians",
+                        "{{vet_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"status\": \"inactive\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "39 Inactivar al usuario de la corrida (limpieza)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{vet_user_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{vet_user_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"is_active\": false\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8001/api",
+            "type": "string"
+        },
+        {
+            "key": "demo_password",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "today",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "monday",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "sunday",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "next_monday",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_admin",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_reception",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_vet",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "default_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_user_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "service_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "long_service_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "schedule_a",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "schedule_b",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "schedule_c",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "block_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "monday_a_1100",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "monday_b_1000",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "monday_a_0900",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "offered_slot",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "today_a",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "today_c",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

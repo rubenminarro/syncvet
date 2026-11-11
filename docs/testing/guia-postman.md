@@ -393,6 +393,7 @@ entrega 3.0 no tiene endpoints: se validó con la colección de auditoría como 
 | [`postman/syncvet-fase-03-agendas.postman_collection.json`](postman/syncvet-fase-03-agendas.postman_collection.json) | 3.1 (R-050) | Alta del usuario de la corrida con el rol `veterinario`, su ficha y su servicio; agenda sin veterinario ni servicio (422); alta de una agenda con veterinario y horario y de otra con solo el servicio; nombre repetido en la sucursal con otras mayúsculas y sin acento, tramos superpuestos el mismo día y un tramo fuera de la grilla de 5 minutos (422); reemplazo del horario (los tramos que se tocan pasan); un bloqueo del lunes que viene en UTC y uno con el fin antes del inicio (422); el detalle con el bloqueo próximo; el recepcionista que lista agendas y bloqueos y no crea ni edita agendas ni crea bloqueos (403); los pendientes de la FASE 2: la baja del veterinario con una agenda (409 `VETERINARIAN_IN_USE`), la baja del servicio usado por una agenda (409 `SERVICE_IN_USE`) y su cambio de nombre (422 `SERVICE_NAME_NOT_EDITABLE`); inactivar una agenda, el listado sin ella y con `include_inactive=1`; la baja del bloqueo y de las agendas sin turnos (404 después); y la limpieza |
 | [`postman/syncvet-fase-03-turnos.postman_collection.json`](postman/syncvet-fase-03-turnos.postman_collection.json) | 3.2a (R-051) y 3.2b (R-053) | Alta del usuario de la corrida con el rol `veterinario`, su ficha, su servicio y una agenda con horario (el lunes en dos franjas pegadas) y un bloqueo; dos clientes y un paciente; turnos con paciente (el cliente es su dueño), con un cliente sin paciente y con un contacto; el mismo horario (409 `APPOINTMENT_OVERLAP`); un sobreturno con el recepcionista (201, `is_overbooked`); fuera del horario (422 `APPOINTMENT_OUTSIDE_HOURS`) y en el bloqueo (422 `APPOINTMENT_IN_BLOCK`); el paciente de otro cliente (422); mover con la misma duración y a un horario ocupado (409); el listado del lunes y el detalle; sin baja (405); el cambio de dueño del paciente y la edición de su turno con el formulario completo (200, queda el dueño actual); un turno que cruza dos franjas pegadas (201); la baja del cliente con un turno (409 `CLIENT_IN_USE`); los pendientes de la 3.1: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y su baja (409 `SCHEDULE_IN_USE`); una agenda inactiva no recibe turnos (422); los estados (3.2b), en una agenda del día de la corrida: confirmar y confirmar otra vez (422 `APPOINTMENT_INVALID_TRANSITION`), ausente antes de la hora (422) y a la hora, otro turno que toma el horario liberado, deshacer el ausente sin `overbook` (409 `APPOINTMENT_OVERLAP`) y con `overbook: true` (200, sobreturno), fichar sin paciente (422) y con paciente, atendido por otra ficha (403 `APPOINTMENT_NOT_YOURS`) y por la suya, fichar un atendido (422), cancelar sin motivo (422) y con motivo, mover un cancelado (422 `APPOINTMENT_NOT_EDITABLE`); y la limpieza |
 | [`postman/syncvet-fase-03-series.postman_collection.json`](postman/syncvet-fase-03-series.postman_collection.json) | 3.3 (R-054) | Series de turnos: semanal de 4, cada 2 semanas con fecha de fin, una con una fecha en un bloqueo (409 `APPOINTMENT_SERIES_CONFLICT` con la lista), más de 52 (422), mover un turno de la serie y cancelar uno, este y los siguientes y toda la serie (`meta.cancelled_count`); y la limpieza |
+| [`postman/syncvet-fase-03-disponibilidad.postman_collection.json`](postman/syncvet-fase-03-disponibilidad.postman_collection.json) | 3.4 (sin cerrar) | La disponibilidad de una agenda con franjas pegadas, un bloqueo, un turno y el mismo veterinario ocupado en otra agenda; un servicio de 60 minutos; dar un horario ofrecido (201) y que deje de figurar; una semana y más de 7 días (422); la cola del día del veterinario (su ficha), con `all=1`, de la recepción (toda la sucursal) y sus filtros de agenda, veterinario y fecha; el veterinario que no da turnos (403); un cancelado que sale de la cola; una agenda inactiva (422); y la limpieza |
 
 #### Agendas (3.1)
 
@@ -508,3 +509,39 @@ npx newman run docs/testing/postman/syncvet-fase-03-series.postman_collection.js
 
 Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 25 pedidos y 42 aserciones, sin fallas.
 Validación del usuario del 2026-11-11 (otra PC, Collection Runner, una iteración): 42 de 42, 0 errores (R-054).
+
+#### Disponibilidad y cola del día (3.4)
+
+Colección aparte, [`postman/syncvet-fase-03-disponibilidad.postman_collection.json`](postman/syncvet-fase-03-disponibilidad.postman_collection.json).
+
+**Volver a sembrar los roles.** La 3.4 suma los permisos `schedules.availability` y `appointments.queue`, de los tres roles. Si la
+base no se recrea, correr `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos) antes de la colección: sin eso,
+la disponibilidad y la cola reciben 403. No hay que migrar: la 3.4 no tiene migraciones.
+
+**Necesita internet y el `DemoSeeder`.** El email del veterinario de la corrida es `@mailinator.com` (la validación consulta su MX);
+usa `admin-a@example.com`, `recepcion-a@example.com` y la sucursal por defecto de la clínica A.
+
+**47 requests y 72 pruebas.**
+
+**Se corre más de una vez sin recrear la base.** El primer pedido genera un número de corrida y calcula hoy y el lunes que viene en
+Asunción. Cada corrida crea su veterinario (con ficha; su sucursal actual es la por defecto), un servicio de 30 minutos y otro de 60,
+y tres agendas: A (el veterinario, todos los días de 08:00 a 12:00 y de 12:00 a 13:00, franjas pegadas), B (el mismo veterinario, de
+08:00 a 13:00) y C (solo el servicio). El lunes: un bloqueo de A de 08:00 a 09:00, un turno en A a las 11:00 y otro en B a las 10:00;
+la disponibilidad de A ofrece 09:00, 09:30, 10:30, 11:30, 12:00 y 12:30 (las 10:00 no: el veterinario está en B). Hoy: un turno en A
+a las 08:00 y otro en C a las 08:30 (el alta acepta horas ya pasadas de hoy, así que corre a cualquier hora). La cola del
+recepcionista se compara por inclusión (puede tener turnos de la demo o de corridas anteriores del mismo día). Al final cancela los
+turnos de la corrida, elimina el bloqueo e inactiva las agendas, los servicios, la ficha y el usuario.
+
+**Lo que no está en la colección.** Los horarios de hoy que ya empezaron y la medianoche (necesitan mover el reloj), un sobreturno y
+un cancelado o un ausente en la disponibilidad, un día anterior a hoy, el veterinario o el servicio inactivos, una agenda o un
+servicio de otra clínica y la garantía "todo lo ofrecido se da, todo candidato no ofrecido se rechaza": `ScheduleAvailabilityTest`. El
+usuario sin sucursal actual (422 `APPOINTMENT_QUEUE_NO_BRANCH`), el veterinario sin ficha o con la ficha eliminada, otra clínica y el
+conteo de consultas (sin N+1): `AppointmentQueueTest`. Un rol sin los permisos nuevos (403): `RoleAccessTest`.
+
+**Con Newman.** Con el servidor en el puerto 8001:
+
+```bash
+npx newman run docs/testing/postman/syncvet-fase-03-disponibilidad.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+```
+
+Corrida del 2026-11-11 contra la base de desarrollo, dos veces seguidas sin recrearla: 47 pedidos y 72 aserciones, sin fallas.

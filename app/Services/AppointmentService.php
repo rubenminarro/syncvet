@@ -13,8 +13,6 @@ use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Patient;
 use App\Models\Schedule;
-use App\Models\ScheduleBlock;
-use App\Models\ScheduleHour;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
@@ -319,7 +317,7 @@ class AppointmentService
         $startsAt = ApiDateTime::toLocal($data['starts_at']);
         $endsAt = isset($data['ends_at'])
             ? ApiDateTime::toLocal($data['ends_at'])
-            : $startsAt->addMinutes($service?->duration_minutes ?? $schedule->slot_minutes);
+            : $startsAt->addMinutes(self::durationMinutes($service, $schedule));
 
         return [$schedule, $this->id($serviceId), $patientId, $clientId, $startsAt, $endsAt];
     }
@@ -579,12 +577,13 @@ class AppointmentService
 
     /**
      * La agenda activa y, si tiene veterinario, la ficha activa (no eliminada) con su
-     * usuario activo y de la clínica.
+     * usuario activo y de la clínica. La disponibilidad (3.4) usa la misma revisión, con el
+     * error en $field ("schedule").
      */
-    private function ensureScheduleIsAvailable(Schedule $schedule, ?Veterinarian $veterinarian): void
+    public function ensureScheduleIsAvailable(Schedule $schedule, ?Veterinarian $veterinarian, string $field = 'schedule_id'): void
     {
         if (! $schedule->is_active) {
-            throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
+            throw ValidationException::withMessages([$field => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
         }
 
         if ($schedule->veterinarian_id === null) {
@@ -596,11 +595,11 @@ class AppointmentService
             && User::query()->inClinic()->active()->whereKey($veterinarian->user_id)->exists();
 
         if (! $available) {
-            throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::VETERINARIAN_INACTIVE]);
+            throw ValidationException::withMessages([$field => AppointmentMessages::VETERINARIAN_INACTIVE]);
         }
     }
 
-    private function ensureServiceIsAvailable(?Service $service): void
+    public function ensureServiceIsAvailable(?Service $service): void
     {
         if ($service === null || $service->status !== ServiceStatus::ACTIVE) {
             throw ValidationException::withMessages(['service_id' => AppointmentMessages::SERVICE_NOT_AVAILABLE]);
@@ -608,62 +607,49 @@ class AppointmentService
     }
 
     /**
-     * Desde el comienzo del día de hoy en Asunción (pregunta 16), el fin posterior al inicio,
-     * hasta 720 minutos y el mismo día (no cruza la medianoche).
+     * La duración de un turno sin ends_at (P5): la del servicio, o slot_minutes de la agenda.
+     * La disponibilidad (3.4) ofrece los horarios con esta misma duración.
      */
+    public static function durationMinutes(?Service $service, Schedule $schedule): int
+    {
+        return (int) ($service?->duration_minutes ?? $schedule->slot_minutes);
+    }
+
     private function ensureTiming(CarbonImmutable $startsAt, CarbonImmutable $endsAt): void
     {
-        if ($startsAt->lessThan(now()->toImmutable()->startOfDay())) {
-            throw ValidationException::withMessages(['starts_at' => AppointmentMessages::PAST_DAY]);
-        }
+        $problem = $this->timingProblem($startsAt, $endsAt);
 
-        if ($endsAt->lessThanOrEqualTo($startsAt)) {
-            throw ValidationException::withMessages(['ends_at' => AppointmentMessages::ENDS_BEFORE_START]);
-        }
-
-        if ($endsAt->toDateString() !== $startsAt->toDateString()) {
-            throw ValidationException::withMessages(['ends_at' => AppointmentMessages::CROSSES_MIDNIGHT]);
-        }
-
-        if ($startsAt->diffInMinutes($endsAt) > AppointmentMessages::MAX_MINUTES) {
-            throw ValidationException::withMessages(['ends_at' => AppointmentMessages::TOO_LONG]);
+        if ($problem !== null) {
+            throw ValidationException::withMessages([$problem[0] => $problem[1]]);
         }
     }
 
     /**
-     * P6: el rango entero dentro del horario del día de la semana de starts_at, en hora de reloj
-     * de Asunción. Los tramos que se tocan (08:00–12:00 y 12:00–16:00) cuentan como un horario
-     * continuo (decisión del usuario en la revisión de la 3.2a); un hueco entre tramos, no. Los
-     * tramos del mismo día no se superponen (3.1) y van en múltiplos de 5 minutos, sin segundos.
+     * Desde el comienzo del día de hoy en Asunción (pregunta 16), el fin posterior al inicio,
+     * hasta 720 minutos y el mismo día (no cruza la medianoche). Devuelve el campo y el mensaje
+     * del primer problema, o null. Lo usa también la disponibilidad (3.4).
+     *
+     * @return array{0: string, 1: string}|null
      */
-    private function insideHours(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt): bool
+    public function timingProblem(CarbonImmutable $startsAt, CarbonImmutable $endsAt): ?array
     {
-        $ranges = ScheduleHour::query()
-            ->where('schedule_id', $schedule->id)
-            ->where('weekday', $startsAt->isoWeekday())
-            ->orderBy('starts_at')
-            ->get(['starts_at', 'ends_at'])
-            ->map(fn (ScheduleHour $hour) => [substr((string) $hour->starts_at, 0, 5), substr((string) $hour->ends_at, 0, 5)]);
-
-        $start = $startsAt->format('H:i');
-        $end = $endsAt->format('H:i');
-        $merged = null;
-
-        foreach ($ranges as [$from, $to]) {
-            if ($merged !== null && $from === $merged[1]) {
-                $merged[1] = $to;
-
-                continue;
-            }
-
-            if ($merged !== null && $merged[0] <= $start && $end <= $merged[1]) {
-                return true;
-            }
-
-            $merged = [$from, $to];
+        if ($startsAt->lessThan(now()->toImmutable()->startOfDay())) {
+            return ['starts_at', AppointmentMessages::PAST_DAY];
         }
 
-        return $merged !== null && $merged[0] <= $start && $end <= $merged[1];
+        if ($endsAt->lessThanOrEqualTo($startsAt)) {
+            return ['ends_at', AppointmentMessages::ENDS_BEFORE_START];
+        }
+
+        if ($endsAt->toDateString() !== $startsAt->toDateString()) {
+            return ['ends_at', AppointmentMessages::CROSSES_MIDNIGHT];
+        }
+
+        if ($startsAt->diffInMinutes($endsAt) > AppointmentMessages::MAX_MINUTES) {
+            return ['ends_at', AppointmentMessages::TOO_LONG];
+        }
+
+        return null;
     }
 
     /**
@@ -685,29 +671,14 @@ class AppointmentService
     /**
      * Las reglas de ensureFits sin lanzar (la serie, 3.3, junta todas las fechas que fallan):
      * el primer motivo por el que el turno no entra (OUTSIDE_HOURS, IN_BLOCK u OVERLAP; null
-     * si entra) y si se superpone con otro turno.
+     * si entra) y si se superpone con otro turno. Las reglas viven en ScheduleOccupancy, que
+     * usa también la disponibilidad (3.4): la misma decisión para los dos.
      *
      * @return array{0: ?string, 1: bool}
      */
     private function fit(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt, bool $overbook, ?Appointment $ignore = null): array
     {
-        if (! $this->insideHours($schedule, $startsAt, $endsAt)) {
-            return [self::OUTSIDE_HOURS, false];
-        }
-
-        $inBlock = ScheduleBlock::query()
-            ->where('schedule_id', $schedule->id)
-            ->where('starts_at', '<', $endsAt->format('Y-m-d H:i:s'))
-            ->where('ends_at', '>', $startsAt->format('Y-m-d H:i:s'))
-            ->exists();
-
-        if ($inBlock) {
-            return [self::IN_BLOCK, false];
-        }
-
-        $overlaps = $this->overlapsAnother($schedule, $startsAt, $endsAt, $ignore);
-
-        return [$overlaps && ! $overbook ? self::OVERLAP : null, $overlaps];
+        return ScheduleOccupancy::load($schedule, $startsAt, $endsAt, $ignore)->fit($startsAt, $endsAt, $overbook);
     }
 
     private function fitException(string $reason): AppointmentException
@@ -717,25 +688,6 @@ class AppointmentService
             self::IN_BLOCK => new AppointmentException('La agenda está bloqueada en ese horario.', 422, 'APPOINTMENT_IN_BLOCK'),
             default => self::overlapException(),
         };
-    }
-
-    /**
-     * Si el rango se superpone con un turno que ocupa el horario: a.starts_at < b.ends_at y
-     * a.ends_at > b.starts_at (tocarse no choca), en la agenda y del mismo veterinario en sus
-     * otras agendas (pregunta 15), sin contar $ignore. Se llama con la agenda (y su
-     * veterinario) bloqueada.
-     */
-    private function overlapsAnother(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt, ?Appointment $ignore = null): bool
-    {
-        return Appointment::query()
-            ->whereIn('status', AppointmentStatus::occupyingValues())
-            ->where('starts_at', '<', $endsAt->format('Y-m-d H:i:s'))
-            ->where('ends_at', '>', $startsAt->format('Y-m-d H:i:s'))
-            ->where(fn ($query) => $query
-                ->where('schedule_id', $schedule->id)
-                ->when($schedule->veterinarian_id !== null, fn ($query) => $query->orWhere('veterinarian_id', $schedule->veterinarian_id)))
-            ->when($ignore !== null, fn ($query) => $query->whereKeyNot($ignore->getKey()))
-            ->exists();
     }
 
     private static function overlapException(): AppointmentException
@@ -793,7 +745,9 @@ class AppointmentService
                     throw new AuthorizationException();
                 }
 
-                $overlaps = $this->overlapsAnother($locked, $appointment->starts_at->toImmutable(), $appointment->ends_at->toImmutable(), $appointment);
+                $startsAt = $appointment->starts_at->toImmutable();
+                $endsAt = $appointment->ends_at->toImmutable();
+                $overlaps = ScheduleOccupancy::load($locked, $startsAt, $endsAt, $appointment)->overlaps($startsAt, $endsAt);
 
                 if ($overlaps && ! $overbook && ! $appointment->is_overbooked) {
                     throw self::overlapException();

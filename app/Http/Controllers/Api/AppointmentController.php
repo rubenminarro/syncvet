@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AppointmentQueueRequest;
 use App\Http\Requests\IndexAppointmentRequest;
 use App\Http\Requests\ListFilters;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
 use App\Http\Resources\AppointmentResource;
+use App\Http\Resources\QueueAppointmentResource;
 use App\Http\Resources\ShowAppointmentResource;
 use App\Models\Appointment;
+use App\Services\AppointmentQueueService;
 use App\Services\AppointmentService;
 use App\Traits\ApiResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -37,7 +40,38 @@ class AppointmentController extends Controller implements HasMiddleware
             new Middleware('permission:appointments.store', only: ['store']),
             new Middleware('permission:appointments.show', only: ['show']),
             new Middleware('permission:appointments.update', only: ['update']),
+            new Middleware('permission:appointments.queue', only: ['queue']),
         ];
+    }
+
+    /**
+     * La cola del día (FASE 3, entrega 3.4; P8): los turnos del día en la sucursal actual del
+     * usuario, sin los cancelados, sin paginar. meta: el día, la sucursal y el veterinario por
+     * el que se filtró (el de la ficha del usuario por defecto; pregunta 25).
+     */
+    public function queue(AppointmentQueueRequest $request, AppointmentQueueService $queue)
+    {
+        $day = $request->day();
+        $user = $request->user();
+
+        [$appointments, $veterinarianId] = $queue->forUser(
+            $user,
+            $day,
+            $request->filled('veterinarian_id') ? $request->integer('veterinarian_id') : null,
+            $request->filled('schedule_id') ? $request->integer('schedule_id') : null,
+            $request->boolean('all')
+        );
+
+        return $this->successResponse(
+            'Cola del día obtenida correctamente.',
+            QueueAppointmentResource::collection($appointments),
+            200,
+            [
+                'date' => $day->toDateString(),
+                'branch_id' => (int) $user->current_branch_id,
+                'veterinarian_id' => $veterinarianId,
+            ]
+        );
     }
 
     /**

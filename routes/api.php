@@ -91,6 +91,12 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
         'store' => 'schedules.schedule-blocks.store',
     ]);
     Route::delete('schedule-blocks/{scheduleBlock}', [ScheduleBlockController::class, 'destroy'])->name('schedule-blocks.destroy');
+    // Disponibilidad de una agenda (FASE 3, entrega 3.4): con las reglas del alta de un turno.
+    Route::get('schedules/{schedule}/availability', [ScheduleController::class, 'availability'])->name('schedules.availability');
+
+    // Cola del día (FASE 3, entrega 3.4; P8): antes de appointments/{appointment}, para que el
+    // route binding no tome "queue" como un turno.
+    Route::get('appointments/queue', [AppointmentController::class, 'queue'])->name('appointments.queue');
 
     // Turnos (FASE 3, entrega 3.2a): los dan y los mueven el administrador y la recepción. Sin baja
     // (DELETE → 405): un turno se cancela (3.2b). El sobreturno pide además appointments.overbook.

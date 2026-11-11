@@ -74,7 +74,7 @@ class AppointmentTransitionLockTest extends TestCase
         $this->assertBefore($queries, $this->lockOf('schedules'), $this->lockOf('appointments'), 'El turno se bloqueó antes que la agenda.');
 
         $lock = $this->firstIndex($queries, $this->lockOf('appointments'));
-        $overlap = $this->firstIndex($queries, fn (string $sql) => str_contains($sql, 'exists') && ($this->readOf('appointments'))($sql));
+        $overlap = $this->firstIndex($queries, fn (string $sql) => preg_match('/status[`"] in \(/', $sql) === 1 && ($this->readOf('appointments'))($sql));
         $this->assertNotNull($overlap, "No se revisó la superposición:\n" . implode("\n", $queries));
         $this->assertGreaterThan($lock, $overlap, 'Se revisó la superposición antes de bloquear el turno.');
     }

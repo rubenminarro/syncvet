@@ -300,6 +300,10 @@ return [
         'recurrence.count' => 'cantidad de turnos de la serie',
         'recurrence.until' => 'fecha de fin de la serie',
         'scope' => 'alcance',
+
+        // Disponibilidad y cola del día (FASE 3, entrega 3.4)
+        'date' => 'fecha',
+        'all' => 'toda la sucursal',
     ],
 
 ];

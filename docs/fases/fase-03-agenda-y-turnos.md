@@ -542,6 +542,51 @@ la cola sin el filtro de sucursal; el veterinario sin el filtro de su ficha.
 **Postman:** `syncvet-fase-03-disponibilidad-y-cola` (la disponibilidad antes y después de un turno; la cola con el token de la
 recepción y con el del veterinario).
 
+#### Pendiente para el cierre (3.4)
+
+Implementación del 2026-11-11 (commit WIP "WIP 3.4 disponibilidad, sin revisar"), sin revisar.
+
+**Desvíos del diseño, por el pedido de implementación o porque el diseño no lo decía:**
+
+| # | Tema | Diseño | Implementado | Motivo |
+|---|---|---|---|---|
+| 1 | Reglas compartidas | "Las mismas reglas que el alta" | Clase nueva `App\Services\ScheduleOccupancy`: el horario semanal (franjas pegadas como una), los bloqueos y la superposición en la agenda y del veterinario en sus otras agendas. La usan el alta, la serie, deshacer el ausente y la disponibilidad; `AppointmentService` expone `ensureScheduleIsAvailable` (con el campo del error), `ensureServiceIsAvailable`, `durationMinutes` y `timingProblem`, que la disponibilidad reutiliza | El pedido exige reutilizar el código del alta, no copiarlo. El alta ahora lee las filas de bloqueos y turnos de la ventana del turno (`select starts_at, ends_at`) en lugar de un `exists`, con las mismas condiciones; `AppointmentTransitionLockTest` y `AppointmentSeriesLockTest` reconocían el `exists` y se ajustaron |
+| 2 | Filtro de agenda en la cola | `date`, `all`, `veterinarian_id` | Suma `schedule_id` (una agenda de la clínica) | El pedido lo nombra entre los filtros |
+| 3 | `meta` de la cola | No lo dice | `meta.date`, `meta.branch_id` y `meta.veterinarian_id` (el veterinario por el que se filtró: el de la ficha por defecto, `null` con `all=1`) | Para que el frontend muestre qué cola está viendo |
+| 4 | `veterinarian_id` y `all` juntos | No lo dice | `veterinarian_id` manda sobre la ficha y sobre `all` | Es una vista (pregunta 25) |
+| 5 | Veterinario inactivo o servicio inactivo | Solo "una agenda inactiva → 422 en `schedule`" | Agenda con el veterinario inactivo → 422 en `schedule` ("El veterinario de la agenda está inactivo."); servicio pedido, o el de la agenda, inactivo o eliminado → 422 en `service_id` | Lo rechazaría el alta: ofrecer horarios que el alta rechaza rompería la garantía |
+| 6 | Un día anterior a hoy | No lo dice | 200 con `slots` vacío (no un 422) | El alta lo rechaza (pregunta 16); se resuelve con la misma regla (`timingProblem`) |
+| 7 | "Ya empezó" | "Hoy, desde ahora" | Se ofrece si `starts_at >= ahora` (a las 09:30:00 en punto se ofrece el de las 09:30; a las 09:30:01, no) | Precisión |
+| 8 | `from`/`to` y `date` | "Una fecha" | Solo `Y-m-d`: una fecha con hora → 422 ("Ingresá una fecha (2026-11-09).") | Precisión |
+| 9 | Nombre de la colección | `syncvet-fase-03-disponibilidad-y-cola` | `syncvet-fase-03-disponibilidad` | El pedido de implementación lo nombra así |
+| 10 | Más de 200 turnos en la cola | "Hasta 200" | Corta en 200, sin aviso en la respuesta | Precisión; ver la pregunta 3 |
+
+**Preguntas para el usuario (no se supusieron):**
+
+1. **La cola por defecto del veterinario y las agendas sin veterinario.** El diseño dice "los de su ficha": los turnos de una agenda
+   solo de servicio (`veterinarian_id` nulo) no aparecen en su cola por defecto, aunque desde la 3.2b (R-053) el veterinario puede
+   fichar y marcar atendidos esos turnos. ¿Se suman a su cola por defecto? Hoy los ve con `all=1`.
+2. **"La duración indicada en el pedido".** Se interpretó como la del servicio que llega en `service_id` (el diseño). ¿Hace falta
+   además un `duration_minutes` en la disponibilidad, para un turno con `ends_at` propio?
+3. **El tope de 200.** ¿Alcanza con cortar, o conviene un `meta.truncated` (o paginar) si una sucursal pasa los 200 turnos en un día?
+
+**Mutaciones** (cada una con sus tests; todas murieron): no descontar los turnos (la disponibilidad con sobreturno), no descontar los
+bloqueos, ofrecer los horarios que ya empezaron, la cola sin el filtro de sucursal, el veterinario sin el filtro de su ficha (las cinco
+del diseño), y además la superposición sin el veterinario en sus otras agendas, las franjas pegadas no continuas, la cola con los
+cancelados y la cola sin cargar la especie y la raza (el test de N+1).
+
+**Postman:** `syncvet-fase-03-disponibilidad`, 47 pedidos y 72 aserciones; corrida del 2026-11-11 con Newman contra la base de
+desarrollo, dos veces seguidas sin recrearla, sin fallas. Las dos rutas nuevas las tienen los tres roles: no hay un 403 propio de la
+3.4 con los roles de la demo; la colección prueba el 403 del veterinario que intenta dar un horario ofrecido, y `RoleAccessTest` el de
+un rol sin el permiso. El usuario sin sucursal actual (422 `APPOINTMENT_QUEUE_NO_BRANCH`) lo cubre `AppointmentQueueTest`.
+
+**Suite del WIP:** 1388 casos, en serie: 13905 aserciones en SQLite (14 omitidos, los de solo MySQL) y 13979 en MySQL, sin fallas.
+Tests nuevos: `ScheduleAvailabilityTest` (13) y `AppointmentQueueTest` (12).
+
+**Pendiente del cierre:** la revisión, `CLAUDE.md` (§1 con 78 rutas y 135 permisos, §4 con `APPOINTMENT_QUEUE_NO_BRANCH`, §6.10 con
+la disponibilidad y la cola, §3 sin cambios de orden de bloqueo: la 3.4 no bloquea), el resultado de la 3.4 y el cierre de la fase
+(`composer audit`, roadmap, registro de decisiones).
+
 ## Documentación por entrega
 
 | Entrega | Además de lo de `docs/README.md` (Mantenimiento) |
