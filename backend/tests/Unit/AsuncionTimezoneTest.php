@@ -38,7 +38,7 @@ class AsuncionTimezoneTest extends TestCase
 
         $this->assertSame('-03:00', $offset, sprintf(
             'America/Asuncion da %s el %s: la base de zonas de PHP (%s) es anterior a la 2025a y todavía tiene el horario de '
-            . 'verano de Paraguay. Actualizá PHP o instalá la extensión timezonedb (docs/development/setup.md).',
+            . 'verano de Paraguay. Actualizá PHP o instalá la extensión timezonedb (docs/04-desarrollo/setup.md).',
             $offset,
             $date,
             timezone_version_get()

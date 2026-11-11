@@ -1,8 +1,8 @@
 # SYNCVET — FASE 0: ANÁLISIS FUNCIONAL Y PLANIFICACIÓN
 
-> **Material histórico** ([registro R-004](../decisions/registro.md)). Es el prompt del trabajo de documentación previo al paquete
-> base, no el de la FASE 0 actual ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md)). Donde contradiga a
-> [`CLAUDE.md`](../../CLAUDE.md) o a la decisión D1, mandan estos.
+> **Material histórico** ([registro R-004](../../01-arquitectura/decisiones/registro.md)). Es el prompt del trabajo de documentación previo al paquete
+> base, no el de la FASE 0 actual ([`fase-00-puesta-en-marcha.md`](../fases/backend/fase-00-puesta-en-marcha.md)). Donde contradiga a
+> [`CLAUDE.md`](../../../backend/CLAUDE.md) o a la decisión D1, mandan estos.
 
 ## Contexto
 
@@ -25,7 +25,7 @@ SyncVet es un nuevo software profesional de gestión integral para veterinarias,
 
 ## Referencias
 
-Están en `docs/references/`: un resumen y comparativa de funciones de PetSys, Asys Next, VetPlus (Datasoft) y Velary, y las imágenes de sus anuncios. Leé todo el contenido de esa carpeta.
+Están en `docs/00-vision/referencias/`: un resumen y comparativa de funciones de PetSys, Asys Next, VetPlus (Datasoft) y Velary, y las imágenes de sus anuncios. Leé todo el contenido de esa carpeta.
 
 Sitio de referencia principal: https://www.petsys.com.py/#funciones
 
@@ -127,4 +127,4 @@ Fases desde el MVP en adelante. Cada fase con: objetivos, funcionalidades, depen
 
 ## Para empezar
 
-Leé `docs/references/` y los documentos de SyncTaller indicados. Mostrame un plan breve de cómo vas a encarar el Paso 1 y esperá mi aprobación.
+Leé `docs/00-vision/referencias/` y los documentos de SyncTaller indicados. Mostrame un plan breve de cómo vas a encarar el Paso 1 y esperá mi aprobación.

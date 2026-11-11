@@ -13,13 +13,13 @@ php artisan migrate --seed
 php artisan test
 ```
 
-El detalle de las variables de entorno está en el [`README.md`](../../README.md) de la raíz.
+El detalle de las variables de entorno está en el [`README.md`](../../backend/README.md) de la raíz.
 
 En Laragon, `mysql.exe` no está en el `PATH`: está en `C:\laragon\bin\mysql\<versión>\bin\`.
 
 ## Datos de demostración y cambio de rama
 
-Para probar la API a mano ([guía de Postman](../testing/guia-postman.md)), el `.env` necesita `DEMO_PASSWORD`, la contraseña de
+Para probar la API a mano ([guía de Postman](../05-pruebas/guia-postman.md)), el `.env` necesita `DEMO_PASSWORD`, la contraseña de
 los usuarios del `DemoSeeder`, **entre comillas simples**:
 
 ```dotenv

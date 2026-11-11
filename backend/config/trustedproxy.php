@@ -7,7 +7,7 @@
  *
  * TRUSTED_PROXIES: vacía (por defecto) = ninguno; una lista de IP o rangos CIDR
  * separados por coma; o "*" = cualquiera (solo si la aplicación no es accesible
- * sin pasar por el proxy). Ver docs/development/deployment.md.
+ * sin pasar por el proxy). Ver docs/04-desarrollo/deployment.md.
  *
  * Vacía da una lista vacía y no null: con null, Laravel confía en todos cuando el
  * encabezado Host termina en .on-forge.com o .on-vapor.com, y ese encabezado lo

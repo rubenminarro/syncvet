@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 2: validación de la configuración de la clínica",
-        "description": "Validación manual de la configuración de la clínica y su logo (FASE 2, entrega 2.5). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y los roles sembrados otra vez (la 2.5 suma cuatro permisos: php artisan db:seed --class=RolesAndPermissionsSeeder). Los archivos que sube están en docs/testing/postman/archivos, con la ruta relativa a la raíz del repositorio: en Postman, Settings > General > Working directory tiene que ser la carpeta del repositorio; Newman se corre desde esa carpeta. Deja la clínica A como estaba: guarda sus datos y claves al empezar (pedido 02) y los restaura al final (pedido 22), y borra el logo que sube. Si la clínica A ya tiene logo, se detiene en el pedido 02 sin tocar nada. Se puede correr más de una vez sin recrear la base. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/testing/guia-postman.md.",
+        "description": "Validación manual de la configuración de la clínica y su logo (FASE 2, entrega 2.5). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y los roles sembrados otra vez (la 2.5 suma cuatro permisos: php artisan db:seed --class=RolesAndPermissionsSeeder). Los archivos que sube están en docs/05-pruebas/postman/archivos, con la ruta relativa a la raíz del repositorio: en Postman, Settings > General > Working directory tiene que ser la carpeta del repositorio; Newman se corre desde esa carpeta. Deja la clínica A como estaba: guarda sus datos y claves al empezar (pedido 02) y los restaura al final (pedido 22), y borra el logo que sube. Si la clínica A ya tiene logo, se detiene en el pedido 02 sin tocar nada. Se puede correr más de una vez sin recrear la base. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -632,7 +632,7 @@
                         {
                             "key": "logo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/no-es-imagen.jpg"
+                            "src": "docs/05-pruebas/postman/archivos/no-es-imagen.jpg"
                         }
                     ]
                 },
@@ -688,7 +688,7 @@
                         {
                             "key": "logo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/logo-clinica.png"
+                            "src": "docs/05-pruebas/postman/archivos/logo-clinica.png"
                         }
                     ]
                 },
@@ -879,7 +879,7 @@
                         {
                             "key": "logo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/logo-clinica.webp"
+                            "src": "docs/05-pruebas/postman/archivos/logo-clinica.webp"
                         }
                     ]
                 },
@@ -980,7 +980,7 @@
                         {
                             "key": "logo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/logo-clinica.png"
+                            "src": "docs/05-pruebas/postman/archivos/logo-clinica.png"
                         }
                     ]
                 },

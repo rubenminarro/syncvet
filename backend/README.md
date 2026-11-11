@@ -1,9 +1,9 @@
 # SyncVet: backend base (Laravel 13)
 
-Esquema del MVP y arquitectura base de SyncVet. Las reglas de trabajo están en `CLAUDE.md`.
+Esquema del MVP y arquitectura base de SyncVet. Es la carpeta `backend/` del monorepo: los comandos de esta guía se corren desde acá. Las reglas de trabajo están en [`CLAUDE.md`](CLAUDE.md) y las comunes, en el [`CLAUDE.md`](../CLAUDE.md) de la raíz.
 
 Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos maestros) y FASE 3 (agenda y turnos) completadas; sigue decidir entre el frontend y la FASE 4, historia clínica. El estado de cada fase está en
-[`docs/roadmap/README.md`](docs/roadmap/README.md) y el punto de continuidad, en [`docs/handoff.md`](docs/handoff.md).
+[`docs/03-plan-desarrollo/README.md`](../docs/03-plan-desarrollo/README.md) y el punto de continuidad, en [`docs/03-plan-desarrollo/handoff.md`](../docs/03-plan-desarrollo/handoff.md).
 
 ## Qué incluye
 
@@ -16,7 +16,7 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos 
 | `app/Services` | Reglas de negocio de autenticación, clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios, veterinarios, servicios, la configuración y el logo, la limpieza de archivos huérfanos, las agendas y sus bloqueos, y los turnos; `ClinicService`, `CatalogLock`, `DocumentSequenceService` y `AuditLogger` |
 | `app/Http` | Controllers, Requests y Resources de autenticación y perfil, clientes, pacientes, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración de la clínica, la auditoría, las agendas y sus bloqueos, y los turnos; middleware `EnsureJsonResponse` y `SetCurrentClinic` |
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
-| `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
+| `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/04-desarrollo/setup.md`](../docs/04-desarrollo/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
 | `routes/api.php` | 78 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, los turnos (únicos o en series) con sus estados, la disponibilidad de cada agenda y la cola del día |
 | `database/seeders` | `RolesAndPermissionsSeeder` (135 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
@@ -41,7 +41,7 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos 
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 36 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](docs/fases/fase-00-puesta-en-marcha.md#entrega-02)).
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 36 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](../docs/03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: lo reemplazan la verificación en MySQL de la entrega 0.5 y
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
@@ -56,18 +56,18 @@ acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo 
 0.5); cada regla de clientes, pacientes, especies y razas (FASE 1) y de sucursales y depósitos, usuarios, veterinarios, servicios,
 la configuración y la auditoría (FASE 2), y de las agendas, los turnos con sus estados y sus series, la disponibilidad y la cola del
 día (FASE 3, con la concurrencia en MySQL), con los mensajes en voseo y las fechas con hora. Al cierre de la FASE 3: 1395 casos, en
-SQLite y en MySQL ([cierre](docs/fases/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3)).
+SQLite y en MySQL ([cierre](../docs/03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3)).
 
 ## Instalación
 
 Proyecto Laravel 13 con Sanctum 4 y spatie/laravel-permission 8 (entrega 0.1 de la FASE 0). Requisitos: PHP 8.3+ con `bcmath`,
-`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](docs/development/setup.md)),
+`intl`, `pdo_mysql`, `pdo_sqlite`, `gd` (con JPEG, PNG y WEBP) y `exif` (la foto del paciente; [`setup.md`](../docs/04-desarrollo/setup.md)),
 y la base de zonas horarias 2025a o posterior (Paraguay en UTC-3 todo el año; en Laragon, la extensión `timezonedb`,
-[`setup.md`](docs/development/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)); Composer; MySQL 8.
+[`setup.md`](../docs/04-desarrollo/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)); Composer; MySQL 8.
 
 ```bash
 git clone https://github.com/rubenminarro/syncvet.git
-cd syncvet
+cd syncvet/backend
 composer install
 cp .env.example .env
 php artisan key:generate
@@ -82,10 +82,10 @@ php artisan key:generate
    `php artisan clinic:create --help`.
 5. Solo en desarrollo, datos de demostración: definir `DEMO_PASSWORD` en `.env` y correr `php artisan db:seed --class=DemoSeeder`
    (dos clínicas con un usuario por rol, clientes y pacientes; los usuarios están en
-   [`docs/testing/guia-postman.md`](docs/testing/guia-postman.md)). Se niega fuera de `local` y `testing`.
+   [`docs/05-pruebas/guia-postman.md`](../docs/05-pruebas/guia-postman.md)). Se niega fuera de `local` y `testing`.
 6. Correr los tests: `php artisan test` (SQLite en `database/testing.sqlite`, no toca MySQL). En MySQL, sobre una base aparte
    (`syncvet_test_mysql`): `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql php artisan test`. Cuándo correr cada una:
-   `CLAUDE.md` §3, Entorno.
+   `backend/CLAUDE.md` §3, Entorno.
 
 ## Variables de entorno propias
 
@@ -93,7 +93,7 @@ php artisan key:generate
 |---|---|---|
 | `EMAIL_DNS_CHECK` | `true` | Validar que el dominio del email exista. `phpunit.xml` lo desactiva |
 | `SANCTUM_EXPIRATION` | `720` | Minutos de vida de un token de la API (registro R-004) |
-| `TRUSTED_PROXIES` | vacía | Proxies de confianza para `X-Forwarded-For` ([`deployment.md`](docs/development/deployment.md)) |
+| `TRUSTED_PROXIES` | vacía | Proxies de confianza para `X-Forwarded-For` ([`deployment.md`](../docs/04-desarrollo/deployment.md)) |
 | `DEMO_PASSWORD` | vacía | Contraseña de los usuarios del `DemoSeeder` (al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos; no puede aparecer en filtraciones conocidas). Sin ella, el seeder no corre |
 
 ## Pendiente

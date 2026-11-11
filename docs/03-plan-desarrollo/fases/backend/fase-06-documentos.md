@@ -1,6 +1,6 @@
 # FASE 6 — Documentos
 
-Etapa: Comunicación. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
+Etapa: Comunicación. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -21,7 +21,7 @@ El diseño (paso 2) completa cada entrega con reglas de negocio, datos, endpoint
 
 ## Preguntas de negocio
 
-Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).
+Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisiones/registro.md`](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Pregunta | Respuesta | Fecha |
 |---|---|---|---|
@@ -31,8 +31,8 @@ Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](.
 
 ## Diseño
 
-PENDIENTE: lo completa el paso 2 ([`docs/prompts/2-diseno.md`](../prompts/2-diseno.md)), aplicando la regla de oro de
-[`docs/project/principios.md`](../project/principios.md).
+PENDIENTE: lo completa el paso 2 ([`docs/03-plan-desarrollo/prompts/2-diseno.md`](../../prompts/2-diseno.md)), aplicando la regla de oro de
+[`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 ## Criterio de cierre
 
@@ -43,7 +43,7 @@ Un documento emitido no cambia aunque se edite la plantilla; la descarga queda a
 Usar solo con el diseño aprobado.
 
 ```text
-Implementa la FASE 6 según docs/fases/fase-06-documentos.md (diseño aprobado).
+Implementa la FASE 6 según docs/03-plan-desarrollo/fases/backend/fase-06-documentos.md (diseño aprobado).
 
 - DocumentTemplateService: CRUD de plantillas con variables documentadas (paciente, tutor, clínica, veterinario, consulta).
 - PatientDocumentService: emitir desde una consulta o un paciente; guarda el contenido renderizado y el PDF; inmutable (solo se anula con motivo).
@@ -57,5 +57,5 @@ Sigue CLAUDE.md. Corre la suite e infórmame. No hagas commit.
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
+PENDIENTE: lo completa el cierre ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
 desvíos del diseño y por qué.

@@ -1,16 +1,20 @@
 # CLAUDE.md — SyncVet (Backend)
 
-Instrucciones permanentes para trabajar en este repositorio sin romper lo existente.
+Instrucciones permanentes para trabajar en el backend sin romper lo existente. El proceso y las reglas comunes a todo el repositorio
+(metodología, voseo en los informes, documentación por cambio, Git) están en el [`CLAUDE.md`](../CLAUDE.md) de la raíz: este archivo
+no las repite. Los comandos de esta guía se corren desde `backend/`, y las rutas de código (`app/…`, `tests/…`) son relativas a
+`backend/`.
 
 | Documento | Para qué |
 |---|---|
-| `CLAUDE.md` (este) | Reglas operativas, convenciones y reglas de negocio vigentes |
-| [`docs/README.md`](docs/README.md) | Índice, fuente de verdad de cada tema y qué actualizar en cada cambio |
-| [`docs/handoff.md`](docs/handoff.md) | Punto de continuidad y próximas tareas |
-| [`docs/roadmap/README.md`](docs/roadmap/README.md) | Estado por fase; el diseño de cada fase está en `docs/fases/` |
-| [`docs/prompts/README.md`](docs/prompts/README.md) | Los pasos de cada fase y su prompt |
-| [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deuda-tecnica.md) | Deuda técnica y discrepancias |
-| [`docs/testing/guia-postman.md`](docs/testing/guia-postman.md) | Pruebas manuales de la API, por fase |
+| `backend/CLAUDE.md` (este) | Reglas operativas, convenciones y reglas de negocio vigentes del backend |
+| [`CLAUDE.md`](../CLAUDE.md) de la raíz | Proceso y reglas comunes |
+| [`docs/README.md`](../docs/README.md) | Índice, fuente de verdad de cada tema y qué actualizar en cada cambio |
+| [`docs/03-plan-desarrollo/handoff.md`](../docs/03-plan-desarrollo/handoff.md) | Punto de continuidad y próximas tareas |
+| [`docs/03-plan-desarrollo/README.md`](../docs/03-plan-desarrollo/README.md) | Estado por fase; el diseño de cada fase está en `docs/03-plan-desarrollo/fases/backend/` |
+| [`docs/03-plan-desarrollo/prompts/README.md`](../docs/03-plan-desarrollo/prompts/README.md) | Los pasos de cada fase y su prompt |
+| [`docs/03-plan-desarrollo/deuda-tecnica.md`](../docs/03-plan-desarrollo/deuda-tecnica.md) | Deuda técnica y discrepancias |
+| [`docs/05-pruebas/guia-postman.md`](../docs/05-pruebas/guia-postman.md) | Pruebas manuales de la API, por fase |
 
 Si una regla de este archivo contradice al código, **el código manda**: registrar la discrepancia y avisar, en lugar de
 "corregir" por cuenta propia.
@@ -25,7 +29,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   `attended_at` y `no_show_at` de `appointments`, de la 3.2b). Una
   base compartida por todas las clínicas, con `clinic_id` en las tablas de negocio, scope global y fallo cerrado (D1, registros
   R-002, R-004 y R-007).
-* **Plan:** 11 fases (`docs/roadmap/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
+* **Plan:** 11 fases (`docs/03-plan-desarrollo/README.md`). La FASE 0 está completada: entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008),
   0.4 (R-012) y 0.5 (R-013 y R-014). La FASE 1 (clientes y pacientes) está completada (R-028): entregas 1.1 (traducciones,
   voseo y `PUT`/`PATCH`, R-017), 1.2 (clientes, R-018 y R-019), 1.3 (pacientes, R-020 a R-022), 1.4 (especies y razas, R-023
   a R-025) y 1.5 (foto del paciente, R-026 a R-028), las cuatro últimas validadas por el usuario con Postman. La FASE 2
@@ -54,7 +58,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`). Se corre sin Xdebug, con
   `composer test`, `composer test:mysql` y `composer test:fast` (en paralelo, con paratest; R-045).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
-  servicios, la configuración con el logo, la auditoría, las agendas, los turnos, la disponibilidad y la cola del día, con las colecciones de Postman de `docs/testing/postman`, que se pueden
+  servicios, la configuración con el logo, la auditoría, las agendas, los turnos, la disponibilidad y la cola del día, con las colecciones de Postman de `docs/05-pruebas/postman`, que se pueden
   correr más de una vez sin recrear la base.
 * **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
@@ -72,58 +76,28 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
   *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** historia clínica, aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
-* **Frontend:** repositorio aparte, React 19 + TypeScript + Vite + Tabler.
+* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; sin empezar.
 
 ---
 
-## 2. Metodología de trabajo
+## 2. Metodología de trabajo en el backend
 
-1. Inspeccionar el código existente relacionado (Service, Request, Resource, Enum, excepción, rutas, permisos, tests).
-2. Identificar las reglas de negocio y los módulos afectados (sección 6).
-3. Proponer el cambio mínimo y explicar su motivo. Las decisiones de negocio se consultan, no se suponen.
-4. Implementar solo el alcance autorizado.
-5. Ejecutar los tests pertinentes y la suite completa antes de dar algo por terminado.
-6. Verificar que no cambien contratos, permisos, `error_code` ni códigos HTTP existentes.
-7. Informar archivos modificados, tests ejecutados y resultados.
+La metodología, el ritmo común de las entregas, la documentación por cambio y Git están en el [`CLAUDE.md`](../CLAUDE.md) de la raíz,
+§2. En el backend, el paso 1 (inspeccionar) cubre el Service, el Request, el Resource, el Enum, la excepción, las rutas, los permisos
+y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `docs/03-plan-desarrollo/fases/backend/`.
 
-Los informes, resúmenes y mensajes al usuario van siempre en español (voseo), aunque el código y los comentarios técnicos estén en
-inglés.
+### Ritmo de las entregas (backend)
 
-En fases nuevas: primero diseño funcional y de datos (con las preguntas de negocio, en `docs/fases/`), después código. Ninguna
-entrega empieza sin autorización del usuario y ninguna fase se declara cerrada sin evidencia (código + tests).
-
-### Ritmo de las entregas
-
-Para que una entrega no tarde más de lo necesario:
-
-* En la implementación, mutaciones solo de las protecciones críticas de la entrega (alrededor de 5); la revisión hace las suyas.
-* En cada mutación se corren solo los tests relacionados; la suite completa, al final.
 * MySQL (`syncvet_test_mysql`) una vez por entrega, antes del cierre, salvo que la entrega toque migraciones, concurrencia,
   búsquedas de texto o autenticación: entonces también durante el trabajo.
 * Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
-  de composer o con `XDEBUG_MODE=off` (`development/testing.md`, Velocidad). Durante el trabajo, `composer test:fast` (SQLite en
+  de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, `composer test:fast` (SQLite en
   paralelo, alrededor de 1 min 20 s), y los tests sueltos, con `XDEBUG_MODE=off php vendor/bin/phpunit <archivo>`. Para el cierre,
   `composer test` (SQLite en serie, alrededor de 3 min 20 s) y `composer test:mysql` (de 5 a 6 min y medio): las cifras de
   aserciones del registro salen de la suite en serie.
 * En cada cierre de fase, `composer audit` tiene que quedar sin avisos. Un aviso se corrige con
   `composer update <paquete> --with-dependencies` dentro de las restricciones de `composer.json`. Si la corrección pide cambiar una
   restricción o subir de versión mayor, se consulta al usuario. Lo actualizado queda en el registro de decisiones (R-046).
-* Si una entrega junta temas distintos, proponer dividirla en el diseño.
-
-### Documentación por cambio
-
-Cada entrega actualiza, en la misma rama, lo que indica la tabla **Mantenimiento** de [`docs/README.md`](docs/README.md). La skill
-`/cerrar-entrega` lo hace sobre una entrega ya validada; `/validar-docs` audita enlaces y cifras; `/retomar` informa el estado al
-empezar una sesión.
-
-Los desvíos, decisiones pendientes y notas para el cierre se escriben en el repositorio (sección "Pendiente para el cierre" de la
-entrega en el documento de la fase) y se suben con el commit WIP, nunca solo en la memoria de Claude Code: el usuario trabaja en más
-de una PC.
-
-### Git
-
-* Nunca trabajar ni commitear en `main`. Una rama por tarea: `feature/…`, `fix/…`, `docs/…`, `test/…`.
-* Commit y push solo cuando el usuario lo pide. Mensajes en español, describiendo el porqué.
 
 ---
 
@@ -159,7 +133,7 @@ de una PC.
   `App\Support\ApiDateTime` (`toLocal`, `startOf`/`endOf` para una fecha sola, `ceilSecond`/`floorSecond` contra columnas sin
   fracción), nunca `Date::parse` sin zona. La conversión usa la zona `America/Asuncion` de PHP, nunca un `-03:00` fijo: Paraguay es
   UTC-3 todo el año desde el 15/10/2024, pero las fechas anteriores tenían horario de verano. PHP necesita la base de zonas 2025a o
-  posterior (o la extensión `timezonedb`; `development/setup.md`); `AsuncionTimezoneTest` falla con una base vieja.
+  posterior (o la extensión `timezonedb`; `docs/04-desarrollo/setup.md`); `AsuncionTimezoneTest` falla con una base vieja.
   **Zona de la sesión de MySQL** (deuda 16, R-047 y R-049, entrega 3.0): la conexión `mysql` (y la `mariadb`) fija
   `'timezone' => env('DB_TIMEZONE') ?: '-03:00'` (con `?:`, para que una variable vacía no mande `SET time_zone=''` y rompa toda
   conexión; `DatabaseTimezoneConfigTest`), y Laravel la aplica al conectar y al reconectar; así las columnas `timestamp` no
@@ -261,7 +235,7 @@ de una PC.
 * **Datos de ejemplo:** documentos ficticios. RUC `999999xx` con su dígito verificador y cédulas `99xxxxxx` (R-011); la
   `ClinicFactory`, RUC de 9 dígitos, que hoy no se emiten (R-013). Nunca un número de 7 dígitos (el rango de las cédulas
   reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
-  guía de Postman; los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
+  guía de Postman con sus colecciones (`docs/05-pruebas`); los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`. `apiResource` también registra `PUT`, con la
   misma semántica parcial: no reemplaza el recurso ni borra los campos que no se envían (`HttpVerbsTest`).
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
@@ -285,7 +259,7 @@ de una PC.
 * Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) una vez por entrega, antes del
   cierre, y también durante el trabajo si se tocan migraciones, búsquedas de texto, concurrencia o autenticación (§2, Ritmo de
   las entregas): `composer test:mysql`. La de SQLite y la de MySQL, nunca a la vez: comparten los discos falsos de
-  `Storage::fake` (`development/testing.md`). Los procesos de una misma suite con `--parallel` sí se pueden correr juntos, porque
+  `Storage::fake` (`docs/04-desarrollo/testing.md`). Los procesos de una misma suite con `--parallel` sí se pueden correr juntos, porque
   cada uno tiene su base y sus discos. Sin red: `Http::preventStrayRequests()` y Have I Been Pwned simulado en `TestCase`, y
   `EMAIL_DNS_CHECK=false` (la rama con DNS, en `EmailDnsCheckTest`). Un test que compara una hora calculada congela el reloj
   (`freezeTime()`).
@@ -337,7 +311,7 @@ errores sí usan el contrato.
 | 405 | `METHOD_NOT_ALLOWED` | Método HTTP no admitido en la ruta |
 | 406 | `NOT_ACCEPTABLE` | Formato de respuesta no aceptable |
 | 409 | `CONFLICT` | `abort(409)` u otro conflicto HTTP sin excepción de dominio |
-| 413 | `PAYLOAD_TOO_LARGE` | El pedido supera `post_max_size` de PHP (`development/setup.md`); la foto de más de 5 MB y el logo de más de 2 MB responden lo mismo, con `errors.photo` o `errors.logo` |
+| 413 | `PAYLOAD_TOO_LARGE` | El pedido supera `post_max_size` de PHP (`docs/04-desarrollo/setup.md`); la foto de más de 5 MB y el logo de más de 2 MB responden lo mismo, con `errors.photo` o `errors.logo` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Tipo de contenido no soportado |
 | 422 | `VALIDATION_ERROR` | Falla un Form Request (`errors` trae los campos) |
 | 429 | `TOO_MANY_REQUESTS` | Límite de pedidos (conserva `Retry-After`) |
@@ -449,7 +423,7 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   422; más grande → 413 `PAYLOAD_TOO_LARGE`. La imagen se vuelve a codificar con GD en su mismo formato (`ImageReencoder`,
   R-027): se pierden los metadatos (EXIF, también el GPS) y lo que venga pegado después de la imagen, y la orientación del EXIF
   se aplica a los píxeles. Si GD no la decodifica → 422; de más de 25 megapíxeles → 422, antes de decodificar. GD con JPEG, PNG y
-  WEBP es obligatoria (`development/setup.md`). Disco propio `patient_photos` (`storage/app/private/patient-photos`; ningún
+  WEBP es obligatoria (`docs/04-desarrollo/setup.md`). Disco propio `patient_photos` (`storage/app/private/patient-photos`; ningún
   disco tiene `serve`), en `clinics/{clinic_id}/patients/{patient_id}/{uuid}.{ext}` con la extensión del tipo detectado, sin
   redimensionar (`PatientPhotoService`). `photo_path` no es asignable en masa: solo lo cambia el Service. Ver, borrar o
   reemplazar usan `photo_path` solo si es un archivo de la carpeta del paciente; si no, 404 `PATIENT_PHOTO_NOT_FOUND` (al
@@ -829,7 +803,7 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
     (`UndoNoShowAppointmentRequest`; permiso `appointments.overbook`, si no, 403 `FORBIDDEN`), que entra con `is_overbooked: true`. Un
     turno que ya era sobreturno vuelve sin mandar `overbook`, pero exige `appointments.overbook` con el horario tomado o libre (si no,
     403 `FORBIDDEN`). `is_overbooked` queda en si se superpone.
-  * La relación con la consulta la decide la FASE 4 ([propuesta](docs/fases/fase-03-agenda-y-turnos.md#relación-con-la-consulta-fase-4)).
+  * La relación con la consulta la decide la FASE 4 ([propuesta](../docs/03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#relación-con-la-consulta-fase-4)).
 * **Disponibilidad** (3.4, R-055; `GET schedules/{schedule}/availability`, permiso `schedules.availability`, de los tres roles;
   `ScheduleAvailabilityService`): los horarios que el alta de un turno aceptaría, con las mismas reglas y el mismo código
   (`ScheduleOccupancy`, §3). Solo lectura: no bloquea nada y el alta vuelve a revisar.
@@ -880,7 +854,7 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
 
 ## 7. Deuda técnica abierta
 
-Resumen; el detalle está en [`docs/roadmap/deuda-tecnica.md`](docs/roadmap/deuda-tecnica.md).
+Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../docs/03-plan-desarrollo/deuda-tecnica.md).
 
 | # | Deuda |
 |---|---|

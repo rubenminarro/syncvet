@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 1: validación de clientes",
-        "description": "Validación manual de clientes (FASE 1, entregas 1.2 y 1.3; R-018). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Se puede correr más de una vez sin recrear la base: el primer request genera documentos y emails únicos de la corrida. Completar la variable demo_password con la DEMO_PASSWORD del .env. Ver docs/testing/guia-postman.md.",
+        "description": "Validación manual de clientes (FASE 1, entregas 1.2 y 1.3; R-018). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Se puede correr más de una vez sin recrear la base: el primer request genera documentos y emails únicos de la corrida. Completar la variable demo_password con la DEMO_PASSWORD del .env. Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {

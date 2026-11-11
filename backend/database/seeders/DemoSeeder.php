@@ -27,7 +27,7 @@ use RuntimeException;
 /**
  * Datos de demostración para desarrollo y Postman (entrega 0.4): dos clínicas, cada
  * una con un usuario por rol (administrador, recepcionista y veterinario con su
- * ficha), clientes y pacientes. Los usuarios están en docs/testing/guia-postman.md.
+ * ficha), clientes y pacientes. Los usuarios están en docs/05-pruebas/guia-postman.md.
  *
  * - Solo en local y testing: en otro entorno se niega (crea usuarios con una
  *   contraseña conocida).

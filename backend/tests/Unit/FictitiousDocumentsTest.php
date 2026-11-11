@@ -8,7 +8,7 @@ use Symfony\Component\Finder\Finder;
 
 /**
  * Documentos de ejemplo ficticios (R-011, R-013): ningún número de los tests, las
- * factories, los seeders, los fixtures ni la guía de Postman puede ser una cédula
+ * factories, los seeders, los fixtures, la guía de Postman ni sus colecciones puede ser una cédula
  * o un RUC de una persona o empresa real.
  *
  * Se revisa toda secuencia de 7 a 9 dígitos, escrita como sea: con o sin comillas,
@@ -33,7 +33,10 @@ class FictitiousDocumentsTest extends TestCase
      */
     private const DIRECTORIES = ['tests', 'database/factories', 'database/seeders'];
 
-    private const FILES = ['docs/testing/guia-postman.md'];
+    /**
+     * Documentación revisada, relativa a la raíz del repositorio (monorepo, R-057): la guía de Postman y sus colecciones.
+     */
+    private const DOCS = ['docs/05-pruebas/guia-postman.md', 'docs/05-pruebas/postman/*.json'];
 
     /**
      * Documentos reales permitidos, por archivo y con su motivo. Se anotan los
@@ -45,6 +48,10 @@ class FictitiousDocumentsTest extends TestCase
         'tests/Unit/RucCheckDigitTest.php' => [
             'reason' => 'RUC publicados por la DNIT, para contrastar el algoritmo del dígito verificador (R-010)',
             'documents' => ['80000519', '80002675', '80002201', '80003457', '80004866', '80022955', '80020753'],
+        ],
+        'docs/05-pruebas/postman/syncvet-fase-01-clientes.postman_collection.json' => [
+            'reason' => 'Una base ficticia (99xxxxxx) con el dígito verificador mal a propósito: la colección comprueba que la API rechace un RUC con el dígito incorrecto (el correcto es 9)',
+            'documents' => ['99300002'],
         ],
         'tests/Unit/FictitiousDocumentsTest.php' => [
             'reason' => 'Ejemplos de documentos reales que este test tiene que rechazar. Además repite, en esta lista, los de los demás archivos',
@@ -206,8 +213,16 @@ class FictitiousDocumentsTest extends TestCase
             $files[str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1))] = $file->getContents();
         }
 
-        foreach (self::FILES as $path) {
-            $files[$path] = file_get_contents("{$root}/{$path}");
+        // La documentación vive fuera de backend/: se nombra desde la raíz del repositorio.
+        $repository = dirname($root);
+
+        foreach (self::DOCS as $pattern) {
+            $found = glob("{$repository}/{$pattern}");
+            $this->assertNotEmpty($found, "No se encontró {$pattern} en la raíz del repositorio.");
+
+            foreach ($found as $path) {
+                $files[substr(str_replace('\\', '/', $path), strlen(str_replace('\\', '/', $repository)) + 1)] = file_get_contents($path);
+            }
         }
 
         return $files;

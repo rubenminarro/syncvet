@@ -4,7 +4,7 @@ Etapa: Atención. Estado: **COMPLETADO** el 2026-11-11 (R-056): entregas 3.0 (R-
 (R-054) y 3.4 (R-055) cerradas; diseño aprobado por el usuario el 2026-11-10, con las preguntas de negocio 1 a 12 (R-047) y las
 [preguntas del diseño](#preguntas-del-diseño) 13 a 25 respondidas (R-048). Ver el [cierre de la fase](#cierre-de-la-fase-3). El
 estado vigente de cada fase está en
-[`docs/roadmap/README.md`](../roadmap/README.md).
+[`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -58,7 +58,7 @@ Las preguntas que deja el diseño están al final, en [Preguntas del diseño](#p
 
 ## Regla de oro aplicada
 
-Análisis con [`docs/project/principios.md`](../project/principios.md).
+Análisis con [`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 | Pregunta | Agenda (horario semanal) | Bloqueo | Turno |
 |---|---|---|---|
@@ -611,7 +611,7 @@ con su test con el rol de la operación. Cumplido todo menos `composer audit` si
 Usar solo con el diseño aprobado, una entrega por vez.
 
 ```text
-Implementa la entrega 3.X de la FASE 3 según docs/fases/fase-03-agenda-y-turnos.md (diseño aprobado).
+Implementa la entrega 3.X de la FASE 3 según docs/03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md (diseño aprobado).
 
 - Respeta las respuestas de R-047 y las de las preguntas del diseño.
 - Reutiliza lo existente (CatalogLock, CatalogName, ListFilters, SearchTerm, ApiDateTime, AppDateTime, PersonName, AppointmentStatus).
@@ -622,7 +622,7 @@ Implementa la entrega 3.X de la FASE 3 según docs/fases/fase-03-agenda-y-turnos
 
 ## Resultado
 
-Lo completa el cierre de cada entrega ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
+Lo completa el cierre de cada entrega ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y
 aserciones, desvíos del diseño y por qué.
 
 ### Entrega 3.0
@@ -630,7 +630,7 @@ aserciones, desvíos del diseño y por qué.
 Implementación en `feature/fase-03-00-zona-mysql`, creada desde `docs/fase-03-diseno`, revisada en una sesión de Claude Code aparte
 de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-049)) y validada por el usuario
 ([validación del usuario](#validación-del-usuario-r-049)). La implementación y las correcciones quedaron en dos commits WIP (`7c92097`
-y `a0f9a4e`), y el cierre va en un commit aparte. Decisiones en R-047 y [R-049](../decisions/registro.md).
+y `a0f9a4e`), y el cierre va en un commit aparte. Decisiones en R-047 y [R-049](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -698,7 +698,7 @@ sigue abierta.
 Implementación en `feature/fase-03-01-agendas`, creada desde `feature/fase-03-00-zona-mysql`, revisada en una sesión de Claude Code
 aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-050)) y validada por el usuario
 ([validación del usuario](#validación-del-usuario-r-050)). La implementación quedó en el commit WIP `aa96fed`; las correcciones y el
-cierre van en el commit de cierre. Decisiones en [R-050](../decisions/registro.md).
+cierre van en el commit de cierre. Decisiones en [R-050](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -779,7 +779,7 @@ solo cambia el orden de los bloqueos y suma un 409 `CONFLICT` que aparece única
 Implementación en `feature/fase-03-02a-turnos`, creada desde `feature/fase-03-01-agendas`, revisada en una sesión de Claude Code
 aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-051)) y validada por el usuario
 ([validación del usuario](#validación-del-usuario-r-051)). La implementación quedó en el commit WIP `fa03b6f` y las correcciones en
-`b0dd969`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-051](../decisions/registro.md).
+`b0dd969`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-051](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -883,7 +883,7 @@ Implementación en `feature/fase-03-02b-estados`, creada desde `feature/fase-03-
 aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-053)) y validada por el usuario
 ([validación del usuario](#validación-del-usuario-r-053)). La implementación quedó en el commit WIP `a1a1ab4` y las correcciones en
 `d811fa1`; el cierre va en un commit aparte, solo de documentación. En la misma rama, `964db22` saca `disallowed-tools` de las skills
-de lectura (R-052, sin relación con la entrega). Decisiones en [R-053](../decisions/registro.md).
+de lectura (R-052, sin relación con la entrega). Decisiones en [R-053](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -994,7 +994,7 @@ inactivar la agenda del día. Suite: la del cierre.
 Implementación en `feature/fase-03-03-recurrentes`, creada desde `feature/fase-03-02b-estados`, revisada en una sesión de Claude Code
 aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-054)) y validada por el usuario
 ([validación del usuario](#validación-del-usuario-r-054)). La implementación quedó en el commit WIP `04789c9` y las correcciones en
-`e4fe8c5`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-054](../decisions/registro.md).
+`e4fe8c5`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-054](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -1119,7 +1119,7 @@ errores. Suite: la del cierre (la última corrida en serie, en SQLite y en MySQL
 Implementación en `feature/fase-03-04-disponibilidad`, creada desde `feature/fase-03-03-recurrentes`, revisada en una sesión de Claude
 Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-055)) y validada por el
 usuario ([validación del usuario](#validación-del-usuario-r-055)). La implementación quedó en el commit WIP `38ca91a` y las
-correcciones en `4862658`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-055](../decisions/registro.md).
+correcciones en `4862658`; el cierre va en un commit aparte, solo de documentación. Decisiones en [R-055](../../../01-arquitectura/decisiones/registro.md).
 Es la última entrega de la fase: el cierre de la FASE 3 (`composer audit`, el criterio de cierre, el módulo COMPLETADO y el merge a
 `main`) va aparte.
 
@@ -1258,7 +1258,7 @@ nuevos (`SCHEDULE_*`, `APPOINTMENT_*` y el `CONFLICT` de agendas y turnos) está
 omitidos. Frente al cierre de la FASE 2 (988 casos; 10816 y 10836 aserciones): 407 casos más. La corrida en `main` después del merge,
 antes del push, la informa el cierre (R-056).
 
-**Colecciones de Postman** (`docs/testing/postman`; se corren más de una vez sin recrear la base, [guía](../testing/guia-postman.md)).
+**Colecciones de Postman** (`docs/05-pruebas/postman`; se corren más de una vez sin recrear la base, [guía](../../../05-pruebas/guia-postman.md)).
 Regresión del cierre (2026-11-11, Newman, base de desarrollo, servidor en el puerto 8001): las cuatro de la FASE 3 y las de
 veterinarios y servicios de la FASE 2, sin fallas.
 
@@ -1284,7 +1284,7 @@ veterinarios y servicios de la FASE 2, sin fallas.
 | Suite en verde en SQLite y en MySQL | La suite del cierre, en las dos bases, una después de la otra |
 | `composer audit` sin avisos | 2026-11-11: "No security vulnerability advisories found."; nada que actualizar |
 
-**Deudas** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resuelta en la fase: 16 (la zona de la sesión de MySQL, R-049). Nueva:
+**Deudas** ([`deuda-tecnica.md`](../../deuda-tecnica.md)). Resuelta en la fase: 16 (la zona de la sesión de MySQL, R-049). Nueva:
 17 (el tope de 2038 de las columnas `timestamp`, R-047; prioridad baja). La 2, cumplida en los modelos de la fase (`Schedule`,
 `ScheduleHour` y `ScheduleBlock` en la 3.1; `Appointment` en la 3.2a y la 3.2b) y abierta para los demás. Abiertas al cerrar: 2, 3
 (códigos SIFEN sin verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en ráfagas con la caché `database`), 15 (foto
@@ -1292,7 +1292,7 @@ con un `photo_path` fuera de su carpeta) y 17.
 
 **Decisiones de la fase.** R-047 (análisis, preguntas de negocio y solución de la deuda 16), R-048 (aprobación del diseño, preguntas 13
 a 25), R-049 (3.0), R-050 (3.1), R-051 (3.2a), R-052 (las skills de lectura, sin relación con la API), R-053 (3.2b), R-054 (3.3), R-055
-(3.4) y R-056 (cierre y merge), en el [registro](../decisions/registro.md). Las que cambian reglas de fases anteriores: los turnos son
+(3.4) y R-056 (cierre y merge), en el [registro](../../../01-arquitectura/decisiones/registro.md). Las que cambian reglas de fases anteriores: los turnos son
 uso del cliente, con el mensaje nuevo de `CLIENT_IN_USE`, y las bajas del cliente y del paciente revisan el uso con su fila bloqueada
 (pregunta 21, R-051); el cambio de dueño del paciente en una transacción con el paciente y los dos clientes bloqueados (R-051); la zona
 fija de la sesión de MySQL y el reloj de MySQL prohibido en código nuevo (R-049); la baja física de las agendas, excepción a "datos

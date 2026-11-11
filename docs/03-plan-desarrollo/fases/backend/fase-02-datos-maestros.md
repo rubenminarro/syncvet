@@ -1,7 +1,7 @@
 # FASE 2 — Datos maestros
 
 Etapa: Base. Estado: **COMPLETADO** el 2026-11-10 (R-044): entregas 2.1 (R-030 y R-031), 2.2a (R-032 y R-033), 2.2b (R-034 y R-035), 2.3 (R-036 y R-037), 2.4 (R-038 y R-039), 2.5 (R-040 y R-041) y 2.6 (R-042 y R-043) cerradas; diseño aprobado el 2026-11-06, con las preguntas 16 a 31 según su propuesta (R-029). Ver el [cierre de la fase](#cierre-de-la-fase-2). El estado vigente de
-cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
+cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -51,7 +51,7 @@ Las preguntas que deja el diseño están al final, en [Preguntas del diseño](#p
 
 ## Regla de oro aplicada
 
-Análisis con [`docs/project/principios.md`](../project/principios.md).
+Análisis con [`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 | Pregunta | Sucursal / depósito | Usuario | Veterinario | Servicio | Configuración y logo |
 |---|---|---|---|---|---|
@@ -417,7 +417,7 @@ claves. Orden: clínica → configuración.
 **Mutaciones críticas:** quitar la validación de la ruta del logo; quitar el umbral de 24 horas; no contar los pacientes eliminados
 en la limpieza; quitar el bloqueo de la clínica al reemplazar el logo; aceptar una clave fuera de la lista.
 
-**Postman:** `syncvet-fase-02-configuracion` con dos archivos en `docs/testing/postman/archivos`.
+**Postman:** `syncvet-fase-02-configuracion` con dos archivos en `docs/05-pruebas/postman/archivos`.
 
 ### 2.6 Auditoría (y deuda 13)
 
@@ -509,7 +509,7 @@ resueltas; la 2 revisada en los modelos de la fase.
 Usar solo con el diseño aprobado, una entrega por vez.
 
 ```text
-Implementa la entrega 2.X de la FASE 2 según docs/fases/fase-02-datos-maestros.md (diseño aprobado).
+Implementa la entrega 2.X de la FASE 2 según docs/03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md (diseño aprobado).
 
 - Respeta las respuestas de R-029 y las de las preguntas del diseño.
 - Reutiliza lo existente (CatalogLock, CatalogName, DeletedSuffix, DocumentSequenceService, ImageReencoder, ListFilters, SearchTerm).
@@ -518,7 +518,7 @@ Implementa la entrega 2.X de la FASE 2 según docs/fases/fase-02-datos-maestros.
 
 ## Resultado
 
-Lo completa el cierre de cada entrega ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
+Lo completa el cierre de cada entrega ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y
 aserciones, desvíos del diseño y por qué.
 
 ### Entrega 2.1
@@ -526,13 +526,13 @@ aserciones, desvíos del diseño y por qué.
 Implementación en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno` (`405ea96`), revisada en una sesión de
 Claude Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-031)) y
 validada por el usuario ([validación del usuario](#validación-del-usuario-r-031)). Implementación, correcciones y cierre van en
-un solo commit. Decisiones en [R-030](../decisions/registro.md) y R-031.
+un solo commit. Decisiones en [R-030](../../../01-arquitectura/decisiones/registro.md) y R-031.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `BranchController`, `BranchWarehouseController` y `WarehouseController`; `IndexBranchRequest`, `StoreBranchRequest`, `UpdateBranchRequest`, `IndexWarehouseRequest`, `StoreWarehouseRequest`, `UpdateWarehouseRequest` y `BranchMessages`; `BranchResource`, `ShowBranchResource` y `WarehouseResource`; `BranchService` y `WarehouseService`; `BranchException`; `tests/Feature/Branches` (`BranchIndexTest`, `BranchStoreTest`, `BranchUpdateTest`, `WarehouseTest`, `BranchLockTest`) y `tests/Concerns/InteractsWithBranches`; `docs/testing/postman/syncvet-fase-02-sucursales.postman_collection.json` |
+| Nuevos | `BranchController`, `BranchWarehouseController` y `WarehouseController`; `IndexBranchRequest`, `StoreBranchRequest`, `UpdateBranchRequest`, `IndexWarehouseRequest`, `StoreWarehouseRequest`, `UpdateWarehouseRequest` y `BranchMessages`; `BranchResource`, `ShowBranchResource` y `WarehouseResource`; `BranchService` y `WarehouseService`; `BranchException`; `tests/Feature/Branches` (`BranchIndexTest`, `BranchStoreTest`, `BranchUpdateTest`, `WarehouseTest`, `BranchLockTest`) y `tests/Concerns/InteractsWithBranches`; `docs/05-pruebas/postman/syncvet-fase-02-sucursales.postman_collection.json` |
 | Cambiados | `routes/api.php` (`apiResource` de sucursales sin `destroy`, depósitos anidados con `index` y `store`, y `warehouses` con `update`), `Branch` y `Warehouse` (deuda 2, abajo), `RolesAndPermissionsSeeder` (`branches.index` al recepcionista y al veterinario, pregunta 19), `lang/es/validation.php` (`establishment`, `is_default`, `warehouse_code`, `warehouse_name`, `branch_id`), `ClinicCreateCommand` (descripción "Alta de una clínica…", por el verbo `crear` de `VoseoTest`) |
 | Tests cambiados | `RoleAccessTest` (parámetros `branch` y `warehouse`), `RouteBindingTest` (sucursal y depósito de otra clínica → 404 en cada ruta, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas), `VoseoTest` (verbo `crear`), `tests/Fixtures/clinic-roles.json` |
 | Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo clínica → sucursal → depósito o usuario) y §6.4 nueva (las pendientes de diseño pasan a §6.5); la guía de Postman; este documento, el registro (R-030 y R-031), la deuda técnica (2, revisada en `Branch` y `Warehouse`), el handoff y los documentos de estado |
@@ -587,7 +587,7 @@ código en mayúsculas y el nombre limpio de espacios (`CatalogName::clean`) al 
 
 La revisión de la 2.1, en una sesión aparte de la implementación, encontró un hallazgo de gravedad media (el desvío 7, rechazado)
 y cuatro de baja: tests que pasaban con la regla rota. El usuario pidió corregirlos. Decisiones en
-[R-031](../decisions/registro.md).
+[R-031](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
 |---|---|---|---|---|
@@ -615,13 +615,13 @@ y depósitos queda COMPLETADO; la FASE 2 sigue con la 2.2a (usuarios).
 Implementación en `feature/fase-02-02a-usuarios`, creada desde `feature/fase-02-01-sucursales`, revisada en una sesión de Claude
 Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-033)) y validada por el
 usuario ([validación del usuario](#validación-del-usuario-r-033)). Implementación, correcciones y cierre van en un solo commit.
-Decisiones en [R-032](../decisions/registro.md) y R-033.
+Decisiones en [R-032](../../../01-arquitectura/decisiones/registro.md) y R-033.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `UserController` y `RoleController`; `IndexUserRequest`, `StoreUserRequest`, `UpdateUserRequest` y `UserMessages`; `UserResource`, `ShowUserResource` y `RoleResource`; `UserService`; `UserException`; `App\Enums\UserRole`; `App\Support\PersonName` (R-033); `tests/Feature/Users` (`UserStoreTest`, `UserUpdateTest`, `UserIndexTest`, `UserLockTest`, `RolesIndexTest`) y `tests/Concerns/InteractsWithUsers`; `docs/testing/postman/syncvet-fase-02-usuarios.postman_collection.json` |
+| Nuevos | `UserController` y `RoleController`; `IndexUserRequest`, `StoreUserRequest`, `UpdateUserRequest` y `UserMessages`; `UserResource`, `ShowUserResource` y `RoleResource`; `UserService`; `UserException`; `App\Enums\UserRole`; `App\Support\PersonName` (R-033); `tests/Feature/Users` (`UserStoreTest`, `UserUpdateTest`, `UserIndexTest`, `UserLockTest`, `RolesIndexTest`) y `tests/Concerns/InteractsWithUsers`; `docs/05-pruebas/postman/syncvet-fase-02-usuarios.postman_collection.json` |
 | Cambiados | `routes/api.php` (`apiResource` de usuarios sin `destroy` y `GET roles`), `lang/es/validation.php` (`roles`, `roles.*`, `role`, `branch_ids`, `branch_ids.*`), `StoreClientRequest`, `UpdateClientRequest` y `ClientMessages` (nombres de personas, R-033), `.gitignore` (`*.code-workspace`) |
 | Tests cambiados | `RoleAccessTest` (parámetro `user`), `RouteBindingTest` (usuario de otra clínica → 404 en `GET`, `PATCH` y `PUT`, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas; el nombre de un campo con comodín, `roles.*`, se busca como lo hace el validador), `ClientStoreTest` y `ClientUpdateTest` (nombres con apóstrofo y guion) |
 | Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo clínica → usuario), §6.1 (nombres de personas) y §6.5 nueva, usuarios (las pendientes de diseño pasan a §6.6); la guía de Postman; este documento, el registro (R-032 y R-033), la deuda técnica (2, revisada en `User`), el handoff y los documentos de estado |
@@ -695,7 +695,7 @@ sobre el mismo código: la del cierre (706 casos; 8277 aserciones en SQLite con 
 Implementación en `feature/fase-02-02b-usuarios`, creada desde `feature/fase-02-02a-usuarios`, revisada en una sesión de Claude
 Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-035)) y validada por el
 usuario ([validación del usuario](#validación-del-usuario-r-035)). Implementación, correcciones y cierre van en un solo commit.
-Decisiones en [R-034](../decisions/registro.md) y R-035.
+Decisiones en [R-034](../../../01-arquitectura/decisiones/registro.md) y R-035.
 
 **Archivos.**
 
@@ -779,13 +779,13 @@ en MySQL). La FASE 2 sigue con la 2.3 (veterinarios).
 Implementación en `feature/fase-02-03-veterinarios`, creada desde `feature/fase-02-02b-usuarios`, revisada en una sesión de Claude
 Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-037)) y validada por el
 usuario ([validación del usuario](#validación-del-usuario-r-037)). La implementación y las correcciones quedaron en dos commits WIP
-(`4ff4a4c` y `c6a6847`), y el cierre va en un commit aparte. Decisiones en [R-036](../decisions/registro.md) y R-037.
+(`4ff4a4c` y `c6a6847`), y el cierre va en un commit aparte. Decisiones en [R-036](../../../01-arquitectura/decisiones/registro.md) y R-037.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `database/migrations/2026_11_09_000000_widen_veterinarians_license_number.php`; `VeterinarianController`; `IndexVeterinarianRequest`, `StoreVeterinarianRequest`, `UpdateVeterinarianRequest` y `VeterinarianMessages`; `VeterinarianResource` y `ShowVeterinarianResource`; `VeterinarianService`; `tests/Feature/Veterinarians` (`VeterinarianStoreTest`, `VeterinarianRestoreTest`, `VeterinarianUpdateTest`, `VeterinarianDeleteTest`, `VeterinarianIndexTest`, `VeterinarianLockTest`), `tests/Feature/Database/VeterinarianLicenseMigrationTest`, `tests/Concerns/InteractsWithVeterinarians` e `InspectsQueries` (los helpers del orden de las consultas, sacados de `UserLockTest`); `docs/testing/postman/syncvet-fase-02-veterinarios.postman_collection.json` |
+| Nuevos | `database/migrations/2026_11_09_000000_widen_veterinarians_license_number.php`; `VeterinarianController`; `IndexVeterinarianRequest`, `StoreVeterinarianRequest`, `UpdateVeterinarianRequest` y `VeterinarianMessages`; `VeterinarianResource` y `ShowVeterinarianResource`; `VeterinarianService`; `tests/Feature/Veterinarians` (`VeterinarianStoreTest`, `VeterinarianRestoreTest`, `VeterinarianUpdateTest`, `VeterinarianDeleteTest`, `VeterinarianIndexTest`, `VeterinarianLockTest`), `tests/Feature/Database/VeterinarianLicenseMigrationTest`, `tests/Concerns/InteractsWithVeterinarians` e `InspectsQueries` (los helpers del orden de las consultas, sacados de `UserLockTest`); `docs/05-pruebas/postman/syncvet-fase-02-veterinarios.postman_collection.json` |
 | Cambiados | `routes/api.php` (`apiResource('veterinarians')`), `Veterinarian` (deuda 2, abajo), `UserService` (`USER_IS_VETERINARIAN`), `ShowUserResource` (`veterinarian`), `lang/es/validation.php` (`user_id`, `license_number`, `specialty`, `commission_percentage`, `status`; `include_inactive` pasa a "incluir los inactivos", R-037) |
 | Tests cambiados | `RoleAccessTest` (parámetro `veterinarian`), `RouteBindingTest` (veterinario de otra clínica → 404 en cada ruta, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas), `UserLockTest` (usa `InspectsQueries`), `UserUpdateTest` (`USER_IS_VETERINARIAN` y `veterinarian` en el detalle) |
 | Documentación | `CLAUDE.md` §1, §3 (orden clínica → usuario → veterinario → serie y la baja), §4 (`USER_IS_VETERINARIAN`, `VETERINARIAN_IN_USE`) y §6.6 nueva, veterinarios (las pendientes de diseño pasan a §6.7); la guía de Postman; este documento, el de la [FASE 3](fase-03-agenda-y-turnos.md) (la baja con uso en Postman), el registro (R-036 y R-037), la deuda técnica (2, revisada en `Veterinarian`), el handoff y los documentos de estado |
@@ -876,13 +876,13 @@ Implementación en `feature/fase-02-04-servicios`, creada desde `feature/fase-02
 Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-039)) y validada por el
 usuario ([validación del usuario](#validación-del-usuario-r-039)). La implementación y las correcciones quedaron en dos commits WIP
 (`a2079a2` y `a5fad25`), y el cierre va en un commit aparte, con la corrección de la 2.3 (abajo). Decisiones en
-[R-038](../decisions/registro.md) y R-039.
+[R-038](../../../01-arquitectura/decisiones/registro.md) y R-039.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `ServiceController`; `IndexServiceRequest`, `StoreServiceRequest`, `UpdateServiceRequest` y `ServiceMessages` (con su `NAME_REGEX`, R-039); `ServiceResource` y `ShowServiceResource`; `ServiceCatalogService`; `App\Rules\WholeAmount` (el precio entero); `tests/Feature/Services` (`ServiceStoreTest`, `ServiceUpdateTest`, `ServiceDeleteTest`, `ServiceIndexTest`, `ServiceLockTest`) y `tests/Concerns/InteractsWithServices`; `docs/testing/postman/syncvet-fase-02-servicios.postman_collection.json` |
+| Nuevos | `ServiceController`; `IndexServiceRequest`, `StoreServiceRequest`, `UpdateServiceRequest` y `ServiceMessages` (con su `NAME_REGEX`, R-039); `ServiceResource` y `ShowServiceResource`; `ServiceCatalogService`; `App\Rules\WholeAmount` (el precio entero); `tests/Feature/Services` (`ServiceStoreTest`, `ServiceUpdateTest`, `ServiceDeleteTest`, `ServiceIndexTest`, `ServiceLockTest`) y `tests/Concerns/InteractsWithServices`; `docs/05-pruebas/postman/syncvet-fase-02-servicios.postman_collection.json` |
 | Cambiados | `routes/api.php` (`apiResource('services')`), `Service` (deuda 2, abajo), `lang/es/validation.php` (`category`, `description`, `duration_minutes`, `standard_price`, `tax_rate`); en el cierre, `VeterinarianService` (corrección de la 2.3, abajo) |
 | Tests cambiados | `RoleAccessTest` (parámetro `service`), `RouteBindingTest` (servicio de otra clínica → 404 en cada ruta, sin cambios), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas y `WholeAmount`, con su propio mensaje); en el cierre, `VeterinarianStoreTest` |
 | Documentación | `CLAUDE.md` §1, §3 (orden clínica → servicio → serie y las violaciones de índice único por el nombre del índice), §4 (`SERVICE_NAME_NOT_EDITABLE`, `SERVICE_IN_USE`) y §6.7 nueva, servicios (las pendientes de diseño pasan a §6.8); la guía de Postman; este documento, el de la [FASE 3](fase-03-agenda-y-turnos.md) (un servicio usado en Postman), el registro (R-038 y R-039), la deuda técnica (2, revisada en `Service`), el handoff y los documentos de estado |
@@ -981,13 +981,13 @@ validación con Postman (un 500), revisada en una sesión de Claude Code aparte 
 ([correcciones de la revisión](#correcciones-de-la-revisión-r-041)) y validada por el usuario
 ([validación del usuario](#validación-del-usuario-r-041)). La implementación, la corrección del 500 y las correcciones de la revisión
 quedaron en tres commits WIP (`fe10d2b`, `62b160e` y `f0b906a`), y el cierre va en un commit aparte. Decisiones en
-[R-040](../decisions/registro.md) y R-041.
+[R-040](../../../01-arquitectura/decisiones/registro.md) y R-041.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `SystemSettingsController` y `ClinicLogoController`; `UpdateSystemSettingsRequest`, `UploadClinicLogoRequest` y `PrivateImageRequest` (base abstracta, también de la foto); `SystemSettingsResource`; `SystemSetting`; `SystemSettingKey`; `SystemSettingsService`, `ClinicLogoService` y `OrphanFileService`; `App\Support\PrivateImageStore`; `PruneOrphanFilesCommand` (`files:prune-orphans`); `tests/Feature/Settings` (`SystemSettingsTest`, `ClinicLogoTest`, `PruneOrphanFilesTest` y `ClinicPaths`); `docs/testing/postman/syncvet-fase-02-configuracion.postman_collection.json` y, en `postman/archivos`, `logo-clinica.png` y `logo-clinica.webp` |
+| Nuevos | `SystemSettingsController` y `ClinicLogoController`; `UpdateSystemSettingsRequest`, `UploadClinicLogoRequest` y `PrivateImageRequest` (base abstracta, también de la foto); `SystemSettingsResource`; `SystemSetting`; `SystemSettingKey`; `SystemSettingsService`, `ClinicLogoService` y `OrphanFileService`; `App\Support\PrivateImageStore`; `PruneOrphanFilesCommand` (`files:prune-orphans`); `tests/Feature/Settings` (`SystemSettingsTest`, `ClinicLogoTest`, `PruneOrphanFilesTest` y `ClinicPaths`); `docs/05-pruebas/postman/syncvet-fase-02-configuracion.postman_collection.json` y, en `postman/archivos`, `logo-clinica.png` y `logo-clinica.webp` |
 | Cambiados | `routes/api.php` (cinco rutas), `routes/console.php` (la limpieza a las 03:00), `config/filesystems.php` (disco `clinic_logos`), `RolesAndPermissionsSeeder` (cuatro permisos), `PatientPhotoService` y `UploadPatientPhotoRequest` (sobre `PrivateImageStore` y `PrivateImageRequest`), `MeResource` (`clinic.has_logo`), `CatalogLock` (devuelve la clínica), `DemoSeeder` (`MARKER` del enum), `lang/es/validation.php` (los campos nuevos); en las correcciones, `Auditable` y `AuditLogger` (`auditValues()`) y el comentario de la migración de `system_settings` |
 | Tests cambiados | `RoleAccessTest` (con un logo para ver y borrar), `LoginTest` y `MeTest` (`has_logo`), `ValidationTranslationsTest` (pedidos inválidos a las rutas nuevas; salta las bases abstractas), `tests/Fixtures/clinic-roles.json` (los permisos de cada rol). `PatientPhotoTest`, sin cambios |
 | Documentación | `CLAUDE.md` §1, §3 (orden clínica → configuración), §4 (`CLINIC_LOGO_NOT_FOUND`, la descarga del logo y el 413 del logo), §6.2 (la foto sobre `PrivateImageStore`, deuda 15), §6.8 nueva, configuración, logo y archivos huérfanos (las pendientes de diseño pasan a §6.9), y §7 (deuda 14 resuelta, 15 nueva); `development/setup.md` (disco `clinic_logos` y la limpieza); la guía de Postman; este documento, el de la [FASE 10](fase-10-reportes-y-piloto.md) (el cron del *scheduler*), el registro (R-040 y R-041), la deuda técnica, el handoff y los documentos de estado |
@@ -1073,13 +1073,13 @@ FASE 2 sigue con la 2.6 (auditoría y deuda 13).
 Implementación en `feature/fase-02-06-auditoria`, creada desde `feature/fase-02-05-configuracion`, revisada en una sesión de Claude
 Code aparte de la implementación, corregida ([correcciones de la revisión](#correcciones-de-la-revisión-r-043)) y validada por el
 usuario ([validación del usuario](#validación-del-usuario-r-043)). La implementación y las correcciones de la revisión quedaron en dos
-commits WIP (`18d5db2` y `3df22d1`), y el cierre va en un commit aparte. Decisiones en [R-042](../decisions/registro.md) y R-043.
+commits WIP (`18d5db2` y `3df22d1`), y el cierre va en un commit aparte. Decisiones en [R-042](../../../01-arquitectura/decisiones/registro.md) y R-043.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `AuditLogController`; `IndexAuditLogRequest`; `AuditLogResource` y `ShowAuditLogResource`; `App\Casts\AppDateTime`; `App\Support\ApiDateTime`; `tests/Feature/Audit` (`AuditLogIndexTest` y `AuditLogShowTest`), `tests/Feature/Database/AppDateTimeTest`, `tests/Unit/DateTimeCastCoverageTest`, `AuditableTypesTest` y `AsuncionTimezoneTest`; `docs/testing/postman/syncvet-fase-02-auditoria.postman_collection.json` |
+| Nuevos | `AuditLogController`; `IndexAuditLogRequest`; `AuditLogResource` y `ShowAuditLogResource`; `App\Casts\AppDateTime`; `App\Support\ApiDateTime`; `tests/Feature/Audit` (`AuditLogIndexTest` y `AuditLogShowTest`), `tests/Feature/Database/AppDateTimeTest`, `tests/Unit/DateTimeCastCoverageTest`, `AuditableTypesTest` y `AsuncionTimezoneTest`; `docs/05-pruebas/postman/syncvet-fase-02-auditoria.postman_collection.json` |
 | Cambiados | `routes/api.php` (dos rutas); los 15 modelos con casts `datetime`, que pasan a `AppDateTime` (`Appointment`, `CashMovement`, `CashRegister`, `ClientNotification`, `Consultation`, `InventoryMovement`, `Invoice`, `Patient`, `PatientApplication`, `PatientDocument`, `Payment`, `ProductStock`, `Reminder`, `ScheduleBlock` y `AuditLog`); `Patient` (`auditValues()`: la foto como `"(archivo)"`); `AuditLog` (`AUDITABLE_TYPES`); `PatientService` (ya no convierte `deceased_at`); `UpdatePatientRequest` (usa `ApiDateTime`); `lang/es/validation.php` (los filtros nuevos) |
 | Tests cambiados | `RoleAccessTest` (un registro de auditoría para el detalle) y `ValidationTranslationsTest` (pedidos inválidos a la auditoría) |
 | Documentación | `CLAUDE.md` §1, §2 (los informes en español con voseo; en la implementación), §3 (fechas con hora: `AppDateTime` y `ApiDateTime`, y la base de zonas), §6.9 nueva, auditoría (las pendientes de diseño pasan a §6.10), y §7 (deuda 13 resuelta, 16 nueva); `development/setup.md` (la zona horaria de Paraguay y `timezonedb` en Laragon), `development/deployment.md` (la base de zonas en el servidor) y `development/testing.md` (las suites, una después de la otra); la guía de Postman; este documento, el de la [FASE 10](fase-10-reportes-y-piloto.md) (la base de zonas en la 10.5), el registro (R-042 y R-043), la deuda técnica, el handoff y los documentos de estado |
@@ -1197,7 +1197,7 @@ los demás ya estaban en el seeder). Las migraciones, de 32 a 34 (`users.is_acti
 aserciones, sin omitidos. Frente al cierre de la FASE 1 (616 casos; 6756 y 6772 aserciones): 372 casos más. La corrida en `main`
 después del merge, antes del push, la informa el cierre (R-044).
 
-**Colecciones de Postman** (`docs/testing/postman`; se corren más de una vez sin recrear la base, [guía](../testing/guia-postman.md)):
+**Colecciones de Postman** (`docs/05-pruebas/postman`; se corren más de una vez sin recrear la base, [guía](../../../05-pruebas/guia-postman.md)):
 
 | Colección | Entrega | Requests | Pruebas | Validación del usuario |
 |---|---|---|---|---|
@@ -1219,7 +1219,7 @@ después del merge, antes del push, la informa el cierre (R-044).
 | Deudas 13 y 14 resueltas | Deuda 14 en la 2.5 (`files:prune-orphans`, R-040 y R-041); deuda 13 en la 2.6 (`AppDateTime` y `ApiDateTime`, R-042 y R-043) |
 | Deuda 2 revisada en los modelos de la fase | `Branch` y `Warehouse` (2.1), `User` (2.2a), `Veterinarian` (2.3), `Service` (2.4) y `AuditLog` (2.6), anotados en cada resultado. La deuda sigue abierta para los modelos generados de las fases siguientes |
 
-**Deudas** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 13 (fechas con hora de la API) y 14 (archivos
+**Deudas** ([`deuda-tecnica.md`](../../deuda-tecnica.md)). Resueltas en la fase: 13 (fechas con hora de la API) y 14 (archivos
 huérfanos); la 2, cumplida en los seis modelos de la fase y abierta para los demás. Abiertas al cerrar: 2, 3 (códigos SIFEN sin
 verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en ráfagas con la caché `database`), 15 (foto con un `photo_path`
 fuera de su carpeta: borrarla responde 404 y deja la referencia; nueva en la 2.5) y 16 (zona de las columnas `timestamp` de MySQL y
@@ -1227,7 +1227,7 @@ fuera de su carpeta: borrarla responde 404 y deja la referencia; nueva en la 2.5
 
 **Decisiones de la fase.** R-029 (respuestas de negocio y aprobación del diseño), R-030 y R-031 (2.1), R-032 y R-033 (2.2a), R-034 y
 R-035 (2.2b), R-036 y R-037 (2.3), R-038 y R-039 (2.4), R-040 y R-041 (2.5), R-042 y R-043 (2.6) y R-044 (cierre y merge), en el
-[registro](../decisions/registro.md). Las que cambian reglas de fases anteriores: nombres de personas con apóstrofo y guion también
+[registro](../../../01-arquitectura/decisiones/registro.md). Las que cambian reglas de fases anteriores: nombres de personas con apóstrofo y guion también
 en clientes (`PersonName`, R-033), las violaciones de índice único por el nombre del índice (R-039), la foto del paciente sobre
 `PrivateImageStore` (R-040), `deceased_at` con el cast `AppDateTime` (R-042, sin cambios en la API) y la base de zonas de PHP 2025a
 o posterior (R-043).

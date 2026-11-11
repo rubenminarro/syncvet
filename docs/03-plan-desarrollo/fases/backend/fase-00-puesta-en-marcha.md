@@ -1,7 +1,7 @@
 # FASE 0 — Puesta en marcha
 
 Etapa: Base. Estado: **COMPLETADO** el 2026-11-05 (R-014): entregas 0.1 (R-006), 0.2 (R-007), 0.3 (R-008), 0.4 (R-012) y 0.5 (R-013 y R-014) cerradas; diseño aprobado el 2026-11-04 (R-005). El estado vigente de cada fase está en
-[`docs/roadmap/README.md`](../roadmap/README.md).
+[`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -23,7 +23,7 @@ Cada entrega recorre los pasos 4 a 7 y deja la suite en verde.
 
 ## Preguntas de negocio
 
-Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).
+Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisiones/registro.md`](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Pregunta | Respuesta | Fecha |
 |---|---|---|---|
@@ -38,7 +38,7 @@ Las preguntas que dejó el diseño, ya respondidas, están al final, en [Pregunt
 
 ## Regla de oro aplicada
 
-Análisis de las entidades nuevas con [`docs/project/principios.md`](../project/principios.md).
+Análisis de las entidades nuevas con [`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 | Pregunta | Clínica (`clinics`) | Usuario (`users`) | Token de acceso |
 |---|---|---|---|
@@ -203,7 +203,7 @@ clínica pasan a empezar por `clinic_id`: `clients (last_name, first_name)`, `se
   operación, para que una ráfaga simultánea no pase junta; un login correcto limpia el contador y uno con la clínica suspendida lo
   descuenta. El sexto → 429 `AUTH_TOO_MANY_ATTEMPTS`, con `Retry-After`.
 * La IP es la del cliente solo detrás de un proxy de `TRUSTED_PROXIES` (vacía por defecto: ninguno). Ver
-  [`deployment.md`](../development/deployment.md).
+  [`deployment.md`](../../../04-desarrollo/deployment.md).
 * La contraseña no llega al log: los errores de negocio (`AppException` y sus subclases) no se reportan (`dontReport`), y los
   parámetros de contraseña llevan `#[\SensitiveParameter]` (revisión de la 0.3).
 * Auditoría: `LOGIN` y `LOGOUT` con el usuario y su clínica; `LOGIN_FAILED` con el email en `new_values` y el usuario si existe. Los
@@ -258,7 +258,7 @@ RUC inválido falla; el administrador creado puede hacer login. La revisión de 
 | `tests/Feature/Access` | Para `recepcionista` y `veterinario`, cada ruta existente (`clients`, `clients.patients`, `patients`, `change-owner`, `species`) contra lo que da `clinicRoles()`: permitida → no 403; prohibida → 403 `FORBIDDEN`. El administrador, una vez, para confirmar `Gate::before`. Sin token → 401 |
 | MySQL | `migrate:fresh --seed` en MySQL 8; consulta a `information_schema` para confirmar nombres de índices y claves foráneas de hasta 64 caracteres; `migrate:rollback` completo |
 | `database/schema-mysql.sql` | Quitado con la aprobación del diseño (R-005); esta verificación lo reemplaza |
-| Guía de Postman | Login, `me` y logout en [`docs/testing/guia-postman.md`](../testing/guia-postman.md) |
+| Guía de Postman | Login, `me` y logout en [`docs/05-pruebas/guia-postman.md`](../../../05-pruebas/guia-postman.md) |
 
 ## Lo que no cambia
 
@@ -290,7 +290,7 @@ suite en verde.
 Usar solo con el diseño aprobado, una entrega por vez.
 
 ```text
-Implementa la entrega 0.X de la FASE 0 según docs/fases/fase-00-puesta-en-marcha.md (diseño aprobado).
+Implementa la entrega 0.X de la FASE 0 según docs/03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md (diseño aprobado).
 
 Sigue CLAUDE.md y el diseño de esa entrega, sin adelantar las siguientes. Al terminar, corre la suite (y en las entregas con
 migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, tests y resultados. No hagas commit.
@@ -298,13 +298,13 @@ migraciones, migrate:fresh --seed también en MySQL) e infórmame archivos, test
 
 ## Resultado
 
-Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)). Las cinco entregas están cerradas; el
+Cada entrega lo completa en su cierre ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)). Las cinco entregas están cerradas; el
 [cierre de la fase](#cierre-de-la-fase-0) resume el conjunto.
 
 ### Entrega 0.1
 
 Commits `11b82b3` (implementación) y `2b50149` (correcciones de la revisión), en `feature/fase-00-paquete-base`. Validada por el
-usuario el 2026-11-04: suite, `migrate:fresh --seed` y `GET /up`. Decisiones en [R-006](../decisions/registro.md).
+usuario el 2026-11-04: suite, `migrate:fresh --seed` y `GET /up`. Decisiones en [R-006](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -315,7 +315,7 @@ usuario el 2026-11-04: suite, `migrate:fresh --seed` y `GET /up`. Decisiones en 
 | Ajustados | `config/app.php` (`America/Asuncion`, `es`), `config/auth.php` (guard `api` con `sanctum`), `config/sanctum.php` (`SANCTUM_EXPIRATION`, 720), `config/permission.php` (sin *teams*), `.env.example`, `composer.json` (nombre del proyecto y `setup` con `--seed`), `DatabaseSeeder`, `UserFactory` |
 | Tests | `phpunit.xml`, `tests/bootstrap.php`, `tests/TestCase.php`, `tests/Feature/ClinicRolesTest.php`, `tests/Feature/HealthTest.php`, `tests/Feature/ErrorResponseTest.php` |
 | Del paquete, cambiado en la revisión | `bootstrap/app.php`: renderer de los errores HTTP sin renderer propio y de `HttpResponseException` |
-| Documentación | `README.md`, `CLAUDE.md` §4 (lista de `error_code`), `docs/development/setup.md`, `docs/development/testing.md`, scripts de `/validar-docs` |
+| Documentación | `README.md`, `CLAUDE.md` §4 (lista de `error_code`), `docs/04-desarrollo/setup.md`, `docs/04-desarrollo/testing.md`, scripts de `/validar-docs` |
 
 **Endpoints.** Ninguno nuevo. `GET /up` (*health check* de Laravel) responde 200.
 
@@ -357,7 +357,7 @@ el test que la protege.
 ### Entrega 0.2
 
 Commits `fb52b73` (implementación) y `cf8f862` (correcciones de la revisión), en `feature/fase-00-02-clinicas`. Validada por el
-usuario el 2026-11-05: suite y `migrate:fresh --seed`. Decisiones en [R-007](../decisions/registro.md).
+usuario el 2026-11-05: suite y `migrate:fresh --seed`. Decisiones en [R-007](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -369,7 +369,7 @@ usuario el 2026-11-05: suite y `migrate:fresh --seed`. Decisiones en [R-007](../
 | Excepciones | `ClinicContextMissingException`, `ClinicException`, `CatalogException` |
 | Cambiados | Los 29 modelos de negocio (`BelongsToClinic`), `Species` y `Breed` (`SharedCatalog`), `User` (`clinic()`, `inClinic()`, *route binding* acotado), `AuditLog` (`ClinicScope`); los cinco Form Requests; `AuditLogger`, `DocumentSequenceService`, `AppServiceProvider`, `bootstrap/app.php`, `routes/api.php`, `SpeciesSeeder`, `UserFactory` |
 | Tests | `tests/Concerns/InteractsWithClinics.php`, `database/factories/ClinicFactory.php` y las diez clases de `tests/Feature/Tenancy`, con el job de prueba `Fixtures/CountClientsJob.php` |
-| Documentación | Este documento, `CLAUDE.md` (§1, §3 y §7), `README.md`, `docs/roadmap/deuda-tecnica.md` y los documentos de estado |
+| Documentación | Este documento, `CLAUDE.md` (§1, §3 y §7), `README.md`, `docs/03-plan-desarrollo/deuda-tecnica.md` y los documentos de estado |
 
 **Endpoints.** Ninguno nuevo. Las rutas de `/api` pasan por `SetCurrentClinic`: un id de otra clínica responde 404
 `RESOURCE_NOT_FOUND`, y una clínica suspendida, 403 `CLINIC_NOT_AVAILABLE`.
@@ -414,7 +414,7 @@ con un test.
 | 3 | `clinic_id` se podía cambiar al editar (con `forceFill`): un cliente pasaba a otra clínica, o una especie propia a global | `ClinicIdGuard` en el `updating` de `BelongsToClinic` y de `SharedCatalog`. `ClinicAssignmentTest`, `SharedCatalogTest` |
 | 4 | Con `Artisan::call`, el log informaba el `argv` del proceso que llamaba, no el comando | `ExecutionOrigin` sigue `CommandStarting` y `CommandFinished`. `FailClosedTest` |
 | 5 | Tres protecciones sin test (E, G y H de la tabla siguiente) | Tests nuevos en `SharedCatalogTest`, `FailClosedTest` y `ClinicAssignmentTest` |
-| 6 | Sin claves foráneas compuestas (`clinic_id` + `id`) | Deuda #5 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)) |
+| 6 | Sin claves foráneas compuestas (`clinic_id` + `id`) | Deuda #5 ([`deuda-tecnica.md`](../../deuda-tecnica.md)) |
 
 **Protecciones quitadas de a una.** La implementación quitó 44, y todas hacían fallar un test salvo dos mutaciones equivalentes. La
 revisión quitó ocho más:
@@ -447,9 +447,9 @@ el ABM de especies y razas.
 
 Commits `2114244` (implementación), `3da07f2` (correcciones de la primera revisión, de seguridad) y `727546e` (correcciones de la
 segunda revisión), en `feature/fase-00-03-auth`. Validada por el usuario el 2026-11-05: suite en verde. La prueba manual con Postman
-([`guia-postman.md`](../testing/guia-postman.md)) quedó, por decisión del usuario, para la entrega 0.4, cuando existiera el `DemoSeeder`:
+([`guia-postman.md`](../../../05-pruebas/guia-postman.md)) quedó, por decisión del usuario, para la entrega 0.4, cuando existiera el `DemoSeeder`:
 **hecha el 2026-11-05**, con el alcance que detalla el [resultado de la 0.4](#entrega-04) (R-012).
-Decisiones en [R-008](../decisions/registro.md).
+Decisiones en [R-008](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -458,7 +458,7 @@ Decisiones en [R-008](../decisions/registro.md).
 | Nuevos | `app/Http/Controllers/Api/AuthController.php`, `app/Services/AuthService.php`, `app/Http/Requests/LoginRequest.php`, `app/Http/Resources/MeResource.php`, `app/Exceptions/AuthException.php`, `config/trustedproxy.php` |
 | Cambiados | `app/Models/User.php` (email en minúsculas, `normalizeEmail()`, `remember_token` oculto, tokens borrados al eliminar), `app/Exceptions/AppException.php` (encabezados de la respuesta, para `Retry-After`), `app/Exceptions/ClinicException.php` y `app/Services/ClinicService.php` (`CLINIC_ADMIN_EMAIL_INVALID`, `#[\SensitiveParameter]`), `bootstrap/app.php` (`dontReport(AppException::class)` y encabezados), `routes/api.php`, `routes/console.php` (`sanctum:prune-expired` diario), `.env.example` (`TRUSTED_PROXIES`) |
 | Tests | `tests/Concerns/InteractsWithAuth.php`, las siete clases de `tests/Feature/Auth`, `tests/Feature/TrustedProxiesTest.php`; `ClinicRolesTest` (`login`, `logout` y `me` en `ROUTES_WITHOUT_PERMISSION`, con su motivo); `tests/bootstrap.php` (solo prepara el archivo con la conexión `sqlite`) |
-| Documentación | Este documento, [`guia-postman.md`](../testing/guia-postman.md) (sección de la FASE 0), [`deployment.md`](../development/deployment.md), [`deuda-tecnica.md`](../roadmap/deuda-tecnica.md) (deuda 6), [`fase-10-reportes-y-piloto.md`](fase-10-reportes-y-piloto.md), `CLAUDE.md` (§1, §3 y §7) y los documentos de estado |
+| Documentación | Este documento, [`guia-postman.md`](../../../05-pruebas/guia-postman.md) (sección de la FASE 0), [`deployment.md`](../../../04-desarrollo/deployment.md), [`deuda-tecnica.md`](../../deuda-tecnica.md) (deuda 6), [`fase-10-reportes-y-piloto.md`](fase-10-reportes-y-piloto.md), `CLAUDE.md` (§1, §3 y §7) y los documentos de estado |
 
 **Endpoints.** `POST /api/login` (público), `POST /api/logout` y `GET /api/me`, como en el diseño de la 0.3 de este documento. Sin
 permiso de Spatie; el seeder sigue con 119 permisos. `error_code` nuevos: `INVALID_CREDENTIALS` (422), `AUTH_TOO_MANY_ATTEMPTS` (429,
@@ -523,7 +523,7 @@ suspendida y que las variantes Unicode no saltean el límite.
 
 | # | Hallazgo | Corrección |
 |---|---|---|
-| 1 | Con la caché `database`, 20 logins fallidos simultáneos dejaron pasar a verificar la contraseña de 5 a 9 en MySQL (de 0 a 4 de más), con un usuario existente y con emails inexistentes. En SQLite, la contención dio 500 (`database is locked`), pero SQLite solo se usa en los tests | Deuda 6 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): Redis en producción, en la FASE 10 (entrega 10.5), verificando que pasen exactamente 5 |
+| 1 | Con la caché `database`, 20 logins fallidos simultáneos dejaron pasar a verificar la contraseña de 5 a 9 en MySQL (de 0 a 4 de más), con un usuario existente y con emails inexistentes. En SQLite, la contención dio 500 (`database is locked`), pero SQLite solo se usa en los tests | Deuda 6 ([`deuda-tecnica.md`](../../deuda-tecnica.md)): Redis en producción, en la FASE 10 (entrega 10.5), verificando que pasen exactamente 5 |
 | 2 | `#[\SensitiveParameter]` en `ClinicService::create` sin test | `AuthLoggingTest::test_the_admin_password_is_not_in_the_clinic_service_trace` |
 | 3 | Comentarios desactualizados en `routes/api.php` (el logout fijaba la clínica) y en `LoginThrottleTest` (contador por email) | Corregidos |
 | 4 | Un borrado masivo de usuarios (`User::where(...)->delete()`) no dispara `deleted` y deja los tokens vigentes. Ningún código lo hace todavía | Regla en `CLAUDE.md` §3: los usuarios se eliminan modelo por modelo |
@@ -532,16 +532,16 @@ suspendida y que las variantes Unicode no saltean el límite.
 pocas claves más por minuto e IP). Se resuelve con Redis en producción en la FASE 10; como la carrera está en el `RateLimiter` de
 Laravel, al desplegar hay que verificar que pasen exactamente 5 y, si no, envolver el `hit` en `Cache::lock`.
 
-**Para la entrega 0.4:** recorrer con Postman la sección de la FASE 0 de [`guia-postman.md`](../testing/guia-postman.md) con los
+**Para la entrega 0.4:** recorrer con Postman la sección de la FASE 0 de [`guia-postman.md`](../../../05-pruebas/guia-postman.md) con los
 usuarios del `DemoSeeder`. Hecho en la 0.4 ([resultado](#entrega-04)).
 
 ### Entrega 0.4
 
 Commits `35d5089` (implementación), `d135459` (correcciones de la primera revisión) y `e7047b2` (correcciones de la segunda
 revisión), en `feature/fase-00-04-clinic-create`. Validada por el usuario el 2026-11-05: suite en verde en SQLite y en
-`syncvet_test_mysql`, y validación manual completa sobre la base `syncvet`. Decisiones en [R-009](../decisions/registro.md) (regla
-de contraseñas), [R-010](../decisions/registro.md) y [R-011](../decisions/registro.md) (revisiones) y
-[R-012](../decisions/registro.md) (cierre).
+`syncvet_test_mysql`, y validación manual completa sobre la base `syncvet`. Decisiones en [R-009](../../../01-arquitectura/decisiones/registro.md) (regla
+de contraseñas), [R-010](../../../01-arquitectura/decisiones/registro.md) y [R-011](../../../01-arquitectura/decisiones/registro.md) (revisiones) y
+[R-012](../../../01-arquitectura/decisiones/registro.md) (cierre).
 
 **Archivos.**
 
@@ -550,10 +550,10 @@ de contraseñas), [R-010](../decisions/registro.md) y [R-011](../decisions/regis
 | Nuevos | `app/Console/Commands/ClinicCreateCommand.php`, `app/Support/UserPassword.php`, `app/Support/PwnedPasswordsVerifier.php`, `config/demo.php`, `database/seeders/DemoSeeder.php` |
 | Cambiados | `app/Providers/AppServiceProvider.php` (`Password::defaults()`, `zend.exception_ignore_args`, verificador propio), `app/Services/ClinicService.php` (`ensureCanCreate`), `database/factories/ClinicFactory.php` (RUC ficticios), `.env.example` (`DEMO_PASSWORD`), `phpunit.xml` (`zend.exception_ignore_args=0` y `LOG_CHANNEL=null`) |
 | Tests | Nuevos: `tests/Feature/Console/ClinicCreateCommandTest.php`, `tests/Feature/Seeders/DemoSeederTest.php`, las tres clases de `tests/Feature/Security`, `tests/Unit/RucCheckDigitTest.php` y `tests/Unit/UserPasswordGenerateTest.php`. Cambiados: `tests/TestCase.php` (Have I Been Pwned simulado, también caído), y RUC ficticios en `AuthLoggingTest`, `LoginCredentialsTest` y `ClinicServiceTest` |
-| Documentación | Este documento, [`guia-postman.md`](../testing/guia-postman.md) (datos del `DemoSeeder`), [`deployment.md`](../development/deployment.md), [`setup.md`](../development/setup.md), `README.md` (`DEMO_PASSWORD`), `CLAUDE.md` (§1, §3 y §7) y los documentos de estado |
+| Documentación | Este documento, [`guia-postman.md`](../../../05-pruebas/guia-postman.md) (datos del `DemoSeeder`), [`deployment.md`](../../../04-desarrollo/deployment.md), [`setup.md`](../../../04-desarrollo/setup.md), `README.md` (`DEMO_PASSWORD`), `CLAUDE.md` (§1, §3 y §7) y los documentos de estado |
 
 **Comando y datos.** `php artisan clinic:create`, sin rutas nuevas en la API (el seeder sigue con 119 permisos), y el `DemoSeeder`,
-con dos clínicas, seis usuarios, cinco clientes y siete pacientes ([`guia-postman.md`](../testing/guia-postman.md)).
+con dos clínicas, seis usuarios, cinco clientes y siete pacientes ([`guia-postman.md`](../../../05-pruebas/guia-postman.md)).
 
 **Tests.** Suite (corrida del 2026-11-05 sobre `e7047b2`): 185 métodos de test, 222 casos con los *data providers*; en SQLite, 3208
 aserciones con 1 omitido (el de la collation de MySQL); contra MySQL 8.4.3 (`syncvet_test_mysql`), 3222 aserciones sin omitidos. Los
@@ -600,7 +600,7 @@ forzadas), y con un control negativo que, sin las protecciones, la contraseña s
 
 | # | Hallazgo | Corrección |
 |---|---|---|
-| 1 | En la computadora de desarrollo Have I Been Pwned nunca respondía: el `php.ini` de Laragon apuntaba `curl.cainfo` a un `cacert.pem` inexistente (cURL error 77) y la regla aceptaba cualquier contraseña, también `Password123!`. El aviso del log no decía la causa | `php.ini` corregido (fuera del repositorio; [`setup.md`](../development/setup.md) y [`deployment.md`](../development/deployment.md)); el aviso lleva el código de cURL o el estado HTTP; `clinic:create` y el `DemoSeeder` avisan en la consola. `PwnedPasswordsVerifierTest` |
+| 1 | En la computadora de desarrollo Have I Been Pwned nunca respondía: el `php.ini` de Laragon apuntaba `curl.cainfo` a un `cacert.pem` inexistente (cURL error 77) y la regla aceptaba cualquier contraseña, también `Password123!`. El aviso del log no decía la causa | `php.ini` corregido (fuera del repositorio; [`setup.md`](../../../04-desarrollo/setup.md) y [`deployment.md`](../../../04-desarrollo/deployment.md)); el aviso lleva el código de cURL o el estado HTTP; `clinic:create` y el `DemoSeeder` avisan en la consola. `PwnedPasswordsVerifierTest` |
 | 2 | Granja San Jorge usaba `80024680-2`, del rango de sociedades con dígito válido (probablemente real), y las cédulas de ejemplo podían ser de personas reales | RUC `999999xx` con su dígito y cédulas `99xxxxxx`; el test los exige |
 | 3 | Los tests escribían en `storage/logs/laravel.log` unos 24 KB por corrida | `LOG_CHANNEL=null` en `phpunit.xml` |
 
@@ -610,14 +610,14 @@ login con `recepcion-a@example.com` (Clínica A) y con `vet-b@example.com` (Clí
 `VET-000001`); `me` con el token de la A; el paciente 5 (Luna, de la B) responde 200 con el token de la B y 404 `RESOURCE_NOT_FOUND` con el de la A; cinco
 logins fallidos con 422 `INVALID_CREDENTIALS` y el sexto con 429 `AUTH_TOO_MANY_ATTEMPTS` y `Retry-After`; logout 200 y después
 `me` con ese token, 401 `UNAUTHENTICATED`. Esto completa la prueba con Postman que la 0.3 dejó para esta entrega, con el alcance que
-indica la [guía](../testing/guia-postman.md#fase-0--autenticación); el resto de sus filas lo cubren `tests/Feature/Auth` y
+indica la [guía](../../../05-pruebas/guia-postman.md#fase-0--autenticación); el resto de sus filas lo cubren `tests/Feature/Auth` y
 `tests/Feature/Tenancy` (R-012).
 
 **Nota.** Sobre una base de desarrollo sembrada antes de R-011, el `DemoSeeder` falla: busca los clientes por su documento (que
 cambió), no los encuentra e intenta crearlos con un email que ya existe (`UniqueConstraintViolationException`). Se resuelve
 recreando la base (`migrate:fresh --seed` y el seeder).
 
-**Deuda que queda.** Deuda 7 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): los tests de `tests/Feature/Tenancy` usan
+**Deuda que queda.** Deuda 7 ([`deuda-tecnica.md`](../../deuda-tecnica.md)): los tests de `tests/Feature/Tenancy` usan
 cédulas de ejemplo fuera del rango ficticio.
 
 **Para la entrega 0.5:** acceso por rol (`tests/Feature/Access`) y verificación final en MySQL, según el diseño de este documento.
@@ -625,8 +625,8 @@ cédulas de ejemplo fuera del rango ficticio.
 ### Entrega 0.5
 
 Commits `8fe50cc` (implementación) y `f87dbdd` (correcciones de la revisión), en `feature/fase-00-05-acceso`. Validada por el
-usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-013](../decisions/registro.md) (revisión) y
-[R-014](../decisions/registro.md) (cierre de la entrega y de la fase).
+usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-013](../../../01-arquitectura/decisiones/registro.md) (revisión) y
+[R-014](../../../01-arquitectura/decisiones/registro.md) (cierre de la entrega y de la fase).
 
 **Archivos.**
 
@@ -635,7 +635,7 @@ usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-013](../d
 | Nuevos | `tests/Concerns/InteractsWithApiRoutes.php` (rutas reales de la API y su permiso), `tests/Feature/Access/RoleAccessTest.php`, `tests/Feature/Database/SchemaNamesTest.php`, `tests/Feature/Database/ClinicFactoryTest.php`, `tests/Unit/FictitiousDocumentsTest.php`, `tests/Fixtures/clinic-roles.json` (foto de los roles) |
 | Cambiados | `app/Services/AuthService.php` (`dummyHash()`: el hash de relleno con el costo configurado), `database/factories/ClinicFactory.php` (RUC de 9 dígitos) |
 | Tests cambiados | `ClinicRolesTest` (usa `InteractsWithApiRoutes`; regla del nombre, nombres únicos, foto de los roles), `LoginCredentialsTest` (costo del hash de relleno), y cédulas ficticias en `InteractsWithClinics`, `ClinicAssignmentTest` y `ValidationScopeTest` (deuda 7) |
-| Documentación | Este documento, `CLAUDE.md` (§1, §3 y §7), [`deuda-tecnica.md`](../roadmap/deuda-tecnica.md) (deuda 7 resuelta, deuda 8), el registro (R-013 y R-014) y los documentos de estado |
+| Documentación | Este documento, `CLAUDE.md` (§1, §3 y §7), [`deuda-tecnica.md`](../../deuda-tecnica.md) (deuda 7 resuelta, deuda 8), el registro (R-013 y R-014) y los documentos de estado |
 
 **Endpoints.** Ninguno nuevo; los 119 permisos y los tres roles no cambian. La guía de Postman ya tenía login, `me` y logout desde
 la 0.3 (pieza del diseño de la 0.5): no cambió.
@@ -699,7 +699,7 @@ Lo que bajó: el hash de relleno con el costo de `BCRYPT_ROUNDS` (`LoginThrottle
 Spatie en cada uno. No había `sleep()`: los tests de tiempo ya usaban `travel`. Lo que queda: el primer test paga la migración
 inicial (unos 3 s en SQLite y de 20 a 34 s en MySQL); no se usa `schema:dump` porque las migraciones dejarían de probarse en MySQL.
 
-**Deuda que queda.** Deuda 8 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): `scopeBindings()` sin test.
+**Deuda que queda.** Deuda 8 ([`deuda-tecnica.md`](../../deuda-tecnica.md)): `scopeBindings()` sin test.
 
 ## Cierre de la FASE 0
 
@@ -732,7 +732,7 @@ MySQL). MySQL 8.4.3 (`syncvet_test_mysql`): 3926 aserciones, sin omitidos.
 | `clinic:create` deja una clínica operativa | `ClinicCreateCommandTest` (el administrador creado inicia sesión) y la validación manual de la 0.4 |
 | Suite en verde | La suite final, en las dos bases |
 
-**Deudas abiertas al cerrar** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): 1 (clientes y pacientes sin tests funcionales),
+**Deudas abiertas al cerrar** ([`deuda-tecnica.md`](../../deuda-tecnica.md)): 1 (clientes y pacientes sin tests funcionales),
 2 (modelos generados desde el esquema), 3 (códigos SIFEN sin verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en
 ráfagas con la caché `database`) y 8 (`scopeBindings()` sin test). Resueltas en la fase: 4 y 7.
 

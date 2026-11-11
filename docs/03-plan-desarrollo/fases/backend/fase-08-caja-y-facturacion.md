@@ -1,6 +1,6 @@
 # FASE 8 — Caja y facturación
 
-Etapa: Cobro. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
+Etapa: Cobro. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -21,7 +21,7 @@ El diseño (paso 2) completa cada entrega con reglas de negocio, datos, endpoint
 
 ## Preguntas de negocio
 
-Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).
+Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisiones/registro.md`](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Pregunta | Respuesta | Fecha |
 |---|---|---|---|
@@ -32,8 +32,8 @@ Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](.
 
 ## Diseño
 
-PENDIENTE: lo completa el paso 2 ([`docs/prompts/2-diseno.md`](../prompts/2-diseno.md)), aplicando la regla de oro de
-[`docs/project/principios.md`](../project/principios.md).
+PENDIENTE: lo completa el paso 2 ([`docs/03-plan-desarrollo/prompts/2-diseno.md`](../../prompts/2-diseno.md)), aplicando la regla de oro de
+[`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 ## Criterio de cierre
 
@@ -44,7 +44,7 @@ Dos emisiones simultáneas nunca reciben el mismo número; el cierre de caja coi
 Usar solo con el diseño aprobado.
 
 ```text
-Implementa la FASE 8 según docs/fases/fase-08-caja-y-facturacion.md (diseño aprobado).
+Implementa la FASE 8 según docs/03-plan-desarrollo/fases/backend/fase-08-caja-y-facturacion.md (diseño aprobado).
 
 - InvoiceStampService: CRUD de timbrados por sucursal; vigencia; no se edita uno usado.
 - InvoiceService: borrador desde consultation_items pendientes (pasan a invoiced al emitir, vuelven a pending al anular) o venta directa; totales exento/5/10 e IVA con BCMath (precios con IVA incluido); emitir asigna número con lockForUpdate sobre invoice_stamps; emitida es inmutable; anular con motivo.
@@ -57,5 +57,5 @@ Sigue CLAUDE.md. Incluye tests de concurrencia de numeración. Corre la suite e 
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
+PENDIENTE: lo completa el cierre ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
 desvíos del diseño y por qué.

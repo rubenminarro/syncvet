@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Auditoría de la documentación, de solo lectura. Correr desde la raíz del repositorio:
+ * Auditoría de la documentación, de solo lectura. Correr desde la raíz del repositorio (monorepo: backend/, frontend/ y docs/):
  *   php .claude/skills/validar-docs/scripts/check-docs.php [--detalle]
  * Sale con 1 si encuentra algo. --detalle lista las cifras excluidas de la comparación.
  * Pruebas de regresión: php .claude/skills/validar-docs/scripts/check-docs-test.php
@@ -9,18 +9,25 @@
 
 require __DIR__ . '/figures.php';
 
-if (! is_file('artisan') || ! is_dir('docs')) {
+// El backend (Laravel) vive en esta carpeta: las rutas de código citadas sin prefijo (`app/…`, `tests/…`) se leen desde acá.
+const BACKEND = 'backend';
+
+// Raíces de una ruta citada que se leen desde la raíz del repositorio; las demás, desde BACKEND.
+const REPOSITORY_ROOTS = ['docs', 'backend', 'frontend'];
+
+const LIVE = ['CLAUDE.md', 'README.md', 'backend/CLAUDE.md', 'backend/README.md', 'frontend/CLAUDE.md', 'frontend/README.md', 'docs/README.md', 'docs/00-vision/overview.md', 'docs/00-vision/principios.md', 'docs/01-arquitectura/architecture.md', 'docs/01-arquitectura/technology-stack.md', 'docs/01-arquitectura/decisiones/README.md', 'docs/02-requisitos', 'docs/03-plan-desarrollo/README.md', 'docs/03-plan-desarrollo/handoff.md', 'docs/03-plan-desarrollo/modulos.md', 'docs/03-plan-desarrollo/fases/frontend', 'docs/04-desarrollo'];
+
+// Estado por módulo: sus cifras de una clase de test (`LoginTest` 9) se comparan con la clase.
+const MODULES = 'docs/03-plan-desarrollo/modulos.md';
+
+// Rutas que crea la suite al correr, no el repositorio: las bases de `composer test:fast` (N es el número del proceso, R-045), en BACKEND.
+const GENERATED_PATHS = ['database/testing.sqlite_test_N'];
+
+if (! is_file(BACKEND . '/artisan') || ! is_dir('docs')) {
     fwrite(STDERR, "Correr desde la raíz del repositorio.\n");
     exit(2);
 }
 
-const LIVE = ['CLAUDE.md', 'README.md', 'docs/README.md', 'docs/handoff.md', 'docs/project', 'docs/modules', 'docs/roadmap/README.md', 'docs/development', 'docs/decisions/README.md'];
-
-// Rutas que viven en ../syncvet-frontend, no en este repositorio.
-const FRONTEND_PATHS = ['docs/plan-desarrollo.md'];
-
-// Rutas que crea la suite al correr, no el repositorio: las bases de `composer test:fast` (N es el número del proceso, R-045).
-const GENERATED_PATHS = ['database/testing.sqlite_test_N'];
 
 $findings = [];
 
@@ -52,10 +59,20 @@ function live(): array
     $found = [];
 
     foreach (LIVE as $path) {
-        $found = array_merge($found, is_dir($path) ? files($path, '/\.md$/') : [$path]);
+        // Una ruta que no existe (frontend/CLAUDE.md antes de la F0, por ejemplo) no es un documento vivo.
+        $found = array_merge($found, is_dir($path) ? files($path, '/\.md$/') : (is_file($path) ? [$path] : []));
     }
 
     return $found;
+}
+
+/**
+ * Una ruta citada entre comillas invertidas: `docs/…`, `backend/…` y `frontend/…` desde la raíz; `app/…`, `tests/…` y las
+ * demás carpetas de Laravel, desde BACKEND (la convención del CLAUDE.md de la raíz).
+ */
+function citedPath(string $path): string
+{
+    return in_array(explode('/', $path)[0], REPOSITORY_ROOTS, true) ? $path : BACKEND . '/' . $path;
 }
 
 function normalize(string $path): string
@@ -95,7 +112,7 @@ function withoutCode(string $text): string
 
 // Enlaces y anclas
 $docs = files('docs', '/\.(md|html)$/');
-$sources = array_merge($docs, ['CLAUDE.md', 'README.md']);
+$sources = array_merge($docs, array_values(array_filter(['CLAUDE.md', 'README.md', 'backend/CLAUDE.md', 'backend/README.md', 'frontend/CLAUDE.md', 'frontend/README.md'], 'is_file')));
 $graph = [];
 $total = 0;
 
@@ -148,10 +165,10 @@ foreach ($docs as $file) {
 
 // Rutas citadas en documentos vivos
 foreach (live() as $file) {
-    preg_match_all('/`((?:docs|app|tests|config|routes|database)\/[\w.\/-]+\.\w+)`/', file_get_contents($file), $matches);
+    preg_match_all('/`((?:docs|backend|frontend|app|tests|config|routes|database|lang|bootstrap)\/[\w.\/-]+\.\w+)`/', file_get_contents($file), $matches);
 
     foreach (array_unique($matches[1]) as $path) {
-        if (! file_exists($path) && ! in_array($path, [...FRONTEND_PATHS, ...GENERATED_PATHS], true)) {
+        if (! file_exists(citedPath($path)) && ! in_array($path, GENERATED_PATHS, true)) {
             report('Rutas inexistentes', $file, $path);
         }
     }
@@ -160,17 +177,17 @@ foreach (live() as $file) {
 // Cifras contra el código
 $tests = [];
 
-foreach (array_merge(files('tests/Feature', '/Test\.php$/'), files('tests/Unit', '/Test\.php$/')) as $file) {
+foreach (array_merge(files(BACKEND . '/tests/Feature', '/Test\.php$/'), files(BACKEND . '/tests/Unit', '/Test\.php$/')) as $file) {
     $tests[basename($file, 'Test.php')] = preg_match_all('/function test_|#\[Test\]/', file_get_contents($file));
 }
 
-$routes = json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' artisan route:list --path=api --json 2>' . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null')), true);
+$routes = json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(BACKEND . '/artisan') . ' route:list --path=api --json 2>' . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null')), true);
 $actual = [
     'tests' => array_sum($tests),
     'rutas' => is_array($routes) ? count($routes) : null,
-    'controllers' => count(glob('app/Http/Controllers/Api/*.php')),
-    'services' => count(glob('app/Services/*.php')),
-    'migraciones' => count(glob('database/migrations/*.php')),
+    'controllers' => count(glob(BACKEND . '/app/Http/Controllers/Api/*.php')),
+    'services' => count(glob(BACKEND . '/app/Services/*.php')),
+    'migraciones' => count(glob(BACKEND . '/database/migrations/*.php')),
     'permisos' => permissionCount(),
 ];
 
@@ -179,11 +196,11 @@ $actual = [
  */
 function permissionCount(): ?int
 {
-    if (! is_file('vendor/autoload.php')) {
+    if (! is_file(BACKEND . '/vendor/autoload.php')) {
         return null;
     }
 
-    require_once 'vendor/autoload.php';
+    require_once BACKEND . '/vendor/autoload.php';
 
     $class = 'Database\\Seeders\\RolesAndPermissionsSeeder';
 
@@ -237,7 +254,7 @@ foreach (live() as $file) {
     }
 }
 
-foreach (files('docs/modules', '/\.md$/') as $file) {
+foreach (is_file(MODULES) ? [MODULES] : [] as $file) {
     preg_match_all('/`([A-Z]\w+)` (\d+)\b/', file_get_contents($file), $matches, PREG_SET_ORDER);
 
     foreach ($matches as [, $class, $count]) {

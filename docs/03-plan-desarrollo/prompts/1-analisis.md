@@ -5,7 +5,7 @@ Al empezar cada fase. Solo lectura. En la FASE 0, después de [`0-primera-sesion
 ```text
 Ejecuta /retomar. Después, antes de empezar la FASE NN, analiza lo hecho hasta ahora. No modifiques nada.
 
-1. Lee CLAUDE.md, docs/handoff.md, docs/roadmap/README.md, docs/modules/README.md, docs/roadmap/deuda-tecnica.md y docs/fases/fase-NN-*.md.
+1. Lee CLAUDE.md, docs/03-plan-desarrollo/handoff.md, docs/03-plan-desarrollo/README.md, docs/03-plan-desarrollo/modulos.md, docs/03-plan-desarrollo/deuda-tecnica.md y docs/03-plan-desarrollo/fases/backend/fase-NN-*.md.
 2. Corre la suite completa (php artisan test) y anota tests y aserciones en verde, y cuáles fallan.
 3. Ejecuta /validar-docs y compara lo documentado con el código: rutas, permisos del seeder, migraciones, enums.
 4. Verifica que la fase anterior cumpla su criterio de cierre (está en su archivo de fase) y que su sección del registro de decisiones exista.

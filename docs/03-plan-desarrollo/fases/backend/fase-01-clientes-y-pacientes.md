@@ -2,7 +2,7 @@
 
 Etapa: Base. Estado: **COMPLETADO** el 2026-11-06 (R-028): entregas 1.1 (R-017), 1.2 (R-018 y R-019), 1.3 (R-020 a R-022), 1.4 (R-023 a R-025) y 1.5 (R-026 a R-028) cerradas; diseño aprobado el 2026-11-05 (R-016). Ver el [cierre de la fase](#cierre-de-la-fase-1). El estado
 vigente de cada fase está en
-[`docs/roadmap/README.md`](../roadmap/README.md).
+[`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -24,7 +24,7 @@ porque cambian lo que afirman los tests de las demás. Cada entrega recorre los 
 
 ## Preguntas de negocio
 
-Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).
+Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisiones/registro.md`](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Pregunta | Respuesta | Fecha |
 |---|---|---|---|
@@ -41,7 +41,7 @@ Las preguntas que dejó el diseño, ya respondidas, están al final, en [Pregunt
 
 ## Regla de oro aplicada
 
-Análisis con [`docs/project/principios.md`](../project/principios.md). Clientes y pacientes ya existen; se analizan las piezas nuevas.
+Análisis con [`docs/00-vision/principios.md`](../../../00-vision/principios.md). Clientes y pacientes ya existen; se analizan las piezas nuevas.
 
 | Pregunta | Especie / raza propia | Foto del paciente |
 |---|---|---|
@@ -294,7 +294,7 @@ Requests devuelve una clave cruda. Suite en verde en SQLite y en MySQL. Deudas 1
 Usar solo con el diseño aprobado, una entrega por vez.
 
 ```text
-Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-pacientes.md (diseño aprobado).
+Implementa la entrega 1.X de la FASE 1 según docs/03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md (diseño aprobado).
 
 - El código de clientes y pacientes ya existe: no lo reescribas. Si un test encuentra un error en el código existente, corrígelo y anótalo en el Resultado de la fase.
 - Respeta las respuestas de R-015 y las de las preguntas del diseño.
@@ -303,13 +303,13 @@ Implementa la entrega 1.X de la FASE 1 según docs/fases/fase-01-clientes-y-paci
 
 ## Resultado
 
-Cada entrega lo completa en su cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y
+Cada entrega lo completa en su cierre ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y
 aserciones, desvíos del diseño y por qué. Cerradas: 1.1, 1.2, 1.3, 1.4 y 1.5; el resumen de la fase está en el [cierre de la FASE 1](#cierre-de-la-fase-1).
 
 ### Entrega 1.1
 
 Commit `0675c5b` (implementación), en `feature/fase-01-01-traducciones`, sobre el diseño de `docs/fase-01-diseno` (`c6cd327`).
-Validada por el usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-017](../decisions/registro.md).
+Validada por el usuario el 2026-11-05: suite en verde en su máquina. Decisiones en [R-017](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
@@ -365,13 +365,13 @@ no cambió ningún `error_code` ni código HTTP. Son huecos de los tests. Sin co
 
 Commits `fff480a` (implementación), `54677d8` (correcciones de la revisión, R-018) y `544f5cd` (colección de Postman), en
 `feature/fase-01-02-clientes`, encima de la 1.1. Validada por el usuario el 2026-11-05 con la colección de Postman. Decisiones en
-[R-018 y R-019](../decisions/registro.md).
+[R-018 y R-019](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `app/Rules/RucCheckDigit.php`, `app/Rules/UniqueClientDocument.php`, `app/Support/DeletedSuffix.php`, `app/Support/DocumentBase.php`, `app/Http/Requests/IndexClientRequest.php`, `app/Http/Requests/IndexPatientRequest.php`, `app/Http/Requests/ListFilters.php`; migraciones `2026_11_05_000000_widen_clients_document_number` (documento a 50) y `2026_11_05_000001_add_document_base_to_clients`; `tests/Concerns/InteractsWithClinicalRecords.php`; `docs/testing/postman/syncvet-fase-01-clientes.postman_collection.json` |
+| Nuevos | `app/Rules/RucCheckDigit.php`, `app/Rules/UniqueClientDocument.php`, `app/Support/DeletedSuffix.php`, `app/Support/DocumentBase.php`, `app/Http/Requests/IndexClientRequest.php`, `app/Http/Requests/IndexPatientRequest.php`, `app/Http/Requests/ListFilters.php`; migraciones `2026_11_05_000000_widen_clients_document_number` (documento a 50) y `2026_11_05_000001_add_document_base_to_clients`; `tests/Concerns/InteractsWithClinicalRecords.php`; `docs/05-pruebas/postman/syncvet-fase-01-clientes.postman_collection.json` |
 | Cambiados | `StoreClientRequest` y `UpdateClientRequest` (RUC, documento por número base; la edición valida como el alta), `ClientService` (sufijo de baja con el id, sin cortar), `PatientService` (sufijo con el id), `Client` (completa `document_base` al guardar), `ClientController` y `PatientController` (filtros en Form Requests, `per_page` validado), `lang/es/validation.php` (`search`, `per_page`, `page`) |
 | Tests nuevos | `tests/Feature/Clients` (`ClientStoreTest`, `ClientUpdateTest`, `ClientDeleteTest`, `ClientSearchTest`, `ClientShowTest`, `ClientDocumentBaseTest`, `ListFiltersTest`), `tests/Feature/Patients/PatientDeleteTest`, `tests/Unit/DocumentBaseTest` |
 | Tests cambiados | `VoseoTest` y `ValidationTranslationsTest` (deudas 9 a 12) |
@@ -438,7 +438,7 @@ log de la API no tiene errores de esa corrida: no se reprodujo y la colección n
 
 **Preparación.** En esta validación el primer login dio 500: `syncvet` tenía el esquema anterior a la entrega 0.2 (sin
 `audit_logs.clinic_id`) y el `.env` no tenía `DEMO_PASSWORD`. No fue un error del código; quedó documentado en
-[`development/setup.md`](../development/setup.md).
+[`development/setup.md`](../../../04-desarrollo/setup.md).
 
 ### Entrega 1.3
 
@@ -446,13 +446,13 @@ Commits `fd2334f` (implementación), `837484a` (correcciones de la revisión, R-
 handoff), en `feature/fase-01-03-pacientes`, creada desde `feature/fase-01-02-clientes`. Segundo intento: el primero quedó sin
 subir en otra computadora y se descartó; lo que ese intento encontró y el usuario aprobó se aplicó directamente (tabla de
 desvíos). Validada por el usuario el 2026-11-06 con las dos colecciones de Postman. Decisiones en
-[R-020, R-021 y R-022](../decisions/registro.md).
+[R-020, R-021 y R-022](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | Migración `2026_11_06_000000_widen_patients_microchip` (microchip a 60); `tests/Feature/Patients` (`PatientStoreTest`, `PatientUpdateTest`, `PatientChangeOwnerTest`, `PatientDeceasedTest`, `PatientSearchTest`); `docs/testing/postman/syncvet-fase-01-pacientes.postman_collection.json` |
+| Nuevos | Migración `2026_11_06_000000_widen_patients_microchip` (microchip a 60); `tests/Feature/Patients` (`PatientStoreTest`, `PatientUpdateTest`, `PatientChangeOwnerTest`, `PatientDeceasedTest`, `PatientSearchTest`); `docs/05-pruebas/postman/syncvet-fase-01-pacientes.postman_collection.json` |
 | Cambiados | `StorePatientRequest` (`code` prohibido, sin `custom_fields`), `UpdatePatientRequest` (sin `custom_fields`; especie y raza activas o las que el paciente ya tiene), `PatientMessages` y `lang/es/validation.php` (sin `custom_fields`), `ShowPatientResource` (sin `custom_fields`), `PatientService` (sufijo del microchip sin cortar; `deceased_at` a la hora de Asunción); la colección de clientes (valores únicos por corrida) |
 | Tests cambiados | `PatientDeleteTest` (reescrito con las reglas de baja), `ValidationTranslationsTest` (sin `custom_fields`), `InteractsWithClinicalRecords` (aplicaciones y turnos mínimos), `InteractsWithClinics` (razas globales, especies propias y datos del alta de un paciente) |
 | Documentación | `CLAUDE.md` §1, §6.2 y §7; `README.md` (31 migraciones); la guía de Postman; este documento, el registro (R-020), la deuda técnica (1 resuelta, 13 nueva), el handoff y los documentos de estado |
@@ -506,7 +506,7 @@ errores.
 
 La revisión de la 1.3 encontró dos hallazgos de gravedad media, cuatro de baja y dos avisos. El usuario pidió corregir los ocho,
 cada uno con un test que falle al quitar la protección. La revisión se hizo en la misma sesión de Claude Code que la
-implementación, no en una sesión aparte: quien revisó tenía el contexto de quien implementó. Decisiones en [R-021](../decisions/registro.md).
+implementación, no en una sesión aparte: quien revisó tenía el contexto de quien implementó. Decisiones en [R-021](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
 |---|---|---|---|---|
@@ -554,13 +554,13 @@ reimportar las colecciones.
 
 Implementación en `feature/fase-01-04-especies`, creada desde `feature/fase-01-03-pacientes` (`8a614c5`), revisada y corregida
 ([correcciones de la revisión](#correcciones-de-la-revisión-r-024), `aadc1d9`), y validada por el usuario
-([validación del usuario](#validación-del-usuario-r-025)). Decisiones en [R-023](../decisions/registro.md), R-024 y R-025.
+([validación del usuario](#validación-del-usuario-r-025)). Decisiones en [R-023](../../../01-arquitectura/decisiones/registro.md), R-024 y R-025.
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | Migración `2026_11_06_000001_add_soft_deletes_to_species_and_breeds` (`deleted_at`; nombres a 90 y 110); `BreedController`; `StoreSpeciesRequest`, `UpdateSpeciesRequest`, `StoreBreedRequest`, `UpdateBreedRequest`, `IndexCatalogRequest` y `CatalogMessages`; `SpeciesResource` y `BreedResource`; `SpeciesService`, `BreedService` y `CatalogLock`; `App\Support\CatalogName`; `tests/Feature/Catalog` (`SpeciesIndexTest`, `SpeciesWriteTest`, `BreedWriteTest`, `CatalogDeleteTest`, `NestedBindingTest`, `PatientCatalogTest`, `CatalogLockTest`), `tests/Feature/Tenancy/SharedCatalogInsertTest`, `tests/Unit/SpeciesSeederTest` y `tests/Concerns/InteractsWithCatalog`; `docs/testing/postman/syncvet-fase-01-especies.postman_collection.json` |
+| Nuevos | Migración `2026_11_06_000001_add_soft_deletes_to_species_and_breeds` (`deleted_at`; nombres a 90 y 110); `BreedController`; `StoreSpeciesRequest`, `UpdateSpeciesRequest`, `StoreBreedRequest`, `UpdateBreedRequest`, `IndexCatalogRequest` y `CatalogMessages`; `SpeciesResource` y `BreedResource`; `SpeciesService`, `BreedService` y `CatalogLock`; `App\Support\CatalogName`; `tests/Feature/Catalog` (`SpeciesIndexTest`, `SpeciesWriteTest`, `BreedWriteTest`, `CatalogDeleteTest`, `NestedBindingTest`, `PatientCatalogTest`, `CatalogLockTest`), `tests/Feature/Tenancy/SharedCatalogInsertTest`, `tests/Unit/SpeciesSeederTest` y `tests/Concerns/InteractsWithCatalog`; `docs/05-pruebas/postman/syncvet-fase-01-especies.postman_collection.json` |
 | Cambiados | `SpeciesController` (ABM con Resource), `routes/api.php` (`apiResource` de especies y de razas, sin `show`), `Species` y `Breed` (`SoftDeletes`, `Auditable`, `is_active` por defecto), `SharedCatalog` (`ensureNotGlobal()` público), `SharedCatalogBuilder` (altas masivas), `StorePatientRequest` y `UpdatePatientRequest` (sin especies ni razas eliminadas), `RolesAndPermissionsSeeder` (`species.destroy`; el veterinario administra el catálogo), `lang/es/validation.php` (`is_active`, `include_inactive`) |
 | Tests cambiados | `SharedCatalogTest` (la baja masiva es un `deleted_at`: las globales siguen sin él), `RoleAccessTest` (parámetros `species` y `breed`, propios), `ValidationTranslationsTest` (pedidos inválidos al catálogo), `InteractsWithApiRoutes` (las cuatro rutas de razas con los permisos de especie), `VoseoTest` (verbo `inactivar`), `tests/Fixtures/clinic-roles.json` |
 | Documentación | `CLAUDE.md` §1, §3 (orden de bloqueo y altas masivas), §6.3 nueva (las pendientes de diseño pasan a §6.4) y §7; `README.md` (32 migraciones); la guía de Postman; este documento, el registro (R-023), la deuda técnica (8 resuelta), el handoff y los documentos de estado |
@@ -627,7 +627,7 @@ pacientes (30 requests, 61 aserciones) corrieron otra vez después, en verde.
 
 La revisión de la 1.4 encontró un hallazgo de gravedad media, cuatro de baja y tres de documentación. El usuario pidió corregirlos,
 cada uno con un test que falle al quitar la protección. La revisión se hizo en la misma sesión de Claude Code que la
-implementación, no en una sesión aparte. Decisiones en [R-024](../decisions/registro.md).
+implementación, no en una sesión aparte. Decisiones en [R-024](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
 |---|---|---|---|---|
@@ -679,13 +679,13 @@ sigue con la 1.5 (foto del paciente).
 
 Implementación en `feature/fase-01-05-foto`, creada desde `feature/fase-01-04-especies` (`711ef5a`): commits `1650605`
 (implementación, R-026) y `79f7e8e` (correcciones de la revisión, R-027). Validada por el usuario y cerrada el 2026-11-06 (R-028).
-Decisiones en [R-026](../decisions/registro.md), [R-027](../decisions/registro.md) y [R-028](../decisions/registro.md).
+Decisiones en [R-026](../../../01-arquitectura/decisiones/registro.md), [R-027](../../../01-arquitectura/decisiones/registro.md) y [R-028](../../../01-arquitectura/decisiones/registro.md).
 
 **Archivos.**
 
 | Tipo | Archivos |
 |---|---|
-| Nuevos | `PatientPhotoController`, `UploadPatientPhotoRequest`, `PatientPhotoService`; `tests/Feature/Patients/PatientPhotoTest` y sus archivos de prueba (`tests/Fixtures/photos`: JPG, PNG, WEBP, GIF y SVG de 16 × 16); la colección `docs/testing/postman/syncvet-fase-01-foto.postman_collection.json` y sus archivos (`docs/testing/postman/archivos`: `foto-paciente.png` y `no-es-imagen.jpg`) |
+| Nuevos | `PatientPhotoController`, `UploadPatientPhotoRequest`, `PatientPhotoService`; `tests/Feature/Patients/PatientPhotoTest` y sus archivos de prueba (`tests/Fixtures/photos`: JPG, PNG, WEBP, GIF y SVG de 16 × 16); la colección `docs/05-pruebas/postman/syncvet-fase-01-foto.postman_collection.json` y sus archivos (`docs/05-pruebas/postman/archivos`: `foto-paciente.png` y `no-es-imagen.jpg`) |
 | Cambiados | `routes/api.php` (las tres rutas de la foto), `PatientResource` (`has_photo`) y `ShowPatientResource` (sin `photo_path`), `bootstrap/app.php` (413 `PAYLOAD_TOO_LARGE`), `RolesAndPermissionsSeeder` (tres permisos, 120 → 123, para el recepcionista y el veterinario), `lang/es/validation.php` (`photo`) |
 | Tests cambiados | `RoleAccessTest` (el paciente tiene foto en un disco falso; el estado de una respuesta con `getStatusCode()`, que también sirve para la descarga), `PatientStoreTest` (`has_photo` en lugar de `photo_path`), `ErrorResponseTest` (413), `tests/Fixtures/clinic-roles.json` |
 | Documentación | `CLAUDE.md` §1, §4 (la descarga como excepción a `ApiResponse` y el 413) y §6.2 (foto); `README.md` (123 permisos); `development/setup.md` (`upload_max_filesize` y `post_max_size`); la guía de Postman y la colección de pacientes (`has_photo`); este documento, el registro (R-026), el handoff y los documentos de estado |
@@ -741,7 +741,7 @@ La revisión de la 1.5, con foco en la seguridad de los archivos subidos, encont
 explotable con el código de la implementación) y dos de documentación. El usuario aceptó los desvíos de la implementación y pidió
 corregirlos, cada uno con un test que falle al quitar la protección; el hallazgo 3 cambia R-015 (la imagen ya no se guarda tal
 cual). La revisión se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte. Decisiones en
-[R-027](../decisions/registro.md).
+[R-027](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Gravedad | Hallazgo | Corrección | Test que falla sin la protección |
 |---|---|---|---|---|
@@ -809,7 +809,7 @@ usuario (R-028).
 de MySQL). MySQL 8.4.3 (`syncvet_test_mysql`): 6772 aserciones, sin omitidos. Frente al cierre de la FASE 0 (242 casos): 374
 casos más.
 
-**Colecciones de Postman** (`docs/testing/postman`; se corren más de una vez sin recrear la base, [guía](../testing/guia-postman.md)):
+**Colecciones de Postman** (`docs/05-pruebas/postman`; se corren más de una vez sin recrear la base, [guía](../../../05-pruebas/guia-postman.md)):
 
 | Colección | Entrega | Requests | Aserciones | Validación del usuario |
 |---|---|---|---|---|
@@ -827,7 +827,7 @@ casos más.
 | Suite en verde en SQLite y en MySQL | La suite final, en las dos bases |
 | Deudas 1 y 8 resueltas | Deuda 1 en las entregas 1.2 y 1.3 (R-019, R-020); deuda 8 en la 1.4 (`NestedBindingTest`, R-023) |
 
-**Deudas abiertas al cerrar** ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)): 2 (modelos generados desde el esquema), 3
+**Deudas abiertas al cerrar** ([`deuda-tecnica.md`](../../deuda-tecnica.md)): 2 (modelos generados desde el esquema), 3
 (códigos SIFEN sin verificar), 5 (sin claves foráneas compuestas), 6 (límite del login en ráfagas con la caché `database`), 13
 (fechas con hora de la API: solo `deceased_at` se convierte; antes de la FASE 3) y 14 (fotos huérfanas, sin limpieza programada).
 Resueltas en la fase: 1, 8, 9, 10, 11 y 12. Nuevas en la fase: 9 a 12 (resueltas), 13 y 14.
@@ -835,4 +835,4 @@ Resueltas en la fase: 1, 8, 9, 10, 11 y 12. Nuevas en la fase: 9 a 12 (resueltas
 **Pendiente de verificación.** El "Errors 1" del Collection Runner en la validación de la 1.2: Newman no lo reproduce (handoff).
 
 **Para la FASE 2** (datos maestros): [`fase-02-datos-maestros.md`](fase-02-datos-maestros.md). El análisis de lo hecho (paso 1,
-[`prompts/1-analisis.md`](../prompts/1-analisis.md)) y las respuestas de negocio (R-029) ya están; el diseño espera su aprobación.
+[`prompts/1-analisis.md`](../../prompts/1-analisis.md)) y las respuestas de negocio (R-029) ya están; el diseño espera su aprobación.

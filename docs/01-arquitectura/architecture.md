@@ -1,6 +1,6 @@
 # Arquitectura
 
-La arquitectura, las carpetas y el contrato de respuesta están en [`CLAUDE.md`](../../CLAUDE.md), sección 4. Este documento agrega
+La arquitectura, las carpetas y el contrato de respuesta están en [`CLAUDE.md`](../../backend/CLAUDE.md), sección 4. Este documento agrega
 cómo se relacionan los módulos.
 
 ## Módulos y tablas

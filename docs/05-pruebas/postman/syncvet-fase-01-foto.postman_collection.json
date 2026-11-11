@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 1: validación de la foto del paciente",
-        "description": "Validación manual de la foto del paciente (FASE 1, entrega 1.5). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones al día y los roles sembrados otra vez. Los archivos que sube están en docs/testing/postman/archivos, con la ruta relativa a la raíz del repositorio: en Postman, Settings > General > Working directory tiene que ser la carpeta del repositorio (y \"Allow reading files outside working directory\" puede quedar apagado); Newman se corre desde esa carpeta. Se puede correr más de una vez sin recrear la base: el primer request genera el documento y el email de la corrida (rango propio, 000000 a 099998). La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/testing/guia-postman.md.",
+        "description": "Validación manual de la foto del paciente (FASE 1, entrega 1.5). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones al día y los roles sembrados otra vez. Los archivos que sube están en docs/05-pruebas/postman/archivos, con la ruta relativa a la raíz del repositorio: en Postman, Settings > General > Working directory tiene que ser la carpeta del repositorio (y \"Allow reading files outside working directory\" puede quedar apagado); Newman se corre desde esa carpeta. Se puede correr más de una vez sin recrear la base: el primer request genera el documento y el email de la corrida (rango propio, 000000 a 099998). La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -532,7 +532,7 @@
                         {
                             "key": "photo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/no-es-imagen.jpg"
+                            "src": "docs/05-pruebas/postman/archivos/no-es-imagen.jpg"
                         }
                     ]
                 }
@@ -589,7 +589,7 @@
                         {
                             "key": "photo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/foto-paciente.png"
+                            "src": "docs/05-pruebas/postman/archivos/foto-paciente.png"
                         }
                     ]
                 }
@@ -791,7 +791,7 @@
                         {
                             "key": "photo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/foto-paciente.png"
+                            "src": "docs/05-pruebas/postman/archivos/foto-paciente.png"
                         }
                     ]
                 }
@@ -1029,7 +1029,7 @@
                         {
                             "key": "photo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/foto-paciente.png"
+                            "src": "docs/05-pruebas/postman/archivos/foto-paciente.png"
                         }
                     ]
                 }
@@ -1144,7 +1144,7 @@
                         {
                             "key": "photo",
                             "type": "file",
-                            "src": "docs/testing/postman/archivos/foto-paciente.png"
+                            "src": "docs/05-pruebas/postman/archivos/foto-paciente.png"
                         }
                     ]
                 }

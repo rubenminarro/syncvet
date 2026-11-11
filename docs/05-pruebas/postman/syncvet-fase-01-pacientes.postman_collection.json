@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 1: validación de pacientes",
-        "description": "Validación manual de pacientes (FASE 1, entrega 1.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Se puede correr más de una vez sin recrear la base: el primer request genera documentos, emails y un microchip únicos de la corrida. Completar la variable demo_password con la DEMO_PASSWORD del .env. PATIENT_IN_USE no está aquí: la API todavía no crea consultas, aplicaciones ni turnos (lo prueba PatientDeleteTest). Ver docs/testing/guia-postman.md.",
+        "description": "Validación manual de pacientes (FASE 1, entrega 1.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder. Se puede correr más de una vez sin recrear la base: el primer request genera documentos, emails y un microchip únicos de la corrida. Completar la variable demo_password con la DEMO_PASSWORD del .env. PATIENT_IN_USE no está aquí: la API todavía no crea consultas, aplicaciones ni turnos (lo prueba PatientDeleteTest). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {

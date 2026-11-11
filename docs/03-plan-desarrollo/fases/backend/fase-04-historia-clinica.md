@@ -1,6 +1,6 @@
 # FASE 4 — Historia clínica
 
-Etapa: Atención. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
+Etapa: Atención. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -29,7 +29,7 @@ siendo posible.
 
 ## Preguntas de negocio
 
-Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).
+Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisiones/registro.md`](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Pregunta | Respuesta | Fecha |
 |---|---|---|---|
@@ -39,8 +39,8 @@ Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](.
 
 ## Diseño
 
-PENDIENTE: lo completa el paso 2 ([`docs/prompts/2-diseno.md`](../prompts/2-diseno.md)), aplicando la regla de oro de
-[`docs/project/principios.md`](../project/principios.md).
+PENDIENTE: lo completa el paso 2 ([`docs/03-plan-desarrollo/prompts/2-diseno.md`](../../prompts/2-diseno.md)), aplicando la regla de oro de
+[`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 ## Criterio de cierre
 
@@ -51,7 +51,7 @@ El flujo turno fichado → consulta → cierre funciona de punta a punta; una co
 Usar solo con el diseño aprobado.
 
 ```text
-Implementa la FASE 4 según docs/fases/fase-04-historia-clinica.md (diseño aprobado).
+Implementa la FASE 4 según docs/03-plan-desarrollo/fases/backend/fase-04-historia-clinica.md (diseño aprobado).
 
 - ConsultationService: abrir desde un turno fichado (pasa el turno a atendido) o sin turno; copia client_id del dueño actual; código CON-.
 - Editar solo abierta; cerrar (closed_by, closed_at); reabrir según D4 con permiso consultations.reopen; anular con motivo.
@@ -64,5 +64,5 @@ Sigue CLAUDE.md. Corre la suite e infórmame. No hagas commit.
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
+PENDIENTE: lo completa el cierre ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
 desvíos del diseño y por qué.

@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 2: validación de sucursales y depósitos",
-        "description": "Validación manual de sucursales y depósitos (FASE 2, entrega 2.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (rango propio, 100000 a 199998), que va en los códigos y nombres; el segundo busca dos códigos de establecimiento libres. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva y devuelve la por defecto a la original. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/testing/guia-postman.md.",
+        "description": "Validación manual de sucursales y depósitos (FASE 2, entrega 2.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (rango propio, 100000 a 199998), que va en los códigos y nombres; el segundo busca dos códigos de establecimiento libres. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva y devuelve la por defecto a la original. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [

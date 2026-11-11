@@ -1,7 +1,11 @@
 # Guía de pruebas con Postman
 
 Requests por fase, encadenados. Todos llevan `Accept: application/json` y, salvo el login, `Authorization: Bearer {{token}}`.
-Las respuestas siguen el contrato de `CLAUDE.md` §4.
+Las respuestas siguen el contrato de `backend/CLAUDE.md` §4.
+
+**Desde qué carpeta (monorepo, R-057).** Los comandos de `php artisan` (sembrar, migrar, `serve`) se corren desde `backend/`; Newman
+y la carpeta de trabajo de Postman, desde la raíz del repositorio, porque las colecciones suben archivos con la ruta
+`docs/05-pruebas/postman/archivos/…`.
 
 ## FASE 0 — Autenticación
 
@@ -105,9 +109,10 @@ cambiar a una rama con migraciones nuevas, recrearla o correr `php artisan migra
 1.4 le suma al veterinario `species.store`, `species.update` y `species.destroy`) y la base no se recrea, volver a sembrar los
 roles: `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos). Sin eso, el veterinario recibe 403 `FORBIDDEN`
 en la colección de especies. La 1.5 suma `patients.upload-photo`, `patients.show-photo` y `patients.delete-photo` al recepcionista y
-al veterinario: sin volver a sembrar, la colección de la foto recibe 403. Levantar el servidor en el puerto 8001:
+al veterinario: sin volver a sembrar, la colección de la foto recibe 403. Levantar el servidor en el puerto 8001, desde `backend/`:
 
 ```bash
+cd backend
 php artisan serve --port=8001
 ```
 
@@ -121,7 +126,7 @@ php artisan serve --port=8001
 
 **Los archivos de la colección de la foto.** Sube los archivos de [`postman/archivos`](postman/archivos) (`foto-paciente.png`,
 un PNG de 32 × 32, y `no-es-imagen.jpg`, un texto), con la ruta relativa a la raíz del repositorio
-(`docs/testing/postman/archivos/…`). Para que el Runner los encuentre:
+(`docs/05-pruebas/postman/archivos/…`). Para que el Runner los encuentre:
 
 1. **Settings** (el engranaje) → **General** → **Working directory**: elegir la carpeta del repositorio (por ejemplo,
    `C:\laragon\www\syncvet`).
@@ -165,14 +170,14 @@ borre el archivo anterior del disco privado, un archivo perdido (404 con aviso e
 `Content-Security-Policy` de la descarga, un `photo_path` fuera de la carpeta del paciente (404) o enviado en un `PATCH` (se
 ignora) y que `/storage/...` no sirva la foto, ni con firma (R-027): lo prueba `PatientPhotoTest`.
 
-**Con Newman.** Las cuatro colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
+**Con Newman.** Desde la raíz del repositorio. Las cuatro colecciones también corren desde la consola, sin el Runner (la contraseña va como variable de entorno,
 que tiene prioridad sobre la de la colección):
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-01-clientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
-npx newman run docs/testing/postman/syncvet-fase-01-pacientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
-npx newman run docs/testing/postman/syncvet-fase-01-especies.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
-npx newman run docs/testing/postman/syncvet-fase-01-foto.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-01-clientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-01-pacientes.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-01-especies.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-01-foto.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 Se corren desde la raíz del repositorio: la colección de la foto busca sus archivos con la ruta relativa a esa carpeta.
@@ -213,7 +218,7 @@ está en la colección de usuarios, desde la 2.2b). La concurrencia y el orden d
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-02-sucursales.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-02-sucursales.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 #### Usuarios (2.2a y 2.2b)
@@ -248,7 +253,7 @@ nombre en una tabla de negocio (`UserDeleteTest`) y el límite de intentos del l
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-02-usuarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-02-usuarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 #### Veterinarios (2.3)
@@ -280,7 +285,7 @@ bloqueos (`VeterinarianLockTest`), el índice único como respaldo de la matríc
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-02-veterinarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-02-veterinarios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 #### Servicios (2.4)
@@ -307,7 +312,7 @@ También la concurrencia y el orden de los bloqueos (`ServiceLockTest`), el índ
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-02-servicios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-02-servicios.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 #### Configuración de la clínica y logo (2.5)
@@ -341,12 +346,12 @@ megapíxeles, el EXIF quitado, una ruta del logo fuera de la carpeta de la clín
 logo de otra clínica (`ClinicLogoTest`); una clave desconocida cargada en la base, la marca del `DemoSeeder`, una clave en otras
 mayúsculas y la auditoría (`SystemSettingsTest` y `ClinicLogoTest`); la concurrencia y el orden de los bloqueos (los dos); y la
 limpieza de archivos huérfanos (`PruneOrphanFilesTest`; a mano, con `php artisan files:prune-orphans --dry-run`,
-[`development/setup.md`](../development/setup.md)).
+[`docs/04-desarrollo/setup.md`](../04-desarrollo/setup.md)).
 
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-02-configuracion.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-02-configuracion.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 #### Auditoría (2.6)
@@ -367,7 +372,7 @@ antes de la medianoche de Asunción, puede quedar fuera un registro.
 inmutables.
 
 **La zona horaria del servidor.** El filtro con la fecha sin zona y la fecha sola dependen de que PHP tenga la base de zonas 2025a o
-posterior ([`development/setup.md`](../development/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)): con una más vieja, de
+posterior ([`docs/04-desarrollo/setup.md`](../04-desarrollo/setup.md#zona-horaria-de-paraguay-base-de-zonas-de-php)): con una más vieja, de
 marzo a octubre la hora de Asunción queda corrida una hora y esos pedidos fallan.
 
 **Lo que no está en la colección.** Un registro de otra clínica o un `LOGIN_FAILED` sin clínica (404), `search` literal, el usuario
@@ -379,7 +384,7 @@ pacientes de la FASE 1 (`syncvet-fase-01-pacientes`).
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-02-auditoria.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-02-auditoria.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 ## FASE 3 — Agenda y turnos
@@ -418,14 +423,14 @@ inactiva al usuario, que no se puede eliminar porque la ficha eliminada cuenta c
 **Lo que no está en la colección.** Lo que necesita turnos, porque la API todavía no los crea: mover una agenda con turnos de sucursal
 o de veterinario (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno (409 `SCHEDULE_IN_USE`); los cubren
 `ScheduleUpdateTest` y `ScheduleDeleteTest`, y van en la colección de la 3.2a (anotado en el
-[documento de la FASE 3](../fases/fase-03-agenda-y-turnos.md#32a-turnos-únicos)). También `affected_appointments` con turnos
+[documento de la FASE 3](../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#32a-turnos-únicos)). También `affected_appointments` con turnos
 (`ScheduleBlockTest`), el orden de los bloqueos y el reintento de la edición (`ScheduleLockTest`), y una agenda o un bloqueo de otra
 clínica (404, `RouteBindingTest`).
 
 **Con Newman.**
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-03-agendas.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-03-agendas.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 #### Turnos (3.2a y 3.2b)
@@ -471,7 +476,7 @@ cliente o un servicio de otra clínica (422) (`RouteBindingTest`).
 **Con Newman.** Con el servidor en el puerto 8001:
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-03-turnos.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-03-turnos.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 58 pedidos y 107 aserciones, sin fallas.
@@ -504,7 +509,7 @@ los turnos movidos al mismo instante y una serie de otra clínica (404): `Appoin
 **Con Newman.** Con el servidor en el puerto 8001:
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-03-series.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-03-series.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 25 pedidos y 42 aserciones, sin fallas.
@@ -544,7 +549,7 @@ El conteo de consultas de la disponibilidad y la agenda de otra sucursal: `Sched
 **Con Newman.** Con el servidor en el puerto 8001:
 
 ```bash
-npx newman run docs/testing/postman/syncvet-fase-03-disponibilidad.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
+npx newman run docs/05-pruebas/postman/syncvet-fase-03-disponibilidad.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
 
 Corrida del 2026-11-11 contra la base de desarrollo, dos veces seguidas sin recrearla: 47 pedidos y 72 aserciones, sin fallas. Después

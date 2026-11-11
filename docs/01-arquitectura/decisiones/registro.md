@@ -23,7 +23,7 @@ Laravel 13 (sin PHPUnit).
 # R-002 D1: una base compartida con `clinic_id` (2026-11-04)
 
 Decisión del usuario del 2026-11-04, sobre la recomendación del plan. Se implementa en la FASE 0, entrega 0.2
-([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md)).
+([`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md)).
 
 | Tema | Decisión |
 |---|---|
@@ -43,7 +43,7 @@ Decisión del usuario del 2026-11-04, sobre la recomendación del plan. Se imple
 
 Registro de lo que quedó del trabajo de documentación anterior al paquete base: una "Fase 0" de solo documentación, por
 bloques del 0.1 al 0.6 y con aprobación explícita del usuario. Esa numeración no es la de la FASE 0 de
-[`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md). Fuente: notas de sesión de Claude Code del
+[`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md). Fuente: notas de sesión de Claude Code del
 2026-11-03. Desde esta entrega la fuente de verdad son `docs/` y `CLAUDE.md`, no esas notas.
 
 | Tema | Lo que se sabe |
@@ -53,13 +53,13 @@ bloques del 0.1 al 0.6 y con aprobación explícita del usuario. Esa numeración
 | DP-0.1-05 | Decisión del Bloque 0.1, aprobada por el usuario y marcada como no modificable. Contenido: PENDIENTE DE VERIFICACIÓN |
 | DP-0.1-01 a DP-0.1-03 y otras | Si existieron y en qué estado quedaron: PENDIENTE DE VERIFICACIÓN |
 | Criterio de evidencia | En ese trabajo se distinguía lo verificado, lo publicitado (web o anuncio), lo referido y lo inferido, sin presentar interpretaciones normativas como hechos |
-| Material que sí está en el repositorio | [`docs/prompts/prompt-fase0-syncvet.md`](../prompts/prompt-fase0-syncvet.md), [`docs/references/competitors.md`](../references/competitors.md) y tres anuncios en `docs/references/ads/` |
+| Material que sí está en el repositorio | [`docs/prompts/prompt-fase0-syncvet.md`](../../03-plan-desarrollo/prompts/prompt-fase0-syncvet.md), [`docs/references/competitors.md`](../../00-vision/referencias/competitors.md) y tres anuncios en `docs/references/ads/` |
 | Pendiente | Reconstruir DP-0.1-04, DP-0.1-05 y el §7 desde otra copia (por ejemplo, la conversación de revisión con ChatGPT) y registrarlos en una sección nueva |
 
 # R-004 Respuestas de la FASE 0 y correcciones de la documentación (2026-11-04)
 
 Decisiones del usuario del 2026-11-04, después del análisis previo a la FASE 0. Las respuestas de negocio están también en la
-tabla de preguntas de [`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md).
+tabla de preguntas de [`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md).
 
 | Tema | Decisión |
 |---|---|
@@ -83,7 +83,7 @@ tabla de preguntas de [`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en
 # R-005 Aprobación del diseño de la FASE 0 (2026-11-04)
 
 Decisión del usuario del 2026-11-04. Aprueba el diseño de
-[`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md) y responde sus preguntas.
+[`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md) y responde sus preguntas.
 
 | Tema | Decisión |
 |---|---|
@@ -104,7 +104,7 @@ Decisión del usuario del 2026-11-04. Aprueba el diseño de
 
 # R-006 Entrega 0.1 de la FASE 0: proyecto Laravel 13 (2026-11-04)
 
-Cierre de la entrega 0.1 ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md#entrega-01)), commits `11b82b3` y
+Cierre de la entrega 0.1 ([`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-01)), commits `11b82b3` y
 `2b50149`. El usuario la validó el 2026-11-04 (suite, `migrate:fresh --seed` y `GET /up`).
 
 | Tema | Decisión | Quién |
@@ -121,7 +121,7 @@ Cierre de la entrega 0.1 ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puest
 
 # R-007 Entrega 0.2 de la FASE 0: separación por clínica (2026-11-05)
 
-Cierre de la entrega 0.2 ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md#entrega-02)), commits `fb52b73` y
+Cierre de la entrega 0.2 ([`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-02)), commits `fb52b73` y
 `cf8f862`. El usuario la validó el 2026-11-05 (suite y `migrate:fresh --seed`). Implementa D1 (R-002, R-004, R-005).
 
 | Tema | Decisión | Quién |
@@ -138,7 +138,7 @@ Cierre de la entrega 0.2 ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puest
 
 # R-008 Entrega 0.3 de la FASE 0: autenticación (2026-11-05)
 
-Cierre de la entrega 0.3 ([`fase-00-puesta-en-marcha.md`](../fases/fase-00-puesta-en-marcha.md#entrega-03)), commits `2114244`,
+Cierre de la entrega 0.3 ([`fase-00-puesta-en-marcha.md`](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-03)), commits `2114244`,
 `3da07f2` y `727546e`. El usuario la validó el 2026-11-05 (suite) y dejó la prueba manual con Postman para la entrega 0.4.
 
 | Tema | Decisión | Quién |
@@ -165,7 +165,7 @@ el login solo exige un texto.
 | Regla | `Password::defaults()` (`AppServiceProvider`): al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos, y `uncompromised()`: no puede aparecer en filtraciones conocidas (Have I Been Pwned). Reemplaza la primera propuesta de la 0.4 (10 caracteres, con letras y números) | Usuario, el 2026-11-05 |
 | Dónde se aplica | La contraseña del administrador de `clinic:create` y `DEMO_PASSWORD` del `DemoSeeder`; en la FASE 2, el ABM de usuarios. Reglas y mensajes con voseo en `App\Support\UserPassword`. El login no la aplica: valida credenciales, no contraseñas nuevas | Implementación |
 | Contraseña generada | `clinic:create` sin interacción genera 20 caracteres con al menos una mayúscula, una minúscula, un número y un símbolo, sin caracteres ambiguos (0/O, 1/l/I) | Implementación |
-| Have I Been Pwned | Se consulta por k-anonimato: solo viajan los 5 primeros caracteres del SHA-1. Si el servicio no responde, Laravel acepta la contraseña y reporta el error al log. En producción hace falta salida HTTPS a `api.pwnedpasswords.com` ([`deployment.md`](../development/deployment.md)) | Usuario (la regla); comportamiento de Laravel |
+| Have I Been Pwned | Se consulta por k-anonimato: solo viajan los 5 primeros caracteres del SHA-1. Si el servicio no responde, Laravel acepta la contraseña y reporta el error al log. En producción hace falta salida HTTPS a `api.pwnedpasswords.com` ([`deployment.md`](../../04-desarrollo/deployment.md)) | Usuario (la regla); comportamiento de Laravel |
 | Tests | Ningún test sale a la red: `tests/TestCase.php` bloquea los pedidos HTTP sin simular y simula Have I Been Pwned con `Http::fake` | Usuario |
 
 # R-010 Revisión de la entrega 0.4 de la FASE 0 (2026-11-05)
@@ -190,7 +190,7 @@ Correcciones de la segunda revisión, antes del cierre de la entrega. Completa R
 
 | Tema | Decisión | Quién |
 |---|---|---|
-| Have I Been Pwned en desarrollo | El `php.ini` de Laragon apuntaba `curl.cainfo` a un `cacert.pem` inexistente (`D:\Projects\Laragon-installer\…`): toda consulta fallaba con cURL error 77 y la regla de contraseñas aceptaba cualquiera, también `Password123!`. `curl.cainfo` y `openssl.cafile` pasan a `C:\laragon\etc\ssl\cacert.pem`. Es configuración de la máquina, fuera del repositorio; [`deployment.md`](../development/deployment.md) pide comprobarlo en producción | Usuario |
+| Have I Been Pwned en desarrollo | El `php.ini` de Laragon apuntaba `curl.cainfo` a un `cacert.pem` inexistente (`D:\Projects\Laragon-installer\…`): toda consulta fallaba con cURL error 77 y la regla de contraseñas aceptaba cualquiera, también `Password123!`. `curl.cainfo` y `openssl.cafile` pasan a `C:\laragon\etc\ssl\cacert.pem`. Es configuración de la máquina, fuera del repositorio; [`deployment.md`](../../04-desarrollo/deployment.md) pide comprobarlo en producción | Usuario |
 | Aviso de Have I Been Pwned | El aviso del log lleva el código de error de cURL (`curl_error`) o el estado HTTP (`status`), además de la clase de la excepción. Nunca el mensaje: termina con la URL y el prefijo del hash | Usuario |
 | Aviso en la consola | Si la contraseña escrita se aceptó sin consultar Have I Been Pwned, `clinic:create` (con interacción) y el `DemoSeeder` lo avisan en la consola (`UserPassword::leakCheckSkipped`). La contraseña generada de `clinic:create` no se consulta: no hay aviso | Usuario |
 | Documentos de ejemplo | Todos ficticios: los RUC de clínicas y de clientes empresa son `999999xx` con su dígito verificador (Granja San Jorge S.R.L. pasa a `99999903-6`) y las cédulas de los clientes persona, `99xxxxxx` (`99100001`, `99100002`, `99200001`, `99200002`). El test del `DemoSeeder` exige esos prefijos | Usuario |
@@ -200,14 +200,14 @@ Correcciones de la segunda revisión, antes del cierre de la entrega. Completa R
 
 Cierre de la entrega 0.4: `php artisan clinic:create` y el `DemoSeeder`, con la regla de contraseñas (R-009) y las correcciones de
 sus dos revisiones (R-010 y R-011). Commits `35d5089`, `d135459` y `e7047b2`, en `feature/fase-00-04-clinic-create`. El detalle está
-en el [resultado de la entrega](../fases/fase-00-puesta-en-marcha.md#entrega-04).
+en el [resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-04).
 
 | Tema | Decisión | Quién |
 |---|---|---|
 | Validación | Suite en verde sobre `e7047b2` en SQLite (222 casos, 3208 aserciones, 1 omitido) y en MySQL 8.4.3 (`syncvet_test_mysql`, 3222 aserciones). Validación manual del usuario sobre la base `syncvet`: `DEMO_PASSWORD`, `migrate:fresh --seed`, `DemoSeeder` sin avisos, `clinic:create` interactivo y la prueba con Postman | Usuario, el 2026-11-05 |
-| Prueba con Postman de la 0.3 | Hecha, con alcance: login con un usuario de cada clínica, `me`, 404 al pedir un paciente de la otra clínica, 429 al sexto intento fallido, logout y 401 después. Las demás filas de la sección de la FASE 0 de la [guía](../testing/guia-postman.md) no se recorrieron a mano: las respaldan los tests de `tests/Feature/Auth` y `tests/Feature/Tenancy` | Usuario |
+| Prueba con Postman de la 0.3 | Hecha, con alcance: login con un usuario de cada clínica, `me`, 404 al pedir un paciente de la otra clínica, 429 al sexto intento fallido, logout y 401 después. Las demás filas de la sección de la FASE 0 de la [guía](../../05-pruebas/guia-postman.md) no se recorrieron a mano: las respaldan los tests de `tests/Feature/Auth` y `tests/Feature/Tenancy` | Usuario |
 | Bases de desarrollo anteriores a R-011 | El `DemoSeeder` falla sobre ellas (busca los clientes por su documento, que cambió, y choca con el email único). Se documenta en el resultado y en la guía (recrear la base); no se abre una deuda | Usuario |
-| Instalación | [`setup.md`](../development/setup.md) explica cómo apuntar `curl.cainfo` y `openssl.cafile` del `php.ini` de Laragon al `cacert.pem` que existe, y cómo comprobarlo | Usuario |
+| Instalación | [`setup.md`](../../04-desarrollo/setup.md) explica cómo apuntar `curl.cainfo` y `openssl.cafile` del `php.ini` de Laragon al `cacert.pem` que existe, y cómo comprobarlo | Usuario |
 | Cédulas de ejemplo en los tests | Los tests de `tests/Feature/Tenancy` siguen con cédulas fuera del rango ficticio. Deuda 7, para la FASE 1 | Implementación (detectada en el cierre) |
 | `CLAUDE.md` | §1 con el estado de la FASE 0 y los comandos; §3 con las reglas de contraseñas (R-009 y R-010) y de datos de ejemplo (R-011); §7 con la deuda 7 | Implementación |
 
@@ -239,8 +239,8 @@ regla del login (un hash verificado siempre, con el costo de las contraseñas).
 
 Cierre de la entrega 0.5 (acceso por rol y verificación en MySQL), con las correcciones de su revisión (R-013), y de la FASE 0
 completa. Commits `8fe50cc` y `f87dbdd`, en `feature/fase-00-05-acceso`. El detalle está en el
-[resultado de la entrega](../fases/fase-00-puesta-en-marcha.md#entrega-05) y en el
-[cierre de la fase](../fases/fase-00-puesta-en-marcha.md#cierre-de-la-fase-0).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-05) y en el
+[cierre de la fase](../../03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#cierre-de-la-fase-0).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -249,7 +249,7 @@ completa. Commits `8fe50cc` y `f87dbdd`, en `feature/fase-00-05-acceso`. El deta
 | Permiso de cada ruta | Regla de `CLAUDE.md` §3: el permiso de cada ruta es su nombre (`recurso.acción`; en las anidadas, los dos últimos tramos), cada ruta tiene un nombre propio, y las excepciones van con su motivo. La exige `ClinicRolesTest` desde la 0.5 | Usuario |
 | Suite en MySQL | Regla de `CLAUDE.md` §3: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) en la revisión, antes de cada cierre y siempre que se toquen migraciones, búsquedas de texto, concurrencia o autenticación. Reemplaza "probar cada migración nueva también en MySQL" | Usuario |
 | Deuda 7 | Resuelta en la 0.5, antes de la FASE 1 prevista: cédulas ficticias en los tests y `FictitiousDocumentsTest` sobre toda secuencia de 7 a 9 dígitos | Usuario |
-| Deudas abiertas | 1, 2, 3, 5, 6 y 8 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)) | Implementación |
+| Deudas abiertas | 1, 2, 3, 5, 6 y 8 ([`deuda-tecnica.md`](../../03-plan-desarrollo/deuda-tecnica.md)) | Implementación |
 | Siguiente | FASE 1, clientes y pacientes: empieza por el análisis y el diseño (pasos 1 y 2), con autorización del usuario | Usuario |
 | `CLAUDE.md` | §1 con el estado de la FASE 0 y los tests; §3 con las dos reglas nuevas (además de la de datos de ejemplo de R-013); §7 sin la deuda 7 y con la 8 | Implementación |
 
@@ -259,7 +259,7 @@ reglas de negocio de clientes y pacientes.
 # R-015 Respuestas de negocio y alcance de la FASE 1 (2026-11-05)
 
 Respuestas del usuario a las preguntas de negocio de la FASE 1 (las tres del alcance inicial y las cinco que agregó el análisis), y
-el alcance que suma a la fase. El diseño que las aplica está en [`fase-01-clientes-y-pacientes.md`](../fases/fase-01-clientes-y-pacientes.md),
+el alcance que suma a la fase. El diseño que las aplica está en [`fase-01-clientes-y-pacientes.md`](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md),
 pendiente de aprobación.
 
 | Tema | Decisión | Quién |
@@ -277,7 +277,7 @@ pendiente de aprobación.
 
 # R-016 Aprobación del diseño de la FASE 1 (2026-11-05)
 
-El usuario aprueba el diseño de la FASE 1 ([`fase-01-clientes-y-pacientes.md`](../fases/fase-01-clientes-y-pacientes.md)) con cinco
+El usuario aprueba el diseño de la FASE 1 ([`fase-01-clientes-y-pacientes.md`](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md)) con cinco
 entregas (1.1 a 1.5) y responde las preguntas 9 a 19 del diseño.
 
 | Tema | Decisión | Quién |
@@ -295,7 +295,7 @@ entregas (1.1 a 1.5) y responde las preguntas 9 a 19 del diseño.
 # R-017 Entrega 1.1 de la FASE 1: traducciones, voseo y `PUT`/`PATCH` (2026-11-05)
 
 Cierre de la entrega 1.1. Commit `0675c5b`, en `feature/fase-01-01-traducciones`. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-11).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#entrega-11).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -330,7 +330,7 @@ entrega, en `feature/fase-01-02-clientes`.
 # R-019 Entrega 1.2 de la FASE 1: clientes (2026-11-05)
 
 Cierre de la entrega 1.2. Commits `fff480a`, `54677d8` y `544f5cd`, en `feature/fase-01-02-clientes`. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-12).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#entrega-12).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -348,7 +348,7 @@ Cierre de la entrega 1.2. Commits `fff480a`, `54677d8` y `544f5cd`, en `feature/
 
 Cierre de la entrega 1.3, en `feature/fase-01-03-pacientes` (creada desde `feature/fase-01-02-clientes`). Segundo intento: el
 primero quedó sin subir en otra computadora y se descartó; sus hallazgos, aprobados por el usuario, se aplicaron directamente. El
-detalle está en el [resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-13).
+detalle está en el [resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#entrega-13).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -372,7 +372,7 @@ y `code` en el alta, que ahora responde 422.
 
 La revisión de la entrega 1.3 (pacientes) encontró dos hallazgos de gravedad media, cuatro de baja y dos avisos; el usuario pidió
 corregir los ocho en `feature/fase-01-03-pacientes`, cada uno con un test que falle al quitar la protección. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-021).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-021).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -393,7 +393,7 @@ anterior al nacimiento responde 422; `clients/{client}/patients` oculta a los fa
 
 Cierre de la entrega 1.3 (pacientes). Commits `fd2334f` (implementación, R-020), `837484a` (correcciones de la revisión, R-021) y
 `be47879` (hash del checkpoint en el handoff), en `feature/fase-01-03-pacientes`. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-022).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-022).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -411,7 +411,7 @@ Cierre de la entrega 1.3 (pacientes). Commits `fd2334f` (implementación, R-020)
 
 Implementación de la entrega 1.4 en `feature/fase-01-04-especies` (creada desde `feature/fase-01-03-pacientes`). Falta la revisión
 y la validación del usuario: no es el cierre. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-14).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#entrega-14).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -440,7 +440,7 @@ rechazan una especie o raza eliminada (422). Sin cambios en los `error_code` exi
 La revisión de la entrega 1.4 (especies y razas) encontró un hallazgo de gravedad media, cuatro de baja y tres de documentación; el
 usuario aceptó los desvíos de la implementación y pidió corregir los hallazgos en `feature/fase-01-04-especies`, cada uno con un
 test que falle al quitar la protección. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-024).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-024).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -462,7 +462,7 @@ cuentan para el nombre repetido; un alta o edición de paciente simultánea con 
 
 Cierre de la entrega 1.4 (especies y razas). Commits `8a614c5` (implementación, R-023) y `aadc1d9` (correcciones de la revisión,
 R-024), en `feature/fase-01-04-especies`. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-025).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-025).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -479,7 +479,7 @@ R-024), en `feature/fase-01-04-especies`. El detalle está en el
 
 Implementación de la entrega 1.5 en `feature/fase-01-05-foto` (creada desde `feature/fase-01-04-especies`). Falta la revisión y
 la validación del usuario: no es el cierre. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#entrega-15).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#entrega-15).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -507,7 +507,7 @@ la validación del usuario: no es el cierre. El detalle está en el
 La revisión de la entrega 1.5 (foto del paciente), con foco en la seguridad de los archivos subidos, encontró cuatro hallazgos de
 gravedad baja y dos de documentación; el usuario aceptó los desvíos de la implementación y pidió corregirlos en
 `feature/fase-01-05-foto`, cada uno con un test que falle al quitar la protección. El detalle está en el
-[resultado de la entrega](../fases/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-027).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#correcciones-de-la-revisión-r-027).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -532,8 +532,8 @@ descargada) es la imagen vuelta a codificar, sin metadatos; una imagen que GD no
 
 Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisión (R-027), y de la FASE 1 completa. Commits
 `1650605` (implementación, R-026) y `79f7e8e` (correcciones, R-027), en `feature/fase-01-05-foto`. El detalle está en la
-[validación de la entrega](../fases/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-028) y en el
-[cierre de la fase](../fases/fase-01-clientes-y-pacientes.md#cierre-de-la-fase-1).
+[validación de la entrega](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#validación-del-usuario-r-028) y en el
+[cierre de la fase](../../03-plan-desarrollo/fases/backend/fase-01-clientes-y-pacientes.md#cierre-de-la-fase-1).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -543,7 +543,7 @@ Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisi�
 | Revisión | Se hizo en la misma sesión de Claude Code que la implementación, no en una sesión aparte (anotado en el resultado de la entrega) | Cierre |
 | Pacientes | El módulo pasa a COMPLETADO: la 1.5 era su última entrega en el diseño (R-016) | Cierre |
 | FASE 1 | COMPLETADO: las cinco entregas cerradas y el criterio de cierre de la fase cumplido, punto por punto en el cierre de la fase. Sin merge a `main`: lo autoriza el usuario | Usuario |
-| Deudas abiertas | 2, 3, 5, 6, 13 y 14 ([`deuda-tecnica.md`](../roadmap/deuda-tecnica.md)). Resueltas en la fase: 1, 8, 9, 10, 11 y 12 | Cierre |
+| Deudas abiertas | 2, 3, 5, 6, 13 y 14 ([`deuda-tecnica.md`](../../03-plan-desarrollo/deuda-tecnica.md)). Resueltas en la fase: 1, 8, 9, 10, 11 y 12 | Cierre |
 | Siguiente | FASE 2, datos maestros: empieza por el análisis (paso 1) y sigue con el diseño (paso 2), con autorización del usuario | Usuario |
 | Documentos | `CLAUDE.md` §1 con la FASE 1 completada; `README.md` con el estado, sin el pendiente de los tests de clientes y pacientes (deuda 1, resuelta) y con `gd` y `exif` en los requisitos (R-027) | Cierre |
 | Merge a `main` | La FASE 1 se integró a `main` con el merge `7b35ea2` (`feature/fase-01-05-foto`, que contiene el diseño y las cinco entregas encadenadas), autorizado por el usuario el 2026-11-06. Agregado en el diseño de la FASE 2 (R-029): el handoff y el cierre de la fase seguían diciendo "sin merge a `main`" | Usuario |
@@ -554,7 +554,7 @@ Cierre de la entrega 1.5 (foto del paciente), con las correcciones de su revisi�
 
 Respuestas del usuario a las preguntas del análisis de la FASE 2 (paso 1), que incluyen las tres del alcance inicial (P5, P8 y P11)
 y la de usuarios inactivos que la FASE 0 dejó para esta fase. El diseño que las aplica está en
-[`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md), pendiente de aprobación. Las preguntas que el diseño no puede
+[`fase-02-datos-maestros.md`](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md), pendiente de aprobación. Las preguntas que el diseño no puede
 decidir solo están al final de ese documento.
 
 | Tema | Decisión | Quién |
@@ -577,7 +577,7 @@ decidir solo están al final de ese documento.
 | Email del usuario | Único en toda la base (es el login): en el MVP, una persona que trabaja en dos clínicas necesita dos emails | Usuario |
 | Entregas | En el orden del análisis: 2.1 sucursales y depósitos, 2.2 usuarios (dividida en 2.2a y 2.2b), 2.3 veterinarios, 2.4 servicios, 2.5 configuración y logo con la deuda 14, 2.6 auditoría con la deuda 13 | Usuario; la división de la 2.2, diseño |
 | Documentación | Se corrigen el handoff, el cierre de la FASE 1 y R-028 con el merge `7b35ea2` de la FASE 1 a `main` | Usuario |
-| Aprobación del diseño | El usuario aprueba el diseño de la FASE 2 tal como está ([`fase-02-datos-maestros.md`](../fases/fase-02-datos-maestros.md)), con las siete entregas y las preguntas 16 a 31 del diseño según la propuesta de cada una (códigos de sucursal y depósito escritos por el administrador, depósito por defecto en el alta de la sucursal, `PATCH me/password`, precio entero, claves de `system_settings`, RUC no editable, logo de hasta 2 MB, limpieza a las 24 horas, matrícula a 60 caracteres, `USER_IS_VETERINARIAN`, entre otras). Sigue la entrega 2.1 en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno` | Usuario, el 2026-11-06 |
+| Aprobación del diseño | El usuario aprueba el diseño de la FASE 2 tal como está ([`fase-02-datos-maestros.md`](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md)), con las siete entregas y las preguntas 16 a 31 del diseño según la propuesta de cada una (códigos de sucursal y depósito escritos por el administrador, depósito por defecto en el alta de la sucursal, `PATCH me/password`, precio entero, claves de `system_settings`, RUC no editable, logo de hasta 2 MB, limpieza a las 24 horas, matrícula a 60 caracteres, `USER_IS_VETERINARIAN`, entre otras). Sigue la entrega 2.1 en `feature/fase-02-01-sucursales`, creada desde `docs/fase-02-diseno` | Usuario, el 2026-11-06 |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code` y contrato de respuesta: el diseño y su aprobación solo documentan.
 
@@ -585,7 +585,7 @@ decidir solo están al final de ese documento.
 
 Implementación de la entrega 2.1 en `feature/fase-02-01-sucursales` (creada desde `docs/fase-02-diseno`), con los desvíos del
 diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
-[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-21).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-21).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -611,8 +611,8 @@ diseño que informó la implementación y la decisión del usuario sobre cada un
 La revisión de la entrega 2.1, en una sesión de Claude Code aparte de la implementación, encontró un hallazgo de gravedad media
 (el desvío 7, rechazado por el usuario) y cuatro de baja (tests que pasaban con la regla rota). El usuario pidió corregirlos y
 validó la entrega. Implementación (R-030), correcciones y cierre van en un solo commit en `feature/fase-02-01-sucursales`. El
-detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-031) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-031).
+detalle está en las [correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-031) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-031).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -633,7 +633,7 @@ detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correccio
 
 Implementación de la entrega 2.2a en `feature/fase-02-02a-usuarios` (creada desde `feature/fase-02-01-sucursales`), con los
 desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
-[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-22a).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-22a).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -660,8 +660,8 @@ dos puntos de diseño (el administrador que cambia su propia contraseña cierra 
 recibe sucursales sigue sin una), tests que faltaban y un test inestable. El usuario decidió cada punto y pidió corregirlos, sumó el
 cambio de los nombres de personas y validó la entrega. Implementación (R-032), correcciones y cierre van en un solo commit en
 `feature/fase-02-02a-usuarios`. El detalle está en las
-[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-033) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-033).
+[correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-033) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-033).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -684,7 +684,7 @@ otros cambios.
 
 Implementación de la entrega 2.2b en `feature/fase-02-02b-usuarios` (creada desde `feature/fase-02-02a-usuarios`), con los
 desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
-[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-22b).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-22b).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -712,8 +712,8 @@ La revisión de la entrega 2.2b, en una sesión de Claude Code aparte de la impl
 reglas sin test o con tests que pasarían con la regla rota, y una referencia vieja en un comentario. El usuario pidió corregir los
 cinco hallazgos y validó la entrega. Implementación (R-034), correcciones y cierre van en un solo commit en
 `feature/fase-02-02b-usuarios`. El detalle está en las
-[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-035) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-035).
+[correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-035) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-035).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -728,7 +728,7 @@ cinco hallazgos y validó la entrega. Implementación (R-034), correcciones y ci
 
 Implementación de la entrega 2.3 en `feature/fase-02-03-veterinarios` (creada desde `feature/fase-02-02b-usuarios`), con los
 desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
-[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-23).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-23).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -754,8 +754,8 @@ La revisión de la entrega 2.3, en una sesión de Claude Code aparte de la imple
 de los desvíos 5 y 7: encontró una discrepancia de permisos que decidió el usuario, una regla sin test y detalles. El usuario pidió
 corregir los hallazgos y validó la entrega. La implementación y las correcciones quedaron en dos commits WIP (`4ff4a4c` y `c6a6847`);
 el cierre va en un commit aparte en `feature/fase-02-03-veterinarios`. El detalle está en las
-[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-037) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-037).
+[correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-037) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-037).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -782,7 +782,7 @@ sin otros cambios.
 
 Implementación de la entrega 2.4 en `feature/fase-02-04-servicios` (creada desde `feature/fase-02-03-veterinarios`), con los
 desvíos del diseño que informó la implementación y la decisión del usuario sobre cada uno. El detalle está en el
-[resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-24).
+[resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-24).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -808,8 +808,8 @@ La revisión de la entrega 2.4, en una sesión de Claude Code aparte de la imple
 código repetido respondía como un nombre repetido), el desvío 3 para decidir y dos huecos de tests. El usuario pidió corregirlos,
 corregir lo mismo en veterinarios (de la 2.3) y validó la entrega. La implementación y las correcciones quedaron en dos commits WIP
 (`a2079a2` y `a5fad25`); el cierre, con la corrección de veterinarios, va en un commit aparte en `feature/fase-02-04-servicios`. El
-detalle está en las [correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-039) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-039).
+detalle está en las [correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-039) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-039).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -833,7 +833,7 @@ del 422 del nombre o de la matrícula. Rutas, permisos y `error_code`, sin otros
 # R-040 Entrega 2.5 de la FASE 2: configuración de la clínica, logo y archivos huérfanos (2026-11-09)
 
 Implementación de la entrega 2.5 en `feature/fase-02-05-configuracion` (creada desde `feature/fase-02-04-servicios`). El detalle está
-en el [resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-25).
+en el [resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-25).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -856,8 +856,8 @@ La primera validación con Postman encontró un 500 en la lectura de la configur
 de la implementación, encontró dos hallazgos de gravedad media y varios menores. El usuario decidió cada uno y validó la entrega. La
 implementación, la corrección del 500 y las correcciones de la revisión quedaron en tres commits WIP (`fe10d2b`, `62b160e` y
 `f0b906a`); el cierre va en un commit aparte en `feature/fase-02-05-configuracion`. El detalle está en las
-[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-041) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-041).
+[correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-041) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-041).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -883,7 +883,7 @@ implementación, la corrección del 500 y las correcciones de la revisión queda
 # R-042 Entrega 2.6 de la FASE 2: consulta de la auditoría y fechas con hora en un lugar común (2026-11-09)
 
 Implementación de la entrega 2.6 en `feature/fase-02-06-auditoria` (creada desde `feature/fase-02-05-configuracion`), en el commit WIP
-`18d5db2`. El detalle está en el [resultado de la entrega](../fases/fase-02-datos-maestros.md#entrega-26).
+`18d5db2`. El detalle está en el [resultado de la entrega](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#entrega-26).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -912,8 +912,8 @@ La revisión, en una sesión de Claude Code aparte de la implementación, encont
 no tenía el cambio de Paraguay a UTC-3 todo el año, un hallazgo de gravedad media y varios menores. El usuario decidió cada uno y
 validó la entrega. La implementación y las correcciones quedaron en dos commits WIP (`18d5db2` y `3df22d1`); el cierre va en un commit
 aparte en `feature/fase-02-06-auditoria`. El detalle está en las
-[correcciones](../fases/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-043) y la
-[validación](../fases/fase-02-datos-maestros.md#validación-del-usuario-r-043).
+[correcciones](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#correcciones-de-la-revisión-r-043) y la
+[validación](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#validación-del-usuario-r-043).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -939,7 +939,7 @@ Rutas, permisos y `error_code`, sin otros cambios.
 # R-044 Cierre de la FASE 2 y merge a `main` (2026-11-10)
 
 Cierre de la FASE 2 (datos maestros), con las siete entregas cerradas y validadas por el usuario (R-030 a R-043). El detalle está en el
-[cierre de la fase](../fases/fase-02-datos-maestros.md#cierre-de-la-fase-2).
+[cierre de la fase](../../03-plan-desarrollo/fases/backend/fase-02-datos-maestros.md#cierre-de-la-fase-2).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -957,7 +957,7 @@ Cierre de la FASE 2 (datos maestros), con las siete entregas cerradas y validada
 # R-045 Suite más rápida, antes de la FASE 3 (2026-11-10)
 
 Rama `chore/suite-rapida`, desde `main`. Sin cambios en reglas de negocio, en la API ni en el código de `app/`: solo tests, scripts de
-composer y documentación. El detalle y las cifras están en [`development/testing.md`](../development/testing.md#velocidad).
+composer y documentación. El detalle y las cifras están en [`development/testing.md`](../../04-desarrollo/testing.md#velocidad).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -989,7 +989,7 @@ Rama `chore/dependencias`, desde `main` (después del merge de `chore/suite-rapi
 Rama `docs/fase-03-diseno`, desde `main` (después de `115435b`). Solo documentación y el script de `/validar-docs`: ni código de `app/`,
 ni migraciones, ni la API. El análisis (solo lectura) confirmó la FASE 2 cerrada e integrada a `main` con el merge `cc78b38`, y después
 `27f3294` (R-045) y `115435b` (R-046); la suite en paralelo en verde (991 casos, 3 omitidos). El diseño está en
-[`fases/fase-03-agenda-y-turnos.md`](../fases/fase-03-agenda-y-turnos.md).
+[`fases/fase-03-agenda-y-turnos.md`](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1017,8 +1017,8 @@ ni migraciones, ni la API. El análisis (solo lectura) confirmó la FASE 2 cerra
 # R-048 Aprobación del diseño de la FASE 3 (2026-11-10)
 
 El usuario aprobó el diseño de la FASE 3 (R-047) y respondió las preguntas del diseño 13 a 25. Rama `docs/fase-03-diseno`; solo
-documentación. El detalle está en las [preguntas del diseño](../fases/fase-03-agenda-y-turnos.md#preguntas-del-diseño) y en el
-[orden de bloqueo](../fases/fase-03-agenda-y-turnos.md#orden-de-bloqueo).
+documentación. El detalle está en las [preguntas del diseño](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#preguntas-del-diseño) y en el
+[orden de bloqueo](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#orden-de-bloqueo).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1036,7 +1036,7 @@ documentación. El detalle está en las [preguntas del diseño](../fases/fase-03
 
 Rama `feature/fase-03-00-zona-mysql`, desde `docs/fase-03-diseno`. Implementación en el commit WIP `7c92097`, correcciones de la
 revisión en `a0f9a4e` y el cierre en un commit aparte. El detalle está en el
-[resultado de la 3.0](../fases/fase-03-agenda-y-turnos.md#entrega-30).
+[resultado de la 3.0](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#entrega-30).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1055,7 +1055,7 @@ revisión en `a0f9a4e` y el cierre en un commit aparte. El detalle está en el
 # R-050 Entrega 3.1 de la FASE 3: agendas, horario semanal y bloqueos, revisada, corregida y cerrada (2026-11-10)
 
 Rama `feature/fase-03-01-agendas`, desde `feature/fase-03-00-zona-mysql`. Implementación en el commit WIP `aa96fed`; las correcciones
-de la revisión y el cierre van en el commit de cierre. El detalle está en el [resultado de la 3.1](../fases/fase-03-agenda-y-turnos.md#entrega-31).
+de la revisión y el cierre van en el commit de cierre. El detalle está en el [resultado de la 3.1](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#entrega-31).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1065,9 +1065,9 @@ de la revisión y el cierre van en el commit de cierre. El detalle está en el [
 | Tests de la revisión | Las cuatro reglas que pasaban con su mutación tienen test (veterinario nuevo inactivo al editar, sucursal de destino inactiva, nombre único al mover de sucursal, y fichados y atendidos en `affected_appointments`); el horario anterior queda intacto si la edición falla (por la validación y por `SCHEDULE_NOT_EDITABLE`); la superposición de tramos en el alta (hallazgos 2 y 3). Un comentario de `routes/api.php` y un docblock de `ServiceDeleteTest` en su lugar (hallazgo 4) | Revisión, pedida por el usuario |
 | Precisión del diseño | `DELETE schedule-blocks/{scheduleBlock}` no lleva la agenda en la URL, así que el caso "bloqueo de otra agenda en la URL → 404" de la tabla de tests del diseño no existe. El 404 de una agenda o un bloqueo de otra clínica está cubierto en las 7 rutas con parámetro (`RouteBindingTest`, `ScheduleBlockTest`) (hallazgo 5) | Revisión, registrada por pedido del usuario |
 | Desvíos 1 a 5 | Aceptados: (1) los turnos afectados por un bloqueo no muestran `contact_name` ni `contact_phone` hasta la 3.2a (las columnas llegan con su migración); (2) al mover una agenda de sucursal se revisa que el veterinario trabaje en la nueva, y si está inactivo se acepta igual (es el que la agenda ya tiene); (3) el listado de bloqueos muestra por defecto los que terminan desde hoy, con `from`/`to`, y `search` busca en el motivo; (4) el horario acepta hasta 6 tramos por día y 42 en total, y `hours: null` responde 422; (5) la documentación va en el cierre. El informe de la implementación no está en el repositorio: el resumen es del usuario | Usuario |
-| Pendientes para la 3.2a | En su colección de Postman: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`). En su diseño: evaluar `DB::transaction` con reintentos ante un *deadlock* (MySQL, 1213) en el alta y el mover de turnos, para que nunca respondan 500 (anotado en el [diseño de la 3.2a](../fases/fase-03-agenda-y-turnos.md#32a-turnos-únicos)) | Usuario |
+| Pendientes para la 3.2a | En su colección de Postman: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`). En su diseño: evaluar `DB::transaction` con reintentos ante un *deadlock* (MySQL, 1213) en el alta y el mover de turnos, para que nunca respondan 500 (anotado en el [diseño de la 3.2a](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#32a-turnos-únicos)) | Usuario |
 | Pendientes de la FASE 2 | Probados en la colección `syncvet-fase-03-agendas`: la baja del veterinario con una agenda (409 `VETERINARIAN_IN_USE`, R-037), la baja del servicio usado (409 `SERVICE_IN_USE`) y su cambio de nombre (422 `SERVICE_NAME_NOT_EDITABLE`) (entrega 2.4) | Diseño |
-| Deuda 2 | Revisados `Schedule`, `ScheduleHour` y `ScheduleBlock` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Deuda 2 | Revisados `Schedule`, `ScheduleHour` y `ScheduleBlock` ([deuda técnica](../../03-plan-desarrollo/deuda-tecnica.md)) | Implementación |
 | Validación | El 2026-11-10, en otra PC, con el Collection Runner (una iteración): `syncvet-fase-03-agendas`, 68 de 68 pruebas, 0 errores. Las correcciones de la revisión no cambian la API | Usuario |
 | Tests | Suite del 2026-11-10 sobre el código del cierre, en serie: 1108 casos; 11845 aserciones en SQLite (8 omitidos, solo de MySQL) y 11879 en MySQL, sin omitidos; `composer test:fast`, 1108 casos en verde | Cierre |
 | Siguiente | Entrega 3.2a (turnos únicos) en `feature/fase-03-02a-turnos`, creada desde `feature/fase-03-01-agendas`. Sin merge a `main` | Usuario |
@@ -1079,7 +1079,7 @@ anteriores.
 
 Rama `feature/fase-03-02a-turnos`, desde `feature/fase-03-01-agendas`. Implementación en el commit WIP `fa03b6f`, correcciones de la
 revisión en `b0dd969` y el cierre en un commit aparte, solo de documentación. El detalle está en el
-[resultado de la 3.2a](../fases/fase-03-agenda-y-turnos.md#entrega-32a).
+[resultado de la 3.2a](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#entrega-32a).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1094,7 +1094,7 @@ revisión en `b0dd969` y el cierre en un commit aparte, solo de documentación. 
 | Tests de la revisión | Dos procesos con una agenda solo de servicio, donde el bloqueo de la agenda es lo único que ordena (hallazgo 1: sin él, dos 201 en el mismo horario y ningún test fallaba); el reloj cerca de la medianoche (3); los rechequeos del reintento al mover (4); el sobreturno con otro turno en el horario (5); el contacto en `affected_appointments` (6). Cada test nuevo falla con su mutación | Revisión, pedidos por el usuario |
 | Criterio de cierre de la fase | Cumplido el primer punto: dos altas simultáneas del mismo horario, una 201 y la otra 409, en MySQL con dos procesos aparte, con una agenda con veterinario y con una solo de servicio | Cierre |
 | Pendientes de la 3.1 | Resueltos: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y la baja de una agenda con un turno real (409 `SCHEDULE_IN_USE`) en la colección de turnos; los reintentos ante un *deadlock* en el alta y el mover | Implementación |
-| Deuda 2 | Revisado `Appointment` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Deuda 2 | Revisado `Appointment` ([deuda técnica](../../03-plan-desarrollo/deuda-tecnica.md)) | Implementación |
 | Validación | El 2026-11-10, después de las correcciones, con el Collection Runner (una iteración): `syncvet-fase-03-turnos`, 37 requests, 67 de 67 pruebas, 0 errores | Usuario |
 | Tests | Suite del 2026-11-10 sobre `b0dd969`, en serie: 1212 casos; 12835 aserciones en SQLite (10 omitidos, solo de MySQL) y 12879 en MySQL, sin omitidos; `composer test:fast`, 1212 casos en verde | Cierre |
 | Siguiente | Entrega 3.2b (estados del turno) en `feature/fase-03-02b-estados`, creada desde `feature/fase-03-02a-turnos`. Sin merge a `main` | Usuario |
@@ -1118,7 +1118,7 @@ código, ni la API, ni los tests.
 
 Rama `feature/fase-03-02b-estados`, desde `feature/fase-03-02a-turnos`. Implementación en el commit WIP `a1a1ab4`, correcciones de la
 revisión en `d811fa1` y el cierre en un commit aparte, solo de documentación. El cambio de las skills de lectura de la misma rama
-(`964db22`) es R-052. El detalle está en el [resultado de la 3.2b](../fases/fase-03-agenda-y-turnos.md#entrega-32b).
+(`964db22`) es R-052. El detalle está en el [resultado de la 3.2b](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#entrega-32b).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1130,7 +1130,7 @@ revisión en `d811fa1` y el cierre en un commit aparte, solo de documentación. 
 | Desvíos 1 a 12 | Aceptados los 1 a 4 y 6 a 12: (1) `App\Enums\AppointmentTransition` con orígenes y destino; (2) controller y service aparte, y deshacer el ausente en `AppointmentService`; (3) paciente fallecido al fichar → 422 en `patient_id`; (4) la regla del veterinario antes que el estado; (6) todas las transiciones con los reintentos de la 3.2a; (7) deshacer el ausente sin revisar la agenda activa; (8) fichar el día del turno a cualquier hora y el ausente desde el inicio, también días después; (9) el test de dos procesos con fichar y ausente; (10) `RunsConcurrentRequests`; (11) los mensajes; (12) la agenda del día en Postman. El 5 cambió (arriba) | Usuario |
 | Correcciones de la revisión | Además de las de arriba: 5 tests de medianoche (fichar a las 23:50 y a las 00:10; deshacer el ausente a las 23:50 y a las 00:10, y de un turno de hace 3 días marcado ausente hoy), con los que calcular el día en UTC hace fallar deshacer el ausente (hallazgo 4); se borran `AppointmentStatus::canTransitionTo()` e `isFinal()`, sin uso (hallazgo 5); el cierre usa R-053, porque R-052 ya era el cambio de las skills (hallazgo 6) | Usuario |
 | Postman | `syncvet-fase-03-turnos`, de 37 a 58 requests y de 67 a 107 pruebas: las transiciones, la agenda del día de la corrida (de 00:00 a 23:55), deshacer el ausente con el horario tomado (409 sin `overbook`, 200 con él) y el 403 `APPOINTMENT_NOT_YOURS` con `vet-a` | Implementación y revisión |
-| Deuda 2 | `Appointment` suma `attended_at` y `no_show_at` con `AppDateTime` y `startsToday()` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Deuda 2 | `Appointment` suma `attended_at` y `no_show_at` con `AppDateTime` y `startsToday()` ([deuda técnica](../../03-plan-desarrollo/deuda-tecnica.md)) | Implementación |
 | Validación | El 2026-11-10, después de las correcciones, con el Collection Runner (una iteración): `syncvet-fase-03-turnos`, 58 requests, 107 de 107 pruebas, 0 errores | Usuario |
 | Tests | Suite del 2026-11-10 sobre `d811fa1`, en serie: 1303 casos; 13373 aserciones en SQLite (11 omitidos, solo de MySQL) y 13422 en MySQL, sin omitidos; `composer test:fast`, 1303 casos en verde | Cierre |
 | Siguiente | Entrega 3.3 (turnos recurrentes) en `feature/fase-03-03-recurrentes`, creada desde `feature/fase-03-02b-estados`. Sin merge a `main` | Usuario |
@@ -1142,7 +1142,7 @@ confirmar ni confirmado (422 `APPOINTMENT_NOT_EDITABLE`), así que un cancelado 
 
 Rama `feature/fase-03-03-recurrentes`, desde `feature/fase-03-02b-estados`. Implementación en el commit WIP `04789c9`, correcciones de
 la revisión en `e4fe8c5` y el cierre en un commit aparte, solo de documentación. El detalle está en el
-[resultado de la 3.3](../fases/fase-03-agenda-y-turnos.md#entrega-33).
+[resultado de la 3.3](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#entrega-33).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1167,7 +1167,7 @@ la revisión en `e4fe8c5` y el cierre en un commit aparte, solo de documentació
 
 Rama `feature/fase-03-04-disponibilidad`, desde `feature/fase-03-03-recurrentes`. Implementación en el commit WIP `38ca91a`,
 correcciones de la revisión en `4862658` y el cierre en un commit aparte, solo de documentación. El detalle está en el
-[resultado de la 3.4](../fases/fase-03-agenda-y-turnos.md#entrega-34).
+[resultado de la 3.4](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#entrega-34).
 
 | Tema | Decisión | Quién |
 |---|---|---|
@@ -1190,7 +1190,7 @@ alta, la serie, mover y deshacer el ausente (ahora en `ScheduleOccupancy`, con l
 # R-056 Cierre de la FASE 3 y merge a `main` (2026-11-11)
 
 Cierre de la FASE 3 (agenda y turnos), con las seis entregas cerradas y validadas por el usuario (R-049 a R-055). El detalle está en el
-[cierre de la fase](../fases/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3).
+[cierre de la fase](../../03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3).
 
 | Tema | Decisión | Quién |
 |---|---|---|

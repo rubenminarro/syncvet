@@ -1,6 +1,6 @@
 # FASE 10 — Reportes y piloto
 
-Etapa: Lanzamiento. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
+Etapa: Lanzamiento. Estado: **PENDIENTE**. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -20,7 +20,7 @@ El diseño (paso 2) completa cada entrega con reglas de negocio, datos, endpoint
 
 ## Preguntas de negocio
 
-Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](../decisions/registro.md).
+Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisiones/registro.md`](../../../01-arquitectura/decisiones/registro.md).
 
 | # | Pregunta | Respuesta | Fecha |
 |---|---|---|---|
@@ -30,8 +30,8 @@ Las respuestas se anotan con la fecha y pasan a [`docs/decisions/registro.md`](.
 
 ## Diseño
 
-PENDIENTE: lo completa el paso 2 ([`docs/prompts/2-diseno.md`](../prompts/2-diseno.md)), aplicando la regla de oro de
-[`docs/project/principios.md`](../project/principios.md).
+PENDIENTE: lo completa el paso 2 ([`docs/03-plan-desarrollo/prompts/2-diseno.md`](../../prompts/2-diseno.md)), aplicando la regla de oro de
+[`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 ## Criterio de cierre
 
@@ -42,18 +42,18 @@ La clínica piloto opera una semana completa sin tocar la base.
 Usar solo con el diseño aprobado.
 
 ```text
-Implementa la FASE 10 según docs/fases/fase-10-reportes-y-piloto.md (diseño aprobado).
+Implementa la FASE 10 según docs/03-plan-desarrollo/fases/backend/fase-10-reportes-y-piloto.md (diseño aprobado).
 
 - Reportes con filtros por fecha y sucursal: atenciones por veterinario, vacunas aplicadas, ventas por servicio y producto, caja por forma de pago, stock bajo mínimo y por vencer. Exportación CSV.
 - Dashboard: turnos del día, consultas abiertas, cobros del día, avisos fallidos.
 - Seeders de ejemplo por escenarios, por los Services, idempotentes.
 - Rate limit en el login. Revisión de seguridad: archivos privados, cifrado de credenciales, CORS.
-- docs/development/deployment.md con el despliegue y los respaldos según D7. Caché en Redis (CACHE_STORE=redis): cierra la deuda 6 de docs/roadmap/deuda-tecnica.md; probar 20 logins fallidos simultáneos y que pasen exactamente 5; si no, envolver el hit del AuthService en Cache::lock. El cron del scheduler (`* * * * * php artisan schedule:run`), que corre files:prune-orphans a las 03:00 y sanctum:prune-expired a diario. PHP con la base de zonas 2025a o posterior (o la extensión timezonedb): tests/Unit/AsuncionTimezoneTest tiene que pasar en el servidor.
+- docs/04-desarrollo/deployment.md con el despliegue y los respaldos según D7. Caché en Redis (CACHE_STORE=redis): cierra la deuda 6 de docs/03-plan-desarrollo/deuda-tecnica.md; probar 20 logins fallidos simultáneos y que pasen exactamente 5; si no, envolver el hit del AuthService en Cache::lock. El cron del scheduler (`* * * * * php artisan schedule:run`), que corre files:prune-orphans a las 03:00 y sanctum:prune-expired a diario. PHP con la base de zonas 2025a o posterior (o la extensión timezonedb): tests/Unit/AsuncionTimezoneTest tiene que pasar en el servidor.
 
 Sigue CLAUDE.md. Corre la suite e infórmame. No hagas commit.
 ```
 
 ## Resultado
 
-PENDIENTE: lo completa el cierre ([`docs/prompts/7-cierre.md`](../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
+PENDIENTE: lo completa el cierre ([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones,
 desvíos del diseño y por qué.

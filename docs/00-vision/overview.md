@@ -10,4 +10,4 @@ inventario, caja y facturación electrónica SIFEN, con varias sucursales.
 | Este repositorio | API REST (backend) |
 | Frontend | Repositorio aparte |
 
-El alcance de cada fase está en [`docs/roadmap/README.md`](../roadmap/README.md).
+El alcance de cada fase está en [`docs/03-plan-desarrollo/README.md`](../03-plan-desarrollo/README.md).
