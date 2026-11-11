@@ -1137,3 +1137,28 @@ revisión en `d811fa1` y el cierre en un commit aparte, solo de documentación. 
 
 **Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el `PATCH` de turnos sigue rechazando un turno que no está a
 confirmar ni confirmado (422 `APPOINTMENT_NOT_EDITABLE`), así que un cancelado no se reabre por ningún camino.
+
+# R-054 Entrega 3.3 de la FASE 3: turnos recurrentes, revisada, corregida y cerrada (2026-11-11)
+
+Rama `feature/fase-03-03-recurrentes`, desde `feature/fase-03-02b-estados`. Implementación en el commit WIP `04789c9`, correcciones de
+la revisión en `e4fe8c5` y el cierre en un commit aparte, solo de documentación. El detalle está en el
+[resultado de la 3.3](../fases/fase-03-agenda-y-turnos.md#entrega-33).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Series de turnos al darlos (P1): `POST appointments` con `recurrence` (`every_weeks` de 1 a 12 y uno de `count`, de 2 a 52, o `until`), todas las fechas o ninguna (409 `APPOINTMENT_SERIES_CONFLICT` con `errors.conflicts`); cancelar con `scope`. Sin rutas, permisos ni migraciones nuevas (76, 133, 36) | Diseño (R-047, R-048) |
+| `overbook` en la serie (desvío 1) | Se acepta (el diseño lo prohibía): vale para todas las fechas, con `appointments.overbook`, y saltea solo la superposición; cada turno queda con `is_overbooked` si se superponía | Usuario (al pedir la entrega; confirmado en la revisión) |
+| Alcance `series` (desvío 2) | Un tercer alcance, toda la serie, además de `single` y `following` (`App\Enums\AppointmentCancelScope`) | Usuario (al pedir la entrega; confirmado en la revisión) |
+| Desvíos 3 a 5 | Aceptados: (3) con `following` y `series`, de los demás turnos solo los a confirmar o confirmados que todavía no empezaron; el pedido, con las reglas de siempre; (4) `meta.cancelled_count` en toda cancelación, también `single`; (5) mover la serie entera queda fuera del MVP, `recurrence` en el `PATCH` → 422 | Usuario |
+| Decisiones de implementación | Aceptadas: "los siguientes" por `starts_at` y por id en el mismo instante; con `until`, de 2 a 52 turnos; `recurrence: null` es un turno único; las reglas de toda la serie con su error de siempre sobre el primer turno y las de cada fecha en `errors.conflicts`, sin cortar en la primera; la serie responde `AppointmentResource` con `meta.series_id` | Implementación; aceptadas por el usuario |
+| Tope de un año con `count` (hallazgo 7) | La última fecha, como mucho un año después del primer turno, también con `count` (antes, `count: 52` con `every_weeks: 12` llegaba a 2038) | Usuario (en la revisión) |
+| Valores nulos (hallazgo 8) | `recurrence.every_weeks: null` es 1 y `scope: null` es `single` (el frontend manda el formulario completo) | Usuario (en la revisión) |
+| Una hora por cancelación (hallazgo 9) | `cancelled_at` es la misma en todos los turnos y es la que decide cuáles ya empezaron | Usuario (en la revisión) |
+| Correcciones de la revisión | Además: Newman (`const data` → `body` en 13 scripts de `syncvet-fase-03-turnos`, hallazgo 1); tests de `until` con `every_weeks` (2), de un error y de un *deadlock* a mitad de la serie (3), de dos cancelaciones simultáneas (4, MySQL), del desempate por id y del turno movido antes (5) y de una serie de otra clínica (6) | Usuario |
+| Postman | Colección aparte, `syncvet-fase-03-series` (25 requests, 42 pruebas); `syncvet-fase-03-turnos` sin cambios de pedidos (58 requests, 107 pruebas) | Implementación y revisión |
+| Validación | El 2026-11-11, después de las correcciones, en otra PC, con el Collection Runner y una iteración: `syncvet-fase-03-series`, 42 de 42 pruebas; `syncvet-fase-03-turnos`, 107 de 107; y `syncvet-fase-03-agendas` como regresión, 68 de 68; 0 errores en las tres | Usuario |
+| Tests | Suite del 2026-11-11 sobre `e4fe8c5`, en serie: 1363 casos; 13681 aserciones en SQLite (14 omitidos, solo de MySQL) y 13755 en MySQL, sin omitidos | Cierre |
+| Siguiente | Entrega 3.4 (disponibilidad y cola del día) en `feature/fase-03-04-disponibilidad`, creada desde `feature/fase-03-03-recurrentes`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el turno único responde igual (`ShowAppointmentResource` sin
+`meta`). La cancelación de un turno suma `meta.cancelled_count` (antes `meta` era `null`).

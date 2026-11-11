@@ -35,9 +35,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   huérfanos (deuda 14 resuelta; R-040 y R-041), y 2.6, consulta de la auditoría y fechas con hora (deuda 13 resuelta; R-042 y
   R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) tiene el diseño aprobado (R-047 y R-048) y la
   entrega 3.0 cerrada (zona de la sesión de MySQL, deuda 16 resuelta; R-049), validada por el usuario con Postman como regresión, y
-  la 3.1 cerrada (agendas, horario semanal y bloqueos; R-050), la 3.2a cerrada (turnos únicos; R-051) y la 3.2b cerrada (estados
-  del turno; R-053), las tres validadas por el usuario con Postman; sigue la entrega 3.3 (turnos recurrentes). Hoy: 76 rutas, 133
-  permisos y 36 migraciones; la suite del cierre de la 3.2b, 1303 casos (13373 aserciones en SQLite y 13422 en MySQL).
+  la 3.1 cerrada (agendas, horario semanal y bloqueos; R-050), la 3.2a cerrada (turnos únicos; R-051), la 3.2b cerrada (estados
+  del turno; R-053) y la 3.3 cerrada (turnos recurrentes; R-054), las cuatro validadas por el usuario con Postman; sigue la entrega
+  3.4 (disponibilidad y cola del día). Hoy: 76 rutas, 133 permisos y 36 migraciones; la suite del cierre de la 3.3, 1363 casos (13681
+  aserciones en SQLite y 13755 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -45,7 +46,9 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   `tests/Feature/Branches`, `tests/Feature/Users`, `tests/Feature/Veterinarians`, `tests/Feature/Services`, `tests/Feature/Settings`,
   `tests/Feature/Audit`, `tests/Feature/Schedules`, `tests/Feature/Appointments`, con dos altas simultáneas en dos procesos de PHP
   aparte en `AppointmentConcurrencyTest`, solo MySQL, y los estados del turno en `tests/Feature/Appointments/Transitions`, con dos
-  transiciones simultáneas en `AppointmentTransitionConcurrencyTest`, solo MySQL),
+  transiciones simultáneas en `AppointmentTransitionConcurrencyTest`, solo MySQL, y las series en `tests/Feature/Appointments/Series`,
+  con dos series y dos cancelaciones simultáneas en `AppointmentSeriesConcurrencyTest` y `AppointmentSeriesCancelConcurrencyTest`,
+  solo MySQL),
   y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`) con la zona de la sesión de MySQL
   (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`). Se corre sin Xdebug, con
   `composer test`, `composer test:mysql` y `composer test:fast` (en paralelo, con paratest; R-045).
@@ -59,13 +62,14 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   servicios (código `SRV-`, alta, edición, inactivación y baja sin uso; nombre fijo una vez usado), la configuración de la
   clínica (sus datos, las claves de `system_settings` y el logo: subir, ver y borrar), la consulta de la auditoría (listado con
   filtros y detalle, solo el administrador), las agendas (alta, edición, inactivación y baja sin turnos, con su horario semanal y
-  sus bloqueos) y los turnos únicos (alta, detalle, listado, edición y mover, sin superposición, con sobreturno; sin baja) con sus
-  estados (confirmar, fichar, atendido, ausente y deshacerlo el mismo día, cancelar con motivo).
+  sus bloqueos) y los turnos (alta, detalle, listado, edición y mover, sin superposición, con sobreturno; sin baja), únicos o en
+  series semanales (todas las fechas o ninguna), con sus estados (confirmar, fichar, atendido, ausente y deshacerlo el mismo día,
+  cancelar con motivo, uno, los siguientes de la serie o toda la serie).
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API), el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`) y `php artisan files:prune-orphans` (fotos y logos
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
   *scheduler*, FASE 10).
-* **Pendientes con esquema listo:** los turnos recurrentes (3.3), la disponibilidad y la cola del día (3.4), historia clínica,
+* **Pendientes con esquema listo:** la disponibilidad y la cola del día (3.4), historia clínica,
   aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
 * **Frontend:** repositorio aparte, React 19 + TypeScript + Vite + Tabler.
 
@@ -211,7 +215,10 @@ de una PC.
   clientes, el actual y el nuevo, por id (`lockForUpdate`). Estados del turno (3.2b, §6.10): cada transición, solo el turno
   (`lockForUpdate`) antes de leer su estado (liberan horario, nunca lo ocupan; no bloquean la agenda ni el veterinario); deshacer el
   ausente vuelve a ocupar el horario y bloquea como un alta: el veterinario de la agenda → la agenda → el turno (`lockForUpdate`), con
-  la superposición después y los mismos reintentos (`AppointmentService::withRetries`, que usan todas las transiciones).
+  la superposición después y los mismos reintentos (`AppointmentService::withRetries`, que usan todas las transiciones). Series
+  (3.3, §6.10): el alta de una serie bloquea como el alta de un turno, una sola vez para todas las fechas, en una transacción, con los
+  mismos reintentos; cancelar con `following` o `series`, todos los turnos de la serie (`lockForUpdate`, por id ascendente) antes de
+  leer sus estados, con los mismos reintentos (con `single` o sin serie, solo el turno, como cada transición).
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
@@ -331,7 +338,7 @@ errores sí usan el contrato.
 | 500 | `INTERNAL_SERVER_ERROR` | Error inesperado, sin traza |
 
 `error_code` de autenticación, usuarios, veterinarios, servicios, la configuración, las agendas y los turnos que no son de un solo
-módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a y 3.2b):
+módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b y 3.3):
 
 | HTTP | `error_code` | Excepción | Cuándo |
 |---|---|---|---|
@@ -351,7 +358,8 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a y 3.2b):
 | 422 | `APPOINTMENT_OUTSIDE_HOURS` | `AppointmentException` | El turno está fuera del horario semanal de la agenda (§6.10) |
 | 422 | `APPOINTMENT_IN_BLOCK` | `AppointmentException` | El turno se superpone con un bloqueo de la agenda (§6.10) |
 | 422 | `APPOINTMENT_NOT_EDITABLE` | `AppointmentException` | Se edita o se mueve un turno que no está a confirmar ni confirmado (§6.10) |
-| 409 | `CONFLICT` | `AppointmentException` | El alta, la edición o una transición de un turno: la agenda o el turno cambiaron entre la lectura y el bloqueo, o un *deadlock*, en 3 intentos seguidos; o una espera vencida de MySQL (1205), sin reintentar (§3, orden de bloqueo) |
+| 409 | `APPOINTMENT_SERIES_CONFLICT` | `AppointmentException` | Una o más fechas de una serie fuera del horario, en un bloqueo o superpuestas: no se crea ningún turno; `errors.conflicts` trae cada fecha con `starts_at`, `reason` (`outside_hours`, `in_block` u `overlap`) y `message` (§6.10) |
+| 409 | `CONFLICT` | `AppointmentException` | El alta (también de una serie), la edición o una transición de un turno: la agenda o el turno cambiaron entre la lectura y el bloqueo, o un *deadlock*, en 3 intentos seguidos; o una espera vencida de MySQL (1205), sin reintentar (§3, orden de bloqueo) |
 | 422 | `APPOINTMENT_INVALID_TRANSITION` | `AppointmentException` | Una transición que el estado del turno no admite, también repetir la misma: "El turno está «:estado» y no admite ese cambio." (§6.10) |
 | 422 | `APPOINTMENT_PATIENT_REQUIRED` | `AppointmentException` | Fichar un turno sin paciente (§6.10) |
 | 422 | `APPOINTMENT_CHECK_IN_NOT_TODAY` | `AppointmentException` | Fichar un turno que no es de hoy en Asunción (§6.10) |
@@ -748,6 +756,20 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a y 3.2b):
     superposición (sin contarse a sí mismo), y se copian la sucursal y el veterinario de la agenda; sin `ends_at`, conserva la
     duración; conserva el estado (pregunta 17). Sin mover, un turno de una agenda inactiva se sigue editando; cambiar solo el
     servicio no recalcula `ends_at`.
+  * **Series** (3.3, P1 y R-054; `AppointmentService::createSeries` y `App\Support\AppointmentRecurrence`): `POST appointments` con
+    `recurrence`, `every_weeks` (1 a 12; 1 por defecto, también con `null`) y uno de `count` (2 a 52) o `until` (una fecha `Y-m-d`,
+    desde la del primer turno, que dé de 2 a 52 turnos); los dos o ninguno → 422 en `recurrence.count`; otra clave → 422 en
+    `recurrence`; `recurrence: null` es un turno único. La última fecha, como mucho un año después del primer turno, también con
+    `count` (422 en `recurrence.count` o `recurrence.until`). El turno `i` es el primero más `7 × every_weeks × i` días, a la misma
+    hora de reloj de Asunción y con la misma duración. Las reglas de toda la serie (la agenda, el servicio, el paciente, el día y la
+    duración) responden su error de siempre sobre el primer turno; las de cada fecha (horario, bloqueos y superposición) se revisan
+    en todas, sin cortar en la primera, y si alguna falla no se crea ninguna: 409 `APPOINTMENT_SERIES_CONFLICT` con
+    `errors.conflicts`, una entrada por fecha con su primer motivo (`outside_hours`, `in_block`, `overlap`, en ese orden).
+    `overbook: true` (con `appointments.overbook`) vale para todas las fechas y saltea solo la superposición; cada turno queda con
+    `is_overbooked` si al guardarlo se superponía. Responde 201 con la lista de los turnos (`AppointmentResource`) y `meta.series_id`
+    (el turno único sigue con `ShowAppointmentResource` sin `meta`). Los turnos comparten `series_id` y son independientes: cada uno
+    se edita, se mueve (conserva su `series_id`) y cambia de estado solo; mover la serie entera queda fuera del MVP (`recurrence` en
+    el `PATCH` → 422, "La serie se arma al dar los turnos: cada turno se modifica por separado.").
   * **Uso:** un turno es uso del paciente (`PATIENT_IN_USE`), del cliente (`CLIENT_IN_USE`, §6.1), del veterinario, del servicio, de la
     agenda (`SCHEDULE_IN_USE` y `SCHEDULE_NOT_EDITABLE`) y del usuario que lo crea (`created_by`).
   * **Listado** paginado con `ListFilters`, por `starts_at` e id: filtra por `starts_at` con `from` y `to` (`ApiDateTime`; sin ninguno,
@@ -780,6 +802,12 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a y 3.2b):
     `APPOINTMENT_NO_SHOW_TOO_EARLY`), también días después. **Cancelar** pide `cancellation_reason` (de 3 a 500; sin límite de
     anticipación) y fija `cancelled_at` y `cancelled_by`. El cancelado y el ausente liberan el horario; el fichado y el atendido lo
     siguen ocupando.
+  * **Cancelar con alcance** (3.3 y R-054; `App\Enums\AppointmentCancelScope`): `scope` `single` (por defecto, también con `null`),
+    `following` (este y los siguientes de la serie, por `starts_at` y por id en el mismo instante) o `series` (toda la serie); otro →
+    422. El turno pedido sigue las reglas de cancelar (si no lo admite, 422 `APPOINTMENT_INVALID_TRANSITION` y no cambia ninguno); de
+    los demás, solo los a confirmar o confirmados que todavía no empezaron (`starts_at > now`), con el mismo motivo, la misma hora
+    (`cancelled_at`) y cada uno con su auditoría. En un turno sin serie, el alcance no cambia nada. Responde el turno pedido con
+    `meta.cancelled_count` (también con `single`): "Turno cancelado." con uno y "Se cancelaron N turnos de la serie." con más.
   * **Fichar y atendido, por un veterinario** (pregunta 18 y R-053): un usuario con el rol `veterinario` (o con una ficha) y sin
     `appointments.update` marca solo los turnos de su ficha (no eliminada) y los de agendas sin veterinario; sin ficha, o con la ficha
     eliminada, solo los de agendas sin veterinario. Si no, 403 `APPOINTMENT_NOT_YOURS`, "Ese turno no es de tu agenda.", revisado antes

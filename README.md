@@ -18,7 +18,7 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes) y FASE 2 (datos
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
 | `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/development/setup.md`](docs/development/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | 76 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, y los turnos con sus estados |
+| `routes/api.php` | 76 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, y los turnos (únicos o en series) con sus estados |
 | `database/seeders` | `RolesAndPermissionsSeeder` (133 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
