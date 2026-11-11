@@ -1113,3 +1113,27 @@ código, ni la API, ni los tests.
 | Problema | `/retomar` y `/validar-docs` declaraban `disallowed-tools: Edit Write NotebookEdit`: después de usarlas, la sesión seguía sin poder editar archivos, aunque el pedido siguiente fuera una corrección | Usuario |
 | Cambio | Se quita `disallowed-tools` de `.claude/skills/retomar/SKILL.md` y de `.claude/skills/validar-docs/SKILL.md`. `allowed-tools` queda: solo aprueba de antemano los comandos de lectura, no restringe | Usuario |
 | Solo lectura | La regla sigue escrita en el cuerpo de cada skill ("No modificar archivos…" y "Es de solo lectura…"): la cumple quien la usa, no el frontmatter | Usuario |
+
+# R-053 Entrega 3.2b de la FASE 3: estados del turno, revisada, corregida y cerrada (2026-11-10)
+
+Rama `feature/fase-03-02b-estados`, desde `feature/fase-03-02a-turnos`. Implementación en el commit WIP `a1a1ab4`, correcciones de la
+revisión en `d811fa1` y el cierre en un commit aparte, solo de documentación. El cambio de las skills de lectura de la misma rama
+(`964db22`) es R-052. El detalle está en el [resultado de la 3.2b](../fases/fase-03-agenda-y-turnos.md#entrega-32b).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Alcance | Las transiciones del turno según el diseño (P3, P7, P12 y preguntas 18 a 20): confirmar, fichar, atendido, ausente, deshacer el ausente el mismo día y cancelar con motivo, en `POST appointments/{appointment}/…`; cualquier otra, también repetir la misma, → 422 `APPOINTMENT_INVALID_TRANSITION`; atendido y cancelado son finales. 6 rutas nuevas (70 → 76), 2 permisos nuevos (`appointments.attend` y `appointments.no-show`; 131 → 133; `undo-no-show` usa `appointments.no-show`) y 1 migración (35 → 36: `attended_at` y `no_show_at`, `datetime`) | Diseño (R-047, R-048) |
+| Fichar (pregunta 18) | Fichar queda restringido igual que marcar atendido: cambia la respuesta "Fichar, cualquiera" | Usuario (en la implementación) |
+| Regla del veterinario | Se aplica por el rol (o la ficha): sin `appointments.update`, un veterinario con ficha (no eliminada) ficha y marca atendido los turnos de su ficha y los de agendas sin veterinario; sin ficha, o con la ficha eliminada, solo los de agendas sin veterinario. El administrador y quien tiene `appointments.update`, cualquiera (hallazgo 2: un usuario con el rol y sin ficha podía con cualquier turno) | Usuario (en la revisión) |
+| Turno ajeno | 403 `APPOINTMENT_NOT_YOURS`, "Ese turno no es de tu agenda.", en lugar del `FORBIDDEN` genérico (desvío 5, hallazgo 1) | Usuario (en la revisión) |
+| Deshacer el ausente | Acepta `overbook: true` con `appointments.overbook`, como el alta: con el horario tomado por otro turno, entra con `is_overbooked: true`; sin `overbook`, 409 `APPOINTMENT_OVERLAP` (hallazgo 3). Un turno que ya era sobreturno vuelve sin mandar `overbook`, pero exige el permiso, con el horario tomado o libre; sin el permiso, 403 `FORBIDDEN` | Usuario (en la revisión); las dos precisiones, propuestas por la implementación y aceptadas |
+| Desvíos 1 a 12 | Aceptados los 1 a 4 y 6 a 12: (1) `App\Enums\AppointmentTransition` con orígenes y destino; (2) controller y service aparte, y deshacer el ausente en `AppointmentService`; (3) paciente fallecido al fichar → 422 en `patient_id`; (4) la regla del veterinario antes que el estado; (6) todas las transiciones con los reintentos de la 3.2a; (7) deshacer el ausente sin revisar la agenda activa; (8) fichar el día del turno a cualquier hora y el ausente desde el inicio, también días después; (9) el test de dos procesos con fichar y ausente; (10) `RunsConcurrentRequests`; (11) los mensajes; (12) la agenda del día en Postman. El 5 cambió (arriba) | Usuario |
+| Correcciones de la revisión | Además de las de arriba: 5 tests de medianoche (fichar a las 23:50 y a las 00:10; deshacer el ausente a las 23:50 y a las 00:10, y de un turno de hace 3 días marcado ausente hoy), con los que calcular el día en UTC hace fallar deshacer el ausente (hallazgo 4); se borran `AppointmentStatus::canTransitionTo()` e `isFinal()`, sin uso (hallazgo 5); el cierre usa R-053, porque R-052 ya era el cambio de las skills (hallazgo 6) | Usuario |
+| Postman | `syncvet-fase-03-turnos`, de 37 a 58 requests y de 67 a 107 pruebas: las transiciones, la agenda del día de la corrida (de 00:00 a 23:55), deshacer el ausente con el horario tomado (409 sin `overbook`, 200 con él) y el 403 `APPOINTMENT_NOT_YOURS` con `vet-a` | Implementación y revisión |
+| Deuda 2 | `Appointment` suma `attended_at` y `no_show_at` con `AppDateTime` y `startsToday()` ([deuda técnica](../roadmap/deuda-tecnica.md)) | Implementación |
+| Validación | El 2026-11-10, después de las correcciones, con el Collection Runner (una iteración): `syncvet-fase-03-turnos`, 58 requests, 107 de 107 pruebas, 0 errores | Usuario |
+| Tests | Suite del 2026-11-10 sobre `d811fa1`, en serie: 1303 casos; 13373 aserciones en SQLite (11 omitidos, solo de MySQL) y 13422 en MySQL, sin omitidos; `composer test:fast`, 1303 casos en verde | Cierre |
+| Siguiente | Entrega 3.3 (turnos recurrentes) en `feature/fase-03-03-recurrentes`, creada desde `feature/fase-03-02b-estados`. Sin merge a `main` | Usuario |
+
+**Qué no cambió.** Los contratos, permisos y `error_code` anteriores; el `PATCH` de turnos sigue rechazando un turno que no está a
+confirmar ni confirmado (422 `APPOINTMENT_NOT_EDITABLE`), así que un cancelado no se reabre por ningún camino.
