@@ -290,6 +290,9 @@ return [
         'is_overbooked' => 'sobreturno',
         'series_id' => 'serie',
         'status.*' => 'estado',
+
+        // Estados del turno (FASE 3, entrega 3.2b)
+        'cancellation_reason' => 'motivo de la cancelación',
     ],
 
 ];

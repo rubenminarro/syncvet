@@ -45,6 +45,8 @@ class Appointment extends Model
         'created_by',
         'confirmed_at',
         'checked_in_at',
+        'attended_at',
+        'no_show_at',
         'cancelled_at',
         'cancelled_by',
         'cancellation_reason',
@@ -69,8 +71,22 @@ class Appointment extends Model
             'is_overbooked' => 'boolean',
             'confirmed_at' => AppDateTime::class,
             'checked_in_at' => AppDateTime::class,
+            // FASE 3, entrega 3.2b (pregunta 20).
+            'attended_at' => AppDateTime::class,
+            'no_show_at' => AppDateTime::class,
             'cancelled_at' => AppDateTime::class,
         ];
+    }
+
+    /**
+     * Si el turno es de hoy en la hora de Asunción (la zona de la aplicación): fichar y deshacer
+     * el ausente solo se hacen el día del turno (FASE 3, entrega 3.2b).
+     */
+    public function startsToday(): bool
+    {
+        $timezone = config('app.timezone');
+
+        return $this->starts_at->copy()->setTimezone($timezone)->toDateString() === now($timezone)->toDateString();
     }
 
     public function cancelledBy(): BelongsTo

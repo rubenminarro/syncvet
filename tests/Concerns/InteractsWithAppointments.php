@@ -109,4 +109,37 @@ trait InteractsWithAppointments
     {
         return CurrentClinic::run($clinic, fn () => Appointment::findOrFail($id));
     }
+
+    /**
+     * Los permisos de la recepción para las transiciones (FASE 3, entrega 3.2b): todo menos
+     * marcar atendido.
+     */
+    protected const TRANSITION_PERMISSIONS = [
+        'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
+        'appointments.confirm', 'appointments.check-in', 'appointments.no-show', 'appointments.cancel',
+    ];
+
+    /**
+     * Un instante de hoy (el martes congelado), en hora de Asunción.
+     */
+    protected function today(string $time): CarbonImmutable
+    {
+        return CarbonImmutable::parse(self::TODAY . " {$time}", 'America/Asuncion');
+    }
+
+    /**
+     * Una transición por la API: confirm, check-in, attend, no-show, undo-no-show o cancel.
+     */
+    protected function transition(int $id, string $action, array $body = []): TestResponse
+    {
+        return $this->postJson("/api/appointments/{$id}/{$action}", $body);
+    }
+
+    /**
+     * Cambia el estado sin la API (para preparar cada caso).
+     */
+    protected function setStatus(int $id, \App\Enums\AppointmentStatus $status, array $attributes = []): void
+    {
+        DB::table('appointments')->where('id', $id)->update(['status' => $status->value, ...$attributes]);
+    }
 }

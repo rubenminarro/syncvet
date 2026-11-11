@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 
 /**
  * Detalle de un turno (FASE 3, entrega 3.2a): lo del listado más las notas, quién lo creó,
- * las horas de confirmación, fichado y cancelación (UTC, "Z"), quién lo canceló y el motivo.
+ * las horas de confirmación, fichado, atendido y ausente (3.2b) y cancelación (UTC, "Z"),
+ * quién lo canceló y el motivo.
  * Espera además createdBy y cancelledBy cargados (AppointmentService::loadDetail).
  *
  * @mixin Appointment
@@ -25,6 +26,9 @@ class ShowAppointmentResource extends AppointmentResource
             ],
             'confirmed_at' => $this->confirmed_at?->toISOString(),
             'checked_in_at' => $this->checked_in_at?->toISOString(),
+            // FASE 3, entrega 3.2b.
+            'attended_at' => $this->attended_at?->toISOString(),
+            'no_show_at' => $this->no_show_at?->toISOString(),
             'cancelled_at' => $this->cancelled_at?->toISOString(),
             'cancelled_by' => $this->cancelledBy === null ? null : [
                 'id' => $this->cancelledBy->id,

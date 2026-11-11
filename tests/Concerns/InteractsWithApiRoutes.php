@@ -46,6 +46,7 @@ trait InteractsWithApiRoutes
         'species.breeds.store' => ['permission' => 'species.store', 'reason' => 'R-015: las razas usan los permisos de especie'],
         'species.breeds.update' => ['permission' => 'species.update', 'reason' => 'R-015: las razas usan los permisos de especie'],
         'species.breeds.destroy' => ['permission' => 'species.destroy', 'reason' => 'R-015: las razas usan los permisos de especie'],
+        'appointments.undo-no-show' => ['permission' => 'appointments.no-show', 'reason' => 'Pregunta 19 de la FASE 3 (R-048): el ausente lo deshacen quienes lo marcan, el administrador y la recepción'],
     ];
 
     /**

@@ -304,7 +304,8 @@ class RouteBindingTest extends TestCase
     }
 
     /**
-     * Turnos (FASE 3, entrega 3.2a): uno de otra clínica responde 404 en cada ruta y no cambia.
+     * Turnos (FASE 3, entregas 3.2a y 3.2b): uno de otra clínica responde 404 en cada ruta,
+     * también en las transiciones, y no cambia.
      */
     public static function appointmentRoutes(): array
     {
@@ -312,11 +313,17 @@ class RouteBindingTest extends TestCase
             'GET appointments/{appointment}' => ['get'],
             'PATCH appointments/{appointment}' => ['patch'],
             'PUT appointments/{appointment}' => ['put'],
+            'POST appointments/{appointment}/confirm' => ['post', '/confirm'],
+            'POST appointments/{appointment}/check-in' => ['post', '/check-in'],
+            'POST appointments/{appointment}/attend' => ['post', '/attend'],
+            'POST appointments/{appointment}/no-show' => ['post', '/no-show'],
+            'POST appointments/{appointment}/undo-no-show' => ['post', '/undo-no-show'],
+            'POST appointments/{appointment}/cancel' => ['post', '/cancel'],
         ];
     }
 
     #[DataProvider('appointmentRoutes')]
-    public function test_appointment_of_another_clinic_is_not_found(string $method): void
+    public function test_appointment_of_another_clinic_is_not_found(string $method, string $action = ''): void
     {
         $foreignClinic = $this->createClinic();
         $foreignBranch = $this->defaultBranchIn($foreignClinic);
@@ -339,10 +346,18 @@ class RouteBindingTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->actingIn($this->createClinic(), ['appointments.show', 'appointments.update']);
+        $this->actingIn($this->createClinic(), [
+            'appointments.show', 'appointments.update', 'appointments.confirm', 'appointments.check-in',
+            'appointments.attend', 'appointments.no-show', 'appointments.cancel',
+        ]);
 
-        $this->assertErrorCode($this->json($method, "/api/appointments/{$id}", ['notes' => 'Cambiado']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode(
+            $this->json($method, "/api/appointments/{$id}{$action}", ['notes' => 'Cambiado', 'cancellation_reason' => 'Ajeno']),
+            404,
+            'RESOURCE_NOT_FOUND'
+        );
         $this->assertSame('Ajeno', DB::table('appointments')->where('id', $id)->value('notes'));
+        $this->assertSame('pending_confirmation', DB::table('appointments')->where('id', $id)->value('status'));
     }
 
     public function test_own_records_are_found(): void

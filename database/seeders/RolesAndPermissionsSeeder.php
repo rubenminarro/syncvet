@@ -47,6 +47,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
         // FASE 3, entrega 3.2a: el sobreturno (overbook: true), un permiso de un campo, no de una ruta.
         'appointments.overbook',
+        // FASE 3, entrega 3.2b: marcar atendido y ausente (y deshacer el ausente).
+        'appointments.attend', 'appointments.no-show',
 
         /* historia clínica */
         'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
@@ -120,7 +122,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'schedule-blocks.index',
                     'appointments.index', 'appointments.store', 'appointments.show', 'appointments.update',
                     'appointments.confirm', 'appointments.check-in', 'appointments.cancel',
-                    'appointments.overbook',
+                    'appointments.overbook', 'appointments.no-show',
                     'consultations.index', 'consultations.show',
                     'patient-applications.index', 'patient-documents.index', 'patient-documents.show',
                     'reminders.index', 'reminders.store', 'reminders.update', 'reminders.cancel',
@@ -145,7 +147,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'system-settings.show', 'system-settings.show-logo',
                     'schedules.index', 'schedules.show',
                     'schedule-blocks.index',
-                    'appointments.index', 'appointments.show', 'appointments.check-in',
+                    'appointments.index', 'appointments.show', 'appointments.check-in', 'appointments.attend',
                     'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
                     'consultations.close',
                     'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',

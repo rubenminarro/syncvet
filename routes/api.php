@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AppointmentTransitionController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
@@ -94,6 +95,15 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     // Turnos (FASE 3, entrega 3.2a): los dan y los mueven el administrador y la recepción. Sin baja
     // (DELETE → 405): un turno se cancela (3.2b). El sobreturno pide además appointments.overbook.
     Route::apiResource('appointments', AppointmentController::class)->except(['destroy']);
+
+    // Estados del turno (FASE 3, entrega 3.2b). Deshacer el ausente usa el permiso appointments.no-show
+    // (pregunta 19; ROUTES_WITH_ANOTHER_PERMISSION).
+    Route::post('appointments/{appointment}/confirm', [AppointmentTransitionController::class, 'confirm'])->name('appointments.confirm');
+    Route::post('appointments/{appointment}/check-in', [AppointmentTransitionController::class, 'checkIn'])->name('appointments.check-in');
+    Route::post('appointments/{appointment}/attend', [AppointmentTransitionController::class, 'attend'])->name('appointments.attend');
+    Route::post('appointments/{appointment}/no-show', [AppointmentTransitionController::class, 'noShow'])->name('appointments.no-show');
+    Route::post('appointments/{appointment}/undo-no-show', [AppointmentTransitionController::class, 'undoNoShow'])->name('appointments.undo-no-show');
+    Route::post('appointments/{appointment}/cancel', [AppointmentTransitionController::class, 'cancel'])->name('appointments.cancel');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

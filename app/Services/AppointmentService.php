@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\AppointmentTransition;
 use App\Enums\ServiceStatus;
 use App\Enums\VeterinarianStatus;
 use App\Exceptions\AppointmentException;
@@ -114,14 +115,15 @@ class AppointmentService
     }
 
     /**
-     * Repite el intento si la agenda cambió entre la lectura y el bloqueo, o si MySQL
-     * informa un deadlock o una espera vencida; después de ATTEMPTS, 409 CONFLICT.
+     * Repite el intento si la agenda o el turno cambiaron entre la lectura y el bloqueo, o si
+     * MySQL informa un deadlock; después de ATTEMPTS, 409 CONFLICT. Una espera vencida (1205),
+     * 409 CONFLICT enseguida. Lo usan también las transiciones (AppointmentTransitionService).
      *
      * @template T
      * @param callable(): T $attempt
      * @return T
      */
-    private function withRetries(callable $attempt): mixed
+    public function withRetries(callable $attempt): mixed
     {
         for ($try = 1; $try <= self::ATTEMPTS; $try++) {
             try {
@@ -544,39 +546,107 @@ class AppointmentService
             throw new AppointmentException('El turno está fuera del horario de la agenda.', 422, 'APPOINTMENT_OUTSIDE_HOURS');
         }
 
-        $start = $startsAt->format('Y-m-d H:i:s');
-        $end = $endsAt->format('Y-m-d H:i:s');
-
         $inBlock = ScheduleBlock::query()
             ->where('schedule_id', $schedule->id)
-            ->where('starts_at', '<', $end)
-            ->where('ends_at', '>', $start)
+            ->where('starts_at', '<', $endsAt->format('Y-m-d H:i:s'))
+            ->where('ends_at', '>', $startsAt->format('Y-m-d H:i:s'))
             ->exists();
 
         if ($inBlock) {
             throw new AppointmentException('La agenda está bloqueada en ese horario.', 422, 'APPOINTMENT_IN_BLOCK');
         }
 
-        // Se superponen si a.starts_at < b.ends_at y a.ends_at > b.starts_at: tocarse no
-        // choca. En la agenda, y del mismo veterinario en sus otras agendas (pregunta 15).
-        $overlaps = Appointment::query()
+        $overlaps = $this->overlapsAnother($schedule, $startsAt, $endsAt, $ignore);
+
+        if ($overlaps && ! $overbook) {
+            throw self::overlapException();
+        }
+
+        return $overlaps;
+    }
+
+    /**
+     * Si el rango se superpone con un turno que ocupa el horario: a.starts_at < b.ends_at y
+     * a.ends_at > b.starts_at (tocarse no choca), en la agenda y del mismo veterinario en sus
+     * otras agendas (pregunta 15), sin contar $ignore. Se llama con la agenda (y su
+     * veterinario) bloqueada.
+     */
+    private function overlapsAnother(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt, ?Appointment $ignore = null): bool
+    {
+        return Appointment::query()
             ->whereIn('status', AppointmentStatus::occupyingValues())
-            ->where('starts_at', '<', $end)
-            ->where('ends_at', '>', $start)
+            ->where('starts_at', '<', $endsAt->format('Y-m-d H:i:s'))
+            ->where('ends_at', '>', $startsAt->format('Y-m-d H:i:s'))
             ->where(fn ($query) => $query
                 ->where('schedule_id', $schedule->id)
                 ->when($schedule->veterinarian_id !== null, fn ($query) => $query->orWhere('veterinarian_id', $schedule->veterinarian_id)))
             ->when($ignore !== null, fn ($query) => $query->whereKeyNot($ignore->getKey()))
             ->exists();
+    }
 
-        if ($overlaps && ! $overbook) {
-            throw new AppointmentException(
-                'El horario ya está ocupado: elegí otro o dalo como sobreturno.',
-                409,
-                'APPOINTMENT_OVERLAP'
-            );
-        }
+    private static function overlapException(): AppointmentException
+    {
+        return new AppointmentException(
+            'El horario ya está ocupado: elegí otro o dalo como sobreturno.',
+            409,
+            'APPOINTMENT_OVERLAP'
+        );
+    }
 
-        return $overlaps;
+    /**
+     * Deshacer el ausente (FASE 3, entrega 3.2b; pregunta 19): vuelve a confirmado el mismo día
+     * del turno en Asunción. Vuelve a ocupar el horario, así que bloquea como un alta: se lee el
+     * turno y su agenda sin bloqueo; después, el veterinario de la agenda (lockForUpdate) → la
+     * agenda (lockForUpdate) → el turno (lockForUpdate), y con eso bloqueado se revisa la
+     * superposición sin contarse a sí mismo. Ocupado → 409 APPOINTMENT_OVERLAP, salvo un
+     * sobreturno (is_overbooked), que entra y recalcula la marca. El horario semanal y los
+     * bloqueos no se vuelven a revisar. confirmed_at, la hora actual si no tenía.
+     */
+    public function undoNoShow(Appointment $appointment): Appointment
+    {
+        return $this->withRetries(function () use ($appointment) {
+            $read = Appointment::query()->whereKey($appointment->getKey())->firstOrFail(['id', 'schedule_id']);
+            $schedule = Schedule::query()->whereKey($read->schedule_id)->firstOrFail(['id', 'veterinarian_id']);
+
+            return DB::transaction(function () use ($read, $schedule) {
+                // Orden de bloqueo: veterinario → agenda → turno.
+                $this->lockVeterinarian($this->id($schedule->veterinarian_id));
+                $locked = $this->lockSchedules([(int) $schedule->id])[(int) $schedule->id];
+                $appointment = Appointment::query()->whereKey($read->getKey())->lockForUpdate()->firstOrFail();
+
+                if ($this->id($locked->veterinarian_id) !== $this->id($schedule->veterinarian_id)
+                    || $this->id($appointment->schedule_id) !== $this->id($read->schedule_id)) {
+                    throw new ScheduleChangedWhileLocking();
+                }
+
+                if (! AppointmentTransition::UNDO_NO_SHOW->allowsFrom($appointment->status)) {
+                    throw AppointmentException::invalidTransition($appointment->status);
+                }
+
+                if (! $appointment->startsToday()) {
+                    throw new AppointmentException(
+                        'El ausente solo se deshace el mismo día del turno.',
+                        422,
+                        'APPOINTMENT_NO_SHOW_NOT_UNDOABLE'
+                    );
+                }
+
+                $overlaps = $this->overlapsAnother($locked, $appointment->starts_at->toImmutable(), $appointment->ends_at->toImmutable(), $appointment);
+
+                if ($overlaps && ! $appointment->is_overbooked) {
+                    throw self::overlapException();
+                }
+
+                $appointment->fill([
+                    'status' => AppointmentTransition::UNDO_NO_SHOW->to(),
+                    'no_show_at' => null,
+                    'confirmed_at' => $appointment->confirmed_at ?? now(),
+                    'is_overbooked' => $overlaps,
+                ]);
+                $appointment->save();
+
+                return $appointment;
+            });
+        });
     }
 }

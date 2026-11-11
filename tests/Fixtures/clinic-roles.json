@@ -1,9 +1,11 @@
 {
     "administrador": [
+        "appointments.attend",
         "appointments.cancel",
         "appointments.check-in",
         "appointments.confirm",
         "appointments.index",
+        "appointments.no-show",
         "appointments.overbook",
         "appointments.show",
         "appointments.store",
@@ -137,6 +139,7 @@
         "appointments.check-in",
         "appointments.confirm",
         "appointments.index",
+        "appointments.no-show",
         "appointments.overbook",
         "appointments.show",
         "appointments.store",
@@ -192,6 +195,7 @@
         "veterinarians.index"
     ],
     "veterinario": [
+        "appointments.attend",
         "appointments.check-in",
         "appointments.index",
         "appointments.show",
