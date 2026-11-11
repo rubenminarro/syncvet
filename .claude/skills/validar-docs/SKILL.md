@@ -2,7 +2,6 @@
 name: validar-docs
 description: "Audita la documentación: enlaces internos, documentos huérfanos, referencias desactualizadas y cifras contra el código. Usar al revisar docs o antes de cerrar una entrega. Solo informa."
 allowed-tools: Read Grep Glob Bash(php .claude/skills/validar-docs/scripts/check-docs.php*) Bash(git log *) Bash(git rev-parse *)
-disallowed-tools: Edit Write NotebookEdit
 ---
 
 # Validar la documentación

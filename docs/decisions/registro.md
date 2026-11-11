@@ -1102,3 +1102,14 @@ revisión en `b0dd969` y el cierre en un commit aparte, solo de documentación. 
 **Qué no cambió.** Las colecciones de Postman anteriores y los contratos, permisos y `error_code` de las fases anteriores, salvo el
 mensaje de `CLIENT_IN_USE` (suma los turnos, pregunta 21) y el cambio de dueño, que ahora responde 422 en `client_id` si el dueño nuevo
 se elimina en el medio.
+
+# R-052 Las skills de lectura no bloquean la edición de la sesión (2026-11-10)
+
+Rama `feature/fase-03-02b-estados`, en un commit aparte del trabajo de la 3.2b. Solo cambia el frontmatter de dos skills: ni el
+código, ni la API, ni los tests.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Problema | `/retomar` y `/validar-docs` declaraban `disallowed-tools: Edit Write NotebookEdit`: después de usarlas, la sesión seguía sin poder editar archivos, aunque el pedido siguiente fuera una corrección | Usuario |
+| Cambio | Se quita `disallowed-tools` de `.claude/skills/retomar/SKILL.md` y de `.claude/skills/validar-docs/SKILL.md`. `allowed-tools` queda: solo aprueba de antemano los comandos de lectura, no restringe | Usuario |
+| Solo lectura | La regla sigue escrita en el cuerpo de cada skill ("No modificar archivos…" y "Es de solo lectura…"): la cumple quien la usa, no el frontmatter | Usuario |

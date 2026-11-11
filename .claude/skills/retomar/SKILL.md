@@ -2,7 +2,6 @@
 name: retomar
 description: Informa dónde está el proyecto y propone el siguiente paso. Usar al empezar una sesión o cuando se pida retomar o continuar el trabajo. Solo lectura.
 allowed-tools: Read Grep Glob Bash(git status *) Bash(git log *) Bash(git fetch *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git diff --stat *) Bash(git branch --show-current) Bash(git -C ../syncvet-frontend status *) Bash(git -C ../syncvet-frontend log *) Bash(git -C ../syncvet-frontend fetch *) Bash(git -C ../syncvet-frontend rev-list *)
-disallowed-tools: Edit Write NotebookEdit
 ---
 
 # Retomar el proyecto
