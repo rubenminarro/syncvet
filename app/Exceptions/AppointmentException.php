@@ -19,6 +19,22 @@ use App\Enums\AppointmentStatus;
 class AppointmentException extends AppException
 {
     /**
+     * 409 APPOINTMENT_SERIES_CONFLICT (3.3, P1): fechas de la serie que no se pueden dar, en
+     * errors.conflicts, cada una con {starts_at, reason, message}.
+     *
+     * @param list<array{starts_at: string, reason: string, message: string}> $conflicts
+     */
+    public static function seriesConflict(array $conflicts): self
+    {
+        return new self(
+            'Hay fechas de la serie que no se pueden dar: revisá la lista.',
+            409,
+            'APPOINTMENT_SERIES_CONFLICT',
+            ['conflicts' => $conflicts]
+        );
+    }
+
+    /**
      * 403 APPOINTMENT_NOT_YOURS: el veterinario ficha o marca atendido un turno de otra ficha.
      */
     public static function notYours(): self

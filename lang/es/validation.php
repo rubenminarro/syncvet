@@ -293,6 +293,13 @@ return [
 
         // Estados del turno (FASE 3, entrega 3.2b)
         'cancellation_reason' => 'motivo de la cancelación',
+
+        // Turnos recurrentes (FASE 3, entrega 3.3)
+        'recurrence' => 'serie',
+        'recurrence.every_weeks' => 'frecuencia de la serie',
+        'recurrence.count' => 'cantidad de turnos de la serie',
+        'recurrence.until' => 'fecha de fin de la serie',
+        'scope' => 'alcance',
     ],
 
 ];

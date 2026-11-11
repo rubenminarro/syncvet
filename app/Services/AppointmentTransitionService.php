@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AppointmentCancelScope;
+use App\Enums\AppointmentStatus;
 use App\Enums\AppointmentTransition;
 use App\Enums\UserRole;
 use App\Exceptions\AppointmentException;
@@ -9,6 +11,7 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\User;
 use App\Models\Veterinarian;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -38,6 +41,11 @@ use Illuminate\Validation\ValidationException;
  */
 class AppointmentTransitionService
 {
+    /**
+     * Los demás turnos de la serie que cancela un alcance following o series (3.3).
+     */
+    private const CANCELLABLE_IN_SERIES = [AppointmentStatus::PENDING_CONFIRMATION, AppointmentStatus::CONFIRMED];
+
     public function __construct(
         protected AppointmentService $appointments
     ) {
@@ -95,13 +103,68 @@ class AppointmentTransitionService
         return $this->appointments->undoNoShow($appointment, $overbook);
     }
 
-    public function cancel(Appointment $appointment, string $reason): Appointment
+    /**
+     * Cancelar (P3) con alcance (3.3): el turno pedido, con las reglas de siempre (si no admite
+     * cancelarse, 422 y no cambia nada); con following, además los turnos de su serie que
+     * empiezan después (por starts_at, y por id en el mismo instante); con series, todos los
+     * demás de la serie. De esos, solo los que están a confirmar o confirmados y todavía no
+     * empezaron: los fichados, los finales, los ausentes y los que ya empezaron quedan como
+     * están. El mismo motivo para todos, cada uno con su auditoría. En un turno sin serie, el
+     * alcance no cambia nada.
+     *
+     * Concurrencia: los turnos de la serie con lockForUpdate, por id ascendente, antes de leer
+     * sus estados; sin serie, solo el turno (como cada transición).
+     *
+     * @return array{0: Appointment, 1: int} el turno pedido y cuántos turnos se cancelaron
+     */
+    public function cancel(Appointment $appointment, string $reason, AppointmentCancelScope $scope = AppointmentCancelScope::SINGLE): array
     {
-        return $this->apply($appointment, AppointmentTransition::CANCEL, fn () => [
+        $fields = fn () => [
             'cancelled_at' => now(),
             'cancelled_by' => Auth::id(),
             'cancellation_reason' => $reason,
-        ]);
+        ];
+
+        // series_id no cambia nunca: se lee sin bloqueo.
+        $seriesId = $scope === AppointmentCancelScope::SINGLE
+            ? null
+            : Appointment::query()->whereKey($appointment->getKey())->value('series_id');
+
+        if ($seriesId === null) {
+            return [$this->apply($appointment, AppointmentTransition::CANCEL, $fields), 1];
+        }
+
+        return $this->appointments->withRetries(fn () => DB::transaction(function () use ($appointment, $scope, $seriesId, $fields) {
+            $series = Appointment::query()->where('series_id', $seriesId)->orderBy('id')->lockForUpdate()->get();
+            $locked = $series->firstWhere('id', $appointment->getKey()) ?? throw new ModelNotFoundException();
+
+            if (! AppointmentTransition::CANCEL->allowsFrom($locked->status)) {
+                throw AppointmentException::invalidTransition($locked->status);
+            }
+
+            $now = now();
+            $others = $series->filter(fn (Appointment $other) => $other->getKey() !== $locked->getKey()
+                && ($scope === AppointmentCancelScope::SERIES || $this->isAfter($other, $locked))
+                && in_array($other->status, self::CANCELLABLE_IN_SERIES, true)
+                && $other->starts_at->greaterThan($now));
+
+            foreach ([$locked, ...$others->all()] as $cancelled) {
+                $cancelled->fill([...$fields(), 'status' => AppointmentTransition::CANCEL->to()]);
+                $cancelled->save();
+            }
+
+            return [$locked, 1 + $others->count()];
+        }));
+    }
+
+    /**
+     * Si $other va después de $appointment en la serie: por starts_at y, en el mismo instante
+     * (un turno movido), por id.
+     */
+    private function isAfter(Appointment $other, Appointment $appointment): bool
+    {
+        return $other->starts_at->greaterThan($appointment->starts_at)
+            || ($other->starts_at->equalTo($appointment->starts_at) && $other->getKey() > $appointment->getKey());
     }
 
     /**

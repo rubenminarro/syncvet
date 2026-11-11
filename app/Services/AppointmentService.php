@@ -19,12 +19,15 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Support\ApiDateTime;
+use App\Support\AppointmentRecurrence;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\DetectsConcurrencyErrors;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PDOException;
 use Throwable;
@@ -68,6 +71,15 @@ class AppointmentService
     private const DATA_FIELDS = ['service_id', 'source', 'reason', 'notes'];
 
     /**
+     * Los motivos de una fecha de la serie que no entra (errors.conflicts.*.reason, 3.3).
+     */
+    public const OUTSIDE_HOURS = 'outside_hours';
+
+    public const IN_BLOCK = 'in_block';
+
+    public const OVERLAP = 'overlap';
+
+    /**
      * @param array<string, mixed> $data los campos validados de StoreAppointmentRequest
      */
     public function create(array $data): Appointment
@@ -82,6 +94,34 @@ class AppointmentService
             }
 
             return DB::transaction(fn () => $this->createLocked($data, $read, $overbook));
+        });
+    }
+
+    /**
+     * Una serie de turnos (FASE 3, entrega 3.3; P1): todos al crearla, con el mismo series_id,
+     * o ninguno. Cada fecha pasa por las reglas del alta (el horario semanal, los bloqueos y la
+     * superposición, en la agenda y del veterinario); si alguna falla, 409
+     * APPOINTMENT_SERIES_CONFLICT con errors.conflicts: cada fecha con su motivo, todas, no solo
+     * la primera. overbook vale para todas las fechas y saltea solo la superposición.
+     *
+     * Concurrencia: la serie entera en una transacción, con el veterinario y la agenda
+     * bloqueados una vez, en el orden del alta; los mismos reintentos (withRetries).
+     *
+     * @param array<string, mixed> $data los campos validados de StoreAppointmentRequest, con recurrence
+     * @return Collection<int, Appointment>
+     */
+    public function createSeries(array $data): Collection
+    {
+        $overbook = (bool) ($data['overbook'] ?? false);
+
+        return $this->withRetries(function () use ($data, $overbook) {
+            $read = Schedule::query()->whereKey((int) $data['schedule_id'])->first(['id', 'veterinarian_id', 'service_id']);
+
+            if ($read === null) {
+                throw ValidationException::withMessages(['schedule_id' => AppointmentMessages::SCHEDULE_NOT_AVAILABLE]);
+            }
+
+            return DB::transaction(fn () => $this->createSeriesLocked($data, $read, $overbook));
         });
     }
 
@@ -179,6 +219,81 @@ class AppointmentService
      */
     private function createLocked(array $data, Schedule $read, bool $overbook): Appointment
     {
+        [$schedule, $serviceId, $patientId, $clientId, $startsAt, $endsAt] = $this->lockForCreate($data, $read);
+
+        $this->ensureTiming($startsAt, $endsAt);
+        $overlaps = $this->ensureFits($schedule, $startsAt, $endsAt, $overbook);
+
+        return $this->newAppointment($data, $schedule, $serviceId, $patientId, $clientId, $startsAt, $endsAt, $overlaps);
+    }
+
+    /**
+     * La serie, con las filas bloqueadas una vez: el primer turno pasa por ensureTiming (el
+     * día y la duración; los demás son días posteriores a la misma hora de reloj y con la
+     * misma duración) y cada fecha por las reglas de ensureFits, sin cortar en la primera que
+     * falla.
+     *
+     * @param array<string, mixed> $data
+     * @return Collection<int, Appointment>
+     */
+    private function createSeriesLocked(array $data, Schedule $read, bool $overbook): Collection
+    {
+        [$schedule, $serviceId, $patientId, $clientId, $startsAt, $endsAt] = $this->lockForCreate($data, $read);
+
+        $this->ensureTiming($startsAt, $endsAt);
+
+        $recurrence = $data['recurrence'];
+        $everyWeeks = (int) ($recurrence['every_weeks'] ?? 1);
+        $count = AppointmentRecurrence::count(
+            $startsAt,
+            $everyWeeks,
+            isset($recurrence['count']) ? (int) $recurrence['count'] : null,
+            $recurrence['until'] ?? null
+        );
+
+        $dates = [];
+        $conflicts = [];
+
+        for ($index = 0; $index < $count; $index++) {
+            $from = AppointmentRecurrence::shift($startsAt, $everyWeeks, $index);
+            $to = AppointmentRecurrence::shift($endsAt, $everyWeeks, $index);
+            [$reason, $overlaps] = $this->fit($schedule, $from, $to, $overbook);
+
+            if ($reason !== null) {
+                $conflicts[] = [
+                    'starts_at' => $from->toISOString(),
+                    'reason' => $reason,
+                    'message' => $this->fitException($reason)->getMessage(),
+                ];
+
+                continue;
+            }
+
+            $dates[] = [$from, $to, $overlaps];
+        }
+
+        if ($conflicts !== []) {
+            throw AppointmentException::seriesConflict($conflicts);
+        }
+
+        $seriesId = (string) Str::uuid();
+
+        return new Collection(array_map(
+            fn (array $date) => $this->newAppointment($data, $schedule, $serviceId, $patientId, $clientId, $date[0], $date[1], $date[2], $seriesId),
+            $dates
+        ));
+    }
+
+    /**
+     * Los bloqueos y las revisiones del alta, en el orden de la FASE 3: veterinario →
+     * servicio → agenda → paciente y cliente. Devuelve la agenda bloqueada, el servicio, el
+     * paciente, el cliente y el inicio y el fin del (primer) turno, en la hora de Asunción.
+     *
+     * @param array<string, mixed> $data
+     * @return array{0: Schedule, 1: ?int, 2: ?int, 3: ?int, 4: CarbonImmutable, 5: CarbonImmutable}
+     */
+    private function lockForCreate(array $data, Schedule $read): array
+    {
         $serviceSent = array_key_exists('service_id', $data) && $data['service_id'] !== null;
         $serviceId = $serviceSent ? (int) $data['service_id'] : $read->service_id;
 
@@ -206,9 +321,23 @@ class AppointmentService
             ? ApiDateTime::toLocal($data['ends_at'])
             : $startsAt->addMinutes($service?->duration_minutes ?? $schedule->slot_minutes);
 
-        $this->ensureTiming($startsAt, $endsAt);
-        $overlaps = $this->ensureFits($schedule, $startsAt, $endsAt, $overbook);
+        return [$schedule, $this->id($serviceId), $patientId, $clientId, $startsAt, $endsAt];
+    }
 
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function newAppointment(
+        array $data,
+        Schedule $schedule,
+        ?int $serviceId,
+        ?int $patientId,
+        ?int $clientId,
+        CarbonImmutable $startsAt,
+        CarbonImmutable $endsAt,
+        bool $overlaps,
+        ?string $seriesId = null
+    ): Appointment {
         return Appointment::create([
             ...Arr::only($data, self::DATA_FIELDS),
             'schedule_id' => $schedule->id,
@@ -223,6 +352,7 @@ class AppointmentService
             'ends_at' => $endsAt,
             'status' => AppointmentStatus::PENDING_CONFIRMATION,
             'is_overbooked' => $overlaps,
+            'series_id' => $seriesId,
             'created_by' => Auth::id(),
         ]);
     }
@@ -543,8 +673,26 @@ class AppointmentService
      */
     private function ensureFits(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt, bool $overbook, ?Appointment $ignore = null): bool
     {
+        [$reason, $overlaps] = $this->fit($schedule, $startsAt, $endsAt, $overbook, $ignore);
+
+        if ($reason !== null) {
+            throw $this->fitException($reason);
+        }
+
+        return $overlaps;
+    }
+
+    /**
+     * Las reglas de ensureFits sin lanzar (la serie, 3.3, junta todas las fechas que fallan):
+     * el primer motivo por el que el turno no entra (OUTSIDE_HOURS, IN_BLOCK u OVERLAP; null
+     * si entra) y si se superpone con otro turno.
+     *
+     * @return array{0: ?string, 1: bool}
+     */
+    private function fit(Schedule $schedule, CarbonImmutable $startsAt, CarbonImmutable $endsAt, bool $overbook, ?Appointment $ignore = null): array
+    {
         if (! $this->insideHours($schedule, $startsAt, $endsAt)) {
-            throw new AppointmentException('El turno está fuera del horario de la agenda.', 422, 'APPOINTMENT_OUTSIDE_HOURS');
+            return [self::OUTSIDE_HOURS, false];
         }
 
         $inBlock = ScheduleBlock::query()
@@ -554,16 +702,21 @@ class AppointmentService
             ->exists();
 
         if ($inBlock) {
-            throw new AppointmentException('La agenda está bloqueada en ese horario.', 422, 'APPOINTMENT_IN_BLOCK');
+            return [self::IN_BLOCK, false];
         }
 
         $overlaps = $this->overlapsAnother($schedule, $startsAt, $endsAt, $ignore);
 
-        if ($overlaps && ! $overbook) {
-            throw self::overlapException();
-        }
+        return [$overlaps && ! $overbook ? self::OVERLAP : null, $overlaps];
+    }
 
-        return $overlaps;
+    private function fitException(string $reason): AppointmentException
+    {
+        return match ($reason) {
+            self::OUTSIDE_HOURS => new AppointmentException('El turno está fuera del horario de la agenda.', 422, 'APPOINTMENT_OUTSIDE_HOURS'),
+            self::IN_BLOCK => new AppointmentException('La agenda está bloqueada en ese horario.', 422, 'APPOINTMENT_IN_BLOCK'),
+            default => self::overlapException(),
+        };
     }
 
     /**

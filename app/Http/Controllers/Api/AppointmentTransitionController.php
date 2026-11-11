@@ -68,13 +68,25 @@ class AppointmentTransitionController extends Controller implements HasMiddlewar
         );
     }
 
+    /**
+     * Con alcance (3.3): el turno pedido y, en meta.cancelled_count, cuántos se cancelaron.
+     */
     public function cancel(CancelAppointmentRequest $request, Appointment $appointment): JsonResponse
     {
-        return $this->respond('Turno cancelado.', $this->transitions->cancel($appointment, $request->validated('cancellation_reason')));
+        [$cancelled, $count] = $this->transitions->cancel($appointment, $request->validated('cancellation_reason'), $request->scope());
+
+        return $this->respond(
+            $count === 1 ? 'Turno cancelado.' : "Se cancelaron {$count} turnos de la serie.",
+            $cancelled,
+            ['cancelled_count' => $count]
+        );
     }
 
-    private function respond(string $message, Appointment $appointment): JsonResponse
+    /**
+     * @param array<string, mixed>|null $meta
+     */
+    private function respond(string $message, Appointment $appointment, ?array $meta = null): JsonResponse
     {
-        return $this->successResponse($message, new ShowAppointmentResource($this->appointments->loadDetail($appointment)), 200);
+        return $this->successResponse($message, new ShowAppointmentResource($this->appointments->loadDetail($appointment)), 200, $meta);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\AppointmentSource;
 use App\Support\ApiDateTime;
+use App\Support\AppointmentRecurrence;
 use App\Support\CurrentClinic;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\Rule;
@@ -68,6 +69,20 @@ class AppointmentMessages
 
     public const OFF_GRID = 'La hora debe estar en múltiplos de 5 minutos, sin segundos.';
 
+    public const RECURRENCE_BOTH = 'Ingresá la cantidad de turnos o la fecha de fin de la serie, no las dos.';
+
+    public const RECURRENCE_END_REQUIRED = 'Ingresá la cantidad de turnos o la fecha de fin de la serie.';
+
+    public const RECURRENCE_UNTIL_BEFORE = 'La fecha de fin de la serie no puede ser anterior al primer turno.';
+
+    public const RECURRENCE_UNTIL_TOO_FAR = 'La fecha de fin de la serie puede ser, como mucho, un año después del primer turno.';
+
+    public const RECURRENCE_TOO_MANY = 'La serie no puede tener más de ' . AppointmentRecurrence::MAX_COUNT . ' turnos.';
+
+    public const RECURRENCE_TOO_FEW = 'La serie tiene que tener al menos ' . AppointmentRecurrence::MIN_COUNT . ' turnos.';
+
+    public const RECURRENCE_FORMAT = 'La serie solo admite every_weeks, count y until.';
+
     public const SOURCE_INVALID = 'El origen debe ser recepción, teléfono o WhatsApp: la reserva online no está disponible.';
 
     /**
@@ -112,6 +127,43 @@ class AppointmentMessages
             'reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'overbook' => ['boolean'],
+        ];
+    }
+
+    /**
+     * La serie del alta (FASE 3, entrega 3.3; P1): every_weeks (1 a 12, 1 por defecto) y uno
+     * de count (2 a 52) o until (una fecha). Lo que depende del primer turno (until desde su
+     * fecha, hasta un año después y de 2 a 52 turnos) y count o until, uno solo, lo revisa
+     * StoreAppointmentRequest::after().
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    public static function recurrenceRules(): array
+    {
+        return [
+            'recurrence' => ['sometimes', 'nullable', 'array:every_weeks,count,until'],
+            'recurrence.every_weeks' => ['sometimes', 'integer', 'min:1', 'max:' . AppointmentRecurrence::MAX_EVERY_WEEKS],
+            'recurrence.count' => ['nullable', 'integer', 'min:' . AppointmentRecurrence::MIN_COUNT, 'max:' . AppointmentRecurrence::MAX_COUNT],
+            'recurrence.until' => ['nullable', 'string', 'date_format:Y-m-d'],
+        ];
+    }
+
+    public static function recurrenceMessages(): array
+    {
+        $everyWeeks = 'La serie se repite cada 1 a ' . AppointmentRecurrence::MAX_EVERY_WEEKS . ' semanas.';
+        $count = 'La serie tiene de ' . AppointmentRecurrence::MIN_COUNT . ' a ' . AppointmentRecurrence::MAX_COUNT . ' turnos.';
+        $until = 'Ingresá la fecha de fin de la serie (2026-12-31).';
+
+        return [
+            'recurrence.array' => self::RECURRENCE_FORMAT,
+            'recurrence.every_weeks.integer' => $everyWeeks,
+            'recurrence.every_weeks.min' => $everyWeeks,
+            'recurrence.every_weeks.max' => $everyWeeks,
+            'recurrence.count.integer' => $count,
+            'recurrence.count.min' => $count,
+            'recurrence.count.max' => self::RECURRENCE_TOO_MANY,
+            'recurrence.until.string' => $until,
+            'recurrence.until.date_format' => $until,
         ];
     }
 

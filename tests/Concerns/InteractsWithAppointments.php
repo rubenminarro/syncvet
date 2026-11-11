@@ -145,6 +145,25 @@ trait InteractsWithAppointments
     }
 
     /**
+     * Alta de una serie por la API (FASE 3, entrega 3.3): el lunes a las 10:00, con un
+     * contacto, y la recurrencia que llega.
+     */
+    protected function bookSeries(Schedule $schedule, array $recurrence, array $overrides = []): TestResponse
+    {
+        return $this->book($schedule, ['recurrence' => $recurrence, ...$overrides]);
+    }
+
+    /**
+     * Alta de una serie que tiene que responder 201; devuelve los ids, en el orden de las fechas.
+     *
+     * @return list<int>
+     */
+    protected function bookedSeries(Schedule $schedule, array $recurrence, array $overrides = []): array
+    {
+        return $this->bookSeries($schedule, $recurrence, $overrides)->assertCreated()->json('data.*.id');
+    }
+
+    /**
      * Cambia el estado sin la API (para preparar cada caso).
      */
     protected function setStatus(int $id, \App\Enums\AppointmentStatus $status, array $attributes = []): void

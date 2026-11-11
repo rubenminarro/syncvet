@@ -26,12 +26,17 @@ class UpdateAppointmentRequest extends FormRequest
         return [
             ...array_map(fn (array $rules) => ['sometimes', ...$rules], AppointmentMessages::dataRules()),
             ...AppointmentMessages::prohibitedRules(),
+            // La serie se arma en el alta (3.3): cada turno se mueve solo y conserva su series_id.
+            'recurrence' => ['prohibited'],
         ];
     }
 
     public function messages(): array
     {
-        return AppointmentMessages::messages();
+        return [
+            ...AppointmentMessages::messages(),
+            'recurrence.prohibited' => 'La serie se arma al dar los turnos: cada turno se modifica por separado.',
+        ];
     }
 
     public function after(): array

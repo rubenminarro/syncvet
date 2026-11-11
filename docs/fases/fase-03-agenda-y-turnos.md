@@ -496,6 +496,69 @@ horario y otra en un bloqueo → 409 con las tres en `errors.conflicts` y ningú
 
 **Postman:** `syncvet-fase-03-turnos` suma una serie de 4, una con un conflicto (409 con la lista) y la cancelación de los siguientes.
 
+#### Pendiente para el cierre (3.3)
+
+Implementada en `feature/fase-03-03-recurrentes` (commit WIP "WIP 3.3 recurrentes, sin revisar"), **sin revisar ni validar con
+Postman por el usuario**. Sin migraciones, sin rutas ni permisos nuevos (76 rutas, 133 permisos, 36 migraciones).
+
+**Desvíos del diseño** (precisiones del usuario al pedir la entrega; confirmarlos en la revisión):
+
+1. **`overbook` con `recurrence` se acepta** (el diseño lo prohibía con 422 `prohibited`): `overbook: true` vale para todas las
+   fechas, con el permiso `appointments.overbook` (sin él, 403 como en el alta); saltea solo la superposición, no el horario ni los
+   bloqueos. Cada turno queda con `is_overbooked` solo si al guardarlo se superponía.
+2. **Un tercer alcance, `series`** (toda la serie), además de `single` y `following` (`App\Enums\AppointmentCancelScope`).
+3. **Con `following` y `series`, de los demás turnos se cancelan solo los a confirmar o confirmados que todavía no empezaron**
+   (`starts_at > now`); el diseño decía "a confirmar o confirmados", sin la condición de la hora. El turno pedido sigue las reglas de
+   la cancelación de siempre (se cancela aunque ya haya empezado o esté fichado; si no admite cancelarse, 422
+   `APPOINTMENT_INVALID_TRANSITION` y no cambia ningún turno).
+4. **`meta.cancelled_count` en toda cancelación**, también con `single` (antes `meta` era `null`). El mensaje: "Turno cancelado." con
+   uno y "Se cancelaron N turnos de la serie." con más.
+5. **Mover la serie entera queda fuera del MVP** (lo decía el diseño): cada turno se mueve con el `PATCH` y conserva su `series_id`.
+   `recurrence` en el `PATCH` → 422 (`prohibited`), "La serie se arma al dar los turnos: cada turno se modifica por separado.".
+
+**Decisiones de implementación** (no las definía el diseño):
+
+* "Los siguientes" se ordenan por `starts_at` (y por id en el mismo instante), no por id: un turno movido a una fecha posterior entra
+  en `following` desde un turno anterior, y uno movido antes, no.
+* Con `until`, la serie tiene que dar de 2 a 52 turnos: `until` el mismo día del primero (un solo turno) → 422 en `recurrence.until`,
+  "La serie tiene que tener al menos 2 turnos." (como `count`, de 2 a 52). `recurrence: null` da un turno único; una clave fuera de
+  `every_weeks`, `count` y `until` → 422 en `recurrence`.
+* Las fechas se calculan en la hora de Asunción (`App\Support\AppointmentRecurrence`): `addDays(7 × every_weeks × i)` conserva la hora
+  de reloj aunque cambie el desplazamiento (probado con el cambio de hora del 01/10/2023 en `AppointmentRecurrenceTest`).
+* Las reglas que valen para toda la serie (la agenda activa con su veterinario activo, el servicio activo, el paciente, el día de hoy en
+  adelante, la duración y la medianoche) responden con su error de siempre (422) sobre el primer turno; las de cada fecha (horario,
+  bloqueos y superposición) van a `errors.conflicts`, una entrada por fecha con el primer motivo que falla (`outside_hours`,
+  `in_block`, `overlap`, en ese orden), y la lista no se corta en la primera fecha.
+* **El caso del diseño "una fecha ocupada, otra fuera del horario y otra en un bloqueo" no puede darse en una sola serie:** todas sus
+  fechas caen el mismo día de la semana a la misma hora, así que el horario semanal las deja a todas adentro o a todas afuera. Los tests
+  prueban una ocupada y otra bloqueada juntas, y fuera del horario con todas las fechas en la lista.
+* La serie responde 201 con `AppointmentResource` (el del listado) y `meta.series_id`; el turno único sigue respondiendo
+  `ShowAppointmentResource` sin `meta`.
+
+**Código.** `AppointmentService::createSeries` (las mismas piezas del alta: `lockForCreate`, `fit` sin lanzar y `newAppointment`;
+`ensureFits` ahora usa `fit`), `AppointmentTransitionService::cancel` con alcance, `AppointmentException::seriesConflict`,
+`StoreAppointmentRequest` (`recurrence`), `CancelAppointmentRequest` (`scope`), `UpdateAppointmentRequest` (`recurrence` prohibido) y
+los nombres de los campos en `lang/es/validation.php`.
+
+**Tests** (`tests/Feature/Appointments/Series` y `tests/Unit/AppointmentRecurrenceTest`): `AppointmentSeriesStoreTest`,
+`AppointmentSeriesConflictTest`, `AppointmentSeriesCancelTest`, `AppointmentSeriesLockTest` y `AppointmentSeriesConcurrencyTest` (solo
+MySQL: dos series simultáneas que comparten una fecha; una entra entera y la otra recibe 409 con esa fecha). Suite del 2026-11-10
+sobre el código del WIP, en serie: 1347 casos (44 más que la 3.2b); en SQLite, 13610 aserciones con 12 omitidos (solo de MySQL); en
+MySQL (`syncvet_test_mysql`), 13667 aserciones sin omitidos. Se rehacen en el cierre, después de la revisión.
+
+**Mutaciones** (las 5 críticas del diseño y 3 más; todas mueren con los tests de la serie): crear las fechas válidas aunque otra falle;
+cortar la lista de conflictos en el primero; `following` que cancela también los anteriores; `following` que cancela los fichados; el
+paso en días en lugar de semanas; `series` que cancela los que ya empezaron; `overbook` que no vale en la serie; `until` que excluye la
+última fecha.
+
+**Postman.** Colección aparte, `syncvet-fase-03-series` (más clara que sumar otra etapa a la de turnos, que ya tiene 58 pedidos),
+corrida dos veces seguidas con Newman contra la base local: 25 pedidos, 42 aserciones, sin fallas. Observación ajena a la entrega:
+`syncvet-fase-03-turnos` falla con Newman (también sin los cambios de la 3.3) porque sus scripts declaran `const data`, que choca con
+una variable global del *sandbox* de Newman; en la app de Postman no pasa. Se corrige renombrando la variable, si el usuario quiere.
+
+**Para el cierre:** `CLAUDE.md` §6.10 (series y cancelación con alcance) y §4 (`APPOINTMENT_SERIES_CONFLICT`), el estado de la entrega
+y el registro de decisiones, con los desvíos de arriba.
+
 ### 3.4 Disponibilidad y cola del día
 
 **Alcance.** Los horarios libres de una agenda (3.4 del alcance inicial) y la cola del día (3.5; P8). Solo lectura.

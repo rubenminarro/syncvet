@@ -90,8 +90,24 @@ class AppointmentController extends Controller implements HasMiddleware
         );
     }
 
+    /**
+     * Un turno, o una serie si llega recurrence (3.3): 201 con la lista de los turnos creados
+     * (AppointmentResource) y meta.series_id.
+     */
     public function store(StoreAppointmentRequest $request)
     {
+        if ($request->validated('recurrence') !== null) {
+            $series = $this->appointmentService->createSeries($request->validated())
+                ->load(['schedule', 'branch', 'veterinarian.user', 'service', 'patient', 'client']);
+
+            return $this->successResponse(
+                "Serie de {$series->count()} turnos creada correctamente.",
+                AppointmentResource::collection($series),
+                201,
+                ['series_id' => $series->first()->series_id]
+            );
+        }
+
         $appointment = $this->appointmentService->create($request->validated());
 
         return $this->successResponse(
