@@ -72,6 +72,7 @@ class VoseoTest extends TestCase
         'tener' => ['ten', 'tenga', 'tengas'],
         'venir' => ['ven', 'venga', 'vengas'],
         'ir' => ['ve', 'vaya', 'vayas'],
+        'reducir' => ['reduce', 'reduzca', 'reduzcas'],
     ];
 
     /**

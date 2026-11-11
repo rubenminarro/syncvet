@@ -20,6 +20,8 @@ class AppointmentSeriesStoreTest extends TestCase
 {
     use InteractsWithAppointments;
 
+    private const COUNT_TOO_FAR = 'La última fecha de la serie puede ser, como mucho, un año después del primer turno: reducí la cantidad de turnos o las semanas entre turnos.';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -151,6 +153,12 @@ class AppointmentSeriesStoreTest extends TestCase
             'until a más de un año' => [['every_weeks' => 4, 'until' => '2027-11-17'], 'recurrence.until', 'La fecha de fin de la serie puede ser, como mucho, un año después del primer turno.'],
             'until antes del primero' => [['until' => '2026-11-15'], 'recurrence.until', 'La fecha de fin de la serie no puede ser anterior al primer turno.'],
             'until el mismo día' => [['until' => '2026-11-16'], 'recurrence.until', 'La serie tiene que tener al menos 2 turnos.'],
+            // Revisión de la 3.3 (hallazgo 2): la cuenta usa every_weeks; semanal, serían 2.
+            'until a 7 días cada 2 semanas' => [['every_weeks' => 2, 'until' => '2026-11-23'], 'recurrence.until', 'La serie tiene que tener al menos 2 turnos.'],
+            // Revisión de la 3.3 (hallazgo 7): con count, la última fecha tampoco pasa del año.
+            'count que pasa del año cada 2 semanas' => [['every_weeks' => 2, 'count' => 28], 'recurrence.count', self::COUNT_TOO_FAR],
+            'count que pasa del año cada 4 semanas' => [['every_weeks' => 4, 'count' => 15], 'recurrence.count', self::COUNT_TOO_FAR],
+            'count que pasa del año cada 12 semanas' => [['every_weeks' => 12, 'count' => 52], 'recurrence.count', self::COUNT_TOO_FAR],
             'until con hora' => [['until' => '2026-12-31T10:00:00'], 'recurrence.until', 'Ingresá la fecha de fin de la serie (2026-12-31).'],
             'cada 0 semanas' => [['every_weeks' => 0, 'count' => 2], 'recurrence.every_weeks', 'La serie se repite cada 1 a 12 semanas.'],
             'cada 13 semanas' => [['every_weeks' => 13, 'count' => 2], 'recurrence.every_weeks', 'La serie se repite cada 1 a 12 semanas.'],
@@ -175,6 +183,72 @@ class AppointmentSeriesStoreTest extends TestCase
         $this->assertSame($message, $response->json('errors')[$field][0] ?? null, json_encode($response->json('errors'), JSON_UNESCAPED_UNICODE));
 
         $this->assertSame(0, DB::table('appointments')->count());
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 2): until con every_weeks: 2 cuenta de a dos semanas. Del
+     * 16/11/2026 al 15/11/2027 son 364 días: 27 turnos (semanal, serían 53 y daría 422).
+     */
+    public function test_until_counts_with_every_weeks(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $this->actAsReception($clinic);
+
+        $response = $this->bookSeries($schedule, ['every_weeks' => 2, 'until' => '2027-11-15'])
+            ->assertCreated()
+            ->assertJsonCount(27, 'data');
+
+        $this->assertSame('2027-11-15T13:00:00.000000Z', $response->json('data.26.starts_at'));
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 7): con count, la última fecha llega, como mucho, a un año
+     * después del primer turno (el 16/11/2027), como con until. Un año (365 o 366 días) nunca es
+     * un múltiplo de 7: la última fecha posible es la del día anterior.
+     */
+    public function test_count_reaches_up_to_one_year_after_the_first_date(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $this->actAsReception($clinic);
+
+        // Cada 4 semanas, 14 turnos: el último el 15/11/2027, entra.
+        $response = $this->bookSeries($schedule, ['every_weeks' => 4, 'count' => 14])
+            ->assertCreated()
+            ->assertJsonCount(14, 'data');
+        $this->assertSame('2027-11-15T13:00:00.000000Z', $response->json('data.13.starts_at'));
+
+        // Semanal, 52 turnos: el último el 08/11/2027, entra (el tope de cantidad llega antes).
+        $this->bookSeries($schedule, ['count' => 52], ['starts_at' => $this->at('11:00')])->assertCreated();
+
+        // Con 15, el último sería el 13/12/2027: no entra ninguno.
+        $response = $this->bookSeries($schedule, ['every_weeks' => 4, 'count' => 15], ['starts_at' => $this->at('12:00')])
+            ->assertUnprocessable();
+        $this->assertSame(self::COUNT_TOO_FAR, $response->json('errors')['recurrence.count'][0] ?? null);
+
+        $this->assertSame(66, DB::table('appointments')->count());
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 8): every_weeks: null es el valor por defecto (semanal).
+     */
+    public function test_a_null_every_weeks_is_weekly(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $this->actAsReception($clinic);
+
+        $response = $this->bookSeries($schedule, ['every_weeks' => null, 'count' => 3])->assertCreated();
+        $this->assertSame(
+            ['2026-11-16T13:00:00.000000Z', '2026-11-23T13:00:00.000000Z', '2026-11-30T13:00:00.000000Z'],
+            $response->json('data.*.starts_at')
+        );
+
+        // Con until, también.
+        $this->bookSeries($schedule, ['every_weeks' => null, 'until' => '2026-11-30'], ['starts_at' => $this->at('11:00')])
+            ->assertCreated()
+            ->assertJsonCount(3, 'data');
     }
 
     public function test_a_null_recurrence_books_a_single_appointment(): void

@@ -77,6 +77,8 @@ class AppointmentMessages
 
     public const RECURRENCE_UNTIL_TOO_FAR = 'La fecha de fin de la serie puede ser, como mucho, un año después del primer turno.';
 
+    public const RECURRENCE_COUNT_TOO_FAR = 'La última fecha de la serie puede ser, como mucho, un año después del primer turno: reducí la cantidad de turnos o las semanas entre turnos.';
+
     public const RECURRENCE_TOO_MANY = 'La serie no puede tener más de ' . AppointmentRecurrence::MAX_COUNT . ' turnos.';
 
     public const RECURRENCE_TOO_FEW = 'La serie tiene que tener al menos ' . AppointmentRecurrence::MIN_COUNT . ' turnos.';
@@ -131,10 +133,10 @@ class AppointmentMessages
     }
 
     /**
-     * La serie del alta (FASE 3, entrega 3.3; P1): every_weeks (1 a 12, 1 por defecto) y uno
-     * de count (2 a 52) o until (una fecha). Lo que depende del primer turno (until desde su
-     * fecha, hasta un año después y de 2 a 52 turnos) y count o until, uno solo, lo revisa
-     * StoreAppointmentRequest::after().
+     * La serie del alta (FASE 3, entrega 3.3; P1): every_weeks (1 a 12; 1 por defecto, también
+     * con null) y uno de count (2 a 52) o until (una fecha). Lo que depende del primer turno
+     * (la última fecha hasta un año después, con count o con until; until desde su fecha y de 2
+     * a 52 turnos) y count o until, uno solo, lo revisa StoreAppointmentRequest::after().
      *
      * @return array<string, array<int, mixed>>
      */
@@ -142,7 +144,7 @@ class AppointmentMessages
     {
         return [
             'recurrence' => ['sometimes', 'nullable', 'array:every_weeks,count,until'],
-            'recurrence.every_weeks' => ['sometimes', 'integer', 'min:1', 'max:' . AppointmentRecurrence::MAX_EVERY_WEEKS],
+            'recurrence.every_weeks' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:' . AppointmentRecurrence::MAX_EVERY_WEEKS],
             'recurrence.count' => ['nullable', 'integer', 'min:' . AppointmentRecurrence::MIN_COUNT, 'max:' . AppointmentRecurrence::MAX_COUNT],
             'recurrence.until' => ['nullable', 'string', 'date_format:Y-m-d'],
         ];

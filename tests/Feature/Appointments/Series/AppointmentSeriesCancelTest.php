@@ -3,7 +3,9 @@
 namespace Tests\Feature\Appointments\Series;
 
 use App\Enums\AppointmentStatus;
+use App\Models\Clinic;
 use App\Models\Schedule;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\InteractsWithAppointments;
@@ -20,6 +22,8 @@ class AppointmentSeriesCancelTest extends TestCase
 {
     use InteractsWithAppointments;
 
+    private Clinic $clinic;
+
     private Schedule $schedule;
 
     /**
@@ -32,9 +36,9 @@ class AppointmentSeriesCancelTest extends TestCase
         parent::setUp();
 
         $this->freezeToday();
-        $clinic = $this->createClinic();
-        $this->schedule = $this->openSchedule($this->defaultBranchIn($clinic));
-        $this->actingIn($clinic, self::TRANSITION_PERMISSIONS);
+        $this->clinic = $this->createClinic();
+        $this->schedule = $this->openSchedule($this->defaultBranchIn($this->clinic));
+        $this->actingIn($this->clinic, self::TRANSITION_PERMISSIONS);
         $this->ids = $this->bookedSeries($this->schedule, ['count' => 5]);
     }
 
@@ -193,5 +197,117 @@ class AppointmentSeriesCancelTest extends TestCase
 
         $this->assertSame('pending_confirmation', $this->appointmentRow($this->ids[0])->status);
         $this->assertSame('cancelled', $this->appointmentRow($this->ids[1])->status);
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 5): un turno movido a una fecha anterior queda antes en la
+     * serie: following desde el que estaba antes que él no lo incluye.
+     */
+    public function test_an_appointment_moved_to_an_earlier_date_is_not_one_of_the_following(): void
+    {
+        // El cuarto (07/12) pasa al martes 17/11, antes del tercero (30/11).
+        $this->patchJson("/api/appointments/{$this->ids[3]}", ['starts_at' => $this->at('10:00', '2026-11-17')])->assertOk();
+
+        $this->cancel($this->ids[2], 'following')->assertOk()->assertJsonPath('meta.cancelled_count', 2);
+
+        $this->assertSame('pending_confirmation', $this->appointmentRow($this->ids[3])->status);
+        $this->assertSame('cancelled', $this->appointmentRow($this->ids[2])->status);
+        $this->assertSame('cancelled', $this->appointmentRow($this->ids[4])->status);
+        $this->assertSame('pending_confirmation', $this->appointmentRow($this->ids[1])->status);
+    }
+
+    /**
+     * Dos turnos de la serie en el mismo instante (el segundo y el cuarto, movidos al martes
+     * 01/12 a las 10:00; sin la API, porque se superpondrían): "los siguientes" se desempatan
+     * por id.
+     */
+    private function moveTwoToTheSameInstant(): void
+    {
+        DB::table('appointments')->whereIn('id', [$this->ids[1], $this->ids[3]])->update([
+            'starts_at' => '2026-12-01 10:00:00',
+            'ends_at' => '2026-12-01 10:30:00',
+        ]);
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 5): desde el de id menor, el otro del mismo instante es uno
+     * de los siguientes.
+     */
+    public function test_following_from_the_lower_id_of_a_tie_includes_the_other(): void
+    {
+        $this->moveTwoToTheSameInstant();
+
+        $this->cancel($this->ids[1], 'following')->assertOk()->assertJsonPath('meta.cancelled_count', 3);
+
+        $this->assertSame('cancelled', $this->appointmentRow($this->ids[3])->status);
+        $this->assertSame('cancelled', $this->appointmentRow($this->ids[4])->status);
+        $this->assertSame('pending_confirmation', $this->appointmentRow($this->ids[2])->status);
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 5): desde el de id mayor, el otro del mismo instante no.
+     */
+    public function test_following_from_the_higher_id_of_a_tie_excludes_the_other(): void
+    {
+        $this->moveTwoToTheSameInstant();
+
+        $this->cancel($this->ids[3], 'following')->assertOk()->assertJsonPath('meta.cancelled_count', 2);
+
+        $this->assertSame('pending_confirmation', $this->appointmentRow($this->ids[1])->status);
+        $this->assertSame('cancelled', $this->appointmentRow($this->ids[4])->status);
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 6): un turno de una serie de otra clínica, con series o
+     * following, responde 404 y no cambia ningún turno de esa serie.
+     */
+    public function test_a_series_of_another_clinic_answers_404_without_changes(): void
+    {
+        $other = $this->createClinic();
+        $otherSchedule = $this->openSchedule($this->defaultBranchIn($other));
+        $this->actingIn($other, self::TRANSITION_PERMISSIONS);
+        $otherIds = $this->bookedSeries($otherSchedule, ['count' => 3]);
+        $this->actingIn($this->clinic, self::TRANSITION_PERMISSIONS);
+
+        foreach (['series', 'following'] as $scope) {
+            $this->assertErrorCode($this->cancel($otherIds[0], $scope), 404, 'RESOURCE_NOT_FOUND');
+        }
+
+        $this->assertSame(
+            array_fill(0, 3, 'pending_confirmation'),
+            DB::table('appointments')->whereIn('id', $otherIds)->pluck('status')->all()
+        );
+        $this->assertSame(array_fill(0, 5, 'pending_confirmation'), $this->statuses());
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 8): scope: null es el valor por defecto (single).
+     */
+    public function test_a_null_scope_is_single(): void
+    {
+        $this->cancel($this->ids[1], null)->assertOk();
+        $this->transition($this->ids[2], 'cancel', ['cancellation_reason' => 'Viaje', 'scope' => null])
+            ->assertOk()
+            ->assertJsonPath('meta.cancelled_count', 1);
+
+        $this->assertSame(['pending_confirmation', 'cancelled', 'cancelled', 'pending_confirmation', 'pending_confirmation'], $this->statuses());
+    }
+
+    /**
+     * Revisión de la 3.3 (hallazgo 9): toda la cancelación usa una sola hora. El reloj avanza un
+     * segundo en cada now(); los cinco turnos quedan con el mismo cancelled_at.
+     */
+    public function test_the_whole_cancellation_uses_one_time(): void
+    {
+        $base = CarbonImmutable::parse(self::TODAY . ' 07:00:00', 'America/Asuncion');
+        $tick = 0;
+        Carbon::setTestNow(function () use ($base, &$tick) {
+            return $base->addSeconds($tick++);
+        });
+
+        $this->cancel($this->ids[0], 'series')->assertOk()->assertJsonPath('meta.cancelled_count', 5);
+
+        $times = DB::table('appointments')->whereIn('id', $this->ids)->pluck('cancelled_at')->unique()->values()->all();
+        $this->assertCount(1, $times, implode(', ', $times));
     }
 }

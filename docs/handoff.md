@@ -38,7 +38,7 @@ huérfanos (R-040 y R-041), y 2.6, consulta de la auditoría y fechas con hora (
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | Entrega 3.3 de la FASE 3: turnos recurrentes (series semanales o cada N semanas, hasta 52, rechazadas enteras si una fecha choca; cancelar los siguientes de una serie), en `feature/fase-03-03-recurrentes`, creada desde `feature/fase-03-02b-estados` ([diseño de la 3.3](fases/fase-03-agenda-y-turnos.md#33-turnos-recurrentes)) | La autorización del usuario para implementarla |
+| 1 | Entrega 3.3 de la FASE 3: turnos recurrentes (series semanales o cada N semanas, hasta 52, rechazadas enteras si una fecha choca; cancelar los siguientes de una serie), en `feature/fase-03-03-recurrentes`, creada desde `feature/fase-03-02b-estados` ([diseño de la 3.3](fases/fase-03-agenda-y-turnos.md#33-turnos-recurrentes)). Implementada, revisada y corregida (WIP "WIP 3.3 recurrentes, correcciones de la revisión"; [pendiente para el cierre](fases/fase-03-agenda-y-turnos.md#pendiente-para-el-cierre-33)) | La validación del usuario con Postman (`syncvet-fase-03-series`) y después el cierre (`/cerrar-entrega`) |
 | 2 | Opcional: ver en el Collection Runner el detalle del "Errors 1" de la validación de la 1.2 (PENDIENTE DE VERIFICACIÓN; Newman no lo reproduce) | Ninguno |
 
 Ninguna entrega empieza sin autorización del usuario.

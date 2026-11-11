@@ -467,11 +467,17 @@ transiciones simultáneas, los reintentos y el 409 `CONFLICT` (`AppointmentConcu
 solo MySQL, `AppointmentLockTest` y `AppointmentTransitionLockTest`); un turno de otra clínica (404) y una agenda, un paciente, un
 cliente o un servicio de otra clínica (422) (`RouteBindingTest`).
 
-**Con Newman.**
+**Con Newman.** Con el servidor en el puerto 8001:
 
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-03-turnos.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
+
+Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 58 pedidos y 107 aserciones, sin fallas.
+Hasta la revisión de la 3.3 fallaba con Newman (en la app de Postman, no): 13 scripts declaraban `const data`, y `data` ya existe
+como variable global en el entorno donde Newman corre los scripts (los datos de la iteración), así que la declaración chocaba. Ahora
+se llama `body`. **En un script nuevo, no declarar `data`** (ni otra variable global de Newman: `responseCode`, `responseTime`,
+`responseHeaders`, `iteration`); las demás colecciones no lo hacen.
 
 #### Turnos recurrentes (3.3)
 
@@ -488,10 +494,15 @@ single`), este y los siguientes (`following`: el movido, que quedó antes, no ca
 **Lo que no está en la colección.** Una fecha ocupada y otra fuera del horario en la misma serie, el sobreturno en una serie, la
 serie que cruza el 15/10 y los fichados, ausentes, atendidos o ya empezados que la cancelación con alcance deja como están: los
 cubren `tests/Feature/Appointments/Series` (`AppointmentSeriesConflictTest`, `AppointmentSeriesStoreTest` y
-`AppointmentSeriesCancelTest`). Dos series simultáneas que comparten una fecha (`AppointmentSeriesConcurrencyTest`, solo MySQL).
+`AppointmentSeriesCancelTest`). Dos series simultáneas que comparten una fecha (`AppointmentSeriesConcurrencyTest`, solo MySQL), un
+error o un *deadlock* a mitad de la serie (`AppointmentSeriesLockTest` y `AppointmentSeriesRetryTest`, este solo MySQL), dos
+cancelaciones simultáneas de la misma serie (`AppointmentSeriesCancelConcurrencyTest`, solo MySQL), el tope de un año con `count`,
+los turnos movidos al mismo instante y una serie de otra clínica (404): `AppointmentSeriesStoreTest` y `AppointmentSeriesCancelTest`.
 
-**Con Newman.**
+**Con Newman.** Con el servidor en el puerto 8001:
 
 ```bash
 npx newman run docs/testing/postman/syncvet-fase-03-series.postman_collection.json --env-var "demo_password=<DEMO_PASSWORD>"
 ```
+
+Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 25 pedidos y 42 aserciones, sin fallas.

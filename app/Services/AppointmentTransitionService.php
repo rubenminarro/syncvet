@@ -11,6 +11,7 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\User;
 use App\Models\Veterinarian;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -119,8 +120,10 @@ class AppointmentTransitionService
      */
     public function cancel(Appointment $appointment, string $reason, AppointmentCancelScope $scope = AppointmentCancelScope::SINGLE): array
     {
-        $fields = fn () => [
-            'cancelled_at' => now(),
+        // Una sola hora para toda la cancelación (revisión de la 3.3, hallazgo 9): la de
+        // cancelled_at en todos los turnos es la misma con la que se decide cuáles ya empezaron.
+        $fields = fn (CarbonInterface $now) => [
+            'cancelled_at' => $now,
             'cancelled_by' => Auth::id(),
             'cancellation_reason' => $reason,
         ];
@@ -131,7 +134,7 @@ class AppointmentTransitionService
             : Appointment::query()->whereKey($appointment->getKey())->value('series_id');
 
         if ($seriesId === null) {
-            return [$this->apply($appointment, AppointmentTransition::CANCEL, $fields), 1];
+            return [$this->apply($appointment, AppointmentTransition::CANCEL, fn () => $fields(now())), 1];
         }
 
         return $this->appointments->withRetries(fn () => DB::transaction(function () use ($appointment, $scope, $seriesId, $fields) {
@@ -148,8 +151,10 @@ class AppointmentTransitionService
                 && in_array($other->status, self::CANCELLABLE_IN_SERIES, true)
                 && $other->starts_at->greaterThan($now));
 
+            $values = [...$fields($now), 'status' => AppointmentTransition::CANCEL->to()];
+
             foreach ([$locked, ...$others->all()] as $cancelled) {
-                $cancelled->fill([...$fields(), 'status' => AppointmentTransition::CANCEL->to()]);
+                $cancelled->fill($values);
                 $cancelled->save();
             }
 

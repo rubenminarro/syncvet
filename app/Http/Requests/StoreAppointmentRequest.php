@@ -16,9 +16,10 @@ use Illuminate\Validation\Validator;
  *
  * overbook: true necesita el permiso appointments.overbook: sin él, 403 (authorize()).
  *
- * Serie (3.3, P1): recurrence con every_weeks (1 a 12, 1 por defecto) y uno de count (2 a 52)
- * o until (una fecha, desde la del primer turno y hasta un año después, que dé de 2 a 52
- * turnos). overbook: true vale para todas las fechas de la serie (precisión del usuario en la
+ * Serie (3.3, P1): recurrence con every_weeks (1 a 12; 1 por defecto, también con null) y uno
+ * de count (2 a 52) o until (una fecha, desde la del primer turno, que dé de 2 a 52 turnos).
+ * Con los dos, la última fecha es, como mucho, un año después de la primera (revisión de la
+ * 3.3). overbook: true vale para todas las fechas de la serie (precisión del usuario en la
  * 3.3: el diseño lo prohibía).
  */
 class StoreAppointmentRequest extends FormRequest
@@ -77,8 +78,9 @@ class StoreAppointmentRequest extends FormRequest
     }
 
     /**
-     * Uno de count o until, no los dos ni ninguno. Con until: desde la fecha del primer turno
-     * (en Asunción), hasta un año después, y que dé de 2 a 52 turnos.
+     * Uno de count o until, no los dos ni ninguno. La última fecha, como mucho un año después del
+     * primer turno (en Asunción). Con until: desde la fecha del primer turno y que dé de 2 a 52
+     * turnos.
      */
     private function validateRecurrence(Validator $validator): void
     {
@@ -99,11 +101,25 @@ class StoreAppointmentRequest extends FormRequest
 
         $startsAt = $this->input('starts_at');
 
-        if (! $hasUntil || ! is_string($startsAt) || $validator->errors()->has('starts_at')) {
+        if (! is_string($startsAt) || $validator->errors()->has('starts_at')) {
             return;
         }
 
         $first = ApiDateTime::toLocal($startsAt);
+        $everyWeeks = (int) ($recurrence['every_weeks'] ?? 1);
+
+        // Con count, la última fecha tiene el mismo tope que until: un año después del primero
+        // (revisión de la 3.3, hallazgo 7).
+        if ($hasCount) {
+            $last = AppointmentRecurrence::shift($first, $everyWeeks, (int) $recurrence['count'] - 1);
+
+            if ($last->toDateString() > $first->addYear()->toDateString()) {
+                $validator->errors()->add('recurrence.count', AppointmentMessages::RECURRENCE_COUNT_TOO_FAR);
+            }
+
+            return;
+        }
+
         $until = (string) $recurrence['until'];
 
         if ($until < $first->toDateString()) {
@@ -111,7 +127,7 @@ class StoreAppointmentRequest extends FormRequest
         } elseif ($until > $first->addYear()->toDateString()) {
             $validator->errors()->add('recurrence.until', AppointmentMessages::RECURRENCE_UNTIL_TOO_FAR);
         } else {
-            $count = AppointmentRecurrence::count($first, (int) ($recurrence['every_weeks'] ?? 1), null, $until);
+            $count = AppointmentRecurrence::count($first, $everyWeeks, null, $until);
 
             if ($count > AppointmentRecurrence::MAX_COUNT) {
                 $validator->errors()->add('recurrence.until', AppointmentMessages::RECURRENCE_TOO_MANY);

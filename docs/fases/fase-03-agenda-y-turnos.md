@@ -498,8 +498,9 @@ horario y otra en un bloqueo → 409 con las tres en `errors.conflicts` y ningú
 
 #### Pendiente para el cierre (3.3)
 
-Implementada en `feature/fase-03-03-recurrentes` (commit WIP "WIP 3.3 recurrentes, sin revisar"), **sin revisar ni validar con
-Postman por el usuario**. Sin migraciones, sin rutas ni permisos nuevos (76 rutas, 133 permisos, 36 migraciones).
+Implementada en `feature/fase-03-03-recurrentes` (commits WIP "WIP 3.3 recurrentes, sin revisar" y "WIP 3.3 recurrentes,
+correcciones de la revisión"), **revisada y corregida; falta la validación con Postman del usuario**. Sin migraciones, sin rutas ni
+permisos nuevos (76 rutas, 133 permisos, 36 migraciones).
 
 **Desvíos del diseño** (precisiones del usuario al pedir la entrega; confirmarlos en la revisión):
 
@@ -516,6 +517,12 @@ Postman por el usuario**. Sin migraciones, sin rutas ni permisos nuevos (76 ruta
 5. **Mover la serie entera queda fuera del MVP** (lo decía el diseño): cada turno se mueve con el `PATCH` y conserva su `series_id`.
    `recurrence` en el `PATCH` → 422 (`prohibited`), "La serie se arma al dar los turnos: cada turno se modifica por separado.".
 
+**Decisiones del usuario en la revisión (2026-11-10).** Se confirman los dos desvíos que contradicen el diseño: el 1 (`overbook`
+con `recurrence`, para todas las fechas y con el permiso `appointments.overbook`) y el 2 (el alcance `series`). Se aceptan los desvíos
+menores (3 a 5) y las decisiones de implementación de abajo. La falla de `syncvet-fase-03-turnos` con Newman (`const data`, ver
+**Postman**) se corrige en esta entrega, en las correcciones de la revisión: renombrar la variable en todos los scripts de esa
+colección y revisar las demás por el mismo problema.
+
 **Decisiones de implementación** (no las definía el diseño):
 
 * "Los siguientes" se ordenan por `starts_at` (y por id en el mismo instante), no por id: un turno movido a una fecha posterior entra
@@ -523,6 +530,13 @@ Postman por el usuario**. Sin migraciones, sin rutas ni permisos nuevos (76 ruta
 * Con `until`, la serie tiene que dar de 2 a 52 turnos: `until` el mismo día del primero (un solo turno) → 422 en `recurrence.until`,
   "La serie tiene que tener al menos 2 turnos." (como `count`, de 2 a 52). `recurrence: null` da un turno único; una clave fuera de
   `every_weeks`, `count` y `until` → 422 en `recurrence`.
+* **La última fecha, como mucho un año después del primer turno, también con `count`** (decisión del usuario en la revisión, hallazgo
+  7): si no, 422 en `recurrence.count`, "La última fecha de la serie puede ser, como mucho, un año después del primer turno: reducí
+  la cantidad de turnos o las semanas entre turnos." (antes, `count: 52` con `every_weeks: 12` llegaba a 2038).
+* `recurrence.every_weeks: null` es 1 y `scope: null` es `single`, sus valores por defecto (hallazgo 8; el frontend manda el
+  formulario completo).
+* Toda la cancelación usa una sola hora (hallazgo 9): `cancelled_at` es la misma en todos los turnos y es la que decide cuáles ya
+  empezaron.
 * Las fechas se calculan en la hora de Asunción (`App\Support\AppointmentRecurrence`): `addDays(7 × every_weeks × i)` conserva la hora
   de reloj aunque cambie el desplazamiento (probado con el cambio de hora del 01/10/2023 en `AppointmentRecurrenceTest`).
 * Las reglas que valen para toda la serie (la agenda activa con su veterinario activo, el servicio activo, el paciente, el día de hoy en
@@ -542,8 +556,9 @@ los nombres de los campos en `lang/es/validation.php`.
 
 **Tests** (`tests/Feature/Appointments/Series` y `tests/Unit/AppointmentRecurrenceTest`): `AppointmentSeriesStoreTest`,
 `AppointmentSeriesConflictTest`, `AppointmentSeriesCancelTest`, `AppointmentSeriesLockTest` y `AppointmentSeriesConcurrencyTest` (solo
-MySQL: dos series simultáneas que comparten una fecha; una entra entera y la otra recibe 409 con esa fecha). Suite del 2026-11-10
-sobre el código del WIP, en serie: 1347 casos (44 más que la 3.2b); en SQLite, 13610 aserciones con 12 omitidos (solo de MySQL); en
+MySQL: dos series simultáneas que comparten una fecha; una entra entera y la otra recibe 409 con esa fecha); la revisión suma
+`AppointmentSeriesRetryTest` y `AppointmentSeriesCancelConcurrencyTest` (solo MySQL). Suite del 2026-11-10 sobre el código del
+primer WIP, antes de la revisión, en serie: 1347 casos (44 más que la 3.2b); en SQLite, 13610 aserciones con 12 omitidos (solo de MySQL); en
 MySQL (`syncvet_test_mysql`), 13667 aserciones sin omitidos. Se rehacen en el cierre, después de la revisión.
 
 **Mutaciones** (las 5 críticas del diseño y 3 más; todas mueren con los tests de la serie): crear las fechas válidas aunque otra falle;
@@ -551,10 +566,34 @@ cortar la lista de conflictos en el primero; `following` que cancela también lo
 paso en días en lugar de semanas; `series` que cancela los que ya empezaron; `overbook` que no vale en la serie; `until` que excluye la
 última fecha.
 
-**Postman.** Colección aparte, `syncvet-fase-03-series` (más clara que sumar otra etapa a la de turnos, que ya tiene 58 pedidos),
-corrida dos veces seguidas con Newman contra la base local: 25 pedidos, 42 aserciones, sin fallas. Observación ajena a la entrega:
-`syncvet-fase-03-turnos` falla con Newman (también sin los cambios de la 3.3) porque sus scripts declaran `const data`, que choca con
-una variable global del *sandbox* de Newman; en la app de Postman no pasa. Se corrige renombrando la variable, si el usuario quiere.
+**Postman.** Colección aparte, `syncvet-fase-03-series` (más clara que sumar otra etapa a la de turnos, que ya tiene 58 pedidos).
+`syncvet-fase-03-turnos` fallaba con Newman (también sin los cambios de la 3.3) porque 13 scripts declaraban `const data`, que choca
+con la variable global `data` de Newman; en la app de Postman no pasaba. Corregido en la revisión (abajo).
+
+**Correcciones de la revisión** (2026-11-10; los 9 hallazgos, con las decisiones del usuario):
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | `syncvet-fase-03-turnos` falla con Newman (`const data`) | La variable se llama `body` en los 13 scripts (43 usos). Las otras 12 colecciones no declaran `data` ni otra variable global de Newman. La sección de Newman de `guia-postman.md` lo explica |
+| 2 | `until` con `every_weeks` mayor que 1, sin test | `AppointmentSeriesStoreTest`: cada 2 semanas hasta el 15/11/2027 → 201 con 27 turnos; hasta 7 días después del primero → 422 "al menos 2 turnos" |
+| 3 | Sin test de un error a mitad de la serie | `AppointmentSeriesLockTest`: una excepción en el tercer `insert` → 500, 0 turnos y 0 auditorías. `AppointmentSeriesRetryTest` (solo MySQL, sin la transacción de `RefreshDatabase`): un *deadlock* en el tercer `insert` se reintenta y deja 4 turnos con un solo `series_id` y su auditoría |
+| 4 | Sin test de dos cancelaciones simultáneas | `AppointmentSeriesCancelConcurrencyTest` (solo MySQL): `series` desde el segundo turno y `following` desde el primero, en dos procesos, esperando la fila del primero: 200 con `cancelled_count` 4 y 422 `APPOINTMENT_INVALID_TRANSITION`, nunca 500; los cuatro cancelados una vez, con el motivo de la que entró |
+| 5 | Desempate por id y turno movido antes, sin test | `AppointmentSeriesCancelTest`: dos turnos en el mismo instante (desde el de id menor, el otro entra; desde el mayor, no) y un turno movido a una fecha anterior (no entra en `following`) |
+| 6 | Cancelar con alcance una serie de otra clínica, sin test | `AppointmentSeriesCancelTest`: `series` y `following` → 404 `RESOURCE_NOT_FOUND`, sin cambios en ninguna de las dos clínicas |
+| 7 | Con `count`, la serie no tenía tope de fecha | La última fecha, como mucho un año después del primer turno (decisiones de implementación, arriba): `StoreAppointmentRequest`, `AppointmentMessages::RECURRENCE_COUNT_TOO_FAR` y "reducir" en `VoseoTest`. Tests: cada 4 semanas, 14 turnos (el 15/11/2027) entra y 15 no; cada 2 semanas 28 y cada 12 semanas 52 → 422 |
+| 8 | `every_weeks: null` y `scope: null` → 422 | `nullable`, con su valor por defecto (1 y `single`). Tests en `AppointmentSeriesStoreTest` y `AppointmentSeriesCancelTest` |
+| 9 | `cancelled_at` con una hora por turno | `now()` una vez por cancelación (`AppointmentTransitionService::cancel`). Test con un reloj que avanza un segundo en cada `now()`: los cinco turnos con el mismo `cancelled_at` |
+
+**Mutaciones de la revisión** (todas mueren): la cuenta de `until` sin `every_weeks` (hallazgo 2); `count` sin el tope de un año (7);
+`following` sin el desempate por id y con el desempate al revés (5); `now()` por turno al cancelar (9); la serie sin
+`DB::transaction` (3); y, en MySQL, la cancelación de la serie sin `lockForUpdate` (4: los procesos no esperan la fila tomada).
+
+**Newman** (2026-11-10, base de desarrollo, servidor en el puerto 8001, cada una dos veces seguidas sin recrear la base):
+`syncvet-fase-03-turnos`, 58 pedidos y 107 aserciones, y `syncvet-fase-03-series`, 25 pedidos y 42 aserciones, sin fallas.
+
+**Suite después de las correcciones** (2026-11-10): 1363 casos (16 más que el primer WIP). `composer test:fast`, 13679
+aserciones con 14 omitidos; en serie, en SQLite, 13681 aserciones con 14 omitidos (solo de MySQL), y en MySQL
+(`syncvet_test_mysql`), 13755 aserciones sin omitidos. Se rehacen en el cierre si algo cambia.
 
 **Para el cierre:** `CLAUDE.md` §6.10 (series y cancelación con alcance) y §4 (`APPOINTMENT_SERIES_CONFLICT`), el estado de la entrega
 y el registro de decisiones, con los desvíos de arriba.

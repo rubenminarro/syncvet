@@ -49,6 +49,30 @@ class AppointmentSeriesLockTest extends TestCase
         $this->assertLessThan(min($inserts), max($overlapReads), 'Se insertó un turno antes de revisar todas las fechas.');
     }
 
+    /**
+     * Revisión de la 3.3 (hallazgo 3): si algo falla en el medio de la serie (después de insertar
+     * dos turnos), la transacción se deshace entera: ningún turno ni su auditoría.
+     */
+    public function test_an_error_in_the_middle_of_the_series_leaves_no_appointment(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $this->actAsReception($clinic);
+
+        $inserts = (object) ['count' => 0];
+        DB::listen(function ($query) use ($inserts) {
+            if (preg_match('/^insert into [`"]appointments[`"]/', $query->sql) === 1 && ++$inserts->count === 3) {
+                throw new \RuntimeException('Falla simulada en el tercer turno de la serie.');
+            }
+        });
+
+        $this->assertErrorCode($this->bookSeries($schedule, ['count' => 4]), 500, 'INTERNAL_SERVER_ERROR');
+
+        $this->assertSame(3, $inserts->count);
+        $this->assertSame(0, DB::table('appointments')->count());
+        $this->assertSame(0, DB::table('audit_logs')->where('auditable_type', 'appointment')->count());
+    }
+
     public function test_cancelling_the_series_locks_its_appointments_before_changing_them(): void
     {
         $clinic = $this->createClinic();

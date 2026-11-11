@@ -10,10 +10,10 @@ use Illuminate\Validation\Rule;
  * Cancelar un turno (FASE 3, entregas 3.2b y 3.3; P3): el motivo es obligatorio, de 3 a 500
  * caracteres, y vale para todos los turnos que se cancelan. Sin límite de anticipación.
  *
- * scope (3.3, AppointmentCancelScope): single (por defecto, solo este turno), following (este
- * y los siguientes de su serie) o series (toda la serie). Con following o series, de los demás
- * turnos de la serie se cancelan solo los que están a confirmar o confirmados y todavía no
- * empezaron (AppointmentTransitionService::cancel).
+ * scope (3.3, AppointmentCancelScope): single (por defecto, también con null: solo este turno),
+ * following (este y los siguientes de su serie) o series (toda la serie). Con following o
+ * series, de los demás turnos de la serie se cancelan solo los que están a confirmar o
+ * confirmados y todavía no empezaron (AppointmentTransitionService::cancel).
  */
 class CancelAppointmentRequest extends FormRequest
 {
@@ -28,7 +28,7 @@ class CancelAppointmentRequest extends FormRequest
     {
         return [
             'cancellation_reason' => ['required', 'string', 'min:3', 'max:500'],
-            'scope' => ['sometimes', 'string', Rule::in(AppointmentCancelScope::values())],
+            'scope' => ['sometimes', 'nullable', 'string', Rule::in(AppointmentCancelScope::values())],
         ];
     }
 
@@ -46,6 +46,6 @@ class CancelAppointmentRequest extends FormRequest
 
     public function scope(): AppointmentCancelScope
     {
-        return AppointmentCancelScope::from($this->validated('scope', AppointmentCancelScope::SINGLE->value));
+        return AppointmentCancelScope::from($this->validated('scope') ?? AppointmentCancelScope::SINGLE->value);
     }
 }
