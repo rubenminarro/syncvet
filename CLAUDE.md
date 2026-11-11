@@ -65,6 +65,11 @@ código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 * Lo propio de cada proyecto (bases de datos, velocidad de la suite, auditoría de dependencias) está en su `CLAUDE.md`.
 
+### Cierre de fase
+
+* En cada cierre de fase se corren con Newman **todas** las colecciones de `docs/05-pruebas/postman`, no solo las de la fase (R-057),
+  desde la raíz y con el servidor levantado desde `backend/`. Una falla se corrige o se registra como deuda antes de cerrar.
+
 ### Documentación por cambio
 
 Cada entrega actualiza, en la misma rama, lo que indica la tabla **Mantenimiento** de [`docs/README.md`](docs/README.md). La skill

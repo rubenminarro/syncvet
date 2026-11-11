@@ -1279,7 +1279,7 @@
                             "const json = pm.response.json();",
                             "pm.test('Cliente en uso', () => {",
                             "    pm.expect(json.error_code).to.eql('CLIENT_IN_USE');",
-                            "    pm.expect(json.message).to.eql('El cliente tiene pacientes, consultas o facturas y no puede eliminarse.');",
+                            "    pm.expect(json.message).to.eql('El cliente tiene pacientes, turnos, consultas o facturas y no puede eliminarse.');",
                             "});"
                         ]
                     }

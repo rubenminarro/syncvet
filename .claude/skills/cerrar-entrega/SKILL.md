@@ -21,6 +21,8 @@ Antes de editar, confirmar cada punto. Si alguno falta, **detenerse e informar q
 * La suite completa pasó sobre el código actual, en esta sesión o según un resultado que el usuario haya indicado. No suponerlo ni
   deducirlo de los commits.
 * El usuario confirmó que la entrega está validada, si requiere revisión manual.
+* **En un cierre de fase:** Newman pasó con **todas** las colecciones de `docs/05-pruebas/postman`, no solo las de la fase (`CLAUDE.md`
+  de la raíz, §2, Cierre de fase), o cada falla está corregida o registrada como deuda. Informar la cifra de cada colección.
 
 Sin entrega indicada en los argumentos, preguntar cuál es.
 

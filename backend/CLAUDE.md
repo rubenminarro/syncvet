@@ -864,4 +864,3 @@ Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../doc
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
 | 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |
-| 18 | La colección de Postman de clientes espera el mensaje viejo del 409 de la baja (sin "turnos", cambiado en la 3.2a) |
