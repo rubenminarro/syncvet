@@ -249,5 +249,32 @@ file_put_contents("$root/docs/03-plan-desarrollo/fases/frontend/f0.md", "# F0\n\
 check('reporta que no hay corrida registrada', str_contains($output, 'no hay ninguna corrida de `npm test` del frontend registrada') && str_contains($output, 'Frontend: sin corrida registrada (2 archivos de test).'), $output);
 remove($root);
 
+echo "\nCaso 9: las cifras del resultado de una entrega cerrada son historia\n";
+$root = fixture([
+    'docs/03-plan-desarrollo/fases/frontend/f0.md' => implode("\n", [
+        '# F0',
+        'Fuera del resultado: 3 tests del frontend.',
+        '## Resultado',
+        '### Entrega 0.1',
+        '**COMPLETADA el 2026-11-12.**',
+        '`npm test` del frontend, 3 tests en 1 archivos.',
+        'Corrida de `npm test` del frontend (2026-11-12): 3 tests en 1 archivos, en verde.',
+        '### Entrega 0.2',
+        'En curso: `npm test` del frontend, 4 tests en 2 archivos.',
+        'Corrida de `npm test` del frontend (2026-11-13): 5 tests en 2 archivos, en verde.',
+        '## Otra sección',
+        'Después del resultado: 6 tests del frontend.',
+    ]) . "\n",
+]);
+mkdir("$root/frontend/src", 0777, true);
+file_put_contents("$root/frontend/src/a.test.ts", "it('a', () => {});\n");
+file_put_contents("$root/frontend/src/b.test.ts", "it('b', () => {});\n");
+[$output, $code] = run($root, '--detalle');
+check('no compara las cifras de una entrega cerrada', ! str_contains($output, '- docs/03-plan-desarrollo/fases/frontend/f0.md:6:') && str_contains($output, 'excluida: resultado de una entrega cerrada: docs/03-plan-desarrollo/fases/frontend/f0.md:6: 3 tests'), $output);
+check('compara las de una entrega sin cerrar', str_contains($output, 'f0.md:9: dice 4 tests del frontend; la última corrida registrada tiene 5'), $output);
+check('compara las de fuera de "Resultado", antes y después', str_contains($output, 'f0.md:2: dice 3 tests del frontend') && str_contains($output, 'f0.md:12: dice 6 tests del frontend'), $output);
+check('sigue tomando la corrida de la entrega cerrada como dato', str_contains($output, 'Frontend: 5 tests en 2 archivos (corrida del 2026-11-13, docs/03-plan-desarrollo/fases/frontend/f0.md:10).'), $output);
+remove($root);
+
 printf("\n%d correctas, %d fallidas.\n", $passed, $failures);
 exit($failures === 0 ? 0 : 1);

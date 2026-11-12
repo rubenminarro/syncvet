@@ -16,7 +16,7 @@ clientes y pacientes empiezan en la F1.
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
 | 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/front-0-1-esqueleto`, desde `feature/front-00-me-sucursales` (R-059) | COMPLETADO (R-060, [resultado](#entrega-01)) |
-| 0.2a | Sesión: ingresar, `me`, salir, 401 y 403 con sesión, vencimiento con su aviso, cierre en todas las pestañas y la sesión pedida desde una pestaña nueva | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/front-0-2a-sesion`, desde `feature/front-0-1-esqueleto` (R-060) | PENDIENTE |
+| 0.2a | Sesión: ingresar, `me`, salir, 401 y 403 con sesión, vencimiento con su aviso, cierre en todas las pestañas y la sesión pedida desde una pestaña nueva | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/front-0-2a-sesion`, desde `feature/front-0-1-esqueleto` (R-060) | COMPLETADO (R-061, [resultado](#entrega-02a)) |
 | 0.2b | Permisos: menú y rutas según los permisos, selector de sucursal, `/perfil` con la contraseña propia y Playwright contra `syncvet_e2e` | Sí, como la 0.2a | `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion` | PENDIENTE |
 
 El orden es F0 → F1 → F2 → F3 y después la FASE 4 del backend (R-058, decisión D2); las tres últimas fases del frontend van sobre la API ya cerrada de las fases 1 a 3 del
@@ -27,7 +27,7 @@ backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../pro
 ```text
 main ── feature/front-00-me-sucursales (B1–B3, cerrada, R-059)
            └─ feature/front-0-1-esqueleto (0.1, cerrada, R-060)
-                └─ feature/front-0-2a-sesion (0.2a)
+                └─ feature/front-0-2a-sesion (0.2a, cerrada, R-061)
                      └─ feature/front-0-2b-permisos (0.2b) ── merge a main al cerrar la F0
 ```
 
@@ -115,12 +115,12 @@ Se escriben en [`frontend/CLAUDE.md`](../../../../frontend/CLAUDE.md) en la 0.1;
 | Dónde vive el token | `sessionStorage` (`syncvet.session`: `token` y `expires_at`); el perfil, en la caché de TanStack Query (`['me']`). Nada en `localStorage` ni en cookies (las cookies de Sanctum quedan para la FASE 10, R-058) |
 | Ingresar | `POST /api/login`; con el 200 se guarda la sesión, se pone `data.user` en `['me']` y se vuelve a la ruta pedida (`/ingresar?volver=…`, solo rutas internas) o a `/` |
 | Al abrir la aplicación | Si hay una sesión guardada sin vencer, `GET /api/me` la valida; si venció, se borra sin llamar a la API |
-| Aviso previo | 10 minutos antes de `expires_at`, un aviso que queda visible: "Tu sesión vence en 10 minutos. Guardá lo que estés haciendo." (P2) |
-| Vencimiento | Un temporizador hasta `expires_at` (los tokens duran 12 horas y la API no los renueva) cierra la sesión en todas las pestañas con "Tu sesión venció. Ingresá de nuevo."; además se revisa al volver a la pestaña (`visibilitychange`), porque los temporizadores se frenan con la PC suspendida |
+| Aviso previo | 10 minutos antes de `expires_at`, un aviso que queda visible con los minutos que quedan, actualizados: "Tu sesión vence en N minutos. Guardá los cambios pendientes." (P2; el texto, desvío 1 de la 0.2a, R-061) |
+| Vencimiento | Un temporizador hasta `expires_at` (los tokens duran 12 horas y la API no los renueva) cierra la sesión con "Tu sesión terminó. Ingresá de nuevo." en las pestañas con ese token (R-061); además se revisa al volver a la pestaña (`visibilitychange`, `focus` y `pageshow`) y cada 15 s, porque los temporizadores se frenan con la PC suspendida |
 | Pestaña nueva | Sin sesión propia, publica `session-request` en `BroadcastChannel('syncvet-sesion')` y espera la respuesta un instante (alrededor de 300 ms); una pestaña con sesión responde `session-share` con el token y `expires_at`, y la nueva lo guarda en su `sessionStorage`. Sin respuesta, va a `/ingresar` (P1). Todas las pestañas comparten así un mismo token |
-| Salir | `POST /api/logout` (si falla, igual se borra la sesión local), se limpia la caché de Query y se publica `logout` |
-| Todas las pestañas | Al recibir `logout`, cada pestaña borra su sesión y su caché y va a `/ingresar`. El mensaje lleva el id del token (la parte anterior a `\|` del token de Sanctum, que no es secreta): si una pestaña tiene otro token (dos ingresos simultáneos), hace también su propio `POST /api/logout`. Al cambiar de sucursal, `branch-changed`: las demás pestañas vuelven a pedir `me` e invalidan sus consultas |
-| 401 | En cualquier pedido con sesión: como el token es compartido, se cierra la sesión en todas las pestañas (`logout` en el canal, sin `POST /api/logout`) y se va a `/ingresar?volver=…` con el aviso de sesión vencida (P1) |
+| Salir | Primero se borra la sesión local, se limpia la caché de Query y se publica `logout` a todas las pestañas; después, `POST /api/logout` sin esperarlo, con un tiempo límite de 5 s (si falla o no responde, la sesión ya se cerró; R-061) |
+| Todas las pestañas | El mensaje `logout` lleva el id del token (la parte anterior a `\|` del token de Sanctum, que no es secreta) y `all`. Con "Salir" (`all: true`), cada pestaña borra su sesión y su caché y va a `/ingresar`, y una con otro token (dos ingresos simultáneos) también hace su propio `POST /api/logout`. Con el vencimiento o un error de sesión (`all: false`), solo cierran las pestañas con ese mismo token (R-061). Los mensajes con otro formato se descartan. Al cambiar de sucursal, `branch-changed`: las demás pestañas vuelven a pedir `me` e invalidan sus consultas |
+| 401 | En un pedido con el token de la sesión (si el token ya cambió, se ignora): se cierra la sesión en las pestañas con ese token (`logout` en el canal, sin `POST /api/logout`) y se va a `/ingresar?volver=…` con el aviso de sesión vencida (P1, R-061). `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE` con sesión, igual, con el mensaje de la API |
 | Perfil | `/perfil`: los datos del usuario y el cambio de la contraseña propia (`PATCH /api/me/password`, con la actual y la nueva; 422 a los campos, 429 con la cuenta regresiva). La API conserva el token en uso y revoca los demás del usuario (P3) |
 | Sucursal actual | Selector en la barra superior con `me.branches` (B1); `PATCH /api/me/current-branch`, actualiza `['me']` e invalida el resto de las consultas (los datos dependen de la sucursal). Sin sucursal actual, el inicio pide elegir una |
 | Rutas protegidas | El layout con sesión exige una sesión válida (`beforeLoad`); cada ruta declara el permiso que necesita y, sin él, muestra `/sin-permiso` |
@@ -134,14 +134,14 @@ cada módulo puede sumar el trato especial de sus códigos (columna "Más adelan
 
 | `error_code` | HTTP | Qué hace la interfaz |
 |---|---|---|
-| `UNAUTHENTICATED` | 401 | Cierra la sesión en todas las pestañas y lleva a `/ingresar?volver=…` con "Tu sesión venció. Ingresá de nuevo." |
+| `UNAUTHENTICATED` | 401 | Cierra la sesión en las pestañas con ese token y lleva a `/ingresar?volver=…` con "Tu sesión terminó. Ingresá de nuevo." (R-061: "terminó", no "venció") |
 | `USER_INACTIVE` | 403 | En el login, el mensaje en el formulario; con sesión, como 401 pero con el mensaje de la API |
-| `CLINIC_NOT_AVAILABLE` | 403 | En el login, el mensaje en el formulario; con sesión, borra la sesión y muestra el mensaje en `/ingresar` |
+| `CLINIC_NOT_AVAILABLE` | 403 | En el login, el mensaje en el formulario; con sesión, como 401 pero con el mensaje de la API |
 | `FORBIDDEN` | 403 | Al cargar una página: `/sin-permiso`. En una acción: aviso con el mensaje; el formulario queda como estaba |
 | `RESOURCE_NOT_FOUND` | 404 | Al cargar una página de detalle: la página de no encontrado. En una acción: aviso con el mensaje e invalidar la lista |
 | `VALIDATION_ERROR` | 422 | Cada clave de `errors` va a su campo (React Hook Form `setError`); las que no son de un campo del formulario, a una alerta arriba. Foco en el primer campo con error |
 | `INVALID_CREDENTIALS` | 422 | Mensaje en el formulario de ingreso; se borra la contraseña |
-| `AUTH_TOO_MANY_ATTEMPTS`, `TOO_MANY_REQUESTS` | 429 | Mensaje en el formulario y el botón deshabilitado con la cuenta regresiva de `Retry-After` |
+| `AUTH_TOO_MANY_ATTEMPTS`, `TOO_MANY_REQUESTS` | 429 | Mensaje en el formulario y el botón deshabilitado con la cuenta regresiva de `Retry-After` (sin la cabecera, 60 s; R-061) |
 | `CONFLICT` | 409 | Aviso "Alguien cambió estos datos mientras guardabas. Revisalos y probá de nuevo." con el `message`; se vuelven a pedir los datos |
 | `PAYLOAD_TOO_LARGE` | 413 | El error en el campo del archivo (`errors.photo`, `errors.logo`); sin `errors`, aviso |
 | Códigos de negocio (`*_IN_USE`, `*_NOT_EDITABLE`, `USER_LAST_ADMIN`, `APPOINTMENT_*`, …) | 409, 422, 403 | Por defecto, alerta con el `message` en el formulario o el diálogo de la acción. Más adelante: `*_IN_USE` ofrece inactivar; `APPOINTMENT_OVERLAP` ofrece el sobreturno si el usuario tiene `appointments.overbook`; `APPOINTMENT_SERIES_CONFLICT` lista `errors.conflicts`; `APPOINTMENT_QUEUE_NO_BRANCH` abre el selector de sucursal |
@@ -232,7 +232,7 @@ pestañas es el `BroadcastChannel` del navegador.
 | Archivo | Contenido |
 |---|---|
 | `src/lib/auth/storage.ts` | `syncvet.session` en `sessionStorage` (`token`, `expires_at`): leer (un JSON roto, sin `token` o con `expires_at` inválido se borra y cuenta como sin sesión), guardar, borrar; `tokenId(token)`, la parte anterior a `\|` |
-| `src/lib/auth/channel.ts` | `SessionChannel` (`post`, `subscribe`, `close`) sobre `BroadcastChannel('syncvet-sesion')`; sin `BroadcastChannel`, uno que no hace nada. Mensajes: `session-request`, `session-share` (con `token` y `expires_at`) y `logout` (con `token_id` y el `notice` para `/ingresar`, o `null` si fue un "Salir") |
+| `src/lib/auth/channel.ts` | `SessionChannel` (`post`, `subscribe`, `close`) sobre `BroadcastChannel('syncvet-sesion')`; sin `BroadcastChannel`, uno que no hace nada. Mensajes: `session-request`, `session-share` (con `token` y `expires_at`) y `logout` (con `token_id`, el `notice` para `/ingresar`, o `null` si fue un "Salir", y `all`, desde R-061), validados por `isSessionMessage` |
 | `src/lib/auth/session.ts` | `SessionManager`: la sesión en memoria y en el almacenamiento, el aviso previo y el vencimiento (temporizadores y `visibilitychange`), el canal, el token para el cliente y lo que hace con un error de sesión. Su estado (sesión, aviso previo, `notice`) se lee con `useSyncExternalStore` |
 | `src/lib/auth/redirect.ts` | `safeRedirect(volver)`: solo una ruta interna (empieza con una sola `/`, mismo origen, no `/ingresar`); si no, `/` |
 | `src/lib/auth/use-session.ts` | El contexto de React con el `SessionManager` y `useSession()` |
@@ -252,21 +252,27 @@ pestañas es el `BroadcastChannel` del navegador.
    contraseña; `throttled`, alerta y el botón deshabilitado con "Esperá N segundos" hasta que pasen los segundos de `retryAfter`;
    `user-inactive`, `clinic-unavailable` y el resto, alerta con `userMessage(error)`.
 2. **Al abrir o recargar.** El `SessionManager` lee el almacenamiento al crearse: una sesión vencida se borra sin llamar a la API y
-   deja el `notice` "Tu sesión venció. Ingresá de nuevo.". El `beforeLoad` de `_sesion`: sin sesión propia, `session-request` y
+   deja el `notice` "Tu sesión terminó. Ingresá de nuevo." (R-061). El `beforeLoad` de `_sesion`: sin sesión propia, `session-request` y
    espera 300 ms; sin respuesta, `redirect` a `/ingresar?volver=…` (sin `volver` si la ruta era `/`). Con sesión,
    `ensureQueryData(meQueryOptions())`; un error de sesión hace `redirect` a `/ingresar` (el `SessionManager` ya la cerró). Mientras
    tanto, el `pendingComponent` del layout ("Cargando tu sesión…", `pendingMs: 0`): nunca se ve el formulario de ingreso.
-3. **Salir.** `POST logout` con el token (si falla, igual sigue), después `end(notice = null)`: borra el almacenamiento, publica
-   `logout`, limpia la caché de Query; el layout va a `/ingresar` sin `volver`.
-4. **Error de sesión en un pedido con token.** `end(notice)` con `notice` = "Tu sesión venció. Ingresá de nuevo." (401) o el `message`
-   de la API (`USER_INACTIVE`, `CLINIC_NOT_AVAILABLE`); se publica `logout` con el mismo `notice`; el layout va a
-   `/ingresar?volver=…` y la página muestra el `notice` como alerta de aviso.
-5. **Vencimiento.** Un temporizador a `expires_at - 10 min` enciende el aviso previo (si ya pasó, al instante) y otro a `expires_at`
-   cierra como un 401. Al volver a la pestaña (`visibilitychange`), se relee el almacenamiento: si `expires_at` cambió se
-   reprograma (así se prueba a mano desde DevTools), y si venció o no está, se cierra.
-6. **Pestañas.** `session-request`: responde `session-share` la que tiene una sesión sin vencer. `logout`: la que tiene sesión la
-   borra sin publicar de nuevo; si su token es otro (`token_id` distinto), primero hace su propio `POST logout` con su token. Una
-   pestaña que estaba en `/ingresar` solo borra su almacenamiento.
+3. **Salir** (actualizado en el cierre, R-061). Primero cierra: borra el almacenamiento, publica `logout` con `all: true` y limpia la
+   caché de Query; el layout va a `/ingresar` sin `volver`. Después, `POST logout` con el token, sin esperarlo, con
+   `AbortSignal.timeout` de 5 s (si falla o no responde, la sesión ya está cerrada).
+4. **Error de sesión en un pedido con token** (actualizado en el cierre, R-061). Solo si el pedido salió con el token actual de la
+   sesión (una respuesta tardía de un token viejo se ignora): cierra con `notice` = "Tu sesión terminó. Ingresá de nuevo." (401; R-061) o el
+   `message` de la API (`USER_INACTIVE`, `CLINIC_NOT_AVAILABLE`) y publica `logout` con `all: false`; el layout va a
+   `/ingresar?volver=…` y la página muestra el `notice` como alerta de aviso. Un pedido con un token explícito (el `logout`) no
+   toca la sesión.
+5. **Vencimiento** (actualizado en el cierre, R-061). Un temporizador a `expires_at - 10 min` enciende el aviso previo (si ya pasó,
+   al instante) y otro a `expires_at` cierra como un 401. Un intervalo de 15 s compara la hora con `expires_at`: cierra si venció y
+   actualiza los minutos del aviso. Al volver a la pestaña (`visibilitychange`, `focus` y `pageshow`), se relee el almacenamiento: si
+   `expires_at` cambió se reprograma (así se prueba a mano desde DevTools), y si venció o no está, se cierra.
+6. **Pestañas** (actualizado en el cierre, R-061). Cada mensaje se valida completo (campos exactos y sus tipos) y uno con otro formato
+   se descarta. `session-request`: responde `session-share` la que tiene una sesión sin vencer; la nueva descarta una sesión vencida
+   o de un token cuyo `logout` ya recibió. `logout`: con el mismo `token_id`, la pestaña cierra sin publicar de nuevo; con otro
+   `token_id`, solo si `all` (el usuario salió), y entonces también revoca su token con su propio `POST logout`. Una pestaña sin
+   sesión solo borra su almacenamiento.
 
 *Tests.* `storage.test.ts`, `redirect.test.ts` (node); `session.test.ts` (jsdom, por el cliente con MSW: dos `SessionManager` con
 almacenamientos propios y un canal en memoria, como dos pestañas; temporizadores falsos); `LoginPage.test.tsx` y
@@ -293,84 +299,7 @@ sesión de administrador y ver que el siguiente pedido lleva a `/ingresar`; la c
 
 #### Pendiente para el cierre (0.2a)
 
-Implementación del 2026-11-12 en `feature/front-0-2a-sesion` (commit WIP), validada en el navegador, revisada y corregida (abajo).
-Falta el cierre (con `frontend/CLAUDE.md`, el roadmap y el handoff, que esta entrega no tocó a propósito) y que el usuario confirme
-los desvíos "Sin decisión del usuario".
-
-**Validación del usuario en el navegador (2026-11-12),** con el backend real y `npm run dev`; las 5 pruebas salieron bien:
-
-1. Ingreso con `admin-a`, `recepcion-a` y `vet-a`: nombre, clínica y sucursal en la barra.
-2. Contraseña incorrecta: el mensaje de la API en el formulario.
-3. El 429: la cuenta regresiva en el botón.
-4. Una segunda pestaña entra sola, con la sesión de la abierta.
-5. Salir en una pestaña cierra la otra.
-
-Lo demás de "Qué revisar en el navegador" (borrar o adelantar `expires_at` en DevTools, inactivar al usuario desde otra sesión y la
-consola sin errores) no figura en la validación: PENDIENTE DE VERIFICACIÓN.
-
-**Desvíos y decisiones de la implementación.**
-
-| # | Desvío o decisión | Motivo | Estado |
-|---|---|---|---|
-| 1 | El aviso previo dice "Tu sesión vence en N minutos. Guardá los cambios pendientes.", con los minutos que quedan, y no el texto fijo del diseño ("…en 10 minutos. Guardá lo que estés haciendo.") | "estés" está en la lista de formas de tú del test de voseo (`TU_OR_USTED_WORDS`). Y una sesión abierta con menos de 10 minutos, o una PC que vuelve de la suspensión, no tiene 10 minutos: el aviso dice los que quedan ("1 minuto" en singular) | Sin decisión del usuario |
-| 2 | Un `CLINIC_NOT_AVAILABLE` con sesión también publica `logout`, como el 401 y `USER_INACTIVE`. Desde la revisión (M3), los tres cierran solo las pestañas con el mismo token | La tabla solo dice "borra la sesión"; con el token compartido, las demás pestañas fallarían igual en su siguiente pedido. La decisión M3 del usuario nombra el vencimiento y el 401; extenderla a los dos 403 de sesión es de la corrección (una pestaña con otro token recibe su propio 403 en el siguiente pedido) | Sin decisión del usuario |
-| 3 | El `POST logout` está en el `SessionManager` (`src/lib/auth/session.ts`), no como `logout(token)` en `features/auth/api.ts`; el hook es `useSessionManager()` y `useSessionState()`, no `useSession()` | `src/lib` no importa de `features/`: el `SessionManager` lo usa para salir y para el logout de una pestaña con otro token | Informativo |
-| 4 | El `beforeLoad` de `_sesion` usa `queryClient.query(meQueryOptions())`, no `ensureQueryData`, y manda a `/ingresar` si la sesión quedó cerrada, sin mirar el error | `ensureQueryData` está deprecado en TanStack Query 5.107 (`no-deprecated` de ESLint). El cierre limpia la caché y cancela el `me` en curso: el error que llega es la cancelación, no el `ApiError` (lo encontró un test) | Informativo |
-| 5 | ESLint: `only-throw-error` permite el `Redirect` de `@tanstack/router-core` | TanStack Router corta una navegación con `throw redirect(...)`, que no es un `Error`; sin esto haría falta un comentario por cada `redirect` | Informativo |
-| 6 | Fuera del alcance escrito: `/ingresar` con una sesión abierta va a `/`; una falla de red o un 5xx al cargar `me` muestra "No se pudo cargar tu sesión" con "Reintentar" y no cierra la sesión | Sin lo primero, el botón "Atrás" después de ingresar mostraba el formulario con la sesión abierta; sin lo segundo, se veía el error genérico del router | Sin decisión del usuario |
-| 7 | `App` recibe `queryClient` y `session` (obligatorios); `main.tsx` los crea una vez por pestaña | La sesión escucha el canal y los temporizadores fuera de React; cada test crea los suyos y los descarta (`src/test/session.tsx`) | Informativo |
-| 8 | `frontend/.gitignore` suma `.tanstack` | El plugin del router dejó una carpeta temporal (`.tanstack/tmp`) al generar las rutas | Informativo |
-| 9 | La suite tardó 34,9 s (155 tests en 14 archivos), contra 9,55 s de la 0.1 con 93 | Los tests nuevos de componentes montan la aplicación entera (jsdom) y el del 429 espera 1 s real la cuenta regresiva. No se midió aparte qué parte es de la PC (la primera corrida en frío de la 0.1 tardó 32,9 s) | A revisar en el cierre |
-| 10 | `typecheck` y `lint` corrieron dos veces al final, no una | El primer `lint` encontró los `throw redirect(...)` y `ensureQueryData` (desvíos 4 y 5); después del arreglo se repitieron, junto con la suite y el build | Informativo |
-| 11 | El desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`) sigue PENDIENTE DE VERIFICACIÓN | La 0.2a no manda fechas a la API | Pasa a la F3 |
-
-**Mutaciones**, cada una de a una con `vitest related` sobre `src/lib/auth`, `SessionLayout.test.tsx` y `LoginPage.test.tsx` (62
-tests): no publicar `logout` con un 401 (falla 1 test); no responder `session-share` (2); no publicar `logout` al cerrar (4); sin el
-temporizador de vencimiento (1); aceptar un `volver` externo (9). Todas detectadas.
-
-**Corrida final, desde `frontend/` (2026-11-12).** `npm run typecheck` y `npm run lint` sin errores ni avisos; `npm run build` sin
-avisos; `npm test`, 155 tests en 14 archivos, en verde (34,9 s). Después, solo el texto en singular de la cuenta regresiva
-("Esperá 1 segundo"), con `vitest related`, `tsc` y `eslint` de esos archivos.
-
-**Revisión (2026-11-12).** Una revisión de la entrega encontró 5 hallazgos de gravedad media (M1 a M5) y 6 de gravedad baja (B1 a
-B6). M3 lo decidió el usuario; los demás se corrigieron como los pidió.
-
-| # | Hallazgo | Corrección | Estado |
-|---|---|---|---|
-| M1 | Un 401 que llegaba tarde, de un pedido con el token viejo, cerraba la sesión nueva (después de volver a ingresar) | El cliente le pasa al manejador el token con el que salió el pedido (`client.ts`); el `SessionManager` cierra solo si es el de la sesión actual | Corregido |
-| M2 | Con el `POST logout` colgado, "Salir" no limpiaba nada hasta que el navegador cortara el pedido | `logout()` cierra primero (almacenamiento, caché y `logout` en el canal) y después manda el POST sin esperarlo, con `AbortSignal.timeout(LOGOUT_TIMEOUT_MS)` (5 s). El botón ya no muestra la carga: la sesión se cierra en el mismo clic | Corregido |
-| M3 | El vencimiento o el 401 del token T1 cerraban también una pestaña con otro token (T2), que además lo revocaba | **Decisión del usuario:** el vencimiento y el 401 cierran solo las pestañas con ese mismo token; "Salir" a propósito sigue cerrando todas y revocando sus tokens. El mensaje `logout` suma `all` (`true` solo con "Salir"); con `all: false`, una pestaña con otro `token_id` lo ignora. Ver el desvío 2 para los 403 de sesión | Corregido |
-| M4 | Con la PC suspendida y la pestaña a la vista no llegaba `visibilitychange`: la sesión seguía abierta pasada la hora de vencer | La revisión también corre con `focus` y `pageshow`, y un intervalo de `CHECK_INTERVAL_MS` (15 s) compara `Date.now()` con `expires_at` | Corregido |
-| M5 | 8 de 10 mutaciones de la revisión sobrevivían; sin tests del botón Atrás, del 429 sin `Retry-After` ni de `expires_at` con el formato de la API | Un test por cada mutación que sobrevivía. Además: el botón Atrás después de salir, el 429 sin `Retry-After`, `expires_at` con 6 decimales y `BroadcastSessionChannel` sobre el `BroadcastChannel` real (`channel.test.ts`, en `node`). `sessionFor()` usa ahora el formato de la API (`apiDateTime`) | Corregido |
-| B1 | El canal solo miraba `type`: un `logout` sin `token_id` revocaba el token propio y un `notice` que no era texto rompía el render | `isSessionMessage` valida el formato completo de cada mensaje (los campos exactos y sus tipos; la sesión compartida, como la guardada) y el canal descarta lo demás. El canal en memoria de los tests usa la misma validación | Corregido |
-| B2 | El aviso previo quedaba con los minutos del momento en que se encendió | El intervalo actualiza `warningMinutes` (los minutos que quedan, redondeados para arriba; nunca menos de 1) | Corregido |
-| B3 | Un 429 sin `Retry-After` dejaba el botón habilitado | El botón queda deshabilitado 60 s (`DEFAULT_RETRY_AFTER_SECONDS` en `LoginPage.tsx`), con la misma cuenta regresiva | Corregido |
-| B4 | `safeRedirect('/..//otro.sitio')` devolvía `//otro.sitio` (el router lo convertía en `/otro.sitio`: no sacaba del sitio) | Se revisa la ruta ya normalizada: rechaza la que empieza con `//` y `/ingresar` sin importar mayúsculas ni la barra final | Corregido |
-| B5 | Una pestaña nueva podía guardar la sesión compartida de un token cuyo `logout` ya había llegado | El `SessionManager` recuerda los `token_id` cerrados por el canal y descarta un `session-share` de esos tokens | Corregido |
-| B6 | Los tests usaban `expires_at` con 3 decimales; la API manda 6 (Carbon `toISOString()`) | Cubierto en M5 | Corregido |
-
-**Desvíos de la corrección.**
-
-| # | Desvío o decisión | Motivo | Estado |
-|---|---|---|---|
-| 12 | El `EXPIRES_AT` fijo de `LoginPage.test.tsx` (`2026-11-13T00:00:00.000Z`) pasa a ser relativo a la hora de la corrida | Con una fecha fija, desde el 2026-11-13 la sesión del login quedaba vencida al guardarse y los tests habrían empezado a fallar | Informativo |
-| 13 | `SessionManager.end()` pasa a ser privado (`close(notice, publish)`, con `all`, `token` o `none`) | Nadie lo llamaba desde afuera, y así cada cierre dice a qué pestañas avisa | Informativo |
-| 14 | Los flujos 3 (Salir), 4 (error de sesión) y 6 (pestañas) del diseño detallado y las filas "Salir", "Todas las pestañas" y "401" de "Sesión (0.2)" todavía describen el comportamiento anterior a M2 y M3 | Esta corrección solo escribe en "Pendiente para el cierre" | Se actualizan en el cierre |
-| 15 | `lint` encontró un error en `channel.test.ts` (`non-nullable-type-assertion-style`) en la corrida final; se corrigió y se repitieron `eslint`, `tsc` y el test de ese archivo, no la corrida entera | Solo cambió una constante del test | Informativo |
-
-**Mutaciones de la corrección**, cada una de a una, con `vitest run` sobre `src/lib/auth`, `src/lib/api`, `src/features/auth` y
-`SessionLayout.test.tsx` (152 tests); las 18 detectadas:
-
-* Las 8 que sobrevivían en la revisión: no vaciar la caché al cerrar (fallan 2 tests); aceptar una sesión compartida vencida (1);
-  compartir la sesión propia vencida (1); no cerrar si la sesión se borró del almacenamiento (1); sin el chequeo del token
-  explícito (`usesSessionToken`) (1); no borrar el almacenamiento con un `logout` sin sesión (1); el canal real sin validar (1); el
-  `session-share` sin validar (3).
-* Las de la corrección: el 401 de un token viejo (M1, 1); esperar el POST antes de cerrar (M2, 1); sin tiempo límite en el POST
-  (M2, 1); cerrar las pestañas de otro token (M3, 2); sin `focus` (M4, 1); sin el intervalo (M4, 2); los minutos del aviso fijos
-  (B2, 1); el 429 sin espera (B3, 1); aceptar `//` en `volver` (B4, 2); aceptar la sesión de un token cerrado (B5, 1).
-
-**Corrida final de la corrección, desde `frontend/` (2026-11-12).** `npm run typecheck` sin errores; `npm test`, 195 tests en 15
-archivos, en verde (24 s); `npm run build` sin avisos; `npm run lint`, el error del desvío 15, corregido.
+Vacío: la entrega se cerró (R-061) y todo lo que había acá pasó a su [resultado](#entrega-02a).
 
 ### 0.2b Permisos, sucursal, perfil y Playwright
 
@@ -536,3 +465,109 @@ Corrida final, una vez, el 2026-11-12: `typecheck`, `lint` y `build` sin errores
 verde, en 9,55 s. Tiempo de la suite según el entorno: antes de la revisión (61 tests, todo en jsdom), 9,35 s (32,9 s en la primera
 corrida de la revisión, en frío); con las 93 pruebas todo en jsdom, 9,97 s (preparar el entorno, 46 %); con `node` para los
 `.test.ts`, 9,55 s (40 %). La ganancia es chica (4 %): casi todo el tiempo de jsdom es de los `.test.tsx`, que lo necesitan.
+
+### Entrega 0.2a
+
+**COMPLETADA el 2026-11-12 (R-061)**, en `feature/front-0-2a-sesion`: la implementación en `93e347c` (WIP), las correcciones de
+la revisión en `ece1faf` (WIP) y el commit de cierre (solo documentación). Sin merge a `main`: todo se integra al cerrar la F0
+(R-059).
+
+**Qué se hizo.** La sesión contra la API real, según el [diseño](#02a-sesión) (los flujos 3 a 6, actualizados en el cierre): el
+token en `sessionStorage` (`src/lib/auth/storage.ts`), el `SessionManager` (`session.ts`: aviso previo con los minutos que quedan,
+vencimiento con temporizadores, `visibilitychange`, `focus`, `pageshow` y un intervalo de 15 s, y el cierre ante un error de
+sesión solo con el token actual), el canal entre pestañas (`channel.ts`: `session-request`, `session-share` y `logout` con
+`token_id` y `all`, cada mensaje validado completo), `safeRedirect` para `volver`, `/ingresar` real con los errores por trato, el
+botón para mostrar la contraseña y la espera del 429 (60 s sin `Retry-After`), y el layout con sesión (barra con el usuario, la
+clínica y la sucursal actual, "Salir" y el aviso previo). `@tabler/core` 1.7.5 (desvío 2 de la 0.1). Las reglas quedaron en
+[`frontend/CLAUDE.md`](../../../../frontend/CLAUDE.md).
+
+**Validación en el navegador (2026-11-12),** con el backend real en `syncvet.test` y `npm run dev`:
+
+* **Del usuario,** las 5 pruebas en verde: ingreso con `admin-a`, `recepcion-a` y `vet-a` (nombre, clínica y sucursal en la barra);
+  contraseña incorrecta, con el mensaje de la API; la cuenta regresiva del 429; una segunda pestaña que entra sola; salir en una
+  pestaña cierra la otra.
+* **De Claude Code, a pedido del usuario,** el resto de "Qué revisar en el navegador": Edge sin ventana, manejado por el protocolo
+  de DevTools con un script de Node (sin dependencias nuevas), sobre `ece1faf`. Las 8 pruebas en verde:
+  1. El botón muestra y oculta la contraseña (`password` → `text` → `password`).
+  2. `expires_at` ya pasado en `syncvet.session` y volver a la pestaña: `/ingresar` con "Tu sesión venció. Ingresá de nuevo.".
+  3. Una sesión que vence en 20 s, sin ningún evento: abierta hasta el vencimiento y cerrada sola a los 20 s, con el mismo aviso.
+  4. `syncvet.session` borrada a mano y volver a la pestaña: `/ingresar` con el mismo aviso.
+  5. `expires_at` a 4 min 5 s: el aviso "Tu sesión vence en 5 minutos. Guardá los cambios pendientes.".
+  6. Sin ningún evento, el aviso pasa solo a "4 minutos".
+  7. "Salir": `/ingresar` sin `volver` ni aviso.
+  8. `recepcion-a` con sesión, inactivada por `admin-a` con `PATCH users/{id}` desde otra sesión (la API, porque el frontend todavía
+     no tiene la gestión de usuarios): al recargar, `/ingresar` con "Tu sesión venció. Ingresá de nuevo.". Inactivar revoca los
+     tokens del usuario (`backend/CLAUDE.md` §3), así que el siguiente pedido recibe un 401, no un 403 `USER_INACTIVE`: el aviso es
+     el del 401. El trato del 403 `USER_INACTIVE` con sesión lo cubren los tests. Al terminar, `recepcion-a` quedó reactivada.
+
+  La consola del navegador, sin errores ni avisos de la aplicación: solo el registro de red del 401 esperado de la prueba 8
+  (`Failed to load resource … 401` en `/api/me`).
+
+  Las pruebas vieron el texto de entonces, "Tu sesión venció. Ingresá de nuevo.". Después, en el cierre, el usuario lo cambió por
+  "Tu sesión terminó. Ingresá de nuevo.", porque a un usuario inactivado no se le venció la sesión (R-061); se corrieron los tests
+  relacionados (139 en 10 archivos) y el de voseo, en verde.
+
+**Cifras.** La corrida del cierre, sobre `ece1faf` (el código de las correcciones; el cierre solo cambia la documentación), desde
+`frontend/`: `npm run typecheck`, `npm run lint` y `npm run build` sin errores ni avisos, y `npm test` en 22,1 s:
+
+Corrida de `npm test` del frontend (2026-11-12): 195 tests en 15 archivos, en verde.
+
+El backend no cambió en esta entrega (ningún archivo de `backend/` entre `76047b2` y `ece1faf`): su suite no se volvió a correr.
+
+**Desvíos y decisiones de la implementación** (1 a 11) **y de la corrección** (12 a 15).
+
+| # | Desvío o decisión | Motivo | Estado al cerrar |
+|---|---|---|---|
+| 1 | El aviso previo dice "Tu sesión vence en N minutos. Guardá los cambios pendientes.", con los minutos que quedan, y no el texto fijo del diseño ("…en 10 minutos. Guardá lo que estés haciendo.") | "estés" está en la lista de formas de tú del test de voseo (`TU_OR_USTED_WORDS`). Y una sesión abierta con menos de 10 minutos, o una PC que vuelve de la suspensión, no tiene 10 minutos: el aviso dice los que quedan ("1 minuto" en singular) y, desde la revisión (B2), se actualizan | Aceptado (usuario, R-061) |
+| 2 | Un `CLINIC_NOT_AVAILABLE` con sesión también publica `logout`, como el 401 y `USER_INACTIVE`; desde la revisión (M3), los tres cierran solo las pestañas con el mismo token | La tabla solo decía "borra la sesión"; con el token compartido, las demás pestañas fallarían igual en su siguiente pedido. La decisión M3 nombra el vencimiento y el 401; una pestaña con otro token recibe su propio 403 en el siguiente pedido | Aceptado (usuario, R-061) |
+| 3 | El `POST logout` está en el `SessionManager` (`src/lib/auth/session.ts`), no como `logout(token)` en `features/auth/api.ts`; el hook es `useSessionManager()` y `useSessionState()`, no `useSession()` | `src/lib` no importa de `features/`: el `SessionManager` lo usa para salir y para el logout de una pestaña con otro token | Informativo |
+| 4 | El `beforeLoad` de `_sesion` usa `queryClient.query(meQueryOptions())`, no `ensureQueryData`, y manda a `/ingresar` si la sesión quedó cerrada, sin mirar el error | `ensureQueryData` está deprecado en TanStack Query 5.107 (`no-deprecated` de ESLint). El cierre limpia la caché y cancela el `me` en curso: el error que llega es la cancelación, no el `ApiError` (lo encontró un test) | Informativo |
+| 5 | ESLint: `only-throw-error` permite el `Redirect` de `@tanstack/router-core` | TanStack Router corta una navegación con `throw redirect(...)`, que no es un `Error`; sin esto haría falta un comentario por cada `redirect` | Informativo |
+| 6 | Fuera del alcance escrito: `/ingresar` con una sesión abierta va a `/`; una falla de red o un 5xx al cargar `me` muestra "No se pudo cargar tu sesión" con "Reintentar" y no cierra la sesión | Sin lo primero, el botón "Atrás" después de ingresar mostraba el formulario con la sesión abierta; sin lo segundo, se veía el error genérico del router | Aceptado (usuario, R-061) |
+| 7 | `App` recibe `queryClient` y `session` (obligatorios); `main.tsx` los crea una vez por pestaña | La sesión escucha el canal y los temporizadores fuera de React; cada test crea los suyos y los descarta (`src/test/session.tsx`) | Informativo |
+| 8 | `frontend/.gitignore` suma `.tanstack` | El plugin del router dejó una carpeta temporal (`.tanstack/tmp`) al generar las rutas | Informativo |
+| 9 | Al terminar la implementación, la suite del frontend tardó 34,9 s, cuando tenía 155 tests en 14 archivos, contra 9,55 s de la 0.1 con 93 | Los tests nuevos de componentes montan la aplicación entera (jsdom) y el del 429 espera 1 s real la cuenta regresiva. No se midió aparte qué parte es de la PC | Revisado en el cierre: 22,1 s, con los 195 tests del frontend en 15 archivos (24 s en la corrida de la corrección). Informativo |
+| 10 | `typecheck` y `lint` corrieron dos veces al final de la implementación, no una | El primer `lint` encontró los `throw redirect(...)` y `ensureQueryData` (desvíos 4 y 5); después del arreglo se repitieron, junto con la suite y el build | Informativo |
+| 11 | El desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`) sigue PENDIENTE DE VERIFICACIÓN | La 0.2a no manda fechas a la API | Pasa a la F3 |
+| 12 | El `EXPIRES_AT` fijo de `LoginPage.test.tsx` (`2026-11-13T00:00:00.000Z`) pasa a ser relativo a la hora de la corrida | Con una fecha fija, desde el 2026-11-13 la sesión del login quedaba vencida al guardarse y los tests habrían empezado a fallar | Informativo |
+| 13 | `SessionManager.end()` pasa a ser privado (`close(notice, publish)`, con `all`, `token` o `none`) | Nadie lo llamaba desde afuera, y así cada cierre dice a qué pestañas avisa | Informativo |
+| 14 | Los flujos 3 a 6 del diseño detallado, las filas "Aviso previo", "Vencimiento", "Salir", "Todas las pestañas" y "401" de [Sesión (0.2)](#sesión-02) y la tabla de errores describían el comportamiento anterior a la revisión | La corrección solo escribió en "Pendiente para el cierre" | Actualizados en el cierre |
+| 15 | En la corrida final de la corrección, `lint` encontró un error en `channel.test.ts` (`non-nullable-type-assertion-style`); se corrigió y se repitieron `eslint`, `tsc` y el test de ese archivo, no la corrida entera | Solo cambió una constante del test | Cubierto: la corrida del cierre pasó entera |
+
+**Mutaciones de la implementación**, cada una de a una con `vitest related` sobre `src/lib/auth`, `SessionLayout.test.tsx` y
+`LoginPage.test.tsx` (62 tests): no publicar `logout` con un 401 (falla 1 test); no responder `session-share` (2); no publicar
+`logout` al cerrar (4); sin el temporizador de vencimiento (1); aceptar un `volver` externo (9). Todas detectadas. Corrida final de
+la implementación: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test` del frontend, que entonces tenía 155 tests en 14
+archivos, en verde (34,9 s).
+
+**Revisión del 2026-11-12 y correcciones (autorizadas por el usuario), en `ece1faf`.** Un revisor que no escribió la entrega encontró 5
+hallazgos de gravedad media (M1 a M5) y 6 de gravedad baja (B1 a B6). M3 lo decidió el usuario; los demás se corrigieron como los
+pidió, cada uno con su test.
+
+| # | Hallazgo | Corrección | Estado |
+|---|---|---|---|
+| M1 | Un 401 que llegaba tarde, de un pedido con el token viejo, cerraba la sesión nueva (después de volver a ingresar) | El cliente le pasa al manejador el token con el que salió el pedido (`client.ts`); el `SessionManager` cierra solo si es el de la sesión actual | Corregido |
+| M2 | Con el `POST logout` colgado, "Salir" no limpiaba nada hasta que el navegador cortara el pedido | `logout()` cierra primero (almacenamiento, caché y `logout` en el canal) y después manda el POST sin esperarlo, con `AbortSignal.timeout(LOGOUT_TIMEOUT_MS)` (5 s). El botón ya no muestra la carga: la sesión se cierra en el mismo clic | Corregido |
+| M3 | El vencimiento o el 401 del token T1 cerraban también una pestaña con otro token (T2), que además lo revocaba | **Decisión del usuario:** el vencimiento y el 401 cierran solo las pestañas con ese mismo token; "Salir" a propósito sigue cerrando todas y revocando sus tokens. El mensaje `logout` suma `all` (`true` solo con "Salir"); con `all: false`, una pestaña con otro `token_id` lo ignora. Los 403 de sesión, igual (desvío 2) | Corregido |
+| M4 | Con la PC suspendida y la pestaña a la vista no llegaba `visibilitychange`: la sesión seguía abierta pasada la hora de vencer | La revisión también corre con `focus` y `pageshow`, y un intervalo de `CHECK_INTERVAL_MS` (15 s) compara `Date.now()` con `expires_at` | Corregido |
+| M5 | 8 de 10 mutaciones de la revisión sobrevivían; sin tests del botón Atrás, del 429 sin `Retry-After` ni de `expires_at` con el formato de la API | Un test por cada mutación que sobrevivía. Además: el botón Atrás después de salir, el 429 sin `Retry-After`, `expires_at` con 6 decimales y `BroadcastSessionChannel` sobre el `BroadcastChannel` real (`channel.test.ts`, en `node`). `sessionFor()` usa el formato de la API (`apiDateTime`) | Corregido |
+| B1 | El canal solo miraba `type`: un `logout` sin `token_id` revocaba el token propio y un `notice` que no era texto rompía el render | `isSessionMessage` valida el formato completo de cada mensaje (los campos exactos y sus tipos; la sesión compartida, como la guardada) y el canal descarta lo demás. El canal en memoria de los tests usa la misma validación | Corregido |
+| B2 | El aviso previo quedaba con los minutos del momento en que se encendió | El intervalo actualiza `warningMinutes` (los minutos que quedan, redondeados para arriba; nunca menos de 1) | Corregido |
+| B3 | Un 429 sin `Retry-After` dejaba el botón habilitado | El botón queda deshabilitado 60 s (`DEFAULT_RETRY_AFTER_SECONDS` en `LoginPage.tsx`), con la misma cuenta regresiva | Corregido |
+| B4 | `safeRedirect('/..//otro.sitio')` devolvía `//otro.sitio` (el router lo convertía en `/otro.sitio`: no sacaba del sitio) | Se revisa la ruta ya normalizada: rechaza la que empieza con `//` y `/ingresar` sin importar mayúsculas ni la barra final | Corregido |
+| B5 | Una pestaña nueva podía guardar la sesión compartida de un token cuyo `logout` ya había llegado | El `SessionManager` recuerda los `token_id` cerrados por el canal y descarta un `session-share` de esos tokens | Corregido |
+| B6 | Los tests usaban `expires_at` con 3 decimales; la API manda 6 (Carbon `toISOString()`) | Cubierto en M5 | Corregido |
+
+**Mutaciones de la corrección**, cada una de a una, con `vitest run` sobre `src/lib/auth`, `src/lib/api`, `src/features/auth` y
+`SessionLayout.test.tsx` (152 tests); las 18 detectadas:
+
+* Las 8 que sobrevivían en la revisión: no vaciar la caché al cerrar (fallan 2); aceptar una sesión compartida vencida (1);
+  compartir la sesión propia vencida (1); no cerrar si la sesión se borró del almacenamiento (1); sin el chequeo del token
+  explícito (`usesSessionToken`) (1); no borrar el almacenamiento con un `logout` sin sesión (1); el canal real sin validar (1); el
+  `session-share` sin validar (3).
+* Las de la corrección: el 401 de un token viejo (M1, 1); esperar el POST antes de cerrar (M2, 1); sin tiempo límite en el POST
+  (M2, 1); cerrar las pestañas de otro token (M3, 2); sin `focus` (M4, 1); sin el intervalo (M4, 2); los minutos del aviso fijos
+  (B2, 1); el 429 sin espera (B3, 1); aceptar `//` en `volver` (B4, 2); aceptar la sesión de un token cerrado (B5, 1).
+
+Corrida final de la corrección: `typecheck` sin errores, `npm test` del frontend con 195 tests en 15 archivos, en verde (24 s), `build` sin avisos
+y `lint` con el error del desvío 15, corregido.

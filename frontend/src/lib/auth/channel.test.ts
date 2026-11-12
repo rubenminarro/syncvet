@@ -9,7 +9,7 @@ const VALID: SessionMessage[] = [
   { type: 'session-request' },
   { type: 'session-share', session: SESSION },
   LOGOUT,
-  { type: 'logout', token_id: '7', notice: 'Tu sesión venció. Ingresá de nuevo.', all: false },
+  { type: 'logout', token_id: '7', notice: 'Tu sesión terminó. Ingresá de nuevo.', all: false },
 ];
 
 const INVALID: [string, unknown][] = [

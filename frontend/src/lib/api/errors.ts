@@ -108,7 +108,9 @@ export function errorTreatment(errorCode: string): ErrorTreatment {
 }
 
 export const MESSAGES = {
-  sessionExpired: 'Tu sesión venció. Ingresá de nuevo.',
+  // Al perder la sesión por cualquier motivo (vencimiento, 401, token revocado al inactivar al usuario): "terminó", no
+  // "venció", porque a un usuario inactivado no se le venció la sesión (R-061).
+  sessionExpired: 'Tu sesión terminó. Ingresá de nuevo.',
   server: 'No se pudo completar. Probá de nuevo en unos minutos.',
   network: 'No hay conexión con el servidor.',
   conflict: 'Alguien cambió estos datos mientras guardabas. Revisalos y probá de nuevo.',

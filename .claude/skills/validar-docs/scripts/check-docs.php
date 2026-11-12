@@ -253,6 +253,72 @@ function frontendRuns(): array
     return $runs;
 }
 
+/**
+ * Las líneas (índice desde 0) de las secciones de "Resultado" de entregas ya cerradas: dentro de "Resultado", cada bloque
+ * con su título (`### Entrega 0.1`, o el texto del propio "Resultado" antes del primer subtítulo) que dice COMPLETADO o
+ * COMPLETADA. Sus cifras son historia y no se comparan; la corrida registrada se sigue leyendo con frontendRuns().
+ *
+ * @param  list<string>  $lines
+ * @return array<int, true>
+ */
+function closedResultLines(array $lines): array
+{
+    $closed = [];
+    $resultLevel = null;
+    $block = [];
+    $blockClosed = false;
+    $inFence = false;
+
+    $flush = function () use (&$closed, &$block, &$blockClosed): void {
+        if ($blockClosed) {
+            foreach ($block as $index) {
+                $closed[$index] = true;
+            }
+        }
+
+        $block = [];
+        $blockClosed = false;
+    };
+
+    foreach ($lines as $index => $line) {
+        if (str_starts_with(ltrim($line), '```')) {
+            $inFence = ! $inFence;
+        }
+
+        if (! $inFence && preg_match('/^(#+)\s+(.*)$/u', $line, $heading)) {
+            $level = strlen($heading[1]);
+
+            if ($resultLevel !== null) {
+                // Un título nuevo cierra el bloque anterior; uno del mismo nivel que "Resultado" o superior, la sección.
+                $flush();
+
+                if ($level <= $resultLevel) {
+                    $resultLevel = null;
+                }
+            }
+
+            if ($resultLevel === null && preg_match('/^Resultado\b/u', trim($heading[2]))) {
+                $resultLevel = $level;
+            }
+
+            if ($resultLevel !== null) {
+                $block[] = $index;
+            }
+
+            continue;
+        }
+
+        if ($resultLevel !== null) {
+            $block[] = $index;
+            $blockClosed = $blockClosed || preg_match('/\bCOMPLETAD[OA]\b/u', $line) === 1;
+        }
+    }
+
+    $flush();
+
+    return $closed;
+}
+
 // La última corrida registrada (la de fecha más reciente; con la misma fecha, la última encontrada). Sin frontend/src,
 // sin dato.
 $frontendRuns = frontendRuns();
@@ -273,8 +339,10 @@ $excluded = [];
 
 foreach (live() as $file) {
     $inFence = false;
+    $lines = preg_split('/\R/', file_get_contents($file));
+    $closedResult = closedResultLines($lines);
 
-    foreach (preg_split('/\R/', file_get_contents($file)) as $number => $line) {
+    foreach ($lines as $number => $line) {
         if (str_starts_with(ltrim($line), '```')) {
             $inFence = ! $inFence;
             continue;
@@ -304,6 +372,9 @@ foreach (live() as $file) {
                 // La línea de una corrida registrada es el dato, no una cifra a comparar (las de fases anteriores son
                 // historia).
                 $excluded[] = "corrida registrada: $where: $text";
+            } elseif (isset($closedResult[$number])) {
+                // El resultado de una entrega ya cerrada es historia: sus cifras eran las de ese momento.
+                $excluded[] = "resultado de una entrega cerrada: $where: $text";
             } elseif ($figure['type'] === 'frontend' && $kind === 'tests') {
                 $compared++;
 

@@ -20,8 +20,9 @@ php .claude/skills/validar-docs/scripts/check-docs.php --detalle
 El script revisa enlaces y anclas (también de los `CLAUDE.md` y `README.md` de la raíz, `backend/` y `frontend/`), documentos huérfanos desde `docs/README.md`, rutas citadas que no existen (`docs/…` desde la raíz; `app/…`, `tests/…` y las demás carpetas de Laravel, desde `backend/`) y las cifras de los documentos
 vivos contra el código. Código de salida 1 si hay hallazgos.
 
-Toda cifra se compara salvo una marca explícita en su misma cláusula: datos históricos, ejemplos o diferencias. La cifra
-de una clase de test se valida contra esa clase. **Revisar la lista de excluidas de `--detalle`:** una exclusión equivocada es un hallazgo.
+Toda cifra se compara salvo una marca explícita en su misma cláusula: datos históricos, ejemplos o diferencias. Tampoco se
+comparan las cifras de la sección "Resultado" de una entrega ya cerrada (el bloque de su título dice `COMPLETADO` o `COMPLETADA`):
+son las de ese momento. La cifra de una clase de test se valida contra esa clase. **Revisar la lista de excluidas de `--detalle`:** una exclusión equivocada es un hallazgo.
 
 Las cifras de los dos proyectos se cuentan y se validan por separado (el resumen dice "Backend:" y "Frontend:"):
 

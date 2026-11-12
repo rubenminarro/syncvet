@@ -80,7 +80,9 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
   *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** historia clínica, aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
-* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; sin empezar.
+* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; F0 en curso, con la
+  0.1 (esqueleto) y la 0.2a (sesión contra esta API) cerradas (R-060 y R-061). Su estado y sus reglas, en
+  [`frontend/CLAUDE.md`](../frontend/CLAUDE.md).
 
 ---
 

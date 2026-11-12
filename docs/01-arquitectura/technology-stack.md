@@ -25,7 +25,7 @@ verificadas en npm el 2026-11-12). Las reglas de uso están en [`frontend/CLAUDE
 |---|---|
 | Entorno | Node 26 LTS (`frontend/.nvmrc`, `engines` con `engine-strict`), npm 11 |
 | Base | `react` y `react-dom` 19.3.1, `vite` 8.3.8, `@vitejs/plugin-react` 6.3.0, `typescript` 6.0.3 (estricto; no TS 7) |
-| Interfaz | `@tabler/core` 1.7.4 (solo los estilos), `@tabler/icons-react` 3.51.0. Sin Tailwind |
+| Interfaz | `@tabler/core` 1.7.5 (solo los estilos; 1.7.4 hasta la 0.2a), `@tabler/icons-react` 3.51.0. Sin Tailwind |
 | Rutas | `@tanstack/react-router` 1.170.46, `@tanstack/router-plugin` 1.169.0 |
 | Datos del servidor | `@tanstack/react-query` 5.107.1, sobre un cliente propio con `fetch` (sin Axios) |
 | Formularios | `react-hook-form` 7.92.0, `zod` 4.6.7, `@hookform/resolvers` 7.0.6 |

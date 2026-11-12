@@ -9,9 +9,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md) |
-| Entrega | 0.1, esqueleto sin backend: COMPLETADA (R-060) en `feature/front-0-1-esqueleto` |
-| Siguiente | 0.2a, la sesión contra la API real, en `feature/front-0-2a-sesion`; después, la 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos` |
-| Tests | Vitest: 93 tests en 9 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`) |
+| Entrega | 0.1, esqueleto sin backend: COMPLETADA (R-060) en `feature/front-0-1-esqueleto`; 0.2a, la sesión contra la API real: COMPLETADA (R-061) en `feature/front-0-2a-sesion` |
+| Siguiente | 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion` |
+| Tests | Vitest: 195 tests en 15 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -64,14 +64,15 @@ frontend/
     ├── routes/          Una ruta por archivo; el nombre es la URL en castellano
     ├── app/             Proveedores (App), router, layouts, menú y páginas de error
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
+    ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
     ├── components/ui/   Capa propia sobre Tabler: Button, TextField, Alert, Card, DataTable, ErrorPage, Loading, avisos
     ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (en la F0, auth)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
-Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/` y `/sin-permiso`; en la
-0.2 exige la sesión). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
+Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/` y `/sin-permiso`; exige
+la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
 
 ## 5. Convenciones
@@ -105,7 +106,18 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   el texto decimal de la API se valida con una expresión regular y se formatea tal cual, sin pasar por un número de coma flotante.
   Un valor vacío (`null`, `undefined`, `''`) o inválido se muestra vacío (`''`), en las fechas y en el dinero (nunca "Gs. 0" ni
   un error que rompa el render).
-* **Permisos** (0.2): el menú y los botones según `me.permissions`; la API vuelve a controlar todo (un botón oculto no protege).
+* **Sesión** (0.2a, R-061; el diseño, en [Sesión (0.2)](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#sesión-02)): el
+  token y `expires_at` solo en `sessionStorage` (`syncvet.session`), nunca en `localStorage`, la URL ni el log; `me` en la caché de
+  Query (`['me']`). Todo pasa por el `SessionManager` (`src/lib/auth/session.ts`), creado una vez por pestaña en `main.tsx`: los
+  componentes lo leen con `useSessionManager()` y `useSessionState()`. Entre pestañas, `BroadcastChannel('syncvet-sesion')`
+  (`channel.ts`), con cada mensaje validado completo (`isSessionMessage`): una pestaña nueva pide la sesión (`session-request`, 300
+  ms); "Salir" cierra todas (`logout` con `all: true`) y manda el `POST logout` después, sin esperarlo (5 s de límite); el
+  vencimiento y un error de sesión (401, `USER_INACTIVE`, `CLINIC_NOT_AVAILABLE`) cierran solo las pestañas con ese token, y solo
+  si el pedido salió con el token actual. El vencimiento se revisa con temporizadores, al volver a la pestaña (`visibilitychange`,
+  `focus`, `pageshow`) y cada 15 s; el aviso previo, 10 minutos antes, con los minutos que quedan. `volver` pasa siempre por
+  `safeRedirect` (solo rutas internas). Un pedido con un token explícito (`token: null` en el login, un texto en el `logout`) no toca
+  la sesión.
+* **Permisos** (0.2b): el menú y los botones según `me.permissions`; la API vuelve a controlar todo (un botón oculto no protege).
 * **Descargas con token** (desde la F1): se piden con el cliente como `blob` y se muestran con una URL de objeto.
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
   con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
@@ -122,14 +134,14 @@ Se muestra el `message` de la API y se decide qué hacer por el código. `NETWOR
 
 | `error_code` | HTTP | Trato (`errorTreatment`) | Qué hace la interfaz |
 |---|---|---|---|
-| `UNAUTHENTICATED` | 401 | `session-expired` | Cierra la sesión en todas las pestañas y lleva a `/ingresar?volver=…` con "Tu sesión venció. Ingresá de nuevo." |
+| `UNAUTHENTICATED` | 401 | `session-expired` | Cierra la sesión en las pestañas con ese token y lleva a `/ingresar?volver=…` con "Tu sesión terminó. Ingresá de nuevo." (también por vencimiento o un token revocado) |
 | `USER_INACTIVE` | 403 | `user-inactive` | En el login, el mensaje en el formulario; con sesión, como 401 pero con el mensaje de la API |
-| `CLINIC_NOT_AVAILABLE` | 403 | `clinic-unavailable` | En el login, el mensaje en el formulario; con sesión, borra la sesión y muestra el mensaje en `/ingresar` |
+| `CLINIC_NOT_AVAILABLE` | 403 | `clinic-unavailable` | En el login, el mensaje en el formulario; con sesión, como 401 pero con el mensaje de la API |
 | `FORBIDDEN` | 403 | `forbidden` | Al cargar una página, `/sin-permiso`; en una acción, aviso con el mensaje y el formulario queda como estaba |
 | `RESOURCE_NOT_FOUND` | 404 | `not-found` | Al cargar un detalle, la página de no encontrado; en una acción, aviso e invalidar la lista |
 | `VALIDATION_ERROR` | 422 | `validation` | Cada clave de `errors` a su campo (`applyValidationErrors`); las demás, a una alerta arriba; foco en el primer campo |
 | `INVALID_CREDENTIALS` | 422 | `invalid-credentials` | Mensaje en el formulario de ingreso; se borra la contraseña |
-| `AUTH_TOO_MANY_ATTEMPTS`, `TOO_MANY_REQUESTS` | 429 | `throttled` | Mensaje y el botón deshabilitado con la cuenta regresiva de `Retry-After` (`retryAfter`) |
+| `AUTH_TOO_MANY_ATTEMPTS`, `TOO_MANY_REQUESTS` | 429 | `throttled` | Mensaje y el botón deshabilitado con la cuenta regresiva de `Retry-After` (`retryAfter`; sin la cabecera, 60 s) |
 | `CONFLICT` | 409 | `conflict` | Aviso "Alguien cambió estos datos mientras guardabas. Revisalos y probá de nuevo." con el `message`; se vuelven a pedir los datos |
 | `PAYLOAD_TOO_LARGE` | 413 | `payload-too-large` | El error en el campo del archivo (`errors.photo`, `errors.logo`); sin `errors`, aviso |
 | Códigos de negocio (`*_IN_USE`, `*_NOT_EDITABLE`, `USER_LAST_ADMIN`, `APPOINTMENT_*`, …) | 409, 422, 403 | `business` | Alerta con el `message` en el formulario o el diálogo; cada módulo puede sumar su trato (ofrecer inactivar, el sobreturno…) |

@@ -1330,3 +1330,33 @@ corrida, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos;
 verde. `/validar-docs`, sin hallazgos (sus tests, 55 de 55).
 
 **Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales).
+
+# R-061 Cierre de la entrega 0.2a del frontend (sesión) (2026-11-12)
+
+Entrega 0.2a de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md), en `feature/front-0-2a-sesion`:
+implementada (`93e347c`), revisada, corregida (`ece1faf`) y validada en el navegador. El detalle, en el
+[resultado de la entrega](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-02a).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Cierre por token (M3 de la revisión) | El vencimiento y el 401 cierran solo las pestañas con ese mismo token: el mensaje `logout` del canal lleva `token_id` y `all`, y las pestañas con otro token ignoran uno con `all: false`. "Salir" a propósito sigue cerrando todas las pestañas y revocando sus tokens | Usuario |
+| Desvío 2 | `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE` con sesión cierran como el 401: solo las pestañas con ese token, con el mensaje de la API | Usuario |
+| Desvío 1 | El aviso previo dice "Tu sesión vence en N minutos. Guardá los cambios pendientes.", con los minutos que quedan, actualizados (el texto del diseño usaba "estés", una forma de tú) | Usuario |
+| Desvío 6 | `/ingresar` con una sesión abierta va a `/`; una falla de red o un 5xx al cargar `me` muestra "No se pudo cargar tu sesión" con "Reintentar" y no cierra la sesión | Usuario |
+| Correcciones de la revisión | M1, el 401 cierra solo si el pedido salió con el token actual; M2, "Salir" cierra primero y manda el `POST logout` sin esperarlo, con un tiempo límite de 5 s; M4, el vencimiento también se revisa con `focus`, `pageshow` y un intervalo de 15 s; M5, un test por cada mutación que sobrevivía; B1, el canal valida el formato completo de cada mensaje; B2, los minutos del aviso se actualizan; B3, un 429 sin `Retry-After` deshabilita el botón 60 s; B4, `safeRedirect` revisa la ruta normalizada; B5, se descarta la sesión compartida de un token ya cerrado | Usuario (pedido); el valor de 60 s, la corrección |
+| Diseño | Los flujos 3 a 6 de la 0.2a, la tabla [Sesión (0.2)](../../03-plan-desarrollo/fases/frontend/f0-base.md#sesión-02) y la tabla de errores, actualizados con M2, M3 y M4 (desvío 14) | Cierre |
+| Aviso al perder la sesión | "Tu sesión terminó. Ingresá de nuevo." en lugar de "Tu sesión venció. Ingresá de nuevo.", por vencimiento, un 401 o el token revocado al inactivar al usuario: a un usuario inactivado no se le venció la sesión. El texto está en `MESSAGES.sessionExpired` (`src/lib/api/errors.ts`); dos tests lo fijan literal (el de la sesión vencida guardada en `LoginPage.test.tsx` y el 401 en `SessionLayout.test.tsx`) | Usuario |
+| Cifras de resultados cerrados | `/validar-docs` no compara las cifras de la sección "Resultado" de una entrega ya cerrada (el bloque de su título dice `COMPLETADO` o `COMPLETADA`): eran las de ese momento. `closedResultLines()` en `check-docs.php`, caso 9 de `check-docs-test.php` (59 de 59); la corrida registrada se sigue leyendo de ahí | Usuario |
+| `backend/CLAUDE.md` §1 | El frontend ya no figura "sin empezar": una línea con su estado y el enlace a `frontend/CLAUDE.md` | Usuario |
+| Pruebas en el navegador | Además de las 5 del usuario, las 8 restantes de "Qué revisar en el navegador" las hizo Claude Code, a pedido del usuario, con Edge sin ventana manejado por el protocolo de DevTools (un script de Node, sin dependencias nuevas) contra el backend real (`syncvet.test`) y `npm run dev` | Usuario (pedido) |
+| Pendientes | Desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`): sigue PENDIENTE DE VERIFICACIÓN y pasa a la F3, porque la 0.2a no manda fechas a la API | Implementación |
+
+**Validación.** El usuario, el 2026-11-12, en el navegador con el backend real: ingreso con `admin-a`, `recepcion-a` y `vet-a`,
+contraseña incorrecta, la cuenta regresiva del 429, una segunda pestaña que entra sola y salir en una pestaña que cierra la otra. El
+resto de "Qué revisar en el navegador", a pedido del usuario, lo corrió Claude Code en Edge sin ventana, por el protocolo de DevTools:
+mostrar la contraseña, el vencimiento (`expires_at` pasado, borrado y una sesión que vence sola), el aviso previo y sus minutos,
+"Salir" y un usuario inactivado desde otra sesión (el siguiente pedido recibe un 401, porque inactivar revoca los tokens); la
+consola, sin errores de la aplicación. La corrida del cierre, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni
+avisos; `npm test`, 195 tests en 15 archivos del frontend, en verde.
+
+**Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales).

@@ -2,7 +2,6 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../../lib/api/errors';
 import { SESSION_KEY } from '../../lib/auth/storage';
 import { failure, success } from '../../test/api';
 import { server } from '../../test/server';
@@ -177,7 +176,8 @@ describe('ingresar', () => {
   it('con una sesión vencida guardada, muestra el aviso sin llamar a la API', async () => {
     renderApp('/', { session: sessionFor(-1) });
 
-    expect(await screen.findByText(MESSAGES.sessionExpired)).toBeInTheDocument();
+    // El texto exacto (R-061): terminó, no venció.
+    expect(await screen.findByText('Tu sesión terminó. Ingresá de nuevo.')).toBeInTheDocument();
     expect(window.sessionStorage.getItem(SESSION_KEY)).toBeNull();
   });
 

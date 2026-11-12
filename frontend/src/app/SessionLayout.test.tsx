@@ -138,7 +138,7 @@ describe('layout con sesión', () => {
   });
 
   it.each([
-    ['401', 401, 'UNAUTHENTICATED', 'No autenticado.', MESSAGES.sessionExpired],
+    ['401', 401, 'UNAUTHENTICATED', 'No autenticado.', 'Tu sesión terminó. Ingresá de nuevo.'],
     ['403 USER_INACTIVE', 403, 'USER_INACTIVE', INACTIVE, INACTIVE],
     [
       '403 CLINIC_NOT_AVAILABLE',
