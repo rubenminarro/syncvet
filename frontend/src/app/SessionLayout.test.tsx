@@ -55,14 +55,22 @@ describe('layout con sesión', () => {
     expect(screen.getByText('Casa central', { selector: '.session-branch' })).toBeInTheDocument();
   });
 
-  it('sin sucursal actual, la barra lo dice', async () => {
-    server.use(meHandler({ ...ME, current_branch: null }));
+  it('sin sucursal actual y sin sucursales asignadas, la barra lo dice', async () => {
+    server.use(meHandler({ ...ME, current_branch: null, branches: [] }));
     renderApp('/', { session: sessionFor() });
 
     await homeShown();
     expect(
       screen.getByText('Sin sucursal actual', { selector: '.session-branch' }),
     ).toBeInTheDocument();
+  });
+
+  it('sin sucursal actual con una asignada, la barra ofrece elegirla (0.2b)', async () => {
+    server.use(meHandler({ ...ME, current_branch: null }));
+    renderApp('/', { session: sessionFor() });
+
+    await homeShown();
+    expect(screen.getByText('Elegí tu sucursal', { selector: 'option' })).toBeInTheDocument();
   });
 
   it('un 401 en me al recargar lleva a /ingresar con el aviso de sesión vencida', async () => {

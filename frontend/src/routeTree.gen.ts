@@ -13,6 +13,8 @@ import { Route as PublicoRouteImport } from './routes/_publico'
 import { Route as SesionRouteImport } from './routes/_sesion'
 import { Route as PublicoIngresarRouteImport } from './routes/_publico/ingresar'
 import { Route as SesionIndexRouteImport } from './routes/_sesion/index'
+import { Route as SesionConfiguracionRouteImport } from './routes/_sesion/configuracion'
+import { Route as SesionPerfilRouteImport } from './routes/_sesion/perfil'
 import { Route as SesionSinPermisoRouteImport } from './routes/_sesion/sin-permiso'
 
 const PublicoRoute = PublicoRouteImport.update({
@@ -33,6 +35,16 @@ const SesionIndexRoute = SesionIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionConfiguracionRoute = SesionConfiguracionRouteImport.update({
+  id: '/configuracion',
+  path: '/configuracion',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionPerfilRoute = SesionPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => SesionRoute,
+} as any)
 const SesionSinPermisoRoute = SesionSinPermisoRouteImport.update({
   id: '/sin-permiso',
   path: '/sin-permiso',
@@ -42,11 +54,15 @@ const SesionSinPermisoRoute = SesionSinPermisoRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof SesionIndexRoute
   '/ingresar': typeof PublicoIngresarRoute
+  '/configuracion': typeof SesionConfiguracionRoute
+  '/perfil': typeof SesionPerfilRoute
   '/sin-permiso': typeof SesionSinPermisoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof SesionIndexRoute
   '/ingresar': typeof PublicoIngresarRoute
+  '/configuracion': typeof SesionConfiguracionRoute
+  '/perfil': typeof SesionPerfilRoute
   '/sin-permiso': typeof SesionSinPermisoRoute
 }
 export interface FileRoutesById {
@@ -54,19 +70,23 @@ export interface FileRoutesById {
   '/_publico': typeof PublicoRouteWithChildren
   '/_sesion': typeof SesionRouteWithChildren
   '/_publico/ingresar': typeof PublicoIngresarRoute
+  '/_sesion/configuracion': typeof SesionConfiguracionRoute
+  '/_sesion/perfil': typeof SesionPerfilRoute
   '/_sesion/sin-permiso': typeof SesionSinPermisoRoute
   '/_sesion/': typeof SesionIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ingresar' | '/sin-permiso'
+  fullPaths: '/' | '/ingresar' | '/configuracion' | '/perfil' | '/sin-permiso'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ingresar' | '/sin-permiso'
+  to: '/' | '/ingresar' | '/configuracion' | '/perfil' | '/sin-permiso'
   id:
     | '__root__'
     | '/_publico'
     | '/_sesion'
     | '/_publico/ingresar'
+    | '/_sesion/configuracion'
+    | '/_sesion/perfil'
     | '/_sesion/sin-permiso'
     | '/_sesion/'
   fileRoutesById: FileRoutesById
@@ -106,6 +126,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SesionIndexRouteImport
       parentRoute: typeof SesionRoute
     }
+    '/_sesion/configuracion': {
+      id: '/_sesion/configuracion'
+      path: '/configuracion'
+      fullPath: '/configuracion'
+      preLoaderRoute: typeof SesionConfiguracionRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/perfil': {
+      id: '/_sesion/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof SesionPerfilRouteImport
+      parentRoute: typeof SesionRoute
+    }
     '/_sesion/sin-permiso': {
       id: '/_sesion/sin-permiso'
       path: '/sin-permiso'
@@ -128,11 +162,15 @@ const PublicoRouteWithChildren =
   PublicoRoute._addFileChildren(PublicoRouteChildren)
 
 interface SesionRouteChildren {
+  SesionConfiguracionRoute: typeof SesionConfiguracionRoute
+  SesionPerfilRoute: typeof SesionPerfilRoute
   SesionSinPermisoRoute: typeof SesionSinPermisoRoute
   SesionIndexRoute: typeof SesionIndexRoute
 }
 
 const SesionRouteChildren: SesionRouteChildren = {
+  SesionConfiguracionRoute: SesionConfiguracionRoute,
+  SesionPerfilRoute: SesionPerfilRoute,
   SesionSinPermisoRoute: SesionSinPermisoRoute,
   SesionIndexRoute: SesionIndexRoute,
 }

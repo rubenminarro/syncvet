@@ -391,6 +391,44 @@ describe('SessionManager', () => {
     expect(manager.getSnapshot().warningMinutes).toBe(1);
   });
 
+  it('branch-changed: la otra pestaña con sesión invalida sus consultas (me incluida); sin sesión, nada', async () => {
+    const hub = createMemoryChannelHub();
+    const storageA = memoryStorage();
+    const storageB = memoryStorage();
+    saveSession(storageA, sessionFor());
+    saveSession(storageB, sessionFor());
+    const a = createTestSession({ storage: storageA, hub });
+    const b = createTestSession({ storage: storageB, hub });
+    const c = createTestSession({ storage: memoryStorage(), hub });
+
+    for (const tab of [a, b, c]) {
+      tab.queryClient.setQueryData(['me'], { id: 1 });
+      tab.queryClient.setQueryData(['clientes'], []);
+    }
+
+    a.manager.publishBranchChanged();
+    await flush();
+
+    expect(b.queryClient.getQueryState(['me'])?.isInvalidated).toBe(true);
+    expect(b.queryClient.getQueryState(['clientes'])?.isInvalidated).toBe(true);
+    expect(a.queryClient.getQueryState(['me'])?.isInvalidated).toBe(false);
+    expect(c.queryClient.getQueryState(['me'])?.isInvalidated).toBe(false);
+  });
+
+  it('una pestaña sin sesión no publica branch-changed', async () => {
+    const hub = createMemoryChannelHub();
+    const storageB = memoryStorage();
+    saveSession(storageB, sessionFor());
+    const a = createTestSession({ storage: memoryStorage(), hub });
+    const b = createTestSession({ storage: storageB, hub });
+    b.queryClient.setQueryData(['me'], { id: 1 });
+
+    a.manager.publishBranchChanged();
+    await flush();
+
+    expect(b.queryClient.getQueryState(['me'])?.isInvalidated).toBe(false);
+  });
+
   it('al cerrar la sesión se vacía la caché de Query', () => {
     vi.useFakeTimers();
     const { manager, queryClient } = createTestSession({ storage: memoryStorage() });

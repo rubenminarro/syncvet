@@ -1,19 +1,34 @@
-import { IconBuildingStore, IconHome, IconLogout, IconUserCircle } from '@tabler/icons-react';
+import { IconLogout, IconUserCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { Alert, Button, Loading } from '../components/ui';
 import { meQueryOptions } from '../features/auth/api';
+import { BranchSelector } from '../features/auth/BranchSelector';
+import type { Me } from '../features/auth/types';
+import { can } from '../lib/auth/permissions';
 import { useSessionManager, useSessionState } from '../lib/auth/use-session';
 import { Brand } from './Brand';
+import { MENU, visibleMenu } from './menu';
 
 function warningText(minutes: number): string {
   return `Tu sesión vence en ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}. Guardá los cambios pendientes.`;
 }
 
+/** Sin sucursal actual: elegir una (o pedirlas, si no tiene ninguna asignada). */
+function branchNotice(me: Me): string | null {
+  if (me.current_branch !== null) {
+    return null;
+  }
+
+  return me.branches.length > 0
+    ? 'Elegí tu sucursal actual en la barra de arriba para empezar a trabajar.'
+    : 'No tenés sucursales asignadas: pedíselas al administrador de la clínica.';
+}
+
 /**
- * Layout con sesión: barra con el usuario, la clínica, la sucursal actual (solo se muestra; el selector es de la 0.2b) y
- * "Salir"; el aviso previo al vencimiento arriba del contenido. Si la sesión se cierra (salir, un 401, el vencimiento u
+ * Layout con sesión: barra con la clínica, el selector de la sucursal actual, el usuario (lleva a /perfil) y "Salir"; el
+ * menú según los permisos; el aviso previo al vencimiento y el de elegir sucursal arriba del contenido. Si la sesión se cierra (salir, un 401, el vencimiento u
  * otra pestaña), va a /ingresar.
  */
 export function SessionLayout() {
@@ -39,6 +54,8 @@ export function SessionLayout() {
     return <Loading />;
   }
 
+  const chooseBranch = branchNotice(me);
+
   return (
     <div className="page">
       <header className="navbar navbar-expand-md d-print-none">
@@ -47,22 +64,18 @@ export function SessionLayout() {
             <Brand />
           </Link>
           <div className="navbar-nav flex-row ms-auto align-items-center gap-3">
-            <div className="d-none d-md-flex align-items-center gap-2 text-secondary">
-              <IconBuildingStore size={20} stroke={1.5} aria-hidden="true" />
-              <div className="lh-sm">
-                <div className="session-clinic">{me.clinic.name}</div>
-                <div className="small session-branch">
-                  {me.current_branch?.name ?? 'Sin sucursal actual'}
-                </div>
-              </div>
-            </div>
-            <div className="d-flex align-items-center gap-2">
+            <BranchSelector me={me} />
+            <Link
+              to="/perfil"
+              className="d-flex align-items-center gap-2 text-reset text-decoration-none"
+              title="Tu perfil"
+            >
               <IconUserCircle size={24} stroke={1.5} aria-hidden="true" />
               <div className="lh-sm d-none d-sm-block">
                 <div className="session-user">{me.name}</div>
                 <div className="small text-secondary">{me.email}</div>
               </div>
-            </div>
+            </Link>
             <Button
               variant="secondary"
               icon={<IconLogout size={18} className="me-2" aria-hidden="true" />}
@@ -79,19 +92,21 @@ export function SessionLayout() {
         <div className="navbar">
           <div className="container-xl">
             <ul className="navbar-nav flex-row">
-              <li className="nav-item">
-                <Link
-                  to="/"
-                  className="nav-link"
-                  activeProps={{ className: 'active' }}
-                  activeOptions={{ exact: true }}
-                >
-                  <span className="nav-link-icon">
-                    <IconHome size={20} stroke={1.5} aria-hidden="true" />
-                  </span>
-                  <span className="nav-link-title">Inicio</span>
-                </Link>
-              </li>
+              {visibleMenu(MENU, (permission) => can(me, permission)).map((item) => (
+                <li key={item.to} className="nav-item">
+                  <Link
+                    to={item.to}
+                    className="nav-link"
+                    activeProps={{ className: 'active' }}
+                    activeOptions={{ exact: item.to === '/' }}
+                  >
+                    <span className="nav-link-icon">
+                      <item.icon size={20} stroke={1.5} aria-hidden="true" />
+                    </span>
+                    <span className="nav-link-title">{item.label}</span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
@@ -102,6 +117,7 @@ export function SessionLayout() {
             {warningMinutes !== null ? (
               <Alert tone="warning" title={warningText(warningMinutes)} />
             ) : null}
+            {chooseBranch !== null ? <Alert tone="info" title={chooseBranch} /> : null}
             <Outlet />
           </div>
         </div>

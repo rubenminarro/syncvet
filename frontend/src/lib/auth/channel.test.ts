@@ -10,13 +10,15 @@ const VALID: SessionMessage[] = [
   { type: 'session-share', session: SESSION },
   LOGOUT,
   { type: 'logout', token_id: '7', notice: 'Tu sesión terminó. Ingresá de nuevo.', all: false },
+  { type: 'branch-changed' },
 ];
 
 const INVALID: [string, unknown][] = [
   ['null', null],
   ['un texto', 'logout'],
   ['un arreglo', [{ type: 'logout' }]],
-  ['un tipo desconocido', { type: 'branch-changed' }],
+  ['un tipo desconocido', { type: 'branch-moved' }],
+  ['branch-changed con campos de más', { type: 'branch-changed', branch_id: 2 }],
   ['session-request con campos de más', { type: 'session-request', token: '7|x' }],
   ['session-share sin sesión', { type: 'session-share' }],
   ['session-share con token vacío', { type: 'session-share', session: { ...SESSION, token: '' } }],

@@ -30,9 +30,11 @@ npm run dev       # http://localhost:5173
 
 | URL | Qué se ve |
 |---|---|
-| `/` | El inicio, dentro del layout con la barra y el menú |
-| `/ingresar` | El formulario de ingreso (en la 0.1, valida pero todavía no llama a la API) |
-| `/sin-permiso` | La página de falta de permiso |
+| `/` | El inicio, dentro del layout con la barra (sucursal actual y usuario) y el menú según los permisos |
+| `/ingresar` | El formulario de ingreso |
+| `/perfil` | Tus datos y el cambio de la contraseña propia |
+| `/configuracion` | Provisoria ("En construcción"), solo para el administrador |
+| `/sin-permiso` | La página de falta de permiso, dentro del layout |
 | Cualquier otra | No encontrado |
 
 ## Verificar
@@ -43,3 +45,6 @@ npm run lint
 npm test
 npm run build      # y npm run preview para servir dist/ en http://localhost:4173
 ```
+
+Pruebas de punta a punta (Playwright, desde la F0.2b), contra la base `syncvet_e2e`: `npm run test:e2e`. Qué necesitan y
+cómo corren, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright).

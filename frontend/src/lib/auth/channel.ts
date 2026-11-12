@@ -13,7 +13,9 @@ export type SessionMessage =
    * salió). `all`: true si el usuario salió a propósito (todas las pestañas cierran y una con otro token también lo revoca);
    * false si el token venció o la API lo rechazó (solo cierran las pestañas con ese mismo token).
    */
-  | { type: 'logout'; token_id: string; notice: string | null; all: boolean };
+  | { type: 'logout'; token_id: string; notice: string | null; all: boolean }
+  /** Una pestaña cambió la sucursal actual (0.2b): las demás vuelven a pedir `me` e invalidan sus consultas. */
+  | { type: 'branch-changed' };
 
 export interface SessionChannel {
   post(message: SessionMessage): void;
@@ -36,6 +38,7 @@ export function isSessionMessage(value: unknown): value is SessionMessage {
 
   switch (message.type) {
     case 'session-request':
+    case 'branch-changed':
       return keys === 'type';
     case 'session-share':
       return keys === 'session,type' && isStoredSession(message.session);

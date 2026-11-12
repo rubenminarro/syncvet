@@ -7,7 +7,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'src/routeTree.gen.ts']),
+  globalIgnores(['dist', 'coverage', 'src/routeTree.gen.ts', 'test-results', 'playwright-report']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -65,6 +65,12 @@ export default defineConfig([
   },
   {
     files: ['src/lib/api/client.ts'],
+    rules: { 'no-restricted-globals': 'off' },
+  },
+  {
+    // Playwright y su preparación corren en Node, fuera de la aplicación: llaman al backend directo (sin el cliente).
+    files: ['e2e/**', 'playwright.config.ts'],
+    languageOptions: { globals: { ...globals.node } },
     rules: { 'no-restricted-globals': 'off' },
   },
   {

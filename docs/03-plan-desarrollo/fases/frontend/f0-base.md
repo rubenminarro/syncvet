@@ -315,7 +315,8 @@ Vacío: la entrega se cerró (R-061) y todo lo que había acá pasó a su [resul
    usuario, R-060).
 4. Playwright: `e2e/` y `playwright.config.ts`; antes de correr, la base `syncvet_e2e` se recrea con `migrate:fresh` y el
    `DemoSeeder`, con el backend levantado desde `backend/` en un puerto propio y las variables de la base pasadas por el entorno (el
-   `DemoSeeder` corre solo en `local` y `testing`). **La preparación se niega a correr si la base no termina en `_e2e`.**
+   `DemoSeeder` corre solo en `local` y `testing`). **La preparación se niega a correr si la base no es `syncvet_e2e`** (pedido
+del usuario al implementar: el nombre exacto, más estricto que "termina en `_e2e`").
 5. Documentación: `frontend/CLAUDE.md` (permisos, comandos de Playwright), la base `syncvet_e2e` en `setup.md` y en
    [`testing.md`](../../../04-desarrollo/testing.md).
 
@@ -334,6 +335,118 @@ sucursal; la preparación de Playwright sin el control del nombre de la base.
 **Qué revisar en el navegador.** Con el backend en `syncvet.test` y `npm run dev`: ingresar con `admin-a`, `recepcion-a` y
 `vet-a` del `DemoSeeder` y ver el menú de cada uno; cambiar de sucursal y ver el cambio en otra pestaña; cambiar la contraseña en
 `/perfil` y mostrarla con el botón; el ancho de tablet (768 px); la consola sin errores.
+
+**Decisión del usuario (2026-11-12), al empezar el diseño detallado.** En la F0 no hay ningún módulo con permiso (Inicio y
+`/perfil` son de todos), así que los tres roles verían el mismo menú y Playwright no tendría una ruta real sin permiso. Se suma
+**`/configuracion` provisoria**: una página "En construcción" con el permiso `system-settings.update` (solo `administrador`, según
+`backend/tests/Fixtures/clinic-roles.json`); el administrador la ve en el menú y en el inicio, recepción y veterinario no, y al
+entrar por la URL van a `/sin-permiso`. La F2 la reemplaza por la pantalla real.
+
+**Diseño detallado (2026-11-12, escrito con la implementación que pidió el usuario; sin revisión previa).**
+
+*Versiones.* Un solo paquete nuevo, de desarrollo: `@playwright/test` **1.56.1** (`npm install -D @playwright/test@1.56.1`, sin
+consultar npm, `frontend/CLAUDE.md` §8). Sin descargar navegadores: Playwright usa el Edge instalado (`channel: 'msedge'`; en otra PC
+se cambia con `E2E_BROWSER_CHANNEL`, por ejemplo `chrome`).
+
+*Archivos.*
+
+| Archivo | Contenido |
+|---|---|
+| `src/lib/auth/permissions.ts` | `can(me, permiso)`: `true` solo si `me.permissions` lo incluye (sin `me`, `false`); `PERMISSIONS`, las constantes de los permisos que usa el frontend (en la F0, `settingsUpdate = 'system-settings.update'`) |
+| `src/features/auth/permissions.tsx` | `useCan()` (devuelve `can(permiso)` sobre el `me` de la caché), `<RequirePermission permission>` (muestra sus hijos solo con el permiso; `fallback` opcional) y `requirePermission(permiso)`, el `beforeLoad` de una ruta: sin el permiso, `redirect` a `/sin-permiso` (con `replace`) |
+| `src/app/menu.ts` | El menú: `{ to, label, icon, permission? }`; en la F0, Inicio (sin permiso) y Configuración (`system-settings.update`). `visibleMenu(items, can)` filtra por permiso |
+| `src/app/SessionLayout.tsx` | El menú filtrado; el selector de sucursal en la barra; el nombre del usuario lleva a `/perfil`; sin sucursal actual, el aviso para elegir una (o, sin sucursales asignadas, el de pedírselas al administrador) arriba del contenido |
+| `src/features/auth/BranchSelector.tsx` | Un `select` con `me.branches` (con una sola sucursal, que ya es la actual, solo el nombre). Al cambiar: `PATCH me/current-branch`; con el 200, `['me']` con la respuesta, se invalidan las consultas que no son `['me']`, `branch-changed` en el canal y un aviso de éxito; con un error, el aviso con el mensaje (un 422 vuelve a pedir `me`: la lista pudo cambiar) |
+| `src/features/auth/api.ts` | `updateCurrentBranch(branchId)`, `applyBranchChange(queryClient, me)` (pone `me` e invalida el resto) y `updateOwnPassword(form)` (`PATCH me/password`) |
+| `src/lib/auth/channel.ts`, `session.ts` | Mensaje `branch-changed` (sin más campos); `SessionManager.publishBranchChanged()`. Una pestaña con sesión que lo recibe invalida todas sus consultas (`me` incluida, que se vuelve a pedir) |
+| `src/features/auth/ProfilePage.tsx`, `schemas.ts` | `/perfil`: "Tus datos" (nombre, email, clínica, roles, sucursal actual y sucursales, y la ficha de veterinario si la hay) y "Cambiar la contraseña" (`current_password` y `password`, los dos con `PasswordField`). 422 a sus campos (`applyValidationErrors`; el resto, a la alerta); 429 con el mensaje y el botón con la cuenta regresiva (60 s sin `Retry-After`); con el 200, el formulario se vacía, un aviso de éxito y la sesión sigue (la API conserva el token del pedido y revoca los demás) |
+| `src/app/ConfigurationPage.tsx`, `src/routes/_sesion/configuracion.tsx` | La página provisoria, con `beforeLoad: requirePermission(PERMISSIONS.settingsUpdate)` |
+| `src/routes/_sesion/perfil.tsx` | `/perfil` (sin permiso: es de todos) |
+| `src/app/RouteErrorPage.tsx`, `router.ts` | `defaultErrorComponent`: un 403 `FORBIDDEN` de la API al cargar una página muestra la página de sin permiso **con el `message` de la API**; otro error, la página de error con `userMessage` |
+| `src/app/ForbiddenPage.tsx` | `message` opcional (el de la API); sin él, el texto de siempre |
+| `src/app/HomePage.tsx` | La sucursal actual (o el pedido de elegir una) y el acceso a Configuración dentro de `<RequirePermission>` |
+| `playwright.config.ts` | `testDir: 'e2e'`, `testMatch: '*.spec.ts'`, un solo *worker* y en serie (la base es compartida); `globalSetup`; dos `webServer`: el backend (`php artisan serve --no-reload` en `127.0.0.1:8010`, desde `backend/`, con `DB_DATABASE=syncvet_e2e`; si ya hay uno levantado en ese puerto, lo usa) y Vite en `5174` con `API_PROXY_TARGET` hacia el backend |
+| `e2e/support/database.ts` | `E2E_DATABASE = 'syncvet_e2e'` y `assertE2eDatabase(nombre)`: lanza un error con cualquier otro nombre (también con mayúsculas, espacios o un sufijo). Con su test de Vitest (`src/test/e2e-database.test.ts`, desvío 14) |
+| `e2e/global-setup.ts` | La preparación, en orden: (1) `assertE2eDatabase` sobre la base pedida; (2) pregunta a Laravel qué base resuelve con ese entorno (`artisan tinker --execute`) y vuelve a controlarla (cubre una configuración cacheada); (3) `migrate --force` (crea la base si falta), `migrate:fresh --seed --force` y `db:seed --class=DemoSeeder --force`, con `DEMO_PASSWORD` **generada al azar en cada corrida**; (4) ingresa como `admin-a` por la API del backend de `:8010` con esa contraseña: si no puede, el backend no usa la base recién preparada y se niega a seguir; (5) por la API, crea la sucursal `NOR` "Sucursal Norte" y se la asigna a `admin-a` (el `DemoSeeder` da una sola sucursal por usuario). La contraseña llega a los tests por `process.env` |
+| `e2e/support/session.ts` | `login(page, usuario)`, `logout(page)`, los usuarios del `DemoSeeder` y la contraseña de la corrida |
+| `e2e/*.spec.ts` | Los casos de la tabla de abajo |
+| `package.json` | `test:e2e`: `playwright test` |
+| `tsconfig.e2e.json` | `playwright.config.ts` y `e2e/`, con los tipos de Node |
+
+*Flujos.*
+
+1. **Permisos.** El `beforeLoad` de `_sesion` ya dejó `me` en la caché; el de la ruta hija (`requirePermission`) lo lee con
+   `queryClient.getQueryData` y, sin el permiso, `redirect` a `/sin-permiso`. El menú y los botones usan `useCan()`. Un 403 de la
+   API manda igual: al cargar, la página de sin permiso con el `message`; en una acción, la alerta o el aviso con el `message`.
+2. **Sucursal.** El selector es controlado por `me.current_branch`: mientras el `PATCH` está en curso queda deshabilitado; si falla,
+   vuelve solo a la actual. Las demás pestañas reciben `branch-changed` y vuelven a pedir `me` (los permisos no cambian con la
+   sucursal: son de la clínica).
+3. **Contraseña.** Sin el campo de confirmación: la API no lo pide (`UpdateOwnPasswordRequest`) y los dos campos se pueden mostrar.
+   La regla de la contraseña nueva (12 caracteres, mayúsculas, minúsculas, números, símbolos y no filtrada) la valida la API; el
+   formulario solo pide que los campos no estén vacíos.
+4. **Playwright.** `npm run test:e2e` desde `frontend/`, con MySQL andando (Laragon) y PHP en el `PATH`: levanta el backend y Vite
+   en sus puertos propios (o usa el backend que ya esté en `:8010`, que tiene que usar `syncvet_e2e`) y prepara la base cada vez.
+
+*Tests de Vitest.*
+
+| Qué | Cómo |
+|---|---|
+| `can` y `visibleMenu` | Con los permisos de los tres roles de `backend/tests/Fixtures/clinic-roles.json` (importado tal cual, no copiado): el administrador ve Configuración; recepción y veterinario, no |
+| Rutas | Con cada rol: `/configuracion` muestra la página o lleva a `/sin-permiso`; `/perfil` se ve con los tres; el botón del inicio, solo con el permiso; `/sin-permiso` dentro del layout (la barra se ve) |
+| Error de la API | `RouteErrorPage` con un 403 `FORBIDDEN` muestra el `message` de la API |
+| Sucursal | El selector lista `me.branches`; el cambio manda `branch_id`, actualiza la barra, invalida una consulta de otra clave (vuelve a pedirse) y publica `branch-changed`; otra pestaña con ese mensaje vuelve a pedir `me`; sin sucursal actual, el aviso; un 422, el aviso con el mensaje |
+| Perfil | Los datos; `PATCH me/password` con los dos campos; 422 en `current_password` y en `password` a sus campos; 429 con la cuenta regresiva; con el 200, la sesión sigue y el formulario se vacía; el botón muestra y oculta cada campo |
+| Preparación de Playwright | `assertE2eDatabase` acepta solo `syncvet_e2e` |
+
+*Casos de Playwright* (contra `syncvet_e2e`): el ingreso de cada rol y su menú; una ruta sin permiso (`recepcion-a` en
+`/configuracion`); una ruta protegida sin sesión lleva a `/ingresar` y vuelve después de ingresar; el cambio de sucursal, que otra
+pestaña también ve (y vuelve a la original al final); el cambio de contraseña, con la actual incorrecta en su campo, la sesión que
+sigue y el ingreso con la nueva (y vuelve a la original al final); salir en una pestaña cierra la otra.
+
+#### Pendiente para el cierre (0.2b)
+
+Implementación del 2026-11-12, en `feature/front-0-2b-permisos` (commit WIP), según el diseño detallado de arriba. Sin cambios en
+`backend/`, en el validador ni en las skills. El roadmap y el handoff quedan para el cierre (`frontend/CLAUDE.md` §8).
+
+**Cifras de la implementación** (desde `frontend/`, una vez al final, salvo lo que dice el desvío 11):
+
+* `npm run typecheck`, `npm run lint` y `npm run build`: sin errores ni avisos.
+* `npm test` del frontend: 248 tests en 20 archivos, en verde (24,4 s; 29 s en la repetición del desvío 14). Antes, 195 en 15:
+  suma 53 casos y 5 archivos (`permissions.test.ts`, `permissions.test.tsx`, `BranchSelector.test.tsx`, `ProfilePage.test.tsx` y
+  `src/test/e2e-database.test.ts`). La línea de la corrida se registra en "Resultado" en el cierre: hasta entonces, `/validar-docs`
+  marca esta cifra y la cantidad de archivos (20 contra los 15 de la corrida registrada de la 0.2a), como en todo WIP.
+* `npm run test:e2e` (Playwright, Edge, contra `syncvet_e2e`): 9 de 9 en verde, en 1 min 34 s en total (la preparación de la base
+  es más de la mitad; los casos, unos 50 s). La primera corrida, antes del desvío 8, también 9 de 9 (2 min 37 s, en frío).
+* Con `E2E_DB_DATABASE=syncvet npm run test:e2e`, la preparación se niega antes de tocar nada ("La preparación de Playwright solo
+  corre contra la base syncvet_e2e y recibió \"syncvet\": no se toca nada.").
+
+**Mutaciones**, cada una de a una con solo sus tests, las 5 detectadas: el menú sin filtrar por permisos (fallan 4 de 23); la ruta
+`/configuracion` sin `requirePermission` (2 de 14); no invalidar las consultas al cambiar de sucursal (1 de 7); no publicar
+`branch-changed` (1 de 7); la preparación de Playwright sin controlar el nombre de la base (8 de 9).
+
+**Desvíos y decisiones de la implementación.**
+
+| # | Desvío o decisión | Motivo | Estado |
+|---|---|---|---|
+| 1 | `/configuracion` provisoria ("En construcción"), con `system-settings.update`: el administrador la ve en el menú y en el inicio; recepción y veterinario van a `/sin-permiso` | En la F0 no había ninguna ruta con permiso: los tres roles veían el mismo menú | Decisión del usuario (2026-11-12) |
+| 2 | La preparación exige el nombre exacto `syncvet_e2e` (el diseño decía "termina en `_e2e`"); además controla la base que resuelve Laravel con ese entorno (`artisan tinker`) y que el backend de `:8010` use la base recién preparada: la contraseña del `DemoSeeder` se genera al azar en cada corrida y solo ese backend la acepta | El nombre exacto lo pidió el usuario; los otros dos controles cubren una configuración cacheada y un backend levantado contra otra base, que el nombre solo no ve | Para revisar |
+| 3 | La preparación crea por la API una segunda sucursal ("Sucursal Norte", `NOR`) y se la asigna a `admin-a` | El `DemoSeeder` da una sola sucursal por usuario: sin otra, no hay cambio de sucursal que probar. Sin tocar el backend | Para revisar |
+| 4 | Playwright levanta el backend (`php artisan serve --no-reload`, `127.0.0.1:8010`, `DB_DATABASE=syncvet_e2e`) y Vite (`:5174`) como `webServer`; si ya hay un backend en `:8010`, lo usa | El pedido decía "backend levantado contra `syncvet_e2e`": así no hay que levantarlo a mano, y uno levantado a mano también sirve (el control del desvío 2 frena uno contra otra base) | Para revisar |
+| 5 | Playwright usa el Edge instalado (`channel: 'msedge'`; `E2E_BROWSER_CHANNEL` para otro) y no descarga navegadores | Sin bajar ~150 MB por PC (`frontend/CLAUDE.md` §8). Edge viene con Windows | Para revisar |
+| 6 | `npm audit` da ahora 10 avisos moderados, no 1 | Es el mismo aviso de la [deuda 19](../../deuda-tecnica.md) (`minimatch` 10.2.6, GHSA-g3hv-75wg-m249): npm 11 lo cuenta en cada paquete que lo trae (`eslint`, `@eslint/config-array`, los de `typescript-eslint`). `@playwright/test` 1.56.1 no aparece | Informativo; la deuda 19 sigue igual |
+| 7 | `/perfil` sin el campo de confirmación de la contraseña nueva | La API no lo pide (`UpdateOwnPasswordRequest`) y los dos campos tienen el botón para mostrarla | Para revisar |
+| 8 | `permissions.tsx` del diseño queda en dos archivos: `permissions.ts` (`useCan`, `requirePermission`) y `RequirePermission.tsx` | ESLint (`react-refresh/only-export-components`): un archivo con un componente no exporta otras cosas | Informativo |
+| 9 | Un test de la 0.2a cambió: "sin sucursal actual, la barra lo dice" pasa a ser sin sucursales asignadas; con una asignada, la barra ofrece el selector con "Elegí tu sucursal" (test nuevo) | Es la conducta nueva del selector | Informativo |
+| 10 | Playwright no prueba "credenciales incorrectas" ni el vencimiento de la sesión, que estaban en la tabla de tests del diseño original y en el [criterio de cierre](#criterio-de-cierre) de la F0 ("el vencimiento, probado de punta a punta") | El pedido de la entrega listó los casos (roles y menú, ruta sin permiso, sucursal, contraseña, salir); el vencimiento lo cubren Vitest y la validación en el navegador de la 0.2a | Decidir en el cierre: sumarlos o ajustar el criterio |
+| 11 | `lint` corrió dos veces completo y `npm test` dos veces, no una; Playwright, dos veces | El primer `lint` encontró 5 errores (desvío 8 y tres `as` en un test); el primer `npm test`, el test del desvío 9. Playwright pasó entero antes del cambio del desvío 8 y se repitió sobre el código final | Informativo |
+| 12 | `src/routeTree.gen.ts` se regeneró solo al crear las rutas nuevas | Lo hizo un proceso de la PC (probablemente un `npm run dev` abierto); el contenido es el del plugin del router | Informativo |
+| 14 | El test de la guarda de la base pasa de `e2e/support/database.test.ts` (como decía el diseño) a `src/test/e2e-database.test.ts`; Vitest vuelve a incluir solo `src/` | `/validar-docs` cuenta los archivos de test solo en `frontend/src`: con el test en `e2e/`, la corrida registrada (20 archivos) no habría coincidido nunca con los 19 de `src/`. Se repitió `npm test` (248 en 20) | Informativo |
+| 13 | El desvío 9 de la 0.1 (`/sin-permiso` dentro del layout con sesión) queda confirmado | Pedido del usuario; anotado en la tabla de la 0.1 | Confirmado |
+
+**Qué revisar en el navegador** (además de la lista del diseño): el cambio de sucursal necesita un usuario con dos sucursales; en
+la base `syncvet` de desarrollo los del `DemoSeeder` tienen una. Se puede probar contra `syncvet_e2e` después de un
+`npm run test:e2e` (`admin-a` tiene "Sucursal Norte", con la contraseña de esa corrida, que no queda guardada) o asignarle otra
+sucursal a `admin-a` en `syncvet` por la API (Postman).
 
 ## Documentación por entrega
 
@@ -422,7 +535,7 @@ contra 9,55 s con las mismas 93 pruebas): casi todo el tiempo de jsdom es de los
 | 6 | `tsconfig.test.json` aparte, con los tipos de Node | El código de la aplicación no ve `process` ni `node:fs`; los tests (el de voseo lee `src/`) sí | Informativo |
 | 7 | `frontend/.editorconfig` (sangría de 2) y `frontend/.gitattributes` (fin de línea LF) | Prettier toma la sangría de 4 del `.editorconfig` de la raíz (la del backend); con LF fijo, `prettier --check` da lo mismo en todas las PC | Informativo |
 | 8 | `toApiDateTime` manda la hora con el desplazamiento (`2026-07-01T09:00:00.000-03:00`), como da `TZDate(...).toISOString()` | Lo pedido. Que la API lo acepte en cada campo de fecha y hora se verifica con la primera llamada real (0.2a o F3) | PENDIENTE DE VERIFICACIÓN |
-| 9 | `/sin-permiso` va dentro del layout con sesión; la página de no encontrado, fuera de todo layout | El usuario sin permiso ya tiene sesión: ve la barra y el menú. Una URL desconocida puede no tener sesión | Sin decisión del usuario: se confirma en la 0.2b, con las rutas por permisos |
+| 9 | `/sin-permiso` va dentro del layout con sesión; la página de no encontrado, fuera de todo layout | El usuario sin permiso ya tiene sesión: ve la barra y el menú. Una URL desconocida puede no tener sesión | Confirmado en la 0.2b (pedido del usuario al implementarla, 2026-11-12): una ruta sin permiso lleva a `/sin-permiso` con la barra y el menú a la vista, probado con Vitest y con Playwright |
 | 10 | Scripts además de los del diseño: `format:check` y `test:watch`; `test:e2e` avisa que llega en la 0.2 (0.2b) y sale con error | Preparar la 0.2 sin que un `test:e2e` vacío parezca en verde | Informativo |
 | 11 | El validador de la documentación (`check-docs.php`) separa las cifras: las de una cláusula que nombra al frontend o de un documento de `frontend/` se comparan con los tests del frontend; la cifra de tests de un archivo de test citado (entre comillas invertidas, con la cifra entre paréntesis) se compara con ese archivo; el resumen dice "Backend:" y "Frontend:". Una cifra del frontend que no es de tests (de rutas, por ejemplo) se excluye y se lista en `--detalle` | Pedido de la entrega; antes toda cifra del frontend se excluía como "de otro proyecto" | Informativo |
 

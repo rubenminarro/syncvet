@@ -175,6 +175,16 @@ export class SessionManager {
     return this.revoke(session.token);
   }
 
+  /**
+   * Esta pestaña cambió la sucursal actual: las demás vuelven a pedir `me` e invalidan sus consultas (los datos dependen de
+   * la sucursal).
+   */
+  publishBranchChanged(): void {
+    if (this.snapshot.session !== null) {
+      this.channel.post({ type: 'branch-changed' });
+    }
+  }
+
   dispose(): void {
     this.clearTimers();
     this.unsubscribeChannel();
@@ -273,6 +283,12 @@ export class SessionManager {
         // Una sesión de un token que otra pestaña ya cerró (el logout llegó antes que esta respuesta) no sirve.
         if (!this.closedTokenIds.has(tokenId(message.session.token))) {
           this.receiveShare?.(message.session);
+        }
+        break;
+      case 'branch-changed':
+        // Todas las consultas, `me` incluida (staleTime: Infinity; invalidarla la vuelve a pedir si está a la vista).
+        if (own !== null) {
+          void this.queryClient.invalidateQueries();
         }
         break;
       case 'logout': {

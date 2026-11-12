@@ -10,7 +10,7 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 |---|---|
 | Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md) |
 | Entrega | 0.1, esqueleto sin backend: COMPLETADA (R-060) en `feature/front-0-1-esqueleto`; 0.2a, la sesión contra la API real: COMPLETADA (R-061) en `feature/front-0-2a-sesion` |
-| Siguiente | 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion` |
+| Siguiente | 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion`: implementada (WIP), falta la revisión y el cierre |
 | Tests | Vitest: 195 tests en 15 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
@@ -29,7 +29,7 @@ Desde `frontend/`, con Node 26 (`.nvmrc`; `engine-strict` rechaza otra versión 
 | `npm run lint` | ESLint, sin avisos (`--max-warnings 0`) |
 | `npm run format` | Prettier sobre todo el proyecto (`format:check` solo revisa) |
 | `npm test` | Vitest, una vez (`test:watch`, en modo observación) |
-| `npm run test:e2e` | Playwright, desde la 0.2b (hoy avisa y sale con error) |
+| `npm run test:e2e` | Playwright contra el backend real y la base `syncvet_e2e`, recreada en cada corrida (levanta el backend en `:8010` y Vite en `:5174`); qué necesita, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright) |
 
 Antes de dar algo por terminado: `typecheck`, `lint`, `test` y `build`, los cuatro sin errores ni avisos. Las dependencias se
 verifican en npm antes de instalarlas y se auditan con `npm audit`.
@@ -47,7 +47,7 @@ elecciones, con su alternativa descartada, en R-058.
 | Datos del servidor | TanStack Query sobre el cliente propio de `src/lib/api/client.ts` (fetch, sin Axios) |
 | Formularios | React Hook Form con Zod (`@hookform/resolvers`) |
 | Fechas | date-fns 4 con `@date-fns/tz` |
-| Tests | Vitest, Testing Library, MSW y jsdom; Playwright desde la 0.2b |
+| Tests | Vitest, Testing Library, MSW y jsdom; Playwright (`@playwright/test`, con el Edge instalado) desde la 0.2b |
 | Calidad | ESLint (`typescript-eslint` estricto con tipos, reglas de hooks) y Prettier |
 
 ## 4. Estructura
@@ -58,21 +58,23 @@ frontend/
 ├── .env.example         API_PROXY_TARGET (el backend del proxy de desarrollo)
 ├── vite.config.ts       React, el plugin de TanStack Router, el proxy de /api y Vitest
 ├── eslint.config.js     Reglas, con fetch y XMLHttpRequest prohibidos fuera del cliente y sin dangerouslySetInnerHTML
+├── playwright.config.ts Playwright: el backend y Vite en sus puertos propios, en serie, la preparación de syncvet_e2e
+├── e2e/                 Casos de punta a punta (*.spec.ts), global-setup.ts y support/ (la guarda de la base, con su test de Vitest)
 └── src/
     ├── main.tsx         Arranque: estilos de Tabler y <App>
     ├── routeTree.gen.ts Generado por el plugin del router (se versiona; no se edita a mano)
     ├── routes/          Una ruta por archivo; el nombre es la URL en castellano
     ├── app/             Proveedores (App), router, layouts, menú y páginas de error
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
-    ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts
+    ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
     ├── components/ui/   Capa propia sobre Tabler: Button, TextField, Alert, Card, DataTable, ErrorPage, Loading, avisos
     ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (en la F0, auth)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
-Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/` y `/sin-permiso`; exige
-la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
+Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/`, `/perfil`,
+`/configuracion`, provisoria y solo para el administrador, y `/sin-permiso`; exige la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
 
 ## 5. Convenciones
@@ -117,7 +119,16 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   `focus`, `pageshow`) y cada 15 s; el aviso previo, 10 minutos antes, con los minutos que quedan. `volver` pasa siempre por
   `safeRedirect` (solo rutas internas). Un pedido con un token explícito (`token: null` en el login, un texto en el `logout`) no toca
   la sesión.
-* **Permisos** (0.2b): el menú y los botones según `me.permissions`; la API vuelve a controlar todo (un botón oculto no protege).
+* **Permisos** (0.2b): `can(me, permiso)` (`src/lib/auth/permissions.ts`, con los nombres de la API en `PERMISSIONS`); en los
+  componentes, `useCan()` y `<RequirePermission permission>` (`src/features/auth`). Cada ruta con permiso lo declara con
+  `beforeLoad: requirePermission(permiso)`: sin él, `/sin-permiso` (dentro del layout con sesión). El menú (`src/app/menu.ts`)
+  lista solo los módulos hechos, con su permiso, y `visibleMenu` lo filtra. La API vuelve a controlar todo (un botón oculto no
+  protege): un 403 `FORBIDDEN` al cargar una página muestra la de sin permiso con el `message` de la API
+  (`defaultErrorComponent`, `RouteErrorPage`); en una acción, la alerta con el `message`. Los tests usan los permisos reales de
+  los tres roles, leídos de `backend/tests/Fixtures/clinic-roles.json` (`src/test/roles.ts`, `meFor(rol)`), nunca inventados.
+* **Sucursal actual** (0.2b): el selector de la barra (`BranchSelector`) con `me.branches`; `PATCH me/current-branch` y, con el
+  200, `applyBranchChange` (`['me']` con la respuesta y el resto de las consultas invalidadas: los datos dependen de la sucursal)
+  y `branch-changed` en el canal (las demás pestañas invalidan todas sus consultas). Sin sucursal actual, un aviso pide elegir una.
 * **Descargas con token** (desde la F1): se piden con el cliente como `blob` y se muestran con una URL de objeto.
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
   con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
@@ -158,6 +169,7 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 | # | Deuda | Prioridad |
 |---|---|---|
 | 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint`; solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
+| 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
 [resultado](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01).

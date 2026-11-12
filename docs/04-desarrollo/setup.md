@@ -34,6 +34,31 @@ npm run dev    # http://localhost:5173
 El servidor de Vite manda `/api` al backend de `API_PROXY_TARGET` (por defecto `http://syncvet.test`, el vhost de Laragon): para otro,
 copiar `frontend/.env.example` a `frontend/.env` y cambiarlo. El detalle, en [`frontend/README.md`](../../frontend/README.md).
 
+### Pruebas de punta a punta (Playwright)
+
+Desde la F0.2b, contra el backend real y la base **`syncvet_e2e`** (MySQL), que se borra y se vuelve a crear en cada corrida:
+
+```bash
+cd frontend
+npm run test:e2e        # playwright test; el informe queda en playwright-report/ (npx playwright show-report)
+```
+
+Qué necesita:
+
+* MySQL andando (Laragon) con el usuario de `backend/.env`, y `php` en el `PATH`. La base `syncvet_e2e` no hace falta crearla:
+  la preparación la crea si falta.
+* El backend contra `syncvet_e2e` en `http://127.0.0.1:8010`. Playwright lo levanta solo (`php artisan serve --no-reload` desde
+  `backend/`, con `DB_DATABASE=syncvet_e2e` en el entorno); si ya hay uno levantado en ese puerto, usa ese, que tiene que usar
+  `syncvet_e2e`. También levanta Vite en `http://localhost:5174` con `/api` hacia ese backend (no choca con `npm run dev`).
+* Edge instalado: Playwright usa el navegador de la PC (`channel: 'msedge'`) y no descarga ninguno. Con otro,
+  `E2E_BROWSER_CHANNEL=chrome npm run test:e2e`.
+
+La preparación (`frontend/e2e/global-setup.ts`) **se niega a correr si la base no es `syncvet_e2e`**: controla el nombre pedido y
+el que resuelve Laravel con ese entorno (una configuración cacheada daría otro). Después hace `migrate:fresh --seed` y el
+`DemoSeeder` con una contraseña generada en cada corrida (`DEMO_PASSWORD` solo para esa ejecución; la de `backend/.env` no se
+usa), ingresa con ella en el backend de `:8010` (si no puede, ese backend no usa la base recién preparada y se detiene) y crea por
+la API la sucursal "Sucursal Norte" para `admin-a`. No toca la base `syncvet` de desarrollo.
+
 ## Antivirus de Windows
 
 Microsoft Defender revisa cada archivo que se escribe: `npm ci` (decenas de miles de archivos en `frontend/node_modules`) y
