@@ -1277,3 +1277,28 @@ el diseño de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-ba
 | Calidad | ESLint + Prettier | Biome (todavía sin las reglas de hooks de React que da ESLint) |
 
 **Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: solo documentación.
+
+# R-059 Cierre de la entrega de soporte del frontend (B1 a B3) (2026-11-12)
+
+Entrega del backend pedida por la F0 del frontend (R-058), en `feature/front-00-me-sucursales`: implementada, revisada, corregida y
+validada por el usuario. El detalle, en el [resultado de la entrega](../../03-plan-desarrollo/fases/backend/front-00-soporte-del-frontend.md#resultado).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| B1 | `me` (también `data.user` del login y `PATCH me/current-branch`) trae `branches`: las sucursales activas asignadas al usuario, por `code`, exactamente las que acepta `me/current-branch`, también para el administrador. La regla vive solo en `Branch::selectableBy($user)` (H8) | Diseño (R-058); la regla en un lugar, revisión |
+| B2 | CORS por `CORS_ALLOWED_ORIGINS`: solo orígenes exactos `http(s)://host[:puerto]`, normalizados en minúsculas y sin la barra final (`App\Support\CorsOrigins`); sin credenciales, `Retry-After` expuesto | Diseño (R-058); revisión, H1 y H6 |
+| El `*` de CORS | Se descarta, con un aviso en el log; la revisión lo extendió a todo origen que no sea exacto (php-cors toma `https://*` o `*.dominio` como patrones). El aviso sale como máximo una vez por hora (`Cache::add`) | Usuario; revisión, H1 y H7 |
+| B3 | `meta.pagination` en `snake_case` (`per_page`, `current_page`, `last_page`) en los 11 listados, armado por `ApiResponse::paginationMeta()`; `SnakeCaseKeysTest` protege la convención (arreglos, asignaciones por índice, `compact()` y `Arr::set`; sin marcar brazos de `match` ni el contexto del log) | Diseño (R-058); revisión, H2 y H5 |
+| Desvíos | Los 1 a 5 de la implementación y los 6 y 7 de la revisión, aceptados (lista en el resultado de la entrega) | Usuario |
+| Colección de sucursales | El 422 del alta en la primera validación se reproduce con la versión anterior a B3 de la colección (lee `lastPage`): causa probable, el Runner con la colección vieja importada. La colección pasa a ser repetible sin límite: usa siempre `SUC-PM` (alta o reactivación), rota su establecimiento y limpia las variables al empezar | Análisis; el arreglo, pedido por el usuario |
+| R-058 | La columna de alternativas descartadas se ajustó al informe del análisis (SWR; Axios o ky; `tabler-react`, que quedó en React 16, y el JS de Tabler; Node 24, en mantenimiento, y pnpm), con "sin Tailwind" en la elección de la interfaz, a pedido del usuario | Usuario |
+| Integración | Sin merge a `main` todavía: la rama se integra al cerrar la F0 del frontend. La F0.1 (esqueleto) se hace en `feature/front-0-1-esqueleto`, creada desde esta rama (en lugar de `feature/frontend-f0-01-esqueleto` desde `main`, como decía el diseño de la F0) | Usuario |
+
+**Validación.** El usuario, el 2026-11-12 (Collection Runner, una iteración, después de las correcciones): sucursales 123 de 123, dos
+corridas seguidas, y usuarios 136 de 136, 0 errores. Suite en serie sobre `bdaa78f`: 1445 casos; 14183 aserciones en SQLite (14
+omitidos, solo de MySQL) y 14257 en MySQL. Newman, las 14 colecciones dos veces seguidas contra la base de desarrollo, sin fallas
+(cifras en la [guía de Postman](../../05-pruebas/guia-postman.md#entrega-de-soporte-del-frontend-front-00)).
+
+**Qué no cambió.** Rutas (78), permisos (135), migraciones (36), `error_code` y códigos HTTP. Cambian, a propósito, `me` (suma
+`branches`), las claves de `meta.pagination` y las cabeceras de CORS (antes, sin `config/cors.php`, regía el valor por defecto de
+Laravel: cualquier origen).

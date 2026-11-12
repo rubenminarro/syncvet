@@ -1,8 +1,9 @@
 # Entrega de soporte del frontend (B1 a B3)
 
 Entrega del backend fuera de las fases del MVP, pedida por la [F0 del frontend](../frontend/f0-base.md) antes de su entrega 0.2
-(R-058). Estado: **DISEÑO APROBADO** por el usuario el 2026-11-12 (R-058), en `docs/frontend-analisis`, con las [preguntas](#preguntas)
-respondidas. Rama de implementación: `feature/front-00-me-sucursales`, desde `main`.
+(R-058). Estado: **CERRADA** (R-059): implementada, revisada, corregida y validada por el usuario el 2026-11-12 ([resultado](#resultado)).
+Diseño aprobado el 2026-11-12 (R-058), en `docs/frontend-analisis`, con las [preguntas](#preguntas) respondidas. Rama:
+`feature/front-00-me-sucursales`, sin integrar a `main` todavía: se integra al cerrar la F0 del frontend (R-059).
 
 ## Objetivo
 
@@ -137,87 +138,81 @@ Respondidas por el usuario el 2026-11-12 (R-058).
 
 ## Pendiente para el cierre
 
-Implementación del 2026-11-12 (commit WIP en `feature/front-00-me-sucursales`), sin validar todavía por el usuario.
-
-**Desvíos del diseño.**
-
-1. `paginationMeta()` es un método `protected` (no estático) del trait `App\Traits\ApiResponse`, y los controllers lo llaman con
-   `$this->paginationMeta($paginator)`: llamar a un método estático directamente sobre un trait (`ApiResponse::paginationMeta`) está
-   obsoleto desde PHP 8.1. Sigue siendo el único lugar que arma el bloque.
-2. El caso por controller de la paginación va en un test nuevo, `tests/Feature/PaginationMetaTest.php` (11 casos con un *data
-   provider*), además de los 9 tests que pasaron a las claves nuevas.
-3. `SnakeCaseKeysTest`: el "archivo de ejemplo que la rompe" se escribe en un archivo temporal desde el propio test (como el código de
-   ejemplo de `NoDatabaseNowTest`), para que no quede un `.php` con claves en `camelCase` dentro del repositorio. Suma un caso que
-   exige que el escaneo cubra `app/Http`, `app/Traits`, `app/Exceptions`, `app/Services` y `app/Support` (sin él, la mutación "la
-   protección sin mirar `app/Http`" pasaba).
-4. Postman, sucursales: para ver `me.branches` antes y después de inactivar la sucursal nueva, la colección le asigna esa sucursal a
-   `admin-a` (pedidos 23b a 23e y 24a) y al final le devuelve sus sucursales de antes (33b). Usuarios: un pedido nuevo, 30b (la otra
-   sucursal de `me.branches` también se acepta como actual).
-5. El pedido mencionó `backend/CLAUDE.md` §5 para el contrato; el contrato está en §4 (Contrato de respuesta), y ahí se documentó,
-   junto con la convención `snake_case` en §3 y el perfil en §6.5.
-
-**Desvíos aceptados.** El usuario aceptó los desvíos 1 a 5 el 2026-11-12.
-
-**Decidido: el `*` de CORS** (usuario, 2026-11-12). Laravel (php-cors) toma un `*` de `allowed_origins` como "cualquier origen":
-`config/cors.php` lo descarta de `CORS_ALLOWED_ORIGINS` (los demás orígenes siguen) y marca `wildcard_discarded`, una clave propia
-que php-cors no lee; con ella, `AppServiceProvider::boot` deja un aviso en el log. El aviso sale en cada arranque de la aplicación
-(en cada pedido), mientras la variable siga con el `*`. Tests: `CorsTest` (el descarte, con y sin otros orígenes, y el aviso, con y
-sin `*`); las mutaciones "sin descartar" y "sin aviso" fallan.
-
-**R-058.** Vuelven pnpm como alternativa descartada del entorno y "sin Tailwind" en la elección de la interfaz.
-
-**Notas.**
-
-* `.env` no se versiona: en cada PC que use el frontend sin el proxy de Vite hay que agregar `CORS_ALLOWED_ORIGINS` (está en
-  `.env.example`).
-* Suite al terminar: 1425 casos (30 más que el cierre de la FASE 3); SQLite en serie, 14110 aserciones (14 omitidos, los de solo
-  MySQL); MySQL, 14184.
-* Falta para el cierre: el resultado de esta entrega en este documento, la sección `R-NNN` del registro, el roadmap, el handoff,
-  `backend/CLAUDE.md` §1 (cifras de la suite) y la validación del usuario con Postman.
-
-### Validación del usuario y revisión (2026-11-12)
-
-**Falla de la colección de sucursales.** En la validación del usuario, el alta (pedido 04) respondió 422. En la base de
-desarrollo esa corrida (09:08) dejó solo los tres logins en la auditoría. Newman con la colección del repositorio no la reprodujo
-(con las variables vacías ni desde un export con los valores de la corrida anterior). Sí la reproduce la versión anterior a B3,
-que lee `meta.pagination.lastPage`: sin esa clave, el pedido 02 nunca elige los establecimientos y el 04 recibe
-`{"errors": {"establishment": ["El código de establecimiento es obligatorio."]}}`; con el valor que el Collection Runner conserva de
-la corrida anterior, el mismo 422 dice "Ya hay una sucursal con ese código de establecimiento". Causa probable: el Runner tenía
-importada la versión anterior de la colección de sucursales (la de usuarios sí estaba al día: sus 136 aserciones son las de
-la versión nueva). No fueron los establecimientos agotados (la clínica A tenía 6 sucursales) ni el cambio de `admin-a` del desvío 4. Además,
-de fondo, la colección no era repetible: cada corrida dejaba una sucursal inactiva con su establecimiento (hay 998).
-
-**Corrección de la colección.** Usa siempre la misma sucursal, `SUC-PM`: la primera corrida la da de alta y las siguientes la
-reactivan (el pedido 04 pasa a `PATCH`); el pedido 14 le pasa un establecimiento libre y deja libre el anterior, así que no consume
-ninguno. El pedido 02 falla si la paginación no trae `last_page`; el 01a borra los valores de la corrida anterior y arma el
-identificador de la corrida con la hora (`Date.now()` en base 36), así que los códigos de los depósitos no se repiten; el 23c le
-quita `SUC-PM` a `admin-a` por si una corrida anterior se cortó. 44 pedidos y 123 aserciones; corrida tres veces seguidas (la
-primera crea, las otras reactivan) y desde un export con variables persistentes, sin fallas.
-
-**Hallazgos de la revisión, corregidos.**
-
-| # | Corrección | Tests | Mutación que ahora falla |
-|---|---|---|---|
-| H1 | `App\Support\CorsOrigins`: solo orígenes exactos `http(s)://host[:puerto]`; todo lo demás, también cualquier `*`, se descarta (`discarded_origins`) | `CorsTest`: 11 orígenes descartados (`https://*`, `*.dominio`, `https://*.dominio`, `https://app*.dominio`, `http://localhost:*`, sin esquema, otro esquema, con ruta, consulta o usuario) y ningún comodín llega a php-cors | Aceptar `*` dentro del host |
-| H6 | El origen se normaliza: minúsculas y sin la barra final (también IPv6 entre corchetes) | `test_the_origins_are_normalized` | Sin minúsculas; sin quitar la barra |
-| H7 | El aviso de descartados sale como máximo una vez por hora (`Cache::add`, `AppServiceProvider::CORS_WARNING_KEY`); si el caché falla, avisa igual y el arranque no se rompe | Dos arranques en la misma hora, un aviso; a los 61 minutos, otro; sin descartados, ninguno; sin caché, avisa | Sin el límite por hora |
-| H2 | `SnakeCaseKeysTest` también revisa `$x['clave'] = …` (anidado y con `??=`, `.=`…), `compact()` y la clave de `Arr::set`, `Arr::add`, `data_set` y `data_fill` | El archivo de ejemplo; `$data['checkedInAt']` en `QueueAppointmentResource` lo hace fallar | Escáner sin las asignaciones |
-| H5 | El escáner sigue los contextos (arreglo, `match`, llamada al log, atributo): no marca los brazos de un `match` ni los arreglos pasados a `Log::…`, `logger()` o `->warning(…)` | `test_values_match_arms_and_log_context_do_not_count` (también valores con mayúsculas) | Escáner que no distingue el `match`; que no ignora el log |
-| H3 | — (el código ya ordenaba por `code`) | `MeTest::test_me_branches_are_ordered_by_code_not_by_name_or_id` (código, nombre e id en órdenes distintos) | `orderBy('name')`; `orderBy('id')` |
-| H4 | — | El test de equivalencia de `CurrentBranchTest` corre también con el administrador, con una sucursal inactiva asignada y una de otra clínica | El administrador ve sus inactivas |
-| H8 | `Branch::selectableBy($user)` (columna `branches.is_active` calificada): la usan `App\Rules\SelectableBranch` (el Request), `AuthService::setCurrentBranch` y `AuthService::profile` (`setRelation`, una consulta) | `test_the_request_rejects_a_branch_that_is_not_selectable_before_the_service` (el Service simulado no se llama) | `me` con todas las asignadas; la regla del Request sin la asignación |
-
-**Desvíos de esta ronda.**
-
-1. La regla del Request es una clase, `App\Rules\SelectableBranch`, no un *closure*: `ValidationTranslationsTest` exige que cada
-   regla esté clasificada (se agregó a su lista, con su mensaje propio).
-2. `wildcard_discarded` pasó a `discarded_origins` (la lista de lo descartado, para el aviso).
-3. La colección de sucursales ya no da de alta una sucursal nueva en cada corrida (ver arriba). Las sucursales `SUC-1xxxxx` que
-   dejaron las corridas anteriores siguen en la base.
-
-**Cifras.** Suite: 1445 casos; SQLite en serie, 14183 aserciones (14 omitidos, los de solo MySQL); MySQL, 14257. Newman, todas las
-colecciones dos veces seguidas contra la base de desarrollo, sin fallas (detalle en la guía de Postman).
+Nada.
 
 ## Resultado
 
-Sin implementar.
+Cerrada el 2026-11-12 (R-059). Commits en `feature/front-00-me-sucursales`: `cec996c` (ajuste de R-058), `9495067` (implementación,
+WIP), `3615e60` (el `*` de CORS, WIP), `bdaa78f` (correcciones de la revisión y colección de sucursales repetible, WIP) y el cierre,
+solo de documentación. Sin rutas, permisos ni migraciones nuevas (78, 135 y 36).
+
+### Qué se hizo
+
+| # | Cambio | Código | Tests |
+|---|---|---|---|
+| B1 | `me` (también `data.user` del login y `PATCH me/current-branch`) trae `branches`: las sucursales activas asignadas al usuario, por `code`, con `id`, `code` y `name`; exactamente las que acepta `me/current-branch`, también para el administrador | `Branch::selectableBy($user)` (la regla en un solo lugar, con `branches.is_active` calificada), `App\Rules\SelectableBranch` (el Request), `AuthService::setCurrentBranch` y `AuthService::profile` (una consulta), `MeResource` | `MeTest` (activas y asignadas, por `code` y no por nombre ni id, sin sucursales, el administrador, otra clínica asignada a mano, el login y una sola consulta) y `CurrentBranchTest` (cada sucursal de `me.branches` se acepta y ninguna otra, con el recepcionista y con el administrador, con una inactiva asignada y una de otra clínica; el Request rechaza antes del Service) |
+| B2 | CORS por `CORS_ALLOWED_ORIGINS`: solo `api/*`, orígenes exactos `http(s)://host[:puerto]` normalizados (minúsculas, sin la barra final); lo demás, todo `*` incluido, se descarta con un aviso en el log como máximo una vez por hora; sin credenciales, `Retry-After` expuesto, `max_age` 600 | `config/cors.php`, `App\Support\CorsOrigins`, `AppServiceProvider` (`CORS_WARNING_KEY`, `Cache::add`); `.env.example` con `http://localhost:5173` | `CorsTest` (24 casos: origen permitido y no permitido, preflight 204 de una ruta con token, sin la variable o vacía, lista con espacios, 11 orígenes descartados, ningún comodín llega a php-cors, normalización, el 429 del login con `Retry-After` expuesto, el aviso una vez por hora, sin descartados y sin caché) |
+| B3 | `meta.pagination` en `snake_case` (`total`, `per_page`, `current_page`, `last_page`) en los 11 listados, armado solo por `paginationMeta()` | `App\Traits\ApiResponse::paginationMeta()` y los 11 controllers | `PaginationMetaTest` (un caso por controller), los 9 tests que leían la paginación y `SnakeCaseKeysTest` (claves en arreglos, también anidadas, asignadas por índice, en `compact()` y en `Arr::set`, `Arr::add`, `data_set` y `data_fill`; sin falsos positivos con valores, brazos de `match` ni el contexto del log; el escaneo cubre todo `app/` y `bootstrap/app.php`) |
+
+### Desvíos aceptados
+
+El usuario aceptó los desvíos 1 a 5 el 2026-11-12 y los de la revisión al validar.
+
+1. `paginationMeta()` es un método `protected` del trait `ApiResponse`, llamado con `$this->paginationMeta($paginator)`: llamar a
+   un método estático directamente sobre un trait está obsoleto desde PHP 8.1.
+2. El caso por controller de la paginación va en un test nuevo, `PaginationMetaTest`.
+3. El archivo de ejemplo de `SnakeCaseKeysTest` se escribe en un archivo temporal desde el test, y un caso exige que el escaneo cubra
+   el código que arma las respuestas.
+4. La colección de sucursales le asigna la sucursal de la colección a `admin-a` para probar `me.branches` y al final le devuelve sus
+   sucursales; la de usuarios suma el pedido 30b.
+5. El contrato se documentó en `backend/CLAUDE.md` §4 (el pedido decía §5), con la convención en §3 y el perfil en §6.5.
+6. (Revisión) La regla del Request es una clase, `App\Rules\SelectableBranch`, no un *closure*: `ValidationTranslationsTest` exige
+   que cada regla esté clasificada.
+7. (Revisión) La clave propia de `config/cors.php` es `discarded_origins` (la lista de lo descartado, para el aviso).
+
+### Decisiones del usuario
+
+* **El `*` de CORS** (2026-11-12): se descarta, con un aviso en el log. La revisión (H1) lo extendió a todo origen que no sea exacto:
+  php-cors toma `*` como "cualquier origen" y un `*` adentro (`https://*`, `*.dominio`) como un patrón.
+* **Sin merge a `main` todavía**: la rama se integra al cerrar la F0 del frontend, y la F0.1 sale de esta rama
+  (`feature/front-0-1-esqueleto`).
+
+### Revisión y correcciones
+
+Revisión del 2026-11-12, en la misma sesión, como un revisor que no la escribió. Todas las mutaciones de la tabla fallan con los tests
+nuevos.
+
+| # | Hallazgo | Corrección | Mutación que ahora falla |
+|---|---|---|---|
+| H1 | `https://*` pasaba el descarte del `*` y abría CORS a cualquier origen https, sin aviso | `CorsOrigins`: solo orígenes exactos; lo demás se descarta | `*` aceptado dentro del host |
+| H2 | `SnakeCaseKeysTest` no veía claves asignadas por índice (`QueueAppointmentResource` arma claves así) | El escáner revisa `$x['clave'] = …`, `compact()`, `Arr::set`, `Arr::add`, `data_set` y `data_fill` | `$data['checkedInAt']`; el escáner sin las asignaciones |
+| H3 | Ningún test fallaba con el orden por nombre | Test con código, nombre e id en órdenes distintos | `orderBy('name')` y `orderBy('id')` |
+| H4 | Sin el caso del administrador con una sucursal inactiva asignada | El test de equivalencia corre también con el administrador | El administrador ve sus inactivas |
+| H5 | El escáner marcaba los brazos de `match` y el contexto del log | El escáner sigue los contextos (arreglo, `match`, log, atributo) | El escáner sin distinguir el `match`; sin ignorar el log |
+| H6 | Un origen con barra final o en mayúsculas se aceptaba y nunca coincidía | Normalización en minúsculas y sin la barra final | Sin minúsculas; sin quitar la barra |
+| H7 | El aviso del `*` salía en cada pedido | Una vez por hora con `Cache::add`; si el caché falla, avisa igual y el arranque sigue | Sin el límite por hora |
+| H8 | La regla "activa y asignada" estaba en tres lugares, con `is_active` sin calificar | `Branch::selectableBy` en un solo lugar | `me` con todas las asignadas; la regla del Request sin la asignación |
+
+### La colección de sucursales
+
+En la primera validación del usuario, el alta (pedido 04) respondió 422. La colección del repositorio no lo reproducía con Newman (con
+las variables vacías ni con los valores de la corrida anterior). Sí lo reproduce la versión anterior a B3, que lee
+`meta.pagination.lastPage`: sin esa clave, el pedido 02 nunca elige los establecimientos y el 04 recibe 422 en `establishment` ("El
+código de establecimiento es obligatorio."; con el valor que el Collection Runner conserva de la corrida anterior, "Ya hay una
+sucursal con ese código de establecimiento."). Causa probable: el Runner tenía importada la versión anterior de la colección de
+sucursales (la de usuarios estaba al día). No fueron los establecimientos agotados ni el cambio de `admin-a`.
+
+De fondo, la colección no era repetible: cada corrida dejaba una sucursal inactiva con su código de establecimiento (hay 998). Ahora
+usa siempre `SUC-PM` (alta la primera vez, reactivación con `PATCH` en las siguientes), rota su establecimiento a uno libre (pedido 14),
+borra al empezar los valores de la corrida anterior, arma el identificador de la corrida con la hora y falla en el pedido 02 si la
+paginación no trae `last_page`. Las sucursales `SUC-1xxxxx` de las corridas anteriores quedan en la base.
+
+### Validación
+
+* **Usuario** (2026-11-12, Collection Runner, una iteración, después de las correcciones de la revisión): sucursales, 123 de 123, dos
+  corridas seguidas, 0 errores; usuarios, 136 de 136, 0 errores.
+* **Suite en serie** sobre el código de `bdaa78f`: 1445 casos; 14183 aserciones en SQLite (14 omitidos, los de solo MySQL) y 14257 en
+  MySQL, sin omitidos. `composer test:fast`: 1445 casos en verde.
+* **Newman**, todas las colecciones, dos veces seguidas contra la base de desarrollo, sin fallas: clientes 48 aserciones, especies 93,
+  foto 60, pacientes 61, auditoría 47, configuración 67, servicios 64, sucursales 123 (44 pedidos), usuarios 136 (54 pedidos),
+  veterinarios 75, agendas 68, disponibilidad 81, series 42 y turnos 107.

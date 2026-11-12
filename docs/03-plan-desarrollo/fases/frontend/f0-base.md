@@ -14,7 +14,7 @@ clientes y pacientes empiezan en la F1.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/frontend-f0-01-esqueleto` | PENDIENTE |
+| 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/front-0-1-esqueleto`, desde `feature/front-00-me-sucursales` (R-059) | PENDIENTE |
 | 0.2 | Sesión: ingresar, salir, `me`, sucursal actual, cierre en todas las pestañas, vencimiento, menú por permisos y pruebas de punta a punta | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/frontend-f0-02-sesion` | PENDIENTE |
 
 El orden es F0 → F1 → F2 → F3 y después la FASE 4 del backend (R-058, decisión D2); las tres últimas fases del frontend van sobre la API ya cerrada de las fases 1 a 3 del
@@ -23,10 +23,13 @@ backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../pro
 ### Orden con la entrega del backend
 
 ```text
-main ─┬─ feature/front-00-me-sucursales (B1–B3) ── merge ─┐
-      │                                                    ├─ feature/frontend-f0-02-sesion
-      └─ feature/frontend-f0-01-esqueleto ─────── merge ──┘
+main ── feature/front-00-me-sucursales (B1–B3, cerrada, R-059)
+           └─ feature/front-0-1-esqueleto (0.1)
+                └─ feature/frontend-f0-02-sesion (0.2) ── merge a main al cerrar la F0
 ```
+
+**Decisión del usuario (R-059).** La entrega del backend se cerró primero y no se integra a `main` todavía: la 0.1 sale de su rama y
+todo se integra a `main` al cerrar la F0. Reemplaza la propuesta de R-058: dos ramas desde `main`, integradas antes de la 0.2.
 
 La 0.1 no llama a la API real (los tests usan MSW con el contrato ya en `snake_case`, como queda después de B3), así que **puede ir
 antes o en paralelo** con la entrega del backend: tocan carpetas distintas (`frontend/` y `backend/`) y no se pisan. La 0.2 necesita

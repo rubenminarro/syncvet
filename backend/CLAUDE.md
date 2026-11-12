@@ -40,9 +40,11 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) está completada (R-056) e integrada a `main`:
   diseño aprobado (R-047 y R-048); entregas 3.0, zona de la sesión de MySQL (deuda 16 resuelta; R-049), 3.1, agendas, horario
   semanal y bloqueos (R-050), 3.2a, turnos únicos (R-051), 3.2b, estados del turno (R-053), 3.3, turnos recurrentes (R-054), y 3.4,
-  disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Sigue decidir con el usuario entre
-  el frontend y el análisis de la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la
-  FASE 3, 1395 casos (13960 aserciones en SQLite y 14034 en MySQL).
+  disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Después, la entrega de soporte del
+  frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) en
+  `feature/front-00-me-sucursales`, sin integrar a `main`: se integra al cerrar la F0 del frontend. Sigue la F0 del frontend (R-058)
+  y, después de la F3, la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de front-00,
+  1445 casos (14183 aserciones en SQLite y 14257 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -55,12 +57,14 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   solo MySQL, la disponibilidad en `ScheduleAvailabilityTest`, con la grilla completa dada por el alta y el motivo de cada rechazo,
   y la cola del día en `AppointmentQueueTest`),
   y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`) con la zona de la sesión de MySQL
-  (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`). Se corre sin Xdebug, con
+  (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`), el contrato en `snake_case` (`SnakeCaseKeysTest` y
+  `PaginationMetaTest`) y CORS (`CorsTest`). Se corre sin Xdebug, con
   `composer test`, `composer test:mysql` y `composer test:fast` (en paralelo, con paratest; R-045).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
   servicios, la configuración con el logo, la auditoría, las agendas, los turnos, la disponibilidad y la cola del día, con las colecciones de Postman de `docs/05-pruebas/postman`, que se pueden
   correr más de una vez sin recrear la base.
-* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
+* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual, elegida entre las de
+  `me.branches`, y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
   (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso), el
   listado de roles, los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso) y el catálogo de
