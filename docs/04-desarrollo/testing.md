@@ -65,5 +65,7 @@ registrada en "Resultado" de la fase, con la línea ``Corrida de `npm test` del 
 
 Playwright (desde la F0.2b): `npm run test:e2e`, contra el backend real y la base `syncvet_e2e`, recreada en cada corrida con el
 `DemoSeeder`; la preparación se niega a correr con otra base. Corre en serie (un *worker*: la base es compartida) y los casos
-que cambian datos los dejan como estaban (la sucursal y la contraseña). Qué necesita y cómo corre, en
+que cambian datos los dejan como estaban (la sucursal y la contraseña). **Sin descargar navegadores:** usa el Edge instalado en
+Windows (`channel: 'msedge'` en `frontend/playwright.config.ts`) y no se corre `npx playwright install`; en cada PC hace falta solo
+Edge, que ya viene con Windows (con otro, `E2E_BROWSER_CHANNEL=chrome`). Qué más necesita y cómo corre, en
 [`setup.md`](setup.md#pruebas-de-punta-a-punta-playwright).

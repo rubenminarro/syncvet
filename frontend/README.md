@@ -46,5 +46,8 @@ npm test
 npm run build      # y npm run preview para servir dist/ en http://localhost:4173
 ```
 
-Pruebas de punta a punta (Playwright, desde la F0.2b), contra la base `syncvet_e2e`: `npm run test:e2e`. Qué necesitan y
-cómo corren, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright).
+Pruebas de punta a punta (Playwright, desde la F0.2b), contra la base `syncvet_e2e`: `npm run test:e2e`. **Sin descargar
+navegadores:** Playwright usa el Edge que ya viene con Windows (`channel: 'msedge'` en `playwright.config.ts`); no se corre
+`npx playwright install`. En cada PC hace falta solo Edge, además de lo de siempre (MySQL de Laragon y `php` en el `PATH`). Con
+otro navegador instalado, `E2E_BROWSER_CHANNEL=chrome npm run test:e2e`. El detalle, en
+[`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright).

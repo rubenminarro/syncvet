@@ -432,7 +432,7 @@ Implementación del 2026-11-12, en `feature/front-0-2b-permisos` (commit WIP), s
 | 2 | La preparación exige el nombre exacto `syncvet_e2e` (el diseño decía "termina en `_e2e`"); además controla la base que resuelve Laravel con ese entorno (`artisan tinker`) y que el backend de `:8010` use la base recién preparada: la contraseña del `DemoSeeder` se genera al azar en cada corrida y solo ese backend la acepta | El nombre exacto lo pidió el usuario; los otros dos controles cubren una configuración cacheada y un backend levantado contra otra base, que el nombre solo no ve | Para revisar |
 | 3 | La preparación crea por la API una segunda sucursal ("Sucursal Norte", `NOR`) y se la asigna a `admin-a` | El `DemoSeeder` da una sola sucursal por usuario: sin otra, no hay cambio de sucursal que probar. Sin tocar el backend | Para revisar |
 | 4 | Playwright levanta el backend (`php artisan serve --no-reload`, `127.0.0.1:8010`, `DB_DATABASE=syncvet_e2e`) y Vite (`:5174`) como `webServer`; si ya hay un backend en `:8010`, lo usa | El pedido decía "backend levantado contra `syncvet_e2e`": así no hay que levantarlo a mano, y uno levantado a mano también sirve (el control del desvío 2 frena uno contra otra base) | Para revisar |
-| 5 | Playwright usa el Edge instalado (`channel: 'msedge'`; `E2E_BROWSER_CHANNEL` para otro) y no descarga navegadores | Sin bajar ~150 MB por PC (`frontend/CLAUDE.md` §8). Edge viene con Windows | Para revisar |
+| 5 | Playwright usa el Edge instalado (`channel: 'msedge'`; `E2E_BROWSER_CHANNEL` para otro) y no descarga navegadores | Sin bajar ~150 MB por PC (`frontend/CLAUDE.md` §8). Edge viene con Windows | Pedido del usuario (2026-11-12), documentado en `frontend/README.md`, `testing.md` y `setup.md` |
 | 6 | `npm audit` da ahora 10 avisos moderados, no 1 | Es el mismo aviso de la [deuda 19](../../deuda-tecnica.md) (`minimatch` 10.2.6, GHSA-g3hv-75wg-m249): npm 11 lo cuenta en cada paquete que lo trae (`eslint`, `@eslint/config-array`, los de `typescript-eslint`). `@playwright/test` 1.56.1 no aparece | Informativo; la deuda 19 sigue igual |
 | 7 | `/perfil` sin el campo de confirmación de la contraseña nueva | La API no lo pide (`UpdateOwnPasswordRequest`) y los dos campos tienen el botón para mostrarla | Para revisar |
 | 8 | `permissions.tsx` del diseño queda en dos archivos: `permissions.ts` (`useCan`, `requirePermission`) y `RequirePermission.tsx` | ESLint (`react-refresh/only-export-components`): un archivo con un componente no exporta otras cosas | Informativo |
@@ -443,10 +443,42 @@ Implementación del 2026-11-12, en `feature/front-0-2b-permisos` (commit WIP), s
 | 14 | El test de la guarda de la base pasa de `e2e/support/database.test.ts` (como decía el diseño) a `src/test/e2e-database.test.ts`; Vitest vuelve a incluir solo `src/` | `/validar-docs` cuenta los archivos de test solo en `frontend/src`: con el test en `e2e/`, la corrida registrada (20 archivos) no habría coincidido nunca con los 19 de `src/`. Se repitió `npm test` (248 en 20) | Informativo |
 | 13 | El desvío 9 de la 0.1 (`/sin-permiso` dentro del layout con sesión) queda confirmado | Pedido del usuario; anotado en la tabla de la 0.1 | Confirmado |
 
-**Qué revisar en el navegador** (además de la lista del diseño): el cambio de sucursal necesita un usuario con dos sucursales; en
-la base `syncvet` de desarrollo los del `DemoSeeder` tienen una. Se puede probar contra `syncvet_e2e` después de un
-`npm run test:e2e` (`admin-a` tiene "Sucursal Norte", con la contraseña de esa corrida, que no queda guardada) o asignarle otra
-sucursal a `admin-a` en `syncvet` por la API (Postman).
+**Validación en el navegador de Claude Code (2026-11-12, pedido del usuario),** como en la 0.2a: Edge sin ventana (`channel:
+'msedge'`, con el `@playwright/test` ya instalado, sin instalar nada más), contra el backend real (`syncvet.test`, base `syncvet`)
+y el `npm run dev` que estaba levantado (`http://localhost:5173`), sobre el código del commit WIP. Un script fuera del repositorio;
+las capturas, fuera del repositorio (`%TEMP%\claude\…\scratchpad\capturas`, en la PC de la validación: no se versionan).
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | `admin-a`: ingreso y menú completo | OK | Menú "Inicio" y "Configuración"; el botón "Configuración" del inicio, visible; `/configuracion` muestra "En construcción" |
+| 2 | `recepcion-a`: menú reducido | OK | Solo "Inicio"; sin el botón del inicio |
+| 3 | `vet-a`: menú reducido | OK | Solo "Inicio"; sin el botón del inicio |
+| 4 | `recepcion-a` y `vet-a`: URL sin permiso | OK | `/configuracion` lleva a `/sin-permiso`, con la barra y el menú a la vista (desvío 13) |
+| 5 | `recepcion-a` y `vet-a`: 403 de la API | Parcial | `GET /api/users` con el token de la sesión: 403 `FORBIDDEN`, "No tenés permisos para realizar esta acción.". En la F0 ninguna pantalla pide algo que el rol no tiene, así que no hay un camino real para ver ese mensaje en la interfaz: lo cubren los tests de Vitest de `RouteErrorPage` (al cargar) y de `/perfil` (en una acción) |
+| 6 | Cambio de sucursal desde la barra | OK | `admin-a` con "Casa central" y "Sucursal de usuarios (Postman)" (asignada solo para la prueba): el aviso "Tu sucursal actual es…", la barra, el inicio y `GET /api/me` (`current_branch.id` 4) cambian; otra pestaña abierta también (`branch-changed`); sigue al recargar; vuelta a "Casa central" desde la barra. La primera corrida falló por el script (esperaba que un `<option>` fuera visible); corregida la espera, pasó |
+| 7 | Usuario sin sucursal actual | OK | `recepcion-a` con la sucursal 4 como actual y la 4 inactivada (la API le deja la actual en `null`): el aviso "Elegí tu sucursal actual en la barra de arriba para empezar a trabajar.", el inicio con "Todavía no elegiste tu sucursal actual." y el selector en "Elegí tu sucursal"; al elegir "Casa central" desde la barra, el aviso desaparece |
+| 8 | `/perfil`: contraseña actual incorrecta | OK | 422 en "Contraseña actual": "La contraseña actual no es correcta."; la nueva, sin marcar |
+| 9 | `/perfil`: contraseña nueva débil | OK | 422 en "Contraseña nueva", con los cuatro mensajes de la API juntos (12 caracteres, mayúsculas y minúsculas, símbolo y número) |
+| 10 | `/perfil`: cambio correcto | OK | `vet-a` a una contraseña temporal: el aviso de éxito y los campos vacíos; al recargar, la misma sesión sigue abierta |
+| 11 | `/perfil`: vuelta a `DEMO_PASSWORD` | OK | Desde `/perfil` (la temporal como actual); después, el ingreso por la API con `DEMO_PASSWORD` responde 200 |
+| 12 | `/perfil`: mostrar u ocultar | OK | Un botón por campo: `password` → `text` → `password`, sin tocar el otro campo |
+| 13 | Ancho de tablet (768 px), los tres roles | OK | Sin scroll horizontal; la barra (clínica, sucursal, usuario y "Salir") y el menú, enteros. A 768 px el menú se ve sin sus íconos (Tabler los oculta por debajo de `md`) |
+| 14 | Consola | OK | Sin errores ni avisos de la aplicación. Solo los registros de red de las respuestas esperadas: el 403 de la prueba 5 (dos) y el 422 de las pruebas 8 y 9 (dos) |
+
+**Datos de la demo.** Se cambiaron por la prueba y se restauraron, todo por la API o desde la interfaz: a `admin-a` y a `recepcion-a`
+se les asignó la sucursal 4 ("Sucursal de usuarios (Postman)", activa, creada por las colecciones de Postman) y se les volvió a dejar
+solo "Casa central"; la sucursal 4 se inactivó y se volvió a activar; la sucursal actual de `recepcion-a` quedó en `null` y se
+volvió a "Casa central" desde la barra; la contraseña de `vet-a` se cambió y se volvió a `DEMO_PASSWORD`. Verificado al final por
+la API: los tres con "Casa central" como actual y como única asignada, la sucursal 4 activa y el ingreso de los tres con
+`DEMO_PASSWORD` (200). Quedan rastros que no se deshacen: los registros de la auditoría de esos cambios; los tokens de los
+ingresos de la prueba se cerraron (y cambiar la contraseña de `vet-a` revocó los demás tokens que tuviera abiertos).
+
+**Observación para la revisión** (no se corrigió: es de la 0.2a). Un campo con botón (`PasswordField`, el `addon` de `TextField`)
+con un error dibuja el borde rojo alrededor del grupo entero, también del mensaje de abajo (se ve en la captura de la prueba 8). Le
+pasa también a `/ingresar`.
+
+**Para probar a mano el cambio de sucursal:** en la base `syncvet` los usuarios del `DemoSeeder` tienen una sola sucursal; hay que
+asignarle otra por la API (como en la prueba 6) o usar `syncvet_e2e` después de un `npm run test:e2e`.
 
 ## Documentación por entrega
 
