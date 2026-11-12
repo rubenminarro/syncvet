@@ -175,6 +175,49 @@ sin `*`); las mutaciones "sin descartar" y "sin aviso" fallan.
 * Falta para el cierre: el resultado de esta entrega en este documento, la sección `R-NNN` del registro, el roadmap, el handoff,
   `backend/CLAUDE.md` §1 (cifras de la suite) y la validación del usuario con Postman.
 
+### Validación del usuario y revisión (2026-11-12)
+
+**Falla de la colección de sucursales.** En la validación del usuario, el alta (pedido 04) respondió 422. En la base de
+desarrollo esa corrida (09:08) dejó solo los tres logins en la auditoría. Newman con la colección del repositorio no la reprodujo
+(con las variables vacías ni desde un export con los valores de la corrida anterior). Sí la reproduce la versión anterior a B3,
+que lee `meta.pagination.lastPage`: sin esa clave, el pedido 02 nunca elige los establecimientos y el 04 recibe
+`{"errors": {"establishment": ["El código de establecimiento es obligatorio."]}}`; con el valor que el Collection Runner conserva de
+la corrida anterior, el mismo 422 dice "Ya hay una sucursal con ese código de establecimiento". Causa probable: el Runner tenía
+importada la versión anterior de la colección de sucursales (la de usuarios sí estaba al día: sus 136 aserciones son las de
+la versión nueva). No fueron los establecimientos agotados (la clínica A tenía 6 sucursales) ni el cambio de `admin-a` del desvío 4. Además,
+de fondo, la colección no era repetible: cada corrida dejaba una sucursal inactiva con su establecimiento (hay 998).
+
+**Corrección de la colección.** Usa siempre la misma sucursal, `SUC-PM`: la primera corrida la da de alta y las siguientes la
+reactivan (el pedido 04 pasa a `PATCH`); el pedido 14 le pasa un establecimiento libre y deja libre el anterior, así que no consume
+ninguno. El pedido 02 falla si la paginación no trae `last_page`; el 01a borra los valores de la corrida anterior y arma el
+identificador de la corrida con la hora (`Date.now()` en base 36), así que los códigos de los depósitos no se repiten; el 23c le
+quita `SUC-PM` a `admin-a` por si una corrida anterior se cortó. 44 pedidos y 123 aserciones; corrida tres veces seguidas (la
+primera crea, las otras reactivan) y desde un export con variables persistentes, sin fallas.
+
+**Hallazgos de la revisión, corregidos.**
+
+| # | Corrección | Tests | Mutación que ahora falla |
+|---|---|---|---|
+| H1 | `App\Support\CorsOrigins`: solo orígenes exactos `http(s)://host[:puerto]`; todo lo demás, también cualquier `*`, se descarta (`discarded_origins`) | `CorsTest`: 11 orígenes descartados (`https://*`, `*.dominio`, `https://*.dominio`, `https://app*.dominio`, `http://localhost:*`, sin esquema, otro esquema, con ruta, consulta o usuario) y ningún comodín llega a php-cors | Aceptar `*` dentro del host |
+| H6 | El origen se normaliza: minúsculas y sin la barra final (también IPv6 entre corchetes) | `test_the_origins_are_normalized` | Sin minúsculas; sin quitar la barra |
+| H7 | El aviso de descartados sale como máximo una vez por hora (`Cache::add`, `AppServiceProvider::CORS_WARNING_KEY`); si el caché falla, avisa igual y el arranque no se rompe | Dos arranques en la misma hora, un aviso; a los 61 minutos, otro; sin descartados, ninguno; sin caché, avisa | Sin el límite por hora |
+| H2 | `SnakeCaseKeysTest` también revisa `$x['clave'] = …` (anidado y con `??=`, `.=`…), `compact()` y la clave de `Arr::set`, `Arr::add`, `data_set` y `data_fill` | El archivo de ejemplo; `$data['checkedInAt']` en `QueueAppointmentResource` lo hace fallar | Escáner sin las asignaciones |
+| H5 | El escáner sigue los contextos (arreglo, `match`, llamada al log, atributo): no marca los brazos de un `match` ni los arreglos pasados a `Log::…`, `logger()` o `->warning(…)` | `test_values_match_arms_and_log_context_do_not_count` (también valores con mayúsculas) | Escáner que no distingue el `match`; que no ignora el log |
+| H3 | — (el código ya ordenaba por `code`) | `MeTest::test_me_branches_are_ordered_by_code_not_by_name_or_id` (código, nombre e id en órdenes distintos) | `orderBy('name')`; `orderBy('id')` |
+| H4 | — | El test de equivalencia de `CurrentBranchTest` corre también con el administrador, con una sucursal inactiva asignada y una de otra clínica | El administrador ve sus inactivas |
+| H8 | `Branch::selectableBy($user)` (columna `branches.is_active` calificada): la usan `App\Rules\SelectableBranch` (el Request), `AuthService::setCurrentBranch` y `AuthService::profile` (`setRelation`, una consulta) | `test_the_request_rejects_a_branch_that_is_not_selectable_before_the_service` (el Service simulado no se llama) | `me` con todas las asignadas; la regla del Request sin la asignación |
+
+**Desvíos de esta ronda.**
+
+1. La regla del Request es una clase, `App\Rules\SelectableBranch`, no un *closure*: `ValidationTranslationsTest` exige que cada
+   regla esté clasificada (se agregó a su lista, con su mensaje propio).
+2. `wildcard_discarded` pasó a `discarded_origins` (la lista de lo descartado, para el aviso).
+3. La colección de sucursales ya no da de alta una sucursal nueva en cada corrida (ver arriba). Las sucursales `SUC-1xxxxx` que
+   dejaron las corridas anteriores siguen en la base.
+
+**Cifras.** Suite: 1445 casos; SQLite en serie, 14183 aserciones (14 omitidos, los de solo MySQL); MySQL, 14257. Newman, todas las
+colecciones dos veces seguidas contra la base de desarrollo, sin fallas (detalle en la guía de Postman).
+
 ## Resultado
 
 Sin implementar.

@@ -3,7 +3,9 @@
 namespace Tests\Feature\Security;
 
 use App\Providers\AppServiceProvider;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithAuth;
 use Tests\TestCase;
 
@@ -112,41 +114,121 @@ class CorsTest extends TestCase
     }
 
     /**
-     * Decisión del usuario: un "*" de CORS_ALLOWED_ORIGINS se descarta (Laravel lo tomaría
-     * como "cualquier origen"); los demás orígenes siguen.
+     * Revisión, H1: solo orígenes exactos (esquema://host[:puerto]). Todo lo que tenga un "*" se
+     * descarta: php-cors toma "*" como "cualquier origen" y un "*" adentro como un patrón.
+     *
+     * @return array<string, array{0: string}>
      */
-    public function test_a_wildcard_in_the_variable_is_discarded(): void
+    public static function invalidOrigins(): array
     {
-        $this->assertSame([], $this->originsFrom('*'));
-        $this->assertSame(['http://a.test'], $this->originsFrom('http://a.test, * ,'));
-        $this->assertTrue($this->configWith(' * ')['wildcard_discarded']);
-        $this->assertFalse($this->configWith('http://a.test')['wildcard_discarded']);
-        $this->assertFalse($this->configWith(null)['wildcard_discarded']);
+        return [
+            'el comodín solo' => ['*'],
+            'esquema con comodín' => ['https://*'],
+            'subdominio con comodín' => ['*.syncvet.test'],
+            'esquema y subdominio con comodín' => ['https://*.syncvet.test'],
+            'comodín en el medio' => ['https://app*.syncvet.test'],
+            'comodín en el puerto' => ['http://localhost:*'],
+            'sin esquema' => ['localhost:5173'],
+            'otro esquema' => ['ftp://syncvet.test'],
+            'con ruta' => ['https://syncvet.test/app'],
+            'con consulta' => ['https://syncvet.test?x=1'],
+            'con usuario' => ['https://ana@syncvet.test'],
+        ];
+    }
 
-        config(['cors.allowed_origins' => $this->originsFrom('*')]);
-        $this->withHeader('Origin', 'https://evil.test')
+    #[DataProvider('invalidOrigins')]
+    public function test_an_origin_that_is_not_exact_is_discarded(string $origin): void
+    {
+        $config = $this->configWith("http://a.test, {$origin}");
+
+        $this->assertSame(['http://a.test'], $config['allowed_origins']);
+        $this->assertSame([$origin], $config['discarded_origins']);
+        $this->assertSame([], $config['allowed_origins_patterns']);
+    }
+
+    /**
+     * Lo que php-cors haría con cada comodín si llegara: cualquier origen https, o el que encaje
+     * con el patrón. Descartado, ninguno pasa.
+     */
+    public function test_no_wildcard_reaches_the_cors_middleware(): void
+    {
+        config(['cors.allowed_origins' => $this->originsFrom('*, https://*, *.evil.test, https://*.evil.test, https://a*.evil.test')]);
+
+        foreach (['https://evil.test', 'https://app.evil.test', 'https://abc.evil.test', self::ALLOWED] as $origin) {
+            $this->withHeader('Origin', $origin)
+                ->getJson('/api/me')
+                ->assertHeaderMissing('Access-Control-Allow-Origin');
+        }
+    }
+
+    /**
+     * Revisión, H6: el origen se normaliza como lo manda el navegador (minúsculas, sin la barra
+     * final); si no, nunca coincidiría.
+     */
+    public function test_the_origins_are_normalized(): void
+    {
+        $config = $this->configWith(' HTTP://LocalHost:5173/ , https://App.SyncVet.test/, http://[::1]:5173, http://localhost:5173');
+
+        $this->assertSame(['http://localhost:5173', 'https://app.syncvet.test', 'http://[::1]:5173'], $config['allowed_origins']);
+        $this->assertSame([], $config['discarded_origins']);
+
+        config(['cors.allowed_origins' => $config['allowed_origins']]);
+        $this->withHeader('Origin', 'https://app.syncvet.test')
             ->getJson('/api/me')
-            ->assertHeaderMissing('Access-Control-Allow-Origin');
+            ->assertHeader('Access-Control-Allow-Origin', 'https://app.syncvet.test');
     }
 
-    public function test_a_discarded_wildcard_is_logged_as_a_warning(): void
+    /**
+     * Revisión, H7: los descartados se avisan en el log como máximo una vez por hora (el arranque
+     * corre en cada pedido).
+     */
+    public function test_the_discarded_origins_are_logged_at_most_once_an_hour(): void
     {
         Log::spy();
+        config(['cors.discarded_origins' => ['https://*']]);
 
-        config(['cors.wildcard_discarded' => true]);
-        (new AppServiceProvider($this->app))->boot();
+        $this->bootProvider();
+        $this->bootProvider();
+        $this->travel(59)->minutes();
+        $this->bootProvider();
 
-        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message) => str_contains($message, 'CORS_ALLOWED_ORIGINS'));
+        Log::shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context = []) => str_contains($message, 'CORS_ALLOWED_ORIGINS') && $context === ['discarded' => ['https://*']]
+        );
+
+        $this->travel(2)->minutes();
+        $this->bootProvider();
+
+        Log::shouldHaveReceived('warning')->twice();
     }
 
-    public function test_without_a_wildcard_nothing_is_logged(): void
+    public function test_without_discarded_origins_nothing_is_logged(): void
     {
         Log::spy();
+        config(['cors.discarded_origins' => []]);
 
-        config(['cors.wildcard_discarded' => false]);
-        (new AppServiceProvider($this->app))->boot();
+        $this->bootProvider();
 
         Log::shouldNotHaveReceived('warning');
+    }
+
+    /**
+     * Si el caché no responde (sin la tabla cache, durante un migrate), el arranque no falla y avisa.
+     */
+    public function test_the_warning_does_not_break_the_boot_without_cache(): void
+    {
+        Log::spy();
+        Cache::shouldReceive('add')->andThrow(new \RuntimeException('sin caché'));
+        config(['cors.discarded_origins' => ['*']]);
+
+        $this->bootProvider();
+
+        Log::shouldHaveReceived('warning')->once();
+    }
+
+    private function bootProvider(): void
+    {
+        (new AppServiceProvider($this->app))->boot();
     }
 
     /**

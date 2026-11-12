@@ -105,6 +105,24 @@ class MeTest extends TestCase
             ]);
     }
 
+    /**
+     * Revisión, H3: el orden por code no coincide con el del nombre ni con el del id, así que
+     * ordenar por cualquiera de los otros dos falla.
+     */
+    public function test_me_branches_are_ordered_by_code_not_by_name_or_id(): void
+    {
+        $clinic = $this->createClinic();
+        $third = $this->branchIn($clinic, ['code' => 'SUC-03', 'name' => 'Sucursal Medio']);
+        $first = $this->branchIn($clinic, ['code' => 'SUC-01', 'name' => 'Sucursal Zeta']);
+        $second = $this->branchIn($clinic, ['code' => 'SUC-02', 'name' => 'Sucursal Alfa']);
+        $user = $this->userWithRoles($clinic, ['recepcionista'], [$second, $third, $first]);
+
+        $this->getWithToken($this->tokenFor($user), '/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.branches.*.code', ['SUC-01', 'SUC-02', 'SUC-03'])
+            ->assertJsonPath('data.branches.*.id', [$first->id, $second->id, $third->id]);
+    }
+
     public function test_me_returns_no_branches_without_assigned_ones(): void
     {
         $user = $this->userWithRole($this->createClinic(), 'recepcionista');

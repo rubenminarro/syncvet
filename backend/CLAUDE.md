@@ -237,7 +237,9 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
   guía de Postman con sus colecciones (`docs/05-pruebas`); los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
 * Claves de la API en **`snake_case`**: datos, `meta` y `errors` (entrega front-00, B3). `SnakeCaseKeysTest` revisa `app/` y
-  `bootstrap/app.php` y falla con una clave literal de arreglo en `camelCase` (`'fooBar' =>`).
+  `bootstrap/app.php` y falla con una clave literal en `camelCase` en un arreglo (`'fooBar' =>`, también anidada), asignada por
+  índice (`$data['fooBar'] = …`), en `compact()` o como clave de `Arr::set`, `Arr::add`, `data_set` o `data_fill`. No cuentan los
+  brazos de un `match` ni los arreglos que se pasan al log (revisión, H2 y H5).
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`. `apiResource` también registra `PUT`, con la
   misma semántica parcial: no reemplaza el recurso ni borra los campos que no se envían (`HttpVerbsTest`).
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
@@ -304,7 +306,9 @@ Listados: `meta.pagination` (`total`, `per_page`, `current_page`, `last_page`), 
 `roles`, `permissions` y `veterinarian`.
 
 CORS (`config/cors.php`, entrega front-00, B2): solo `api/*`, los orígenes de `CORS_ALLOWED_ORIGINS` (separados por comas; vacía,
-ninguno; un `*` se descarta y queda un aviso en el log), sin credenciales, `Retry-After` expuesto y `max_age` de 600 (`CorsTest`).
+ninguno), solo orígenes exactos `esquema://host[:puerto]`, normalizados en minúsculas y sin la barra final; lo demás, todo `*`
+incluido, se descarta con un aviso en el log, como máximo uno por hora (`App\Support\CorsOrigins`; revisión, H1, H6 y H7), sin
+credenciales, `Retry-After` expuesto y `max_age` de 600 (`CorsTest`).
 
 Las únicas respuestas exitosas sin `ApiResponse` son las descargas de un archivo (`GET patients/{patient}/photo` y
 `GET system-settings/logo`, las dos con `PrivateImageStore`): el cuerpo es el archivo, con `Content-Type` según el tipo guardado,
@@ -522,7 +526,9 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
 * Perfil (2.2b; cualquier usuario autenticado y activo, sin permiso: `ROUTES_WITHOUT_PERMISSION`):
   * `PATCH me/current-branch` con `branch_id`: una sucursal activa de la clínica asignada al usuario (si no, 422 en `branch_id`); el
     Service la vuelve a revisar con la clínica bloqueada (§3). Responde `MeResource`, que trae en `branches` justamente las
-    sucursales que esta ruta acepta (entrega front-00; `CurrentBranchTest`).
+    sucursales que esta ruta acepta (entrega front-00; `CurrentBranchTest`). La regla "activa y asignada" vive solo en
+    `Branch::selectableBy($user)`, que usan el Request (con la regla `App\Rules\SelectableBranch`), `AuthService::setCurrentBranch` y
+    `AuthService::profile` (revisión, H8).
   * `PATCH me/password` con `current_password` (incorrecta → 422 en `current_password`) y `password` (`UserPassword`, distinta de la
     actual). Conserva el token del pedido y revoca los demás del usuario. Límite: 5 intentos por minuto por usuario, contados antes
     de verificar la actual (el sexto, 429 `AUTH_TOO_MANY_ATTEMPTS` con `Retry-After`, aunque sea correcta); los errores de

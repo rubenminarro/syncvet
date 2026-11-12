@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Rules\RucCheckDigit;
+use App\Rules\SelectableBranch;
 use App\Rules\UniqueClientDocument;
 use App\Rules\WholeAmount;
 use App\Support\CurrentClinic;
@@ -369,6 +370,8 @@ class ValidationTranslationsTest extends TestCase
                 $rule instanceof RucCheckDigit => [],
                 // Trae su propio mensaje, con el nombre del campo (entrega 2.4); VoseoTest lo revisa.
                 $rule instanceof WholeAmount => [],
+                // Trae su propio mensaje (UpdateCurrentBranchRequest::BRANCH_NOT_AVAILABLE; front-00, H8).
+                $rule instanceof SelectableBranch => [],
                 // Usa el mensaje "unique" del campo en el Request (R-018).
                 $rule instanceof UniqueClientDocument => [['unique']],
                 $rule instanceof Password =>array_map(fn (string $key) => [$key], ['min', 'password.letters', 'password.mixed', 'password.numbers', 'password.symbols', 'password.uncompromised']),

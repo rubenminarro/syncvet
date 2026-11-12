@@ -5,11 +5,13 @@
 | CORS (entrega front-00, B2; R-058)
 |--------------------------------------------------------------------------
 |
-| Solo los orígenes de CORS_ALLOWED_ORIGINS, separados por comas (sin los espacios
-| ni los vacíos). Sin la variable, o vacía, ningún origen: nunca el comodín. Un "*" de
-| la variable se descarta (decisión del usuario): Laravel lo tomaría como "cualquier
-| origen". AppServiceProvider avisa en el log con wildcard_discarded. En desarrollo el
-| proxy de Vite manda /api al backend desde el mismo origen, sin CORS.
+| Solo los orígenes de CORS_ALLOWED_ORIGINS, separados por comas. Cada uno tiene que ser
+| un origen exacto, esquema://host[:puerto], y se normaliza como lo manda el navegador
+| (en minúsculas, sin la barra final). Lo demás se descarta (App\Support\CorsOrigins), en
+| particular todo lo que tenga un "*": php-cors lo tomaría como "cualquier origen" o como
+| un patrón. AppServiceProvider avisa los descartados en el log, una vez por hora. Sin la
+| variable, o vacía, ningún origen. En desarrollo el proxy de Vite manda /api al backend
+| desde el mismo origen, sin CORS.
 |
 | Sin sanctum/csrf-cookie y sin credenciales: la API usa tokens Bearer (las cookies
 | de Sanctum quedan para la FASE 10). Retry-After se expone para que el frontend
@@ -17,10 +19,7 @@
 |
 */
 
-$corsOrigins = array_values(array_filter(
-    array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))),
-    fn (string $origin): bool => $origin !== '',
-));
+$corsOrigins = App\Support\CorsOrigins::parse(env('CORS_ALLOWED_ORIGINS'));
 
 return [
 
@@ -28,10 +27,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter($corsOrigins, fn (string $origin): bool => $origin !== '*')),
+    'allowed_origins' => $corsOrigins['allowed'],
 
-    // Propia (php-cors no la lee): la variable traía "*" y se descartó.
-    'wildcard_discarded' => in_array('*', $corsOrigins, true),
+    // Propia (php-cors no la lee): lo que se descartó de la variable, para el aviso del log.
+    'discarded_origins' => $corsOrigins['discarded'],
 
     'allowed_origins_patterns' => [],
 

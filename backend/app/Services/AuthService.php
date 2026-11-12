@@ -166,9 +166,8 @@ class AuthService
             CatalogLock::forCurrentClinic();
 
             $available = Branch::query()
+                ->selectableBy($user)
                 ->whereKey($branchId)
-                ->where('is_active', true)
-                ->whereHas('users', fn ($query) => $query->whereKey($user->getKey()))
                 ->lockForUpdate()
                 ->first() !== null;
 
@@ -243,15 +242,14 @@ class AuthService
      */
     public function profile(User $user): User
     {
-        // branches (entrega front-00, B1): las mismas que acepta setCurrentBranch, activas y
-        // asignadas; dentro de CurrentClinic::run, el scope deja afuera las de otra clínica.
-        return CurrentClinic::run($user->clinic, fn () => $user->load([
-            'clinic',
-            'currentBranch',
-            'branches' => fn ($query) => $query->where('is_active', true)->orderBy('code'),
-            'veterinarian',
-            'roles',
-        ]));
+        // branches (entrega front-00, B1): las que acepta setCurrentBranch, con la misma regla
+        // (Branch::selectableBy), en una consulta; dentro de CurrentClinic::run, el scope deja
+        // afuera las de otra clínica.
+        return CurrentClinic::run($user->clinic, function () use ($user) {
+            $user->load(['clinic', 'currentBranch', 'veterinarian', 'roles']);
+
+            return $user->setRelation('branches', Branch::query()->selectableBy($user)->orderBy('code')->get());
+        });
     }
 
     /**

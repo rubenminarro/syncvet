@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToClinic;
 use App\Support\CatalogName;
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -61,6 +62,18 @@ class Branch extends Model
     public function warehouses(): HasMany
     {
         return $this->hasMany(Warehouse::class);
+    }
+
+    /**
+     * Las sucursales que el usuario puede elegir como actual: activas y asignadas a él
+     * (branch_user). El único lugar de la regla (entrega front-00, revisión H8): la usan
+     * UpdateCurrentBranchRequest, AuthService::setCurrentBranch y me.branches
+     * (AuthService::profile). El scope de la clínica deja afuera las de otra.
+     */
+    public function scopeSelectableBy(Builder $query, User $user): void
+    {
+        $query->where($query->qualifyColumn('is_active'), true)
+            ->whereHas('users', fn (Builder $assigned) => $assigned->whereKey($user->getKey()));
     }
 
     public function users(): BelongsToMany

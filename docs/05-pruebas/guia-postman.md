@@ -202,15 +202,19 @@ pasos, y la preparación, el Environment **SyncVet local** y la forma de correrl
 `php artisan db:seed --class=RolesAndPermissionsSeeder` (no toca los datos) antes de la colección: sin eso, "31 El recepcionista
 lista las sucursales" recibe 403 `FORBIDDEN`.
 
-**Se corre más de una vez sin recrear la base.** Su rango de corrida es de 100000 a 199998 y el número va en los códigos y los
-nombres de la corrida. El pedido 02 busca dos códigos de establecimiento libres en todas las páginas del listado, y al terminar la
-sucursal original vuelve a ser la por defecto. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva, que ocupa
-un código de establecimiento (hay 999).
+**Se corre cualquier cantidad de veces sin recrear la base** (revisión de la entrega front-00). Las sucursales no se eliminan y
+cada una ocupa un código de establecimiento (hay 998, de 002 a 999), así que la colección usa siempre la misma, `SUC-PM`: la
+primera corrida en una base la da de alta (pedido 04, 201) y las siguientes la reactivan con los mismos datos (el mismo pedido pasa
+a ser un `PATCH`, 200). El pedido 02 la busca en todas las páginas del listado junto con un establecimiento libre, y el 14 le pasa
+ese establecimiento y deja libre el anterior: la colección no consume establecimientos. Al terminar, la sucursal original vuelve a
+ser la por defecto y `SUC-PM` queda inactiva, con un depósito más por corrida. El primer pedido borra los valores que hayan quedado
+de una corrida anterior (el Collection Runner los conserva) y arma el identificador de la corrida con la hora (`Date.now()` en base
+36): los códigos y nombres de los depósitos no se repiten. Antes de esta revisión, cada corrida dejaba una sucursal inactiva
+(`SUC-1xxxxx`) con su establecimiento; esas quedan en la base.
 
-**`me.branches` (entrega front-00).** Antes de inactivar la sucursal nueva, el pedido 23c guarda las sucursales asignadas a
-`admin-a@example.com` y el 23d le suma la nueva: `me` la trae (23e) y, inactivada, ya no (24a). Al terminar, el 33b le devuelve sus
-sucursales de antes; si la corrida se corta en el medio, el administrador queda con la sucursal inactiva asignada, que no aparece
-en `me` y la próxima corrida deja como estaba.
+**`me.branches` (entrega front-00).** El pedido 23b guarda las sucursales asignadas a `admin-a@example.com` sin `SUC-PM` y el 23c
+se las deja así (por si una corrida anterior se cortó con `SUC-PM` asignada): activa pero sin asignar, `me` no la trae (23d).
+Asignada (23e), sí, por `code` (23f); inactivada, ya no (24a). Al terminar, el 33b le devuelve sus sucursales de antes.
 
 **Usuarios.** `admin-a@example.com` (`{{token_admin}}`), `recepcion-a@example.com` (`{{token}}`) y `admin-b@example.com`
 (`{{token_b}}`, para tomar una sucursal de la clínica B).
@@ -576,7 +580,8 @@ paginación de todas.
 **Con Newman.** Como la paginación cambió en todos los listados, se corren todas las colecciones de `docs/05-pruebas/postman`, desde
 la raíz y con el servidor en el puerto 8001.
 
-Corrida del 2026-11-12 contra la base de desarrollo, sin fallas en ninguna: clientes 24 pedidos y 48 aserciones, especies 41 y 93,
-foto 23 y 60, pacientes 30 y 61, auditoría 16 y 47, configuración 24 y 67, servicios 27 y 64, sucursales 43 y 120, usuarios 54 y 136,
-veterinarios 32 y 75, agendas 35 y 68, disponibilidad 50 y 81, series 25 y 42, turnos 58 y 107. Sucursales y usuarios, otra vez
-seguidas sin recrear la base: las mismas cifras, sin fallas.
+Corrida del 2026-11-12, después de la revisión, contra la base de desarrollo: todas las colecciones dos veces seguidas sin
+recrearla, sin fallas y con las mismas cifras en las dos vueltas: clientes 24 pedidos y 48 aserciones, especies 41 y 93, foto 23 y
+60, pacientes 30 y 61, auditoría 16 y 47, configuración 24 y 67, servicios 27 y 64, sucursales 44 y 123, usuarios 54 y 136,
+veterinarios 32 y 75, agendas 35 y 68, disponibilidad 50 y 81, series 25 y 42, turnos 58 y 107. Sucursales, además, desde un export
+con los valores de la corrida anterior (como el Collection Runner): sin fallas.
