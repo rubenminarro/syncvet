@@ -59,6 +59,10 @@ el que resuelve Laravel con ese entorno (una configuración cacheada daría otro
 usa), ingresa con ella en el backend de `:8010` (si no puede, ese backend no usa la base recién preparada y se detiene) y crea por
 la API la sucursal "Sucursal Norte" para `admin-a`. No toca la base `syncvet` de desarrollo.
 
+Para entrar a mano a `syncvet_e2e` después de una corrida (por ejemplo, con un backend levantado con `DB_DATABASE=syncvet_e2e`),
+la contraseña de esa corrida queda en **`frontend/e2e/.e2e-credentials`** (`DEMO_PASSWORD=…`). Lo escribe la preparación al
+terminar, lo reemplaza la corrida siguiente y está ignorado por Git (`frontend/.gitignore`): no se versiona ni se copia a otra PC.
+
 ## Antivirus de Windows
 
 Microsoft Defender revisa cada archivo que se escribe: `npm ci` (decenas de miles de archivos en `frontend/node_modules`) y
@@ -291,8 +295,7 @@ antes, con `git switch chore/monorepo`):
 3. Revisar lo que quedó en la raíz con `git status --ignored`: borrar `vendor/` y `.phpunit.result.cache`, y `bootstrap/`,
    `database/` y `storage/` si solo les quedan archivos ignorados (cachés, bases de prueba, logs).
 4. `cd backend && composer install && php artisan optimize:clear`.
-5. Laragon: en `C:\laragontc
-ginx\sites-enabled\`, copiar `auto.syncvet.test.conf` como `syncvet.test.conf`, cambiar `root` a
+5. Laragon: en `C:\laragon\etc\nginx\sites-enabled\`, copiar `auto.syncvet.test.conf` como `syncvet.test.conf`, cambiar `root` a
    `"C:/laragon/www/syncvet/backend/public"` y borrar el `auto.` (Laragon lo regenera con la raíz
    vieja). Iniciar Laragon: `http://syncvet.test/api/me` responde 401 en JSON.
 6. Servidor para Postman: `cd backend && php artisan serve --port=8001`. Newman, desde la raíz.

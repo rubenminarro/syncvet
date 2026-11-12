@@ -429,15 +429,15 @@ Implementación del 2026-11-12, en `feature/front-0-2b-permisos` (commit WIP), s
 | # | Desvío o decisión | Motivo | Estado |
 |---|---|---|---|
 | 1 | `/configuracion` provisoria ("En construcción"), con `system-settings.update`: el administrador la ve en el menú y en el inicio; recepción y veterinario van a `/sin-permiso` | En la F0 no había ninguna ruta con permiso: los tres roles veían el mismo menú | Decisión del usuario (2026-11-12) |
-| 2 | La preparación exige el nombre exacto `syncvet_e2e` (el diseño decía "termina en `_e2e`"); además controla la base que resuelve Laravel con ese entorno (`artisan tinker`) y que el backend de `:8010` use la base recién preparada: la contraseña del `DemoSeeder` se genera al azar en cada corrida y solo ese backend la acepta | El nombre exacto lo pidió el usuario; los otros dos controles cubren una configuración cacheada y un backend levantado contra otra base, que el nombre solo no ve | Para revisar |
+| 2 | La preparación exige el nombre exacto `syncvet_e2e` (el diseño decía "termina en `_e2e`"); además controla la base que resuelve Laravel con ese entorno (`artisan tinker`) y que el backend de `:8010` use la base recién preparada: la contraseña del `DemoSeeder` se genera al azar en cada corrida y solo ese backend la acepta | El nombre exacto lo pidió el usuario; los otros dos controles cubren una configuración cacheada y un backend levantado contra otra base, que el nombre solo no ve | Aceptado en la revisión, con la contraseña en `e2e/.e2e-credentials` (ver Revisión y correcciones) |
 | 3 | La preparación crea por la API una segunda sucursal ("Sucursal Norte", `NOR`) y se la asigna a `admin-a` | El `DemoSeeder` da una sola sucursal por usuario: sin otra, no hay cambio de sucursal que probar. Sin tocar el backend | Para revisar |
 | 4 | Playwright levanta el backend (`php artisan serve --no-reload`, `127.0.0.1:8010`, `DB_DATABASE=syncvet_e2e`) y Vite (`:5174`) como `webServer`; si ya hay un backend en `:8010`, lo usa | El pedido decía "backend levantado contra `syncvet_e2e`": así no hay que levantarlo a mano, y uno levantado a mano también sirve (el control del desvío 2 frena uno contra otra base) | Para revisar |
 | 5 | Playwright usa el Edge instalado (`channel: 'msedge'`; `E2E_BROWSER_CHANNEL` para otro) y no descarga navegadores | Sin bajar ~150 MB por PC (`frontend/CLAUDE.md` §8). Edge viene con Windows | Pedido del usuario (2026-11-12), documentado en `frontend/README.md`, `testing.md` y `setup.md` |
 | 6 | `npm audit` da ahora 10 avisos moderados, no 1 | Es el mismo aviso de la [deuda 19](../../deuda-tecnica.md) (`minimatch` 10.2.6, GHSA-g3hv-75wg-m249): npm 11 lo cuenta en cada paquete que lo trae (`eslint`, `@eslint/config-array`, los de `typescript-eslint`). `@playwright/test` 1.56.1 no aparece | Informativo; la deuda 19 sigue igual |
-| 7 | `/perfil` sin el campo de confirmación de la contraseña nueva | La API no lo pide (`UpdateOwnPasswordRequest`) y los dos campos tienen el botón para mostrarla | Para revisar |
+| 7 | `/perfil` sin el campo de confirmación de la contraseña nueva | La API no lo pide (`UpdateOwnPasswordRequest`) y los dos campos tienen el botón para mostrarla | Revertido en la revisión: se suma la repetición (ver Revisión y correcciones) |
 | 8 | `permissions.tsx` del diseño queda en dos archivos: `permissions.ts` (`useCan`, `requirePermission`) y `RequirePermission.tsx` | ESLint (`react-refresh/only-export-components`): un archivo con un componente no exporta otras cosas | Informativo |
 | 9 | Un test de la 0.2a cambió: "sin sucursal actual, la barra lo dice" pasa a ser sin sucursales asignadas; con una asignada, la barra ofrece el selector con "Elegí tu sucursal" (test nuevo) | Es la conducta nueva del selector | Informativo |
-| 10 | Playwright no prueba "credenciales incorrectas" ni el vencimiento de la sesión, que estaban en la tabla de tests del diseño original y en el [criterio de cierre](#criterio-de-cierre) de la F0 ("el vencimiento, probado de punta a punta") | El pedido de la entrega listó los casos (roles y menú, ruta sin permiso, sucursal, contraseña, salir); el vencimiento lo cubren Vitest y la validación en el navegador de la 0.2a | Decidir en el cierre: sumarlos o ajustar el criterio |
+| 10 | Playwright no prueba "credenciales incorrectas" ni el vencimiento de la sesión, que estaban en la tabla de tests del diseño original y en el [criterio de cierre](#criterio-de-cierre) de la F0 ("el vencimiento, probado de punta a punta") | El pedido de la entrega listó los casos (roles y menú, ruta sin permiso, sucursal, contraseña, salir); el vencimiento lo cubren Vitest y la validación en el navegador de la 0.2a | Revertido en la revisión: los dos casos sumados (ver Revisión y correcciones) |
 | 11 | `lint` corrió dos veces completo y `npm test` dos veces, no una; Playwright, dos veces | El primer `lint` encontró 5 errores (desvío 8 y tres `as` en un test); el primer `npm test`, el test del desvío 9. Playwright pasó entero antes del cambio del desvío 8 y se repitió sobre el código final | Informativo |
 | 12 | `src/routeTree.gen.ts` se regeneró solo al crear las rutas nuevas | Lo hizo un proceso de la PC (probablemente un `npm run dev` abierto); el contenido es el del plugin del router | Informativo |
 | 14 | El test de la guarda de la base pasa de `e2e/support/database.test.ts` (como decía el diseño) a `src/test/e2e-database.test.ts`; Vitest vuelve a incluir solo `src/` | `/validar-docs` cuenta los archivos de test solo en `frontend/src`: con el test en `e2e/`, la corrida registrada (20 archivos) no habría coincidido nunca con los 19 de `src/`. Se repitió `npm test` (248 en 20) | Informativo |
@@ -478,7 +478,73 @@ con un error dibuja el borde rojo alrededor del grupo entero, también del mensa
 pasa también a `/ingresar`.
 
 **Para probar a mano el cambio de sucursal:** en la base `syncvet` los usuarios del `DemoSeeder` tienen una sola sucursal; hay que
-asignarle otra por la API (como en la prueba 6) o usar `syncvet_e2e` después de un `npm run test:e2e`.
+asignarle otra por la API (como en la prueba 6) o usar `syncvet_e2e` después de un `npm run test:e2e`, donde `admin-a` tiene además
+"Sucursal Norte". En `syncvet_e2e` la contraseña de los usuarios **no es la `DEMO_PASSWORD` de `backend/.env`**: se genera en cada
+corrida y queda en `frontend/e2e/.e2e-credentials` (ignorado por Git; desvío 2), y hace falta un backend levantado contra esa base
+(`DB_DATABASE=syncvet_e2e`, como el de `:8010` que levanta Playwright).
+
+**Revisión y correcciones (2026-11-12).** La revisión de la 0.2b, en una sesión aparte, dejó hallazgos de gravedad media (M1 y M2)
+y baja (B1 a B7), y decisiones sobre los desvíos 2, 7 y 10. Se corrigieron según lo que decidió el usuario, en dos sesiones (commit
+WIP `e77f64a` y este), la segunda en otra PC:
+
+| # | Hallazgo o decisión | Corrección | Estado |
+|---|---|---|---|
+| M1 | Las contraseñas de `/ingresar` y de `/perfil` quedaban en la caché de mutaciones de Query (las variables de la mutación) | `gcTime: 0` y `mutation.reset()` en `onSettled` en las dos; el aviso de sesión cerrada de `/ingresar` pasa a depender de un estado propio ("ya se intentó"), no de `mutation.isIdle`. Tests: después del 200 y de cada error, ninguna mutación en la caché tiene la contraseña | Corregido |
+| M2 | `me` (`staleTime: Infinity`) no se volvía a pedir: una sucursal inactivada por un administrador o elegida en otra PC no se veía hasta recargar | `SessionLayout` vuelve a pedir `me` (solo la consulta activa, sin cancelar una en curso) con `focus` y `visibilitychange` a la vista. Test con `focus` y con `visibilitychange` | Corregido |
+| B1 | El borde rojo del campo con botón (`PasswordField`) encerraba también el mensaje de error (la observación de la validación) | En `TextField`, el mensaje sale del `input-group` y se muestra con `d-block`. Vale para `/perfil` y para `/ingresar`. Test y validación en el navegador | Corregido |
+| B2 | El `redirect` a `/sin-permiso` sin `replace` dejaría la ruta prohibida en el historial | Ya tenía `replace: true`: el riesgo no era real. Se suma el test (Atrás vuelve a la página anterior, no a la prohibida) | Sin cambio de código; test nuevo |
+| B3, B4, B7 | Mutaciones que sobrevivían: el selector habilitado durante el `PATCH` (B3); un 403 de negocio tratado como `FORBIDDEN` y "Reintentar" que no recargaba la ruta (B4); el aviso de éxito de `/perfil` que no se borraba al volver a intentar (B7) | Un test por cada una | Corregido |
+| B5 | Con el 200 del `PATCH me/current-branch`, `me` se tomaba de la respuesta: con dos pestañas cambiando a la vez, una podía quedar con la sucursal que no quedó guardada | `applyBranchChange` vuelve a pedir `me` al servidor (`staleTime: 0`) y no usa la respuesta del `PATCH` | Corregido |
+| B6 | Al cambiar de sucursal se invalidaban todas las consultas, también las de la clínica | Convención de claves en `src/lib/api/query-keys.ts` (`branchKey`, `invalidateBranchQueries`), documentada en `frontend/CLAUDE.md` §5: el cambio, en esta pestaña y en las otras (`branch-changed`), invalida `['me']` y solo las consultas de la sucursal | Corregido |
+| Desvío 2 | La contraseña de la corrida de Playwright solo vivía en la memoria del proceso: no se podía entrar a mano a `syncvet_e2e` | La preparación (ahora en `e2e/support/prepare.ts`, con dependencias inyectadas y su test `src/test/e2e-prepare.test.ts`) la escribe al final en `frontend/e2e/.e2e-credentials`, ignorado por Git; documentado en `setup.md` y `frontend/CLAUDE.md` | Aceptado con el archivo |
+| Desvío 7 | `/perfil` sin la repetición de la contraseña nueva | Decisión del usuario: se suma "Repetí la contraseña nueva", controlada solo en el navegador (Zod; la API no la recibe). Distinta, el error en su campo sin llamar a la API | Revertido |
+| Desvío 10 | Playwright sin "credenciales incorrectas" ni el vencimiento | Se suman los dos casos (11 en total): el mensaje de la API, la contraseña borrada y sin sesión; `expires_at` vencido en `sessionStorage` cierra las dos pestañas con ese token | Revertido |
+
+Para el cierre: el flujo 3 del diseño detallado ("Sin el campo de confirmación") y la fila de `/perfil` de la tabla de archivos
+describen lo anterior al desvío 7; la fila de `api.ts` y la de `channel.ts` y `session.ts` ("invalida todas sus consultas"), lo
+anterior a B5 y B6. Se actualizan en el cierre, como en la 0.2a.
+
+**Cifras de la corrección** (en la PC nueva, recién clonada; desde `frontend/`):
+
+* `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`, una sola corrida completa: sin errores ni avisos. `npm test`:
+  269 tests en 21 archivos, en verde (antes de la corrección, 248 en 20: suma `src/test/e2e-prepare.test.ts` y los tests de la
+  tabla de arriba).
+* Mutaciones de la corrección: 14, todas detectadas (en la sesión del commit `e77f64a`).
+* `npm run test:e2e` (Edge, contra `syncvet_e2e`; la base no existía en esta PC y la creó la preparación): la primera corrida, 10 de
+  11. Falló "vencimiento": la segunda pestaña no llegó a mostrar la sesión de la primera en 10 s (la traza quedó cortada). Ese caso
+  solo pasó, y la suite completa repetida, **11 de 11** (2,3 min). Es intermitente: la pestaña nueva espera la sesión de la abierta
+  300 ms (`SESSION_REQUEST_TIMEOUT_MS`, P1) y la primera corrida en una PC nueva es más lenta (Vite compila en frío y el antivirus
+  revisa cada archivo). No se cambió el código. Decidir en el cierre: dejarlo así, darle más espera a la prueba o registrarlo como
+  deuda.
+
+**Validación en el navegador de la corrección (2026-11-12),** como la de arriba: Edge sin ventana, contra `syncvet.test` (base
+`syncvet`) y `npm run dev` (`http://localhost:5173`), con un script y las capturas fuera del repositorio.
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | `/perfil`: la repetición distinta | OK | "Las dos contraseñas nuevas no coinciden." en "Repetí la contraseña nueva", fuera del grupo con borde; ningún `PATCH` |
+| 2 | `/perfil`: la repetición vacía | OK | "Repetí la contraseña nueva."; ningún `PATCH` |
+| 3 | `/perfil`: la actual incorrecta | OK | 422 "La contraseña actual no es correcta." en su campo; el borde rojo rodea solo el campo y el mensaje queda abajo, afuera, también con el foco en el campo (B1) |
+| 4 | `/perfil`: el cambio correcto | OK | `vet-a` a una contraseña temporal: el aviso de éxito, los tres campos vacíos y la sesión sigue al recargar |
+| 5 | `/ingresar`: la contraseña vacía | OK | "Ingresá tu contraseña." fuera del grupo con borde (B1 también en `/ingresar`) |
+| 6 | `/perfil`: la vuelta a `DEMO_PASSWORD` | OK | Desde `/perfil`; después, el ingreso por la API con `DEMO_PASSWORD` responde 200 |
+| 7 | Cambio de sucursal desde la barra | OK | `admin-a` con "Sucursal de usuarios (Postman)" asignada para la prueba: el aviso, la barra y el inicio cambian, y la otra pestaña también (`branch-changed`) |
+| 8 | Sigue al recargar | OK | `GET /api/me` con `current_branch.id` 4 |
+| 9 | `me` al volver a la pestaña (M2) | OK | La sucursal se cambió a "Casa central" por la API con otro token (como desde otra PC); la pestaña no se enteró hasta el `focus`, y entonces la barra y el inicio pasaron a "Casa central" |
+| 10 | La vuelta a "Casa central" desde la barra | OK | Ida y vuelta en las dos pestañas; "Salir" cerró las dos |
+| 11 | Consola | OK | Sin errores ni avisos de la aplicación; solo el registro de red del 422 esperado de la prueba 3 |
+
+**Datos de la demo.** A `admin-a` se le asignó la sucursal 4 y se le volvió a dejar solo "Casa central" (actual y única asignada);
+la contraseña de `vet-a` se cambió y se volvió a `DEMO_PASSWORD` desde `/perfil`. Verificado al final en la base: los tres usuarios
+de la Clínica A con "Casa central" como actual y como única asignada, y la sucursal 4 activa. Los tokens de la prueba se cerraron.
+
+**Entorno de la PC nueva** (no es del código; para la próxima sesión en esa PC): el vhost `syncvet.test` de Laragon todavía apuntaba
+a la raíz del repositorio (`C:/laragon/www/syncvet/public`, antes del monorepo) y respondía 404: se aplicó el paso 5 de
+[Migración al monorepo](../../../04-desarrollo/setup.md#migración-al-monorepo-r-057) (`syncvet.test.conf` hacia `backend/public`,
+sin el `auto.`) y se reinició nginx. En la raíz siguen los archivos del backend viejo sin versionar (`app/`, `artisan`, `vendor/`,
+`docs/fases/`…), que el paso 3 dice revisar y borrar: no se tocaron. En `setup.md`, la ruta del paso 5 estaba rota (un `\e` y un
+`\n` convertidos en caracteres de control): corregida. El `backend/.env` de esa PC tiene `DEMO_PASSWORD` entre comillas dobles, no
+simples como pide `setup.md`.
 
 ## Documentación por entrega
 

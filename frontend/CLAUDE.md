@@ -10,7 +10,7 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 |---|---|
 | Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md) |
 | Entrega | 0.1, esqueleto sin backend: COMPLETADA (R-060) en `feature/front-0-1-esqueleto`; 0.2a, la sesión contra la API real: COMPLETADA (R-061) en `feature/front-0-2a-sesion` |
-| Siguiente | 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion`: implementada (WIP), falta la revisión y el cierre |
+| Siguiente | 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion`: implementada y corregida después de la revisión (WIP), falta el cierre |
 | Tests | Vitest: 195 tests en 15 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
@@ -29,7 +29,7 @@ Desde `frontend/`, con Node 26 (`.nvmrc`; `engine-strict` rechaza otra versión 
 | `npm run lint` | ESLint, sin avisos (`--max-warnings 0`) |
 | `npm run format` | Prettier sobre todo el proyecto (`format:check` solo revisa) |
 | `npm test` | Vitest, una vez (`test:watch`, en modo observación) |
-| `npm run test:e2e` | Playwright contra el backend real y la base `syncvet_e2e`, recreada en cada corrida (levanta el backend en `:8010` y Vite en `:5174`); qué necesita, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright) |
+| `npm run test:e2e` | Playwright contra el backend real y la base `syncvet_e2e`, recreada en cada corrida (levanta el backend en `:8010` y Vite en `:5174`); la contraseña de los usuarios del `DemoSeeder` se genera en cada corrida y queda en `frontend/e2e/.e2e-credentials` (ignorado por Git), para entrar a mano a `syncvet_e2e`; qué necesita, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright) |
 
 Antes de dar algo por terminado: `typecheck`, `lint`, `test` y `build`, los cuatro sin errores ni avisos. Las dependencias se
 verifican en npm antes de instalarlas y se auditan con `npm audit`.
@@ -92,6 +92,13 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   `XMLHttpRequest`, y en todo el código `dangerouslySetInnerHTML`.
 * **Lecturas con `useQuery` y cambios con `useMutation`**, con las claves en el `api.ts` de cada módulo. `createQueryClient()`
   (`src/lib/api/query.ts`): una lectura se reintenta una vez solo con una falla de red o un 5xx; una mutación, nunca.
+* **Claves de las consultas** (`src/lib/api/query-keys.ts`, desde la 0.2b): `['me']` es el usuario de la sesión; una consulta
+  cuyos datos dependen de la sucursal actual (la cola del día, los turnos, la caja…) arma su clave con
+  `branchKey(idDeLaSucursal, …)` (`['branch', 10, 'appointments', 'queue', { date }]`), así los datos de dos sucursales no se
+  mezclan y el cambio de sucursal invalida solo esas (`invalidateBranchQueries`); las demás (catálogos, clientes, pacientes: son
+  de la clínica) empiezan con su módulo (`['clients', …]`) y no se tocan al cambiar de sucursal.
+* **Contraseñas fuera de la caché de mutaciones** (0.2b): una mutación que manda una contraseña (`/ingresar`, `/perfil`) va con
+  `gcTime: 0` y `mutation.reset()` en `onSettled`, para que sus variables no queden en la caché de Query.
 * **Tipos escritos a mano** en el `types.ts` del módulo, con los nombres de la API (`snake_case`, también `meta.pagination`:
   `per_page`, `current_page`, `last_page`); no se traducen a `camelCase`.
 * **Formularios**: React Hook Form con Zod; un 422 se vuelca con `applyValidationErrors` (`src/lib/api/form-errors.ts`): cada clave
@@ -127,8 +134,10 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   (`defaultErrorComponent`, `RouteErrorPage`); en una acción, la alerta con el `message`. Los tests usan los permisos reales de
   los tres roles, leídos de `backend/tests/Fixtures/clinic-roles.json` (`src/test/roles.ts`, `meFor(rol)`), nunca inventados.
 * **Sucursal actual** (0.2b): el selector de la barra (`BranchSelector`) con `me.branches`; `PATCH me/current-branch` y, con el
-  200, `applyBranchChange` (`['me']` con la respuesta y el resto de las consultas invalidadas: los datos dependen de la sucursal)
-  y `branch-changed` en el canal (las demás pestañas invalidan todas sus consultas). Sin sucursal actual, un aviso pide elegir una.
+  200, `applyBranchChange` (`me` se vuelve a pedir al servidor, no se toma la respuesta del `PATCH`, y se invalidan solo las
+  consultas de la sucursal, `invalidateBranchQueries`) y `branch-changed` en el canal (las demás pestañas invalidan `['me']` y
+  las consultas de la sucursal). Al volver a la pestaña (`focus`, `visibilitychange`), `SessionLayout` vuelve a pedir `me`: la
+  sucursal pudo cambiar en otra PC o un administrador pudo inactivarla. Sin sucursal actual, un aviso pide elegir una.
 * **Descargas con token** (desde la F1): se piden con el cliente como `blob` y se muestran con una URL de objeto.
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
   con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
