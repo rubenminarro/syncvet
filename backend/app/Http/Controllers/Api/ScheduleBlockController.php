@@ -65,14 +65,7 @@ class ScheduleBlockController extends Controller implements HasMiddleware
             'Bloqueos obtenidos correctamente.',
             ScheduleBlockResource::collection($blocks->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $blocks->total(),
-                    'perPage' => $blocks->perPage(),
-                    'currentPage' => $blocks->currentPage(),
-                    'lastPage' => $blocks->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($blocks)
         );
     }
 

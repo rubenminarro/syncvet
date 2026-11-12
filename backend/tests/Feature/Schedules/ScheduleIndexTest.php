@@ -57,7 +57,7 @@ class ScheduleIndexTest extends TestCase
         $this->getJson("/api/schedules?service_id={$service->id}")->assertJsonPath('meta.pagination.total', 1)->assertJsonPath('data.0.id', $byService->id);
         $this->getJson('/api/schedules?search=' . urlencode('100%'))->assertJsonPath('meta.pagination.total', 1)->assertJsonPath('data.0.id', $byVeterinarian->id);
         $this->getJson('/api/schedules?search=' . urlencode('a_'))->assertJsonPath('meta.pagination.total', 1)->assertJsonPath('data.0.id', $byService->id);
-        $this->getJson('/api/schedules?per_page=1&page=2')->assertJsonPath('meta.pagination.lastPage', 3)->assertJsonCount(1, 'data');
+        $this->getJson('/api/schedules?per_page=1&page=2')->assertJsonPath('meta.pagination.last_page', 3)->assertJsonCount(1, 'data');
     }
 
     public function test_malformed_or_foreign_filters_answer_422(): void

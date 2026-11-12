@@ -243,7 +243,15 @@ class AuthService
      */
     public function profile(User $user): User
     {
-        return CurrentClinic::run($user->clinic, fn () => $user->load(['clinic', 'currentBranch', 'veterinarian', 'roles']));
+        // branches (entrega front-00, B1): las mismas que acepta setCurrentBranch, activas y
+        // asignadas; dentro de CurrentClinic::run, el scope deja afuera las de otra clínica.
+        return CurrentClinic::run($user->clinic, fn () => $user->load([
+            'clinic',
+            'currentBranch',
+            'branches' => fn ($query) => $query->where('is_active', true)->orderBy('code'),
+            'veterinarian',
+            'roles',
+        ]));
     }
 
     /**

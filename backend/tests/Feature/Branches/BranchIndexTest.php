@@ -65,7 +65,7 @@ class BranchIndexTest extends TestCase
         $this->getJson('/api/branches?per_page=2&page=2')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.pagination', ['total' => 4, 'perPage' => 2, 'currentPage' => 2, 'lastPage' => 2]);
+            ->assertJsonPath('meta.pagination', ['total' => 4, 'per_page' => 2, 'current_page' => 2, 'last_page' => 2]);
 
         foreach (['per_page=0', 'per_page=101', 'page=0', 'include_inactive=x', 'search[]=x'] as $query) {
             $this->getJson("/api/branches?{$query}")->assertUnprocessable();

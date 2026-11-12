@@ -109,12 +109,12 @@ class ClientSearchTest extends TestCase
         $this->getJson('/api/clients?per_page=2')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta.pagination', ['total' => 3, 'perPage' => 2, 'currentPage' => 1, 'lastPage' => 2]);
+            ->assertJsonPath('meta.pagination', ['total' => 3, 'per_page' => 2, 'current_page' => 1, 'last_page' => 2]);
 
         $this->getJson('/api/clients?per_page=2&page=2')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.pagination.currentPage', 2);
+            ->assertJsonPath('meta.pagination.current_page', 2);
     }
 
     public function test_the_list_shows_the_display_name(): void

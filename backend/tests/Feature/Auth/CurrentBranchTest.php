@@ -32,6 +32,10 @@ class CurrentBranchTest extends TestCase
             ->assertJsonPath('message', 'Sucursal actual actualizada.')
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.current_branch', ['id' => $north->id, 'code' => 'SUC-02', 'name' => 'Sucursal Norte'])
+            ->assertJsonPath('data.branches', [
+                ['id' => $default->id, 'code' => 'SUC-01', 'name' => 'Casa central'],
+                ['id' => $north->id, 'code' => 'SUC-02', 'name' => 'Sucursal Norte'],
+            ])
             ->assertJsonPath('data.roles', ['recepcionista']);
 
         $this->assertSame($north->id, $user->fresh()->current_branch_id);
@@ -107,5 +111,40 @@ class CurrentBranchTest extends TestCase
     public function test_it_needs_a_token(): void
     {
         $this->assertErrorCode($this->patchJson('/api/me/current-branch', ['branch_id' => 1]), 401, 'UNAUTHENTICATED');
+    }
+
+    /**
+     * Entrega front-00, B1: me.branches son exactamente las que acepta me/current-branch.
+     * Cada una responde 200, y cualquier otra sucursal (de la clínica o de otra) responde 422.
+     */
+    public function test_me_branches_are_exactly_the_ones_accepted_as_current(): void
+    {
+        $clinic = $this->createClinic();
+        $default = $this->defaultBranchIn($clinic);
+        $north = $this->branchIn($clinic, ['code' => 'SUC-02']);
+        $inactive = $this->branchIn($clinic, ['code' => 'SUC-03']);
+        $this->branchIn($clinic, ['code' => 'SUC-04']);
+        $foreign = $this->defaultBranchIn($this->createClinic());
+        $user = $this->userWithRoles($clinic, ['recepcionista'], [$default, $north, $inactive]);
+        DB::table('branch_user')->insert(['branch_id' => $foreign->id, 'user_id' => $user->id]);
+        DB::table('branches')->where('id', $inactive->id)->update(['is_active' => false]);
+        $token = $user->createToken('api')->plainTextToken;
+
+        $listed = array_column($this->withRealToken($token)->getJson('/api/me')->assertOk()->json('data.branches'), 'id');
+        $this->assertSame([$default->id, $north->id], $listed);
+
+        foreach ($listed as $branchId) {
+            $this->withRealToken($token)->patchJson('/api/me/current-branch', ['branch_id' => $branchId])
+                ->assertOk()
+                ->assertJsonPath('data.current_branch.id', $branchId);
+        }
+
+        $others = DB::table('branches')->whereNotIn('id', $listed)->pluck('id')->all();
+        $this->assertCount(3, $others);
+        foreach ($others as $branchId) {
+            $this->withRealToken($token)->patchJson('/api/me/current-branch', ['branch_id' => $branchId])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('branch_id');
+        }
     }
 }

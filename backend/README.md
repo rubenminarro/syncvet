@@ -93,6 +93,7 @@ php artisan key:generate
 |---|---|---|
 | `EMAIL_DNS_CHECK` | `true` | Validar que el dominio del email exista. `phpunit.xml` lo desactiva |
 | `SANCTUM_EXPIRATION` | `720` | Minutos de vida de un token de la API (registro R-004) |
+| `CORS_ALLOWED_ORIGINS` | vacía (en `.env.example`, `http://localhost:5173`) | Orígenes del navegador que pueden llamar a `api/*` (CORS), separados por comas; los espacios y los vacíos se descartan. Vacía: ninguno, nunca el comodín. En desarrollo el proxy de Vite no usa CORS (`config/cors.php`, entrega front-00) |
 | `TRUSTED_PROXIES` | vacía | Proxies de confianza para `X-Forwarded-For` ([`deployment.md`](../docs/04-desarrollo/deployment.md)) |
 | `DEMO_PASSWORD` | vacía | Contraseña de los usuarios del `DemoSeeder` (al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos; no puede aparecer en filtraciones conocidas). Sin ella, el seeder no corre |
 

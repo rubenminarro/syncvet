@@ -137,7 +137,36 @@ Respondidas por el usuario el 2026-11-12 (R-058).
 
 ## Pendiente para el cierre
 
-Nada todavía.
+Implementación del 2026-11-12 (commit WIP en `feature/front-00-me-sucursales`), sin validar todavía por el usuario.
+
+**Desvíos del diseño.**
+
+1. `paginationMeta()` es un método `protected` (no estático) del trait `App\Traits\ApiResponse`, y los controllers lo llaman con
+   `$this->paginationMeta($paginator)`: llamar a un método estático directamente sobre un trait (`ApiResponse::paginationMeta`) está
+   obsoleto desde PHP 8.1. Sigue siendo el único lugar que arma el bloque.
+2. El caso por controller de la paginación va en un test nuevo, `tests/Feature/PaginationMetaTest.php` (11 casos con un *data
+   provider*), además de los 9 tests que pasaron a las claves nuevas.
+3. `SnakeCaseKeysTest`: el "archivo de ejemplo que la rompe" se escribe en un archivo temporal desde el propio test (como el código de
+   ejemplo de `NoDatabaseNowTest`), para que no quede un `.php` con claves en `camelCase` dentro del repositorio. Suma un caso que
+   exige que el escaneo cubra `app/Http`, `app/Traits`, `app/Exceptions`, `app/Services` y `app/Support` (sin él, la mutación "la
+   protección sin mirar `app/Http`" pasaba).
+4. Postman, sucursales: para ver `me.branches` antes y después de inactivar la sucursal nueva, la colección le asigna esa sucursal a
+   `admin-a` (pedidos 23b a 23e y 24a) y al final le devuelve sus sucursales de antes (33b). Usuarios: un pedido nuevo, 30b (la otra
+   sucursal de `me.branches` también se acepta como actual).
+5. El pedido mencionó `backend/CLAUDE.md` §5 para el contrato; el contrato está en §4 (Contrato de respuesta), y ahí se documentó,
+   junto con la convención `snake_case` en §3 y el perfil en §6.5.
+
+**Para decidir.** Si alguien pone `*` a propósito en `CORS_ALLOWED_ORIGINS`, Laravel (php-cors) lo toma como comodín: la
+configuración no lo filtra (el diseño pide no tenerlo por defecto, y no lo tiene). ¿Se rechaza `*` en `config/cors.php`?
+
+**Notas.**
+
+* `.env` no se versiona: en cada PC que use el frontend sin el proxy de Vite hay que agregar `CORS_ALLOWED_ORIGINS` (está en
+  `.env.example`).
+* Suite al terminar: 1425 casos (30 más que el cierre de la FASE 3); SQLite en serie, 14110 aserciones (14 omitidos, los de solo
+  MySQL); MySQL, 14184.
+* Falta para el cierre: el resultado de esta entrega en este documento, la sección `R-NNN` del registro, el roadmap, el handoff,
+  `backend/CLAUDE.md` §1 (cifras de la suite) y la validación del usuario con Postman.
 
 ## Resultado
 

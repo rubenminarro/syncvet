@@ -244,7 +244,7 @@
                             "    }",
                             "} else {",
                             "    const used = new Set(json.data.map(b => b.establishment));",
-                            "    let pending = Math.max(json.meta.pagination.lastPage - 1, 0);",
+                            "    let pending = Math.max(json.meta.pagination.last_page - 1, 0);",
                             "    const create = () => {",
                             "        const free = []; for (let n = 2; n <= 999; n++) { const e = String(n).padStart(3, '0'); if (!used.has(e)) free.push(e); }",
                             "        pm.test('Queda un establecimiento libre', () => pm.expect(free.length).to.be.at.least(1));",
@@ -255,7 +255,7 @@
                             "        });",
                             "    };",
                             "    if (pending === 0) { create(); } else {",
-                            "        for (let page = 2; page <= json.meta.pagination.lastPage; page++) {",
+                            "        for (let page = 2; page <= json.meta.pagination.last_page; page++) {",
                             "            pm.sendRequest({ url: api('branches?include_inactive=1&per_page=100&page=' + page), method: 'GET', header: headers }, (err, res) => {",
                             "                if (!err) res.json().data.forEach(b => used.add(b.establishment));",
                             "                if (--pending === 0) create();",
@@ -662,7 +662,8 @@
                         "exec": [
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
-                            "pm.collectionVariables.set('token_user', json.data.token);"
+                            "pm.collectionVariables.set('token_user', json.data.token);",
+                            "pm.test('Sus sucursales para elegir (data.user.branches): SUC-USR', () => pm.expect(json.data.user.branches.map(b => b.id)).to.eql([Number(pm.collectionVariables.get('second_branch_id'))]));"
                         ]
                     }
                 }
@@ -712,7 +713,11 @@
                         "exec": [
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
-                            "pm.test('Es el usuario', () => pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('user_id'))));"
+                            "pm.test('Es el usuario', () => pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('user_id'))));",
+                            "pm.test('me.branches: SUC-USR, con id, code y name', () => {",
+                            "    pm.expect(json.data.branches.map(b => b.id)).to.eql([Number(pm.collectionVariables.get('second_branch_id'))]);",
+                            "    pm.expect(json.data.branches[0]).to.have.all.keys('id', 'code', 'name');",
+                            "});"
                         ]
                     }
                 }
@@ -1779,7 +1784,12 @@
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
                             "pm.test('Responde me', () => pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('user_id'))));",
-                            "pm.test('Sucursal actual: la por defecto', () => pm.expect(json.data.current_branch.id).to.eql(Number(pm.collectionVariables.get('default_branch_id'))));"
+                            "pm.test('Sucursal actual: la por defecto', () => pm.expect(json.data.current_branch.id).to.eql(Number(pm.collectionVariables.get('default_branch_id'))));",
+                            "pm.test('me.branches: las dos asignadas, por código', () => {",
+                            "    pm.expect(json.data.branches.map(b => b.id)).to.have.members([Number(pm.collectionVariables.get('default_branch_id')), Number(pm.collectionVariables.get('second_branch_id'))]);",
+                            "    const codes = json.data.branches.map(b => b.code);",
+                            "    pm.expect(codes).to.eql([...codes].sort());",
+                            "});"
                         ]
                     }
                 }
@@ -1809,6 +1819,65 @@
                 "body": {
                     "mode": "raw",
                     "raw": "{\n    \"branch_id\": \"{{default_branch_id}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_user}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30b Sucursal actual: la otra de me.branches también se acepta",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Sucursal actual: SUC-USR', () => pm.expect(json.data.current_branch.id).to.eql(Number(pm.collectionVariables.get('second_branch_id'))));",
+                            "pm.test('La actual está en me.branches', () => pm.expect(json.data.branches.map(b => b.id)).to.include(json.data.current_branch.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me/current-branch",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me",
+                        "current-branch"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": \"{{second_branch_id}}\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"

@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 2: validación de sucursales y depósitos",
-        "description": "Validación manual de sucursales y depósitos (FASE 2, entrega 2.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (rango propio, 100000 a 199998), que va en los códigos y nombres; el segundo busca dos códigos de establecimiento libres. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva y devuelve la por defecto a la original. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
+        "description": "Validación manual de sucursales y depósitos (FASE 2, entrega 2.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (rango propio, 100000 a 199998), que va en los códigos y nombres; el segundo busca dos códigos de establecimiento libres. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva y devuelve la por defecto a la original. Para probar me.branches (entrega front-00), le asigna la sucursal nueva a admin-a y al final le devuelve sus sucursales de antes. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -182,7 +182,7 @@
                         "exec": [
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
-                            "pm.test('Paginado', () => pm.expect(json.meta.pagination.perPage).to.eql(100));",
+                            "pm.test('Paginado', () => pm.expect(json.meta.pagination.per_page).to.eql(100));",
                             "const fallback = json.data.find(b => b.is_default);",
                             "pm.test('Hay una sucursal por defecto', () => pm.expect(fallback).to.be.an('object'));",
                             "pm.test('La por defecto va primero', () => pm.expect(json.data[0].is_default).to.eql(true));",
@@ -200,7 +200,7 @@
                             "    pm.collectionVariables.set('est_a', a);",
                             "    pm.collectionVariables.set('est_b', b);",
                             "};",
-                            "const last = json.meta.pagination.lastPage;",
+                            "const last = json.meta.pagination.last_page;",
                             "if (last <= 1) { pick(); } else {",
                             "    let pending = last - 1;",
                             "    for (let page = 2; page <= last; page++) {",
@@ -1515,6 +1515,210 @@
             }
         },
         {
+            "name": "23b El administrador todavía no tiene la sucursal nueva (me.branches)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.collectionVariables.set('admin_id', json.data.id);",
+                            "pm.test('No está en me.branches', () => pm.expect(json.data.branches.map(b => b.id)).to.not.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23c Sucursales asignadas al administrador (para devolvérselas al final)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const ids = pm.response.json().data.branches.map(b => b.id);",
+                            "pm.test('Tiene al menos una', () => pm.expect(ids).to.not.be.empty);",
+                            "pm.collectionVariables.set('admin_branch_ids', JSON.stringify(ids));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23d Asignarle la sucursal nueva al administrador",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "const ids = JSON.parse(pm.collectionVariables.get('admin_branch_ids'));",
+                            "pm.collectionVariables.set('admin_branch_ids_with_new', JSON.stringify([...ids, Number(pm.collectionVariables.get('branch_id'))]));"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('La tiene asignada', () => pm.expect(pm.response.json().data.branches.map(b => b.id)).to.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_ids\": {{admin_branch_ids_with_new}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23e me.branches trae la sucursal nueva, por código",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const branches = pm.response.json().data.branches;",
+                            "pm.test('Está en me.branches', () => pm.expect(branches.map(b => b.id)).to.include(Number(pm.collectionVariables.get('branch_id'))));",
+                            "const codes = branches.map(b => b.code);",
+                            "pm.test('Por código', () => pm.expect(codes).to.eql([...codes].sort()));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "24 Inactivar la sucursal nueva",
             "event": [
                 {
@@ -1558,6 +1762,49 @@
                             "language": "json"
                         }
                     }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24a Inactiva, me.branches ya no la trae",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('No está en me.branches', () => pm.expect(pm.response.json().data.branches.map(b => b.id)).to.not.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me"
+                    ]
                 },
                 "auth": {
                     "type": "bearer",
@@ -2071,6 +2318,64 @@
                     ]
                 }
             }
+        },
+        {
+            "name": "33b El administrador vuelve a sus sucursales de antes",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const ids = pm.response.json().data.branches.map(b => b.id);",
+                            "pm.test('Las de antes', () => pm.expect(ids).to.have.members(JSON.parse(pm.collectionVariables.get('admin_branch_ids'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_ids\": {{admin_branch_ids}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
         }
     ],
     "variable": [
@@ -2136,6 +2441,21 @@
         },
         {
             "key": "foreign_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "admin_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "admin_branch_ids",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "admin_branch_ids_with_new",
             "value": "",
             "type": "string"
         }

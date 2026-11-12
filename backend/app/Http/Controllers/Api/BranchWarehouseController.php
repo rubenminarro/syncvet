@@ -53,14 +53,7 @@ class BranchWarehouseController extends Controller implements HasMiddleware
             'Depósitos obtenidos correctamente.',
             WarehouseResource::collection($warehouses->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $warehouses->total(),
-                    'perPage' => $warehouses->perPage(),
-                    'currentPage' => $warehouses->currentPage(),
-                    'lastPage' => $warehouses->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($warehouses)
         );
     }
 

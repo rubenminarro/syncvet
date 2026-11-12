@@ -71,8 +71,8 @@ class ListFiltersTest extends TestCase
     #[DataProvider('lists')]
     public function test_per_page_defaults_to_10_and_accepts_up_to_100(string $url): void
     {
-        $this->getJson($url)->assertOk()->assertJsonPath('meta.pagination.perPage', 10);
-        $this->getJson("{$url}?per_page=100&page=1&search=a")->assertOk()->assertJsonPath('meta.pagination.perPage', 100);
+        $this->getJson($url)->assertOk()->assertJsonPath('meta.pagination.per_page', 10);
+        $this->getJson("{$url}?per_page=100&page=1&search=a")->assertOk()->assertJsonPath('meta.pagination.per_page', 100);
     }
 
     public function test_the_messages_name_the_field_in_spanish(): void

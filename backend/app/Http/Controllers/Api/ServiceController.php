@@ -66,14 +66,7 @@ class ServiceController extends Controller implements HasMiddleware
             'Servicios obtenidos correctamente.',
             ServiceResource::collection($services->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $services->total(),
-                    'perPage' => $services->perPage(),
-                    'currentPage' => $services->currentPage(),
-                    'lastPage' => $services->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($services)
         );
     }
 

@@ -57,14 +57,7 @@ class BranchController extends Controller implements HasMiddleware
             'Sucursales obtenidas correctamente.',
             BranchResource::collection($branches->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $branches->total(),
-                    'perPage' => $branches->perPage(),
-                    'currentPage' => $branches->currentPage(),
-                    'lastPage' => $branches->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($branches)
         );
     }
 

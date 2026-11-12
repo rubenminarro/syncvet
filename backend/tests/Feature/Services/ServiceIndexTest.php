@@ -37,8 +37,8 @@ class ServiceIndexTest extends TestCase
             // La descripción, solo en el detalle.
             ->assertJsonMissingPath('data.0.description')
             ->assertJsonPath('meta.pagination.total', 2)
-            ->assertJsonPath('meta.pagination.perPage', 1)
-            ->assertJsonPath('meta.pagination.lastPage', 2);
+            ->assertJsonPath('meta.pagination.per_page', 1)
+            ->assertJsonPath('meta.pagination.last_page', 2);
 
         $this->getJson('/api/services')->assertOk()->assertJsonPath('data.*.name', ['Consulta general', 'Vacuna séxtuple']);
     }

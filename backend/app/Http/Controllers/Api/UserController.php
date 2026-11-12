@@ -72,14 +72,7 @@ class UserController extends Controller implements HasMiddleware
             'Usuarios obtenidos correctamente.',
             UserResource::collection($users->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $users->total(),
-                    'perPage' => $users->perPage(),
-                    'currentPage' => $users->currentPage(),
-                    'lastPage' => $users->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($users)
         );
     }
 

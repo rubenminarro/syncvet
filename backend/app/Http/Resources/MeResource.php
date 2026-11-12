@@ -9,8 +9,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Usuario autenticado: datos, clínica, sucursal actual, roles, permisos y ficha
- * de veterinario. Espera las relaciones cargadas (AuthService::profile).
+ * Usuario autenticado: datos, clínica, sucursal actual, sucursales que puede elegir,
+ * roles, permisos y ficha de veterinario. Espera las relaciones cargadas (AuthService::profile).
  *
  * @mixin User
  */
@@ -35,6 +35,12 @@ class MeResource extends JsonResource
                 'code' => $this->currentBranch->code,
                 'name' => $this->currentBranch->name,
             ] : null,
+            // Las sucursales que se pueden elegir como actual (entrega front-00, B1).
+            'branches' => $this->branches->map(fn ($branch) => [
+                'id' => $branch->id,
+                'code' => $branch->code,
+                'name' => $branch->name,
+            ])->values()->all(),
             'roles' => $this->roles->pluck('name')->sort()->values()->all(),
             'permissions' => $this->permissionNames(),
             'veterinarian' => $this->veterinarian ? [

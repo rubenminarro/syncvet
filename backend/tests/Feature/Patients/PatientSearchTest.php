@@ -88,7 +88,7 @@ class PatientSearchTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'Manchas')
-            ->assertJsonPath('meta.pagination', ['total' => 2, 'perPage' => 1, 'currentPage' => 2, 'lastPage' => 2]);
+            ->assertJsonPath('meta.pagination', ['total' => 2, 'per_page' => 1, 'current_page' => 2, 'last_page' => 2]);
     }
 
     public function test_the_list_only_shows_patients_of_the_clinic(): void

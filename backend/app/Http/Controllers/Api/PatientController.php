@@ -64,14 +64,7 @@ class PatientController extends Controller implements HasMiddleware
             'Pacientes obtenidos correctamente.',
             PatientResource::collection($patients->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $patients->total(),
-                    'perPage' => $patients->perPage(),
-                    'currentPage' => $patients->currentPage(),
-                    'lastPage' => $patients->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($patients)
         );
     }
 
