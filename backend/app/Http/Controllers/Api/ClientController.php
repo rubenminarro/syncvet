@@ -62,14 +62,7 @@ class ClientController extends Controller implements HasMiddleware
             'Clientes obtenidos correctamente.',
             ClientResource::collection($clients->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $clients->total(),
-                    'perPage' => $clients->perPage(),
-                    'currentPage' => $clients->currentPage(),
-                    'lastPage' => $clients->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($clients)
         );
     }
 

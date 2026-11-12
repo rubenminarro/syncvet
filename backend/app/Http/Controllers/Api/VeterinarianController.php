@@ -75,14 +75,7 @@ class VeterinarianController extends Controller implements HasMiddleware
             'Veterinarios obtenidos correctamente.',
             VeterinarianResource::collection($veterinarians->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $veterinarians->total(),
-                    'perPage' => $veterinarians->perPage(),
-                    'currentPage' => $veterinarians->currentPage(),
-                    'lastPage' => $veterinarians->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($veterinarians)
         );
     }
 

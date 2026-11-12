@@ -7,7 +7,7 @@ propio `CLAUDE.md`.
 |---|---|
 | `CLAUDE.md` (este) | Proceso y reglas comunes |
 | [`backend/CLAUDE.md`](backend/CLAUDE.md) | Estado, convenciones, arquitectura y reglas de negocio del backend (Laravel) |
-| [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | Reglas del frontend (a completar en la F0 del frontend) |
+| [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | Estado, comandos, stack, convenciones y tabla de `error_code` del frontend (React) |
 | [`docs/README.md`](docs/README.md) | Índice, fuente de verdad de cada tema y qué actualizar en cada cambio |
 | [`docs/03-plan-desarrollo/handoff.md`](docs/03-plan-desarrollo/handoff.md) | Punto de continuidad y próximas tareas |
 | [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md) | Estado por fase; el diseño de cada fase está en `docs/03-plan-desarrollo/fases/` |
@@ -26,7 +26,7 @@ syncvet/
 ├── CLAUDE.md        Este archivo: proceso y reglas comunes
 ├── .claude/skills/  /retomar, /cerrar-entrega y /validar-docs, para todo el repositorio
 ├── backend/         API Laravel, con su CLAUDE.md y su README.md (instalación)
-├── frontend/        React 19 + TypeScript + Vite + Tabler (vacío hasta la F0 del frontend)
+├── frontend/        React 19 + TypeScript + Vite + Tabler, con su CLAUDE.md y su README.md (instalación)
 └── docs/            Documentación de todo el proyecto (índice en docs/README.md)
 ```
 
@@ -92,5 +92,6 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** sin empezar; su plan va en `docs/03-plan-desarrollo/fases/frontend/`.
+* **Frontend:** F0 completada (R-063) e integrada a `main`, con la entrega de soporte del backend (front-00); sigue el análisis y
+  el diseño de la F1 (clientes y pacientes); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

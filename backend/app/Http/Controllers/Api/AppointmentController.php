@@ -117,14 +117,7 @@ class AppointmentController extends Controller implements HasMiddleware
             'Turnos obtenidos correctamente.',
             AppointmentResource::collection($appointments->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $appointments->total(),
-                    'perPage' => $appointments->perPage(),
-                    'currentPage' => $appointments->currentPage(),
-                    'lastPage' => $appointments->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($appointments)
         );
     }
 

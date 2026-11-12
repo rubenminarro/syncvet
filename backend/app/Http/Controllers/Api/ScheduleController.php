@@ -62,14 +62,7 @@ class ScheduleController extends Controller implements HasMiddleware
             'Agendas obtenidas correctamente.',
             ScheduleResource::collection($schedules->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $schedules->total(),
-                    'perPage' => $schedules->perPage(),
-                    'currentPage' => $schedules->currentPage(),
-                    'lastPage' => $schedules->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($schedules)
         );
     }
 

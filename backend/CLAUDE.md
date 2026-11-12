@@ -40,9 +40,11 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   R-043), todas validadas por el usuario con Postman. La FASE 3 (agenda y turnos) está completada (R-056) e integrada a `main`:
   diseño aprobado (R-047 y R-048); entregas 3.0, zona de la sesión de MySQL (deuda 16 resuelta; R-049), 3.1, agendas, horario
   semanal y bloqueos (R-050), 3.2a, turnos únicos (R-051), 3.2b, estados del turno (R-053), 3.3, turnos recurrentes (R-054), y 3.4,
-  disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Sigue decidir con el usuario entre
-  el frontend y el análisis de la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la
-  FASE 3, 1395 casos (13960 aserciones en SQLite y 14034 en MySQL).
+  disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Después, la entrega de soporte del
+  frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) e integrada a
+  `main` con la F0 del frontend (R-063). Sigue el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy:
+  78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F0 del frontend, 1445 casos (14183 aserciones en SQLite y 14257
+  en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -55,12 +57,14 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   solo MySQL, la disponibilidad en `ScheduleAvailabilityTest`, con la grilla completa dada por el alta y el motivo de cada rechazo,
   y la cola del día en `AppointmentQueueTest`),
   y las fechas con hora (`AppDateTimeTest`, `DateTimeCastCoverageTest` y `AsuncionTimezoneTest`) con la zona de la sesión de MySQL
-  (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`). Se corre sin Xdebug, con
+  (`MySqlSessionTimezoneTest`, `DatabaseTimezoneConfigTest` y `NoDatabaseNowTest`), el contrato en `snake_case` (`SnakeCaseKeysTest` y
+  `PaginationMetaTest`) y CORS (`CorsTest`). Se corre sin Xdebug, con
   `composer test`, `composer test:mysql` y `composer test:fast` (en paralelo, con paratest; R-045).
   Validación manual de clientes, pacientes, especies y razas, la foto del paciente, sucursales y depósitos, usuarios, veterinarios,
   servicios, la configuración con el logo, la auditoría, las agendas, los turnos, la disponibilidad y la cola del día, con las colecciones de Postman de `docs/05-pruebas/postman`, que se pueden
   correr más de una vez sin recrear la base.
-* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual y contraseña propia); clientes, pacientes (con su foto: subir, ver y
+* **Módulos con API:** autenticación (`login`, `logout` y `me`, tokens de 12 horas, y el perfil: sucursal actual, elegida entre las de
+  `me.branches`, y contraseña propia); clientes, pacientes (con su foto: subir, ver y
   borrar), especies y razas (alta, edición, inactivación y baja del catálogo propio de la clínica), sucursales y sus depósitos
   (alta, edición e inactivación, sin baja), y usuarios con sus roles y sucursales (alta, edición, detalle, listado, inactivación y baja sin uso), el
   listado de roles, los veterinarios (código `VET-`, alta o restauración, edición, inactivación y baja sin uso) y el catálogo de
@@ -76,7 +80,9 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
   *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** historia clínica, aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
-* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; sin empezar.
+* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; la F0 (esqueleto,
+  sesión contra esta API y permisos) completada e integrada a `main` (R-063); sigue la F1, clientes y pacientes. Su estado y sus reglas, en
+  [`frontend/CLAUDE.md`](../frontend/CLAUDE.md).
 
 ---
 
@@ -236,6 +242,10 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   `ClinicFactory`, RUC de 9 dígitos, que hoy no se emiten (R-013). Nunca un número de 7 dígitos (el rango de las cédulas
   reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
   guía de Postman con sus colecciones (`docs/05-pruebas`); los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
+* Claves de la API en **`snake_case`**: datos, `meta` y `errors` (entrega front-00, B3). `SnakeCaseKeysTest` revisa `app/` y
+  `bootstrap/app.php` y falla con una clave literal en `camelCase` en un arreglo (`'fooBar' =>`, también anidada), asignada por
+  índice (`$data['fooBar'] = …`), en `compact()` o como clave de `Arr::set`, `Arr::add`, `data_set` o `data_fill`. No cuentan los
+  brazos de un `match` ni los arreglos que se pasan al log (revisión, H2 y H5).
 * Rutas anidadas con `scopeBindings()`. Actualizaciones parciales con `PATCH`. `apiResource` también registra `PUT`, con la
   misma semántica parcial: no reemplaza el recurso ni borra los campos que no se envían (`HttpVerbsTest`).
 * Resources: `XResource` para listados, `ShowXResource` para detalle.
@@ -293,7 +303,18 @@ Controller (HasMiddleware) → Form Request → Service → Model/Eloquent → A
 { "success": false, "status": 422, "message": "...", "data": null, "errors": null, "error_code": "..." }
 ```
 
-Listados: `meta.pagination` (`total`, `perPage`, `currentPage`, `lastPage`).
+Listados: `meta.pagination` (`total`, `per_page`, `current_page`, `last_page`), armado siempre con `paginationMeta()` de
+`App\Traits\ApiResponse` (entrega front-00, B3; antes en `camelCase`).
+
+`me` (`GET me`, `data.user` de `POST login` y `PATCH me/current-branch`, todos con `MeResource`): usuario, `clinic` (con
+`has_logo`), `current_branch`, `branches` (las sucursales activas asignadas al usuario, por `code`, cada una con `id`, `code` y
+`name`: exactamente las que acepta `PATCH me/current-branch`, también para el administrador; sin ninguna, `[]`; entrega front-00, B1),
+`roles`, `permissions` y `veterinarian`.
+
+CORS (`config/cors.php`, entrega front-00, B2): solo `api/*`, los orígenes de `CORS_ALLOWED_ORIGINS` (separados por comas; vacía,
+ninguno), solo orígenes exactos `esquema://host[:puerto]`, normalizados en minúsculas y sin la barra final; lo demás, todo `*`
+incluido, se descarta con un aviso en el log, como máximo uno por hora (`App\Support\CorsOrigins`; revisión, H1, H6 y H7), sin
+credenciales, `Retry-After` expuesto y `max_age` de 600 (`CorsTest`).
 
 Las únicas respuestas exitosas sin `ApiResponse` son las descargas de un archivo (`GET patients/{patient}/photo` y
 `GET system-settings/logo`, las dos con `PrivateImageStore`): el cuerpo es el archivo, con `Content-Type` según el tipo guardado,
@@ -510,7 +531,10 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   `branch_user` conservado; la auditoría guarda `updated` (el email) y `deleted`.
 * Perfil (2.2b; cualquier usuario autenticado y activo, sin permiso: `ROUTES_WITHOUT_PERMISSION`):
   * `PATCH me/current-branch` con `branch_id`: una sucursal activa de la clínica asignada al usuario (si no, 422 en `branch_id`); el
-    Service la vuelve a revisar con la clínica bloqueada (§3). Responde `MeResource`.
+    Service la vuelve a revisar con la clínica bloqueada (§3). Responde `MeResource`, que trae en `branches` justamente las
+    sucursales que esta ruta acepta (entrega front-00; `CurrentBranchTest`). La regla "activa y asignada" vive solo en
+    `Branch::selectableBy($user)`, que usan el Request (con la regla `App\Rules\SelectableBranch`), `AuthService::setCurrentBranch` y
+    `AuthService::profile` (revisión, H8).
   * `PATCH me/password` con `current_password` (incorrecta → 422 en `current_password`) y `password` (`UserPassword`, distinta de la
     actual). Conserva el token del pedido y revoca los demás del usuario. Límite: 5 intentos por minuto por usuario, contados antes
     de verificar la actual (el sexto, 429 `AUTH_TOO_MANY_ATTEMPTS` con `Retry-After`, aunque sea correcta); los errores de

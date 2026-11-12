@@ -1233,3 +1233,179 @@ de los dos en `docs/`. Rama `chore/monorepo`, desde `main` en `3ead398` (el merg
 
 **Qué no cambió.** Código de `app/`, rutas, permisos, `error_code`, contrato de respuesta, migraciones y las colecciones (salvo la ruta
 de la guía en sus descripciones y el mensaje esperado de la deuda 18).
+
+# R-058 Análisis del frontend: decisiones y diseño de la F0 (2026-11-12)
+
+Decisiones del usuario sobre el análisis del frontend, en `docs/frontend-analisis` (desde `main` en `5244a8b`). Con ellas se escriben
+el diseño de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md) y el de la
+[entrega de soporte del backend](../../03-plan-desarrollo/fases/backend/front-00-soporte-del-frontend.md) (B1 a B3).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Stack | El aprobado en el informe de análisis del 2026-11-11, con la alternativa descartada de cada elección en la tabla siguiente. La primera versión de esta sección, en el commit `f015002`, traía otro stack (Axios, sin date-fns ni Prettier, sin las versiones): se corrigió antes de aprobar el diseño | Usuario |
+| Sesión | Token en `sessionStorage` y `BroadcastChannel` para cerrar la sesión en todas las pestañas; un temporizador cierra la sesión al vencer el token (12 horas, sin renovación). Las cookies de Sanctum (SPA con estado) quedan como decisión para producción, FASE 10 | Usuario |
+| Tipos de la API | Escritos a mano; Scramble (generar OpenAPI desde Laravel) descartado por ahora | Usuario |
+| Rutas | TanStack Router, con las URL en castellano (`/ingresar`, `/clientes`, `/agenda`…) | Usuario |
+| Desarrollo | El proxy de Vite manda `/api` al backend: mismo origen, sin CORS en desarrollo | Usuario |
+| Entrega del backend antes de la F0.2 | Sí, en `feature/front-00-me-sucursales`: B1, `me` trae las sucursales activas asignadas al usuario; B2, CORS acotado por variable de entorno; B3, `meta.pagination` en `snake_case` (`per_page`, `current_page`, `last_page`) como el resto de la API, con los tests y las colecciones de Postman que la usan. La revisión pedida de otros campos fuera de `snake_case` no encontró ninguno más | Usuario; la revisión, análisis |
+| Pruebas de punta a punta | Playwright contra la base `syncvet_e2e`, sembrada con el `DemoSeeder` | Usuario |
+| Orden | F0 → F1 → F2 → F3 y después la FASE 4 del backend (ver D2 más abajo) | Usuario |
+| "Repositorio aparte" | La mención que quedó en `overview.md` y `technology-stack.md` después de R-057 se corrige en la F0 (entrega 0.1) | Usuario |
+| P1 de la F0: pestaña nueva | Le pide la sesión a una pestaña abierta por el `BroadcastChannel`; todas comparten el token, así que un 401 cierra todas las pestañas | Usuario |
+| P2 de la F0: aviso | Aviso 10 minutos antes del vencimiento | Usuario |
+| P3 de la F0: contraseña propia | En la 0.2, en `/perfil` (`PATCH me/password`) | Usuario |
+| P1 del backend: sucursales del administrador | `me.branches` trae solo las sucursales asignadas, también al administrador (lo mismo que acepta `me/current-branch`) | Usuario |
+| P2 del backend: `SnakeCaseKeysTest` | Entra en la entrega de soporte del backend | Usuario |
+| D2: frontend y backend | El frontend recorre F0 → F3 sobre la API de las fases 1 a 3 y después sigue la FASE 4 del backend (resuelve la decisión pendiente D2) | Usuario |
+| Diseños | El de la F0 y el de la entrega de soporte del backend, aprobados el 2026-11-12. La rama `feature/front-00-me-sucursales` se crea desde `docs/frontend-analisis`, sin implementar todavía | Usuario |
+
+**Stack aprobado y alternativas descartadas.**
+
+| Tema | Elección | Descartado |
+|---|---|---|
+| Entorno | Node 26 LTS en todas las PC, con `frontend/.nvmrc` y `engines`; npm 11 | Node 24 (en mantenimiento); pnpm (una herramienta más que instalar en cada PC) |
+| Build | Vite 8 con `@vitejs/plugin-react` | Next.js (servidor y SSR que una aplicación interna detrás de un login no necesita) |
+| Lenguaje | TypeScript 6 estricto | TypeScript 7 (el compilador nuevo en Go, todavía sin el ecosistema de plugins asentado) |
+| Rutas | TanStack Router, URL en castellano | React Router (menos tipado en los parámetros y la búsqueda) |
+| Datos del servidor | TanStack Query, reintentos solo ante fallas de red o 5xx | SWR |
+| Cliente HTTP | Propio sobre `fetch` | Axios o ky |
+| Formularios | React Hook Form + Zod; el 422 con `setError` | Formik + Yup (más lento y menos mantenido); formularios a mano |
+| Fechas | date-fns 4 + `@date-fns/tz` (`TZDate`, `America/Asuncion`) | Day.js y Luxon (otra forma de manejar zonas); solo `Intl` (no alcanza para calcular en una zona fija) |
+| Interfaz | Tabler (`@tabler/core` y `@tabler/icons-react`) con componentes propios, sin el JS de Tabler y sin Tailwind | `tabler-react` (quedó en React 16) y el JS de Tabler |
+| Tipos de la API | Escritos a mano | Scramble para generar OpenAPI y los tipos (descartado por ahora) |
+| Tests | Vitest + Testing Library + MSW + jsdom; Playwright contra `syncvet_e2e` con el `DemoSeeder` | Jest (configuración aparte de Vite); happy-dom (menos fiel); Cypress (más pesado, sin varias pestañas) |
+| Calidad | ESLint + Prettier | Biome (todavía sin las reglas de hooks de React que da ESLint) |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: solo documentación.
+
+# R-059 Cierre de la entrega de soporte del frontend (B1 a B3) (2026-11-12)
+
+Entrega del backend pedida por la F0 del frontend (R-058), en `feature/front-00-me-sucursales`: implementada, revisada, corregida y
+validada por el usuario. El detalle, en el [resultado de la entrega](../../03-plan-desarrollo/fases/backend/front-00-soporte-del-frontend.md#resultado).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| B1 | `me` (también `data.user` del login y `PATCH me/current-branch`) trae `branches`: las sucursales activas asignadas al usuario, por `code`, exactamente las que acepta `me/current-branch`, también para el administrador. La regla vive solo en `Branch::selectableBy($user)` (H8) | Diseño (R-058); la regla en un lugar, revisión |
+| B2 | CORS por `CORS_ALLOWED_ORIGINS`: solo orígenes exactos `http(s)://host[:puerto]`, normalizados en minúsculas y sin la barra final (`App\Support\CorsOrigins`); sin credenciales, `Retry-After` expuesto | Diseño (R-058); revisión, H1 y H6 |
+| El `*` de CORS | Se descarta, con un aviso en el log; la revisión lo extendió a todo origen que no sea exacto (php-cors toma `https://*` o `*.dominio` como patrones). El aviso sale como máximo una vez por hora (`Cache::add`) | Usuario; revisión, H1 y H7 |
+| B3 | `meta.pagination` en `snake_case` (`per_page`, `current_page`, `last_page`) en los 11 listados, armado por `ApiResponse::paginationMeta()`; `SnakeCaseKeysTest` protege la convención (arreglos, asignaciones por índice, `compact()` y `Arr::set`; sin marcar brazos de `match` ni el contexto del log) | Diseño (R-058); revisión, H2 y H5 |
+| Desvíos | Los 1 a 5 de la implementación y los 6 y 7 de la revisión, aceptados (lista en el resultado de la entrega) | Usuario |
+| Colección de sucursales | El 422 del alta en la primera validación se reproduce con la versión anterior a B3 de la colección (lee `lastPage`): causa probable, el Runner con la colección vieja importada. La colección pasa a ser repetible sin límite: usa siempre `SUC-PM` (alta o reactivación), rota su establecimiento y limpia las variables al empezar | Análisis; el arreglo, pedido por el usuario |
+| R-058 | La columna de alternativas descartadas se ajustó al informe del análisis (SWR; Axios o ky; `tabler-react`, que quedó en React 16, y el JS de Tabler; Node 24, en mantenimiento, y pnpm), con "sin Tailwind" en la elección de la interfaz, a pedido del usuario | Usuario |
+| Integración | Sin merge a `main` todavía: la rama se integra al cerrar la F0 del frontend. La F0.1 (esqueleto) se hace en `feature/front-0-1-esqueleto`, creada desde esta rama (en lugar de `feature/frontend-f0-01-esqueleto` desde `main`, como decía el diseño de la F0) | Usuario |
+| Rama de la 0.2 | `feature/front-0-2-sesion` (en lugar de `feature/frontend-f0-02-sesion`), para seguir el patrón de la 0.1 | Usuario |
+
+**Validación.** El usuario, el 2026-11-12 (Collection Runner, una iteración, después de las correcciones): sucursales 123 de 123, dos
+corridas seguidas, y usuarios 136 de 136, 0 errores. Suite en serie sobre `bdaa78f`: 1445 casos; 14183 aserciones en SQLite (14
+omitidos, solo de MySQL) y 14257 en MySQL. Newman, las 14 colecciones dos veces seguidas contra la base de desarrollo, sin fallas
+(cifras en la [guía de Postman](../../05-pruebas/guia-postman.md#entrega-de-soporte-del-frontend-front-00)).
+
+**Qué no cambió.** Rutas (78), permisos (135), migraciones (36), `error_code` y códigos HTTP. Cambian, a propósito, `me` (suma
+`branches`), las claves de `meta.pagination` y las cabeceras de CORS (antes, sin `config/cors.php`, regía el valor por defecto de
+Laravel: cualquier origen).
+
+# R-060 Cierre de la entrega 0.1 del frontend (esqueleto) (2026-11-12)
+
+Entrega 0.1 de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md), en `feature/front-0-1-esqueleto`:
+implementada (`72e75bc`), revisada, corregida (`b5d3ecf`) y validada por el usuario. El detalle, en el
+[resultado de la entrega](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Desvíos 1, 2 y 5 | Aceptados: la variable del proxy es `API_PROXY_TARGET`, sin el prefijo `VITE_` (no llega a `dist/`); `@tabler/core` 1.7.4, con la 1.7.5 pendiente para la 0.2a; los tests corren con `TZ=UTC` y sin dividir el código de las rutas | Usuario |
+| Desvío 3 | `npm audit`: el aviso de `minimatch` 10.2.6 (por `eslint` y `typescript-eslint`, solo en desarrollo) queda como [deuda 19](../../03-plan-desarrollo/deuda-tecnica.md), prioridad baja | Usuario |
+| Desvío 4 (H13) | Se permiten `.each` y los bucles en los tests. La cifra de tests del frontend sale de la última corrida de `npm test` registrada en "Resultado" de la fase, con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``; `/validar-docs` la toma de ahí (la de fecha más reciente) y avisa si la cantidad de archivos de test no coincide | Usuario; el formato, revisión |
+| Correcciones de la revisión | H1 a H15: las fechas sin hora (`birth_date`) con `formatDateOnly`, sin pasar por `Date`; el 422 con claves de arreglo (`branch_ids.0`) a su campo; ESLint contra `window.fetch`, `XMLHttpRequest` y `dangerouslySetInnerHTML`; el voseo en los textos de una palabra; los guaraníes desde el texto, sin coma flotante; y los tests que no detectaban sus mutaciones | Revisión; autorizadas por el usuario |
+| 204 | Un 204 (o un 2xx sin cuerpo) es un éxito sin datos: `data = null`. Un 2xx con un cuerpo que no es JSON sigue siendo `HTTP_ERROR` | Usuario |
+| Valores vacíos o inválidos | Fechas y guaraníes muestran `''`, nunca "Gs. 0" ni un error que rompa el render | Usuario (pedido); el valor, revisión |
+| Velocidad | Sección 8 de `frontend/CLAUDE.md`, a partir del análisis del tiempo de la 0.1 (66 minutos, casi la mitad en npm y en verificaciones repetidas): versiones fijas en el diseño y un solo `npm ci`; `environment: node` para los tests sin DOM; `vitest related` durante el trabajo y la suite, `typecheck` y `lint` una vez al final; Prettier solo sobre los archivos cambiados; validador, skills y documentación general en entregas o cierres aparte. Excluir `frontend/node_modules` y `backend/vendor` del antivirus de Windows (`setup.md`) | Usuario |
+| División de la 0.2 | 0.2a, sesión (ingresar, `me`, salir, 401 y 403, vencimiento con su aviso, cerrar en todas las pestañas y pedir la sesión desde una pestaña nueva), en `feature/front-0-2a-sesion` desde `feature/front-0-1-esqueleto`; 0.2b, permisos (menú y rutas según los permisos, selector de sucursal, `/perfil` con la contraseña propia y Playwright contra `syncvet_e2e`), en `feature/front-0-2b-permisos` desde la 0.2a. Reemplaza la rama `feature/front-0-2-sesion` de R-059 | Usuario |
+| Sugerencias para la 0.2 | Un botón para mostrar la contraseña en `/ingresar` (0.2a) y en `/perfil` (0.2b); evaluar "Correo electrónico" en lugar de "Email" (pregunta 4 de la F0, en el diseño de la 0.2a) | Usuario |
+| Pendientes | Desvío 8 (`toApiDateTime` con el desplazamiento `-03:00`): PENDIENTE DE VERIFICACIÓN con la primera llamada real. Desvío 9 (`/sin-permiso` dentro del layout con sesión): sin decisión, se confirma en la 0.2b | Implementación |
+
+**Validación.** El usuario, el 2026-11-12, en el navegador con `npm run dev`: `/ingresar` con Tabler (logo, título "Ingresá a tu
+cuenta", campos obligatorios, botón con ícono) y una URL inventada con la página de no encontrado en voseo y "Volver al inicio".
+`/sin-permiso`, el ancho de tablet, la consola y `npm run preview` no figuran en la validación (PENDIENTE DE VERIFICACIÓN). La última
+corrida, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 93 tests en 9 archivos del frontend, en
+verde. `/validar-docs`, sin hallazgos (sus tests, 55 de 55).
+
+**Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales).
+
+# R-061 Cierre de la entrega 0.2a del frontend (sesión) (2026-11-12)
+
+Entrega 0.2a de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md), en `feature/front-0-2a-sesion`:
+implementada (`93e347c`), revisada, corregida (`ece1faf`) y validada en el navegador. El detalle, en el
+[resultado de la entrega](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-02a).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Cierre por token (M3 de la revisión) | El vencimiento y el 401 cierran solo las pestañas con ese mismo token: el mensaje `logout` del canal lleva `token_id` y `all`, y las pestañas con otro token ignoran uno con `all: false`. "Salir" a propósito sigue cerrando todas las pestañas y revocando sus tokens | Usuario |
+| Desvío 2 | `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE` con sesión cierran como el 401: solo las pestañas con ese token, con el mensaje de la API | Usuario |
+| Desvío 1 | El aviso previo dice "Tu sesión vence en N minutos. Guardá los cambios pendientes.", con los minutos que quedan, actualizados (el texto del diseño usaba "estés", una forma de tú) | Usuario |
+| Desvío 6 | `/ingresar` con una sesión abierta va a `/`; una falla de red o un 5xx al cargar `me` muestra "No se pudo cargar tu sesión" con "Reintentar" y no cierra la sesión | Usuario |
+| Correcciones de la revisión | M1, el 401 cierra solo si el pedido salió con el token actual; M2, "Salir" cierra primero y manda el `POST logout` sin esperarlo, con un tiempo límite de 5 s; M4, el vencimiento también se revisa con `focus`, `pageshow` y un intervalo de 15 s; M5, un test por cada mutación que sobrevivía; B1, el canal valida el formato completo de cada mensaje; B2, los minutos del aviso se actualizan; B3, un 429 sin `Retry-After` deshabilita el botón 60 s; B4, `safeRedirect` revisa la ruta normalizada; B5, se descarta la sesión compartida de un token ya cerrado | Usuario (pedido); el valor de 60 s, la corrección |
+| Diseño | Los flujos 3 a 6 de la 0.2a, la tabla [Sesión (0.2)](../../03-plan-desarrollo/fases/frontend/f0-base.md#sesión-02) y la tabla de errores, actualizados con M2, M3 y M4 (desvío 14) | Cierre |
+| Aviso al perder la sesión | "Tu sesión terminó. Ingresá de nuevo." en lugar de "Tu sesión venció. Ingresá de nuevo.", por vencimiento, un 401 o el token revocado al inactivar al usuario: a un usuario inactivado no se le venció la sesión. El texto está en `MESSAGES.sessionExpired` (`src/lib/api/errors.ts`); dos tests lo fijan literal (el de la sesión vencida guardada en `LoginPage.test.tsx` y el 401 en `SessionLayout.test.tsx`) | Usuario |
+| Cifras de resultados cerrados | `/validar-docs` no compara las cifras de la sección "Resultado" de una entrega ya cerrada (el bloque de su título dice `COMPLETADO` o `COMPLETADA`): eran las de ese momento. `closedResultLines()` en `check-docs.php`, caso 9 de `check-docs-test.php` (59 de 59); la corrida registrada se sigue leyendo de ahí | Usuario |
+| `backend/CLAUDE.md` §1 | El frontend ya no figura "sin empezar": una línea con su estado y el enlace a `frontend/CLAUDE.md` | Usuario |
+| Pruebas en el navegador | Además de las 5 del usuario, las 8 restantes de "Qué revisar en el navegador" las hizo Claude Code, a pedido del usuario, con Edge sin ventana manejado por el protocolo de DevTools (un script de Node, sin dependencias nuevas) contra el backend real (`syncvet.test`) y `npm run dev` | Usuario (pedido) |
+| Pendientes | Desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`): sigue PENDIENTE DE VERIFICACIÓN y pasa a la F3, porque la 0.2a no manda fechas a la API | Implementación |
+
+**Validación.** El usuario, el 2026-11-12, en el navegador con el backend real: ingreso con `admin-a`, `recepcion-a` y `vet-a`,
+contraseña incorrecta, la cuenta regresiva del 429, una segunda pestaña que entra sola y salir en una pestaña que cierra la otra. El
+resto de "Qué revisar en el navegador", a pedido del usuario, lo corrió Claude Code en Edge sin ventana, por el protocolo de DevTools:
+mostrar la contraseña, el vencimiento (`expires_at` pasado, borrado y una sesión que vence sola), el aviso previo y sus minutos,
+"Salir" y un usuario inactivado desde otra sesión (el siguiente pedido recibe un 401, porque inactivar revoca los tokens); la
+consola, sin errores de la aplicación. La corrida del cierre, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni
+avisos; `npm test`, 195 tests en 15 archivos del frontend, en verde.
+
+**Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales).
+
+# R-062 Cierre de la entrega 0.2b del frontend (permisos) (2026-11-12)
+
+Entrega 0.2b de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md), en `feature/front-0-2b-permisos`:
+implementada (`68c68b6`), validada en el navegador (`023a90e`), revisada, corregida (`e77f64a`, `91dca14` y `b1bc017`) y validada
+de nuevo. El detalle, en el [resultado de la entrega](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-02b).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| `/configuracion` provisoria (desvío 1) | Una página "En construcción" con `system-settings.update`: el administrador la ve en el menú y en el inicio; recepción y veterinario van a `/sin-permiso`. La F2 la reemplaza por la pantalla real | Usuario |
+| Preparación de Playwright (desvío 2) | Se niega a correr si la base no es exactamente `syncvet_e2e`; controla además la base que resuelve Laravel y que el backend de `:8010` use la base recién preparada (contraseña al azar por corrida). La contraseña de la corrida queda en `frontend/e2e/.e2e-credentials`, ignorado por Git, para entrar a mano | Usuario |
+| Segunda sucursal y servidores de Playwright (desvíos 3 y 4) | La preparación crea por la API "Sucursal Norte" para `admin-a`; Playwright levanta el backend (`:8010`, `DB_DATABASE=syncvet_e2e`) y Vite (`:5174`), o usa un backend ya levantado en `:8010` | Usuario (aceptados en el cierre) |
+| Edge instalado (desvío 5) | Playwright usa `channel: 'msedge'` y no descarga navegadores (`E2E_BROWSER_CHANNEL` para otro) | Usuario |
+| Repetir la contraseña nueva (desvío 7) | `/perfil` pide "Repetí la contraseña nueva", controlada solo en el navegador: la API no la recibe | Usuario |
+| Playwright completo (desvío 10) | Se suman "credenciales incorrectas" y el vencimiento en las dos pestañas con el mismo token: 11 casos, y el criterio de cierre de la F0 queda como estaba | Usuario |
+| `/sin-permiso` (desvío 9 de la 0.1, 13 de la 0.2b) | Dentro del layout con sesión, con la barra y el menú | Usuario |
+| Correcciones de la revisión | M1, las contraseñas de `/ingresar` y `/perfil` fuera de la caché de mutaciones (`gcTime: 0` y `reset()`); M2, `me` vuelto a pedir al volver a la pestaña; B1, el mensaje de error fuera del grupo con borde de `PasswordField`; B2, test de `replace: true` (el riesgo no era real); B3, B4 y B7, tests de las mutaciones que sobrevivían; B5, `me` pedido al servidor después del `PATCH me/current-branch`; B6, la convención de claves de las consultas (`src/lib/api/query-keys.ts`): el cambio de sucursal invalida `['me']` y solo las consultas de la sucursal. B8: PENDIENTE DE VERIFICACIÓN (el pedido del cierre nombra B1 a B8; en el repositorio constan B1 a B7) | Usuario (pedido) |
+| Espera de la pestaña nueva | 1000 ms en lugar de 300 (`SESSION_REQUEST_TIMEOUT_MS`, P1): en la PC de una recepción el equipo puede ser lento. Playwright ya no supone que la sesión llegó: `openSecondTab` la espera con su tiempo límite | Usuario |
+| Pruebas en el navegador | Todas las hizo Claude Code, a pedido del usuario, con Edge sin ventana contra `syncvet.test` y `npm run dev`: 14 pruebas sobre la implementación y 11 sobre la corrección, con la demo restaurada | Usuario (pedido) |
+| Limpieza de la raíz (PC nueva) | Se borraron los restos del backend de antes del monorepo, sin versionar (unos 81 MB; 551 de los 552 archivos, sin `vendor/`, ya estaban en el historial de Git), y el `.env` viejo se movió fuera del repositorio, a `C:\laragon\www\syncvet-raiz-vieja.env`. El vhost `syncvet.test` de esa PC se apuntó a `backend/public` (paso 5 de la migración al monorepo) | Usuario |
+
+**Validación.** Claude Code, a pedido del usuario, en Edge sin ventana contra el backend real: los menús de los tres roles, la ruta
+sin permiso, el 403 de la API, el cambio de sucursal (también en otra pestaña, al recargar y al volver a la pestaña), el usuario sin
+sucursal actual, `/perfil` (la repetición, los errores fuera del borde, el cambio y la vuelta a `DEMO_PASSWORD`), el ancho de tablet
+y la consola. Playwright, 11 de 11 en dos corridas seguidas. La corrida del cierre, desde `frontend/`: `typecheck`, `lint` y `build`
+sin errores ni avisos; `npm test`, 269 tests en 21 archivos del frontend, en verde.
+
+**Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales); `composer
+test:fast`, 1445 casos (1431 en verde y 14 omitidos, solo de MySQL).
+
+# R-063 Cierre de la F0 del frontend y merge a `main` (2026-11-12)
+
+Cierre de la F0 del frontend (base y login), junto con la entrega de soporte del backend (front-00), con las cuatro entregas cerradas
+(R-059 a R-062). El detalle, en el [cierre de la F0](../../03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Entregas | front-00 (R-059), 0.1 (R-060), 0.2a (R-061) y 0.2b (R-062): COMPLETADO, cada una con su revisión, sus correcciones y su validación; las cinco ramas de la cadena, en GitHub | Cierre |
+| F0 | COMPLETADO: el criterio de cierre se cumple, punto por punto en el cierre de la F0 (ingresar, cambiar de sucursal, salir en todas las pestañas y el vencimiento, de punta a punta con Playwright contra `syncvet_e2e`) | Usuario |
+| Regresión del backend | Desde `backend/`, en serie, sobre `2cd113a` (código de `b1bc017`): SQLite, 1445 casos (14 omitidos, solo de MySQL), 14183 aserciones; MySQL, 1445 casos sin omitidos, 14257 aserciones. 78 rutas, 135 permisos y 36 migraciones, sin cambios desde front-00. `composer audit`, sin avisos | Cierre |
+| Regresión del frontend | Desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 269 tests en 21 archivos; `npm run test:e2e`, 11 de 11. `npm audit`: solo el aviso de `minimatch` de la deuda 19 (npm lo cuenta 10 veces, una por paquete que lo trae) | Cierre |
+| Postman | Newman, las 14 colecciones de `docs/05-pruebas/postman` (R-057), servidor en el puerto 8001: 483 pedidos y 1072 aserciones, sin fallas | Cierre |
+| `npm run preview` | Lo que quedaba PENDIENTE DE VERIFICACIÓN de la 0.1, verificado por HTTP: sirve `dist/`, las rutas de la aplicación y el proxy de `/api` | Cierre |
+| Deudas | Nuevas en la F0: 19 y 20 (frontend, prioridad baja). Las del backend, sin cambios. Abiertas: 2, 3, 5, 6, 15 y 17 (backend); 19 y 20 (frontend). La 19 aclara que npm cuenta el aviso por paquete | Cierre |
+| Pendientes | El desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`) pasa a la F3; B8 de la 0.2b sigue PENDIENTE DE VERIFICACIÓN | Cierre |
+| Merge a `main` | Autorizado por el usuario el 2026-11-12: merge `--no-ff` desde `feature/front-0-2b-permisos`, que contiene `docs/frontend-analisis`, `feature/front-00-me-sucursales`, `feature/front-0-1-esqueleto` y `feature/front-0-2a-sesion`. Antes del push de `main`, en `main`: la suite del backend en serie (SQLite y MySQL) y `npm test` del frontend. Las ramas se conservan. El hash del merge no puede ir en el commit que lo precede: se informa al usuario y se anota en el handoff al empezar lo siguiente | Usuario |
+| Siguiente | El análisis y el diseño de la F1 del frontend (clientes y pacientes), sobre la API de la FASE 1 | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

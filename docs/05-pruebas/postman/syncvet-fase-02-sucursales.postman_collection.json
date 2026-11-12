@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 2: validación de sucursales y depósitos",
-        "description": "Validación manual de sucursales y depósitos (FASE 2, entrega 2.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (rango propio, 100000 a 199998), que va en los códigos y nombres; el segundo busca dos códigos de establecimiento libres. Las sucursales no se eliminan: cada corrida deja una sucursal inactiva y devuelve la por defecto a la original. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
+        "description": "Validación manual de sucursales y depósitos (FASE 2, entrega 2.1; me.branches, entrega front-00). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se corre cualquier cantidad de veces sin recrear la base: las sucursales no se eliminan y cada una ocupa un código de establecimiento (hay 998), así que la colección usa siempre la misma, SUC-PM; la primera corrida la da de alta y las siguientes la reactivan (pedido 04). Su establecimiento rota a uno libre (pedido 14) y deja libre el anterior. Cada corrida deja un depósito más en SUC-PM, con un código único por tiempo, y la sucursal inactiva. El primer pedido borra los valores que hayan quedado de una corrida anterior. Le asigna SUC-PM a admin-a para probar me.branches y al final le devuelve sus sucursales de antes. La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -13,12 +13,15 @@
                     "script": {
                         "type": "text/javascript",
                         "exec": [
-                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
-                            "// La corrida, entre 100000 y 199998: un rango propio de esta colección, fuera de los de las colecciones",
-                            "// de la FASE 1 (foto: 000000 a 099998; especies: 400000 a 499998; clientes: 500000 a 749998;",
-                            "// pacientes: 750000 a 999998). Va en los códigos y en los nombres de la sucursal y de los depósitos.",
-                            "const run = 100000 + Math.floor(Math.random() * 99998);",
-                            "pm.collectionVariables.set('run', String(run));"
+                            "// El Collection Runner de Postman conserva los valores de la corrida anterior: se borran todos (menos",
+                            "// base_url y demo_password), para que un pedido que falle no siga con datos viejos.",
+                            "Object.keys(pm.collectionVariables.toObject())",
+                            "    .filter(key => !['base_url', 'demo_password'].includes(key))",
+                            "    .forEach(key => pm.collectionVariables.unset(key));",
+                            "// Identificador de esta corrida, único por tiempo (base 36, en mayúsculas): va en los códigos y los",
+                            "// nombres de los depósitos y en los pedidos rechazados. No se repite aunque la colección se corra",
+                            "// muchas veces sobre la misma base.",
+                            "pm.collectionVariables.set('run', Date.now().toString(36).toUpperCase());"
                         ]
                     }
                 },
@@ -30,7 +33,8 @@
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
                             "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
-                            "pm.collectionVariables.set('token_admin', json.data.token);"
+                            "pm.collectionVariables.set('token_admin', json.data.token);",
+                            "pm.collectionVariables.set('admin_id', json.data.user.id);"
                         ]
                     }
                 }
@@ -173,7 +177,7 @@
             }
         },
         {
-            "name": "02 Todas las sucursales: la por defecto y dos establecimientos libres",
+            "name": "02 Todas las sucursales: la por defecto, SUC-PM y un establecimiento libre",
             "event": [
                 {
                     "listen": "test",
@@ -182,26 +186,32 @@
                         "exec": [
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
-                            "pm.test('Paginado', () => pm.expect(json.meta.pagination.perPage).to.eql(100));",
+                            "pm.test('Paginado', () => pm.expect(json.meta.pagination.per_page).to.eql(100));",
+                            "const last = json.meta.pagination.last_page;",
+                            "pm.test('Paginación en snake_case (last_page)', () => pm.expect(last).to.be.a('number'));",
                             "const fallback = json.data.find(b => b.is_default);",
                             "pm.test('Hay una sucursal por defecto', () => pm.expect(fallback).to.be.an('object'));",
                             "pm.test('La por defecto va primero', () => pm.expect(json.data[0].is_default).to.eql(true));",
                             "// La sucursal por defecto de la base (SUC-01 del DemoSeeder): la colección la deja como estaba.",
                             "pm.collectionVariables.set('default_branch_id', fallback.id);",
-                            "// Las sucursales no se eliminan: cada corrida deja una. Se buscan dos códigos de establecimiento libres",
-                            "// entre todas las páginas (los de las corridas anteriores también cuentan).",
-                            "const used = new Set(json.data.map(b => b.establishment));",
+                            "// Las sucursales no se eliminan y cada una ocupa un código de establecimiento (hay 998). Por eso la",
+                            "// colección usa siempre la misma, SUC-PM: la primera corrida la crea y las siguientes la reactivan. Su",
+                            "// establecimiento pasa al libre del pedido 14 y deja libre el anterior: la colección no consume ninguno.",
+                            "const branches = json.data.slice();",
                             "const pick = () => {",
+                            "    const own = branches.find(b => b.code === 'SUC-PM');",
+                            "    const used = new Set(branches.map(b => b.establishment));",
                             "    const free = [];",
                             "    for (let n = 2; n <= 999; n++) { const e = String(n).padStart(3, '0'); if (!used.has(e)) free.push(e); }",
-                            "    pm.test('Quedan dos establecimientos libres', () => pm.expect(free.length).to.be.at.least(2));",
-                            "    const a = free.splice(Math.floor(Math.random() * free.length), 1)[0];",
+                            "    const needed = own ? 1 : 2;",
+                            "    pm.test('Quedan establecimientos libres', () => pm.expect(free.length).to.be.at.least(needed));",
+                            "    const a = own ? own.establishment : free.splice(Math.floor(Math.random() * free.length), 1)[0];",
                             "    const b = free[Math.floor(Math.random() * free.length)];",
                             "    pm.collectionVariables.set('est_a', a);",
                             "    pm.collectionVariables.set('est_b', b);",
+                            "    if (own) { pm.collectionVariables.set('pm_branch_id', own.id); }",
                             "};",
-                            "const last = json.meta.pagination.lastPage;",
-                            "if (last <= 1) { pick(); } else {",
+                            "if (!(last > 1)) { pick(); } else {",
                             "    let pending = last - 1;",
                             "    for (let page = 2; page <= last; page++) {",
                             "        pm.sendRequest({",
@@ -209,7 +219,8 @@
                             "            method: 'GET',",
                             "            header: { Accept: 'application/json', Authorization: 'Bearer ' + pm.collectionVariables.get('token_admin') },",
                             "        }, (err, res) => {",
-                            "            if (!err) res.json().data.forEach(b => used.add(b.establishment));",
+                            "            pm.test('Página ' + page + ' del listado', () => { pm.expect(err).to.eql(null); pm.expect(res.code).to.eql(200); });",
+                            "            if (!err) res.json().data.forEach(b => branches.push(b));",
                             "            if (--pending === 0) pick();",
                             "        });",
                             "    }",
@@ -305,27 +316,54 @@
             }
         },
         {
-            "name": "04 Alta de una sucursal con su depósito por defecto",
+            "name": "04 Alta de SUC-PM con su depósito por defecto (o su reactivación, si ya existe)",
             "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Si SUC-PM ya existe (de una corrida anterior), el alta pasa a ser su reactivación: PATCH con los mismos",
+                            "// datos (el código en minúsculas, como en el alta) e is_active, sin warehouse_code (el depósito ya existe).",
+                            "const id = pm.collectionVariables.get('pm_branch_id');",
+                            "if (id) {",
+                            "    pm.request.method = 'PATCH';",
+                            "    pm.request.url = pm.variables.replaceIn('{{base_url}}/branches/' + id);",
+                            "    const data = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                            "    delete data.warehouse_code;",
+                            "    data.is_active = true;",
+                            "    pm.request.body.update(JSON.stringify(data));",
+                            "}"
+                        ]
+                    }
+                },
                 {
                     "listen": "test",
                     "script": {
                         "type": "text/javascript",
                         "exec": [
-                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const reused = Boolean(pm.collectionVariables.get('pm_branch_id'));",
+                            "pm.test(reused ? 'HTTP 200 (reactivada)' : 'HTTP 201', () => pm.response.to.have.status(reused ? 200 : 201));",
                             "const json = pm.response.json();",
-                            "const run = pm.collectionVariables.get('run');",
-                            "pm.test('Código en mayúsculas', () => pm.expect(json.data.code).to.eql('SUC-' + run));",
+                            "pm.test('Código en mayúsculas', () => pm.expect(json.data.code).to.eql('SUC-PM'));",
                             "pm.test('Establecimiento', () => pm.expect(json.data.establishment).to.eql(pm.collectionVariables.get('est_a')));",
-                            "pm.test('No es la por defecto', () => pm.expect(json.data.is_default).to.eql(false));",
-                            "pm.test('Un depósito por defecto \"Principal\"', () => {",
-                            "    pm.expect(json.data.warehouses).to.have.lengthOf(1);",
-                            "    pm.expect(json.data.warehouses[0].code).to.eql('DEP-' + run);",
-                            "    pm.expect(json.data.warehouses[0].name).to.eql('Principal');",
-                            "    pm.expect(json.data.warehouses[0].is_default).to.eql(true);",
+                            "pm.test('Activa y no es la por defecto', () => { pm.expect(json.data.is_active).to.eql(true); pm.expect(json.data.is_default).to.eql(false); });",
+                            "const defaults = (json.data.warehouses || []).filter(w => w.is_active && w.is_default);",
+                            "pm.test('Un depósito por defecto activo', () => {",
+                            "    pm.expect(defaults).to.have.lengthOf(1);",
+                            "    if (!reused) {",
+                            "        pm.expect(json.data.warehouses).to.have.lengthOf(1);",
+                            "        pm.expect(defaults[0].code).to.eql('DEP-PM');",
+                            "        pm.expect(defaults[0].name).to.eql('Principal');",
+                            "    }",
                             "});",
                             "pm.collectionVariables.set('branch_id', json.data.id);",
-                            "pm.collectionVariables.set('branch_wh_id', json.data.warehouses[0].id);"
+                            "// El depósito por defecto actual: el Principal la primera vez; después, el de la corrida anterior.",
+                            "if (defaults[0]) {",
+                            "    pm.collectionVariables.set('branch_wh_id', defaults[0].id);",
+                            "    pm.collectionVariables.set('branch_wh_code', defaults[0].code);",
+                            "    pm.collectionVariables.set('branch_wh_name_upper', defaults[0].name.toUpperCase());",
+                            "}"
                         ]
                     }
                 }
@@ -354,7 +392,7 @@
                 "description": "Guarda la sucursal en branch_id y su depósito en branch_wh_id.",
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"code\": \"suc-{{run}}\",\n    \"name\": \"Sucursal Ñemby {{run}}\",\n    \"establishment\": \"{{est_a}}\",\n    \"address\": \"Avda. Mcal. López 1234\",\n    \"phone\": \"+595981200300\",\n    \"warehouse_code\": \"dep-{{run}}\"\n}",
+                    "raw": "{\n    \"code\": \"suc-pm\",\n    \"name\": \"Sucursal Ñemby Postman\",\n    \"establishment\": \"{{est_a}}\",\n    \"address\": \"Avda. Mcal. López 1234\",\n    \"phone\": \"+595981200300\",\n    \"warehouse_code\": \"dep-pm\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -413,7 +451,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"code\": \"Suc-{{run}}\",\n    \"name\": \"Otra sucursal {{run}}\",\n    \"establishment\": \"{{est_b}}\",\n    \"warehouse_code\": \"dep-{{run}}-x\"\n}",
+                    "raw": "{\n    \"code\": \"Suc-Pm\",\n    \"name\": \"Otra sucursal {{run}}\",\n    \"establishment\": \"{{est_b}}\",\n    \"warehouse_code\": \"dep-{{run}}-x\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -472,7 +510,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"code\": \"suc-{{run}}-x\",\n    \"name\": \"SUCURSAL NEMBY {{run}}\",\n    \"establishment\": \"{{est_b}}\",\n    \"warehouse_code\": \"dep-{{run}}-x\"\n}",
+                    "raw": "{\n    \"code\": \"suc-{{run}}-x\",\n    \"name\": \"SUCURSAL NEMBY POSTMAN\",\n    \"establishment\": \"{{est_b}}\",\n    \"warehouse_code\": \"dep-{{run}}-x\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -1110,7 +1148,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"code\": \"DEP-{{run}}\",\n    \"name\": \"Otro {{run}}\"\n}",
+                    "raw": "{\n    \"code\": \"{{branch_wh_code}}\",\n    \"name\": \"Otro {{run}}\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -1171,7 +1209,7 @@
                 },
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"code\": \"dep-{{run}}-3\",\n    \"name\": \"PRINCIPAL\"\n}",
+                    "raw": "{\n    \"code\": \"dep-{{run}}-3\",\n    \"name\": \"{{branch_wh_name_upper}}\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -1515,7 +1553,258 @@
             }
         },
         {
-            "name": "24 Inactivar la sucursal nueva",
+            "name": "23b Sucursales del administrador, sin SUC-PM (para devolvérselas al final)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "// Sin SUC-PM: si una corrida anterior se cortó, el administrador podría tenerla asignada todavía.",
+                            "const ids = pm.response.json().data.branches.map(b => b.id).filter(id => id !== Number(pm.collectionVariables.get('branch_id')));",
+                            "pm.test('Tiene al menos una', () => pm.expect(ids).to.not.be.empty);",
+                            "pm.collectionVariables.set('admin_branch_ids', JSON.stringify(ids));",
+                            "pm.collectionVariables.set('admin_branch_ids_with_new', JSON.stringify([...ids, Number(pm.collectionVariables.get('branch_id'))]));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23c El administrador sin SUC-PM",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('No la tiene asignada', () => pm.expect(pm.response.json().data.branches.map(b => b.id)).to.not.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_ids\": {{admin_branch_ids}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "23d Activa pero sin asignar: me.branches no la trae",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('No está en me.branches', () => pm.expect(pm.response.json().data.branches.map(b => b.id)).to.not.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23e Asignarle SUC-PM al administrador",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('La tiene asignada', () => pm.expect(pm.response.json().data.branches.map(b => b.id)).to.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_ids\": {{admin_branch_ids_with_new}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "23f me.branches trae SUC-PM, por código",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const branches = pm.response.json().data.branches;",
+                            "pm.test('Está en me.branches', () => pm.expect(branches.map(b => b.id)).to.include(Number(pm.collectionVariables.get('branch_id'))));",
+                            "const codes = branches.map(b => b.code);",
+                            "pm.test('Por código', () => pm.expect(codes).to.eql([...codes].sort()));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Inactivar SUC-PM",
             "event": [
                 {
                     "listen": "test",
@@ -1558,6 +1847,49 @@
                             "language": "json"
                         }
                     }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24a Inactiva, me.branches ya no la trae",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('No está en me.branches', () => pm.expect(pm.response.json().data.branches.map(b => b.id)).to.not.include(Number(pm.collectionVariables.get('branch_id'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me"
+                    ]
                 },
                 "auth": {
                     "type": "bearer",
@@ -1715,7 +2047,7 @@
                     }
                 ],
                 "url": {
-                    "raw": "{{base_url}}/branches?search={{run}}",
+                    "raw": "{{base_url}}/branches?search=SUC-PM",
                     "host": [
                         "{{base_url}}"
                     ],
@@ -1725,7 +2057,7 @@
                     "query": [
                         {
                             "key": "search",
-                            "value": "{{run}}"
+                            "value": "SUC-PM"
                         }
                     ]
                 },
@@ -1751,7 +2083,7 @@
                         "exec": [
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
-                            "pm.test('La sucursal de la corrida', () => { pm.expect(json.data).to.have.lengthOf(1); pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('branch_id'))); });"
+                            "pm.test('SUC-PM', () => { pm.expect(json.data).to.have.lengthOf(1); pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('branch_id'))); });"
                         ]
                     }
                 }
@@ -1765,7 +2097,7 @@
                     }
                 ],
                 "url": {
-                    "raw": "{{base_url}}/branches?search={{run}}&include_inactive=1",
+                    "raw": "{{base_url}}/branches?search=SUC-PM&include_inactive=1",
                     "host": [
                         "{{base_url}}"
                     ],
@@ -1775,7 +2107,7 @@
                     "query": [
                         {
                             "key": "search",
-                            "value": "{{run}}"
+                            "value": "SUC-PM"
                         },
                         {
                             "key": "include_inactive",
@@ -2071,6 +2403,64 @@
                     ]
                 }
             }
+        },
+        {
+            "name": "33b El administrador vuelve a sus sucursales de antes",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const ids = pm.response.json().data.branches.map(b => b.id);",
+                            "pm.test('Las de antes', () => pm.expect(ids).to.have.members(JSON.parse(pm.collectionVariables.get('admin_branch_ids'))));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users/{{admin_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users",
+                        "{{admin_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_ids\": {{admin_branch_ids}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
         }
     ],
     "variable": [
@@ -2136,6 +2526,36 @@
         },
         {
             "key": "foreign_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "admin_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "admin_branch_ids",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "admin_branch_ids_with_new",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "pm_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "branch_wh_code",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "branch_wh_name_upper",
             "value": "",
             "type": "string"
         }

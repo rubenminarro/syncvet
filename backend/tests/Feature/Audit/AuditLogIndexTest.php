@@ -69,7 +69,7 @@ class AuditLogIndexTest extends TestCase
         $response = $this->getJson(self::URL)->assertOk()
             ->assertJsonPath('message', 'Registros de auditoría obtenidos correctamente.')
             ->assertJsonPath('meta.pagination.total', 5)
-            ->assertJsonPath('meta.pagination.perPage', 10);
+            ->assertJsonPath('meta.pagination.per_page', 10);
 
         // Por created_at descendente; con la misma hora, por id descendente.
         $this->assertSame(
@@ -186,8 +186,8 @@ class AuditLogIndexTest extends TestCase
     {
         $response = $this->getJson(self::URL . '?per_page=2&page=2')->assertOk()
             ->assertJsonPath('meta.pagination.total', 5)
-            ->assertJsonPath('meta.pagination.currentPage', 2)
-            ->assertJsonPath('meta.pagination.lastPage', 3);
+            ->assertJsonPath('meta.pagination.current_page', 2)
+            ->assertJsonPath('meta.pagination.last_page', 3);
 
         $this->assertSame($this->ids(['night', 'morning']), array_column($response->json('data'), 'id'));
     }

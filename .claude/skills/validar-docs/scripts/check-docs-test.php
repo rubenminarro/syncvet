@@ -44,9 +44,12 @@ foreach ([
     ['historical', 'Antes: 460 tests con M9.'],
     ['historical', 'La línea base eran 374 tests.'],
     ['historical', 'Hasta el 2026-10-29 había 460 tests.'],
-    ['other-project', '| Cada flujo | Solo hay 43 tests del frontend. |'],
+    ['frontend', '| Cada flujo | Solo hay 43 tests del frontend. |'],
     ['current', '| Frontend y backend | 45 services |'],
-    ['other-project', 'Frontend: 43 tests.'],
+    ['frontend', 'Frontend: 43 tests.'],
+    ['current', 'Frontend y backend: 45 services.'],
+    ['historical', 'El frontend antes tenía 40 tests.'],
+    ['test-file', 'Además, `client.test.ts` (12 tests) cubre el cliente.'],
     ['delta', 'Se agregaron 3 tests nuevos.'],
     ['example', 'Por ejemplo, 45 services.'],
     ['example', 'Se escribe `45 services` en la tabla.'],
@@ -64,7 +67,7 @@ function fixture(array $live): string
 {
     $root = sys_get_temp_dir() . '/check-docs-' . uniqid();
 
-    foreach (['backend/app/Services', 'backend/app/Http/Controllers/Api', 'backend/tests/Feature/Auth', 'backend/tests/Unit', 'frontend', 'docs/00-vision', 'docs/01-arquitectura/decisiones', 'docs/02-requisitos', 'docs/03-plan-desarrollo', 'docs/04-desarrollo', 'docs/05-pruebas'] as $dir) {
+    foreach (['backend/app/Services', 'backend/app/Http/Controllers/Api', 'backend/tests/Feature/Auth', 'backend/tests/Unit', 'frontend', 'docs/00-vision', 'docs/01-arquitectura/decisiones', 'docs/02-requisitos', 'docs/03-plan-desarrollo', 'docs/03-plan-desarrollo/fases/frontend', 'docs/04-desarrollo', 'docs/05-pruebas'] as $dir) {
         mkdir("$root/$dir", 0777, true);
     }
 
@@ -135,11 +138,11 @@ check('detecta una cifra de clase incorrecta', str_contains($output, 'LoginTest 
 check('detecta una clase inexistente', str_contains($output, 'cita FantasmaTest, que no existe'), $output);
 remove($root);
 
-echo "\nCaso 3: historia, otros proyectos y ejemplos\n";
+echo "\nCaso 3: historia, diferencias y ejemplos\n";
 $root = fixture(['docs/04-desarrollo/a.md' => implode("\n", [
     'Antes: 460 tests con M9.',
     'La línea base eran 374 tests.',
-    'Frontend: 43 tests.',
+    'El frontend antes tenía 40 tests.',
     'Se agregaron 3 tests nuevos.',
     'Por ejemplo, 45 services.',
     '```',
@@ -192,5 +195,86 @@ check('reporta una ruta de código inexistente', str_contains($output, 'app/Serv
 check('valida los enlaces de backend/CLAUDE.md hacia docs/', str_contains($output, 'backend/CLAUDE.md: ../docs/fantasma.md') && ! str_contains($output, '../docs/03-plan-desarrollo/handoff.md') && ! str_contains($output, ': ../CLAUDE.md'), $output);
 check('resuelve tests/ de backend/CLAUDE.md desde backend/', ! str_contains($output, 'LoginTest.php'), $output);
 remove($root);
+
+echo "\nCaso 7: cifras del frontend, separadas de las del backend\n";
+$root = fixture([
+    'docs/04-desarrollo/a.md' => implode("\n", [
+        'Frontend: 5 tests.',
+        'El frontend tiene 4 tests.',
+        '| Backend | 9 tests |',
+        'Además, `a.test.ts` (3 tests) y `lib/a.test.ts` (3 tests).',
+        'Y `b.test.tsx` (1 tests).',
+        'Y `fantasma.test.ts` (2 tests).',
+        'El frontend tiene 5 rutas.',
+    ]) . "\n",
+    'frontend/CLAUDE.md' => "Hay 5 tests.\nEl backend tiene 9 tests.\nHay 6 tests.\n",
+    // La cifra sale de la corrida más reciente en "Resultado"; la de fuera de "Resultado" no cuenta.
+    'docs/03-plan-desarrollo/fases/frontend/f0.md' => implode("\n", [
+        '# F0',
+        '## Resultado',
+        'Corrida de `npm test` del frontend (2026-11-12): 5 tests en 2 archivos, en verde.',
+        'Corrida de `npm test` del frontend (2026-11-10): 3 tests en 1 archivos, en verde.',
+        '## Otra sección',
+        'Corrida de `npm test` del frontend (2026-12-01): 99 tests en 2 archivos, en verde.',
+    ]) . "\n",
+]);
+mkdir("$root/frontend/src/lib", 0777, true);
+// Los tests no se cuentan en el código: con .each, un archivo de 1 it() puede tener muchos casos.
+file_put_contents("$root/frontend/src/lib/a.test.ts", "it.each([1, 2, 3])('a %i', () => {});\n");
+file_put_contents("$root/frontend/src/b.test.tsx", "it('d', () => {});\n");
+[$output, $code] = run($root, '--detalle');
+check('toma la última corrida registrada en "Resultado"', str_contains($output, 'Frontend: 5 tests en 2 archivos (corrida del 2026-11-12, docs/03-plan-desarrollo/fases/frontend/f0.md:3).'), $output);
+check('acepta la cifra correcta del frontend', ! str_contains($output, 'a.md:1:') && ! str_contains($output, 'frontend/CLAUDE.md:1:'), $output);
+check('reporta una cifra del frontend incorrecta', str_contains($output, 'a.md:2: dice 4 tests del frontend; la última corrida registrada tiene 5'), $output);
+check('no compara la cifra del backend con el frontend', ! str_contains($output, 'a.md:3:') && ! str_contains($output, 'frontend/CLAUDE.md:2:'), $output);
+check('en frontend/, una cifra sin marca es del frontend', str_contains($output, 'frontend/CLAUDE.md:3: dice 6 tests del frontend; la última corrida registrada tiene 5'), $output);
+check('no compara la cifra de un archivo de test', ! str_contains($output, '- docs/04-desarrollo/a.md:4') && ! str_contains($output, '- docs/04-desarrollo/a.md:5') && ! str_contains($output, '- docs/04-desarrollo/a.md:6') && str_contains($output, 'excluida: cifra de un archivo de test del frontend: docs/04-desarrollo/a.md:5: 1 tests'), $output);
+check('no compara las corridas registradas, tampoco las anteriores', ! str_contains($output, '- docs/03-plan-desarrollo/fases/frontend/f0.md') && str_contains($output, 'excluida: corrida registrada: docs/03-plan-desarrollo/fases/frontend/f0.md:4: 3 tests'), $output);
+check('no compara las rutas del frontend con las de la API', str_contains($output, 'excluida: frontend sin cifra comparable: docs/04-desarrollo/a.md:7: 5 rutas'), $output);
+check('sale con 1', $code === 1);
+remove($root);
+
+echo "\nCaso 8: corrida del frontend vieja o sin registrar\n";
+$root = fixture([
+    'docs/03-plan-desarrollo/fases/frontend/f0.md' => "# F0\n\n## Resultado\n\nCorrida de `npm test` del frontend (2026-11-12): 5 tests en 1 archivos, en verde.\n",
+]);
+mkdir("$root/frontend/src", 0777, true);
+file_put_contents("$root/frontend/src/a.test.ts", "it('a', () => {});\n");
+file_put_contents("$root/frontend/src/b.test.ts", "it('b', () => {});\n");
+[$output, $code] = run($root);
+check('reporta una corrida con otra cantidad de archivos de test', str_contains($output, 'f0.md:5: la última corrida registrada tiene 1 archivos de test; frontend/src tiene 2'), $output);
+check('sale con 1', $code === 1);
+file_put_contents("$root/docs/03-plan-desarrollo/fases/frontend/f0.md", "# F0\n\n## Resultado\n\nPendiente.\n");
+[$output, $code] = run($root);
+check('reporta que no hay corrida registrada', str_contains($output, 'no hay ninguna corrida de `npm test` del frontend registrada') && str_contains($output, 'Frontend: sin corrida registrada (2 archivos de test).'), $output);
+remove($root);
+
+echo "\nCaso 9: las cifras del resultado de una entrega cerrada son historia\n";
+$root = fixture([
+    'docs/03-plan-desarrollo/fases/frontend/f0.md' => implode("\n", [
+        '# F0',
+        'Fuera del resultado: 3 tests del frontend.',
+        '## Resultado',
+        '### Entrega 0.1',
+        '**COMPLETADA el 2026-11-12.**',
+        '`npm test` del frontend, 3 tests en 1 archivos.',
+        'Corrida de `npm test` del frontend (2026-11-12): 3 tests en 1 archivos, en verde.',
+        '### Entrega 0.2',
+        'En curso: `npm test` del frontend, 4 tests en 2 archivos.',
+        'Corrida de `npm test` del frontend (2026-11-13): 5 tests en 2 archivos, en verde.',
+        '## Otra sección',
+        'Después del resultado: 6 tests del frontend.',
+    ]) . "\n",
+]);
+mkdir("$root/frontend/src", 0777, true);
+file_put_contents("$root/frontend/src/a.test.ts", "it('a', () => {});\n");
+file_put_contents("$root/frontend/src/b.test.ts", "it('b', () => {});\n");
+[$output, $code] = run($root, '--detalle');
+check('no compara las cifras de una entrega cerrada', ! str_contains($output, '- docs/03-plan-desarrollo/fases/frontend/f0.md:6:') && str_contains($output, 'excluida: resultado de una entrega cerrada: docs/03-plan-desarrollo/fases/frontend/f0.md:6: 3 tests'), $output);
+check('compara las de una entrega sin cerrar', str_contains($output, 'f0.md:9: dice 4 tests del frontend; la última corrida registrada tiene 5'), $output);
+check('compara las de fuera de "Resultado", antes y después', str_contains($output, 'f0.md:2: dice 3 tests del frontend') && str_contains($output, 'f0.md:12: dice 6 tests del frontend'), $output);
+check('sigue tomando la corrida de la entrega cerrada como dato', str_contains($output, 'Frontend: 5 tests en 2 archivos (corrida del 2026-11-13, docs/03-plan-desarrollo/fases/frontend/f0.md:10).'), $output);
+remove($root);
+
 printf("\n%d correctas, %d fallidas.\n", $passed, $failures);
 exit($failures === 0 ? 0 : 1);

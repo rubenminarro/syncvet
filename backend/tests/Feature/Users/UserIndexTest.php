@@ -95,6 +95,6 @@ class UserIndexTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.first_name', 'Dora')
-            ->assertJsonPath('meta.pagination', ['total' => 4, 'perPage' => 3, 'currentPage' => 2, 'lastPage' => 2]);
+            ->assertJsonPath('meta.pagination', ['total' => 4, 'per_page' => 3, 'current_page' => 2, 'last_page' => 2]);
     }
 }

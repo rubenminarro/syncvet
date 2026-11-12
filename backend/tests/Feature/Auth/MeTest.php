@@ -7,16 +7,20 @@ use App\Models\Veterinarian;
 use App\Support\CurrentClinic;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Concerns\InteractsWithAuth;
+use Tests\Concerns\InteractsWithUsers;
 use Tests\TestCase;
 
 /**
- * GET /api/me: usuario, clínica, sucursal actual, roles, permisos ordenados y
- * ficha de veterinario o null.
+ * GET /api/me: usuario, clínica, sucursal actual, sucursales que puede elegir (entrega
+ * front-00, B1), roles, permisos ordenados y ficha de veterinario o null.
  */
 class MeTest extends TestCase
 {
     use InteractsWithAuth;
+    use InteractsWithUsers;
 
     public function test_me_returns_the_profile_with_sorted_permissions(): void
     {
@@ -77,5 +81,139 @@ class MeTest extends TestCase
         $permissions = $this->getWithToken($this->tokenFor($user), '/api/me')->assertOk()->json('data.permissions');
 
         $this->assertSame($expected, $permissions);
+    }
+
+    /**
+     * B1: branches trae las sucursales activas asignadas al usuario, por code; ni las
+     * inactivas asignadas ni las activas sin asignar.
+     */
+    public function test_me_returns_the_active_assigned_branches_ordered_by_code(): void
+    {
+        $clinic = $this->createClinic();
+        $third = $this->branchIn($clinic, ['code' => 'SUC-03', 'name' => 'Sucursal Sur']);
+        $first = $this->defaultBranchIn($clinic);
+        $inactive = $this->branchIn($clinic, ['code' => 'SUC-02', 'name' => 'Sucursal Este']);
+        $this->branchIn($clinic, ['code' => 'SUC-00', 'name' => 'Sin asignar']);
+        $user = $this->userWithRoles($clinic, ['recepcionista'], [$third, $inactive, $first]);
+        DB::table('branches')->where('id', $inactive->id)->update(['is_active' => false]);
+
+        $this->getWithToken($this->tokenFor($user), '/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.branches', [
+                ['id' => $first->id, 'code' => 'SUC-01', 'name' => 'Casa central'],
+                ['id' => $third->id, 'code' => 'SUC-03', 'name' => 'Sucursal Sur'],
+            ]);
+    }
+
+    /**
+     * Revisión, H3: el orden por code no coincide con el del nombre ni con el del id, así que
+     * ordenar por cualquiera de los otros dos falla.
+     */
+    public function test_me_branches_are_ordered_by_code_not_by_name_or_id(): void
+    {
+        $clinic = $this->createClinic();
+        $third = $this->branchIn($clinic, ['code' => 'SUC-03', 'name' => 'Sucursal Medio']);
+        $first = $this->branchIn($clinic, ['code' => 'SUC-01', 'name' => 'Sucursal Zeta']);
+        $second = $this->branchIn($clinic, ['code' => 'SUC-02', 'name' => 'Sucursal Alfa']);
+        $user = $this->userWithRoles($clinic, ['recepcionista'], [$second, $third, $first]);
+
+        $this->getWithToken($this->tokenFor($user), '/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.branches.*.code', ['SUC-01', 'SUC-02', 'SUC-03'])
+            ->assertJsonPath('data.branches.*.id', [$first->id, $second->id, $third->id]);
+    }
+
+    public function test_me_returns_no_branches_without_assigned_ones(): void
+    {
+        $user = $this->userWithRole($this->createClinic(), 'recepcionista');
+
+        $this->getWithToken($this->tokenFor($user), '/api/me')->assertOk()->assertJsonPath('data.branches', []);
+    }
+
+    /**
+     * Pregunta 1 del diseño: el administrador también ve solo las suyas, porque
+     * me/current-branch le exige la asignación igual que a los demás.
+     */
+    public function test_the_administrator_only_sees_the_assigned_branches(): void
+    {
+        $clinic = $this->createClinic();
+        $default = $this->defaultBranchIn($clinic);
+        $this->branchIn($clinic, ['code' => 'SUC-02']);
+        $admin = $this->userWithRoles($clinic, ['administrador'], [$default]);
+
+        $this->getWithToken($this->tokenFor($admin), '/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.branches', [['id' => $default->id, 'code' => 'SUC-01', 'name' => 'Casa central']]);
+    }
+
+    /**
+     * Fallo cerrado: una sucursal de otra clínica asignada a mano en branch_user no aparece.
+     */
+    public function test_a_branch_of_another_clinic_assigned_by_hand_is_not_listed(): void
+    {
+        $clinic = $this->createClinic();
+        $default = $this->defaultBranchIn($clinic);
+        $foreign = $this->defaultBranchIn($this->createClinic());
+        $user = $this->userWithRoles($clinic, ['recepcionista'], [$default]);
+        DB::table('branch_user')->insert(['branch_id' => $foreign->id, 'user_id' => $user->id]);
+
+        $this->getWithToken($this->tokenFor($user), '/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.branches', [['id' => $default->id, 'code' => 'SUC-01', 'name' => 'Casa central']]);
+    }
+
+    public function test_login_returns_the_same_branches(): void
+    {
+        $clinic = $this->createClinic();
+        $default = $this->defaultBranchIn($clinic);
+        $north = $this->branchIn($clinic, ['code' => 'SUC-02', 'name' => 'Sucursal Norte']);
+        $user = $this->userWithRoles($clinic, ['recepcionista'], [$north, $default]);
+
+        $this->login($user->email)
+            ->assertOk()
+            ->assertJsonPath('data.user.branches', [
+                ['id' => $default->id, 'code' => 'SUC-01', 'name' => 'Casa central'],
+                ['id' => $north->id, 'code' => 'SUC-02', 'name' => 'Sucursal Norte'],
+            ]);
+    }
+
+    /**
+     * Una sola consulta para las sucursales, sin N+1: con una o con cuatro, GET me hace
+     * las mismas consultas.
+     */
+    public function test_the_branches_are_loaded_in_a_single_query(): void
+    {
+        $clinic = $this->createClinic();
+        $branches = [$this->defaultBranchIn($clinic)];
+        $one = $this->userWithRoles($clinic, ['recepcionista'], $branches);
+        foreach (['SUC-02', 'SUC-03', 'SUC-04'] as $code) {
+            $branches[] = $this->branchIn($clinic, ['code' => $code]);
+        }
+        $four = $this->userWithRoles($clinic, ['recepcionista'], $branches);
+
+        [$queriesOfOne, $branchQueriesOfOne] = $this->meQueries($this->tokenFor($one), 1);
+        [$queriesOfFour, $branchQueriesOfFour] = $this->meQueries($this->tokenFor($four), 4);
+
+        $this->assertSame($queriesOfOne, $queriesOfFour);
+        $this->assertSame(1, $branchQueriesOfOne);
+        $this->assertSame(1, $branchQueriesOfFour);
+    }
+
+    /**
+     * @return array{0: int, 1: int} consultas de GET me y, de ellas, las de branch_user
+     */
+    private function meQueries(string $token, int $expectedBranches): array
+    {
+        $this->forgetAuthenticatedUser();
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) {
+            $queries[] = Str::lower($query->sql);
+        });
+
+        $this->getWithToken($token, '/api/me')->assertOk()->assertJsonCount($expectedBranches, 'data.branches');
+        $sql = $queries;
+        $queries = [];
+
+        return [count($sql), count(array_filter($sql, fn (string $q) => str_contains($q, 'branch_user')))];
     }
 }

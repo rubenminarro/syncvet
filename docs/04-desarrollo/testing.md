@@ -52,3 +52,20 @@ En cada cierre de fase, `composer audit` tiene que quedar sin avisos (`CLAUDE.md
 `composer update <paquete> --with-dependencies`, sin tocar las restricciones de `composer.json`. Después se corren
 `composer test:fast` y, para el cierre, `composer test` y `composer test:mysql`, una después de la otra. Lo actualizado queda en el
 registro de decisiones (R-046, la primera vez).
+
+## Frontend
+
+Vitest con Testing Library, MSW y jsdom (solo los tests de componentes; la lógica corre en `node`), desde `frontend/`: `npm test` (también `npm run typecheck`, `npm run lint` y
+`npm run build` antes de terminar una entrega). Los tests no usan red (MSW con `onUnhandledFrame: 'error'`), corren en UTC para que
+una fecha mostrada con la zona de la PC falle y comprueban que `America/Asuncion` sea UTC-3 todo el año, como
+`AsuncionTimezoneTest`. Las reglas (el entorno de cada test, consultas en jsdom, la velocidad) están en
+[`frontend/CLAUDE.md`](../../frontend/CLAUDE.md) §5 y §8. La cifra de tests del frontend sale de la última corrida de `npm test`
+registrada en "Resultado" de la fase, con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``
+(`/validar-docs` la compara con las cifras de la documentación).
+
+Playwright (desde la F0.2b): `npm run test:e2e`, contra el backend real y la base `syncvet_e2e`, recreada en cada corrida con el
+`DemoSeeder`; la preparación se niega a correr con otra base. Corre en serie (un *worker*: la base es compartida) y los casos
+que cambian datos los dejan como estaban (la sucursal y la contraseña). **Sin descargar navegadores:** usa el Edge instalado en
+Windows (`channel: 'msedge'` en `frontend/playwright.config.ts`) y no se corre `npx playwright install`; en cada PC hace falta solo
+Edge, que ya viene con Windows (con otro, `E2E_BROWSER_CHANNEL=chrome`). Qué más necesita y cómo corre, en
+[`setup.md`](setup.md#pruebas-de-punta-a-punta-playwright).

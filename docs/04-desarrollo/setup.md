@@ -20,6 +20,76 @@ En Laragon, el vhost de nginx tiene que apuntar a `backend/public`: ver el paso 
 
 En Laragon, `mysql.exe` no está en el `PATH`: está en `C:\laragon\bin\mysql\<versión>\bin\`.
 
+## Frontend
+
+Requisitos: **Node 26 LTS** con npm 11, en todas las PC (`frontend/.nvmrc`; con `engine-strict`, `npm ci` se niega a instalar con
+otra versión). Con nvm para Windows: `nvm install 26` y `nvm use 26`.
+
+```bash
+cd frontend
+npm ci
+npm run dev    # http://localhost:5173
+```
+
+El servidor de Vite manda `/api` al backend de `API_PROXY_TARGET` (por defecto `http://syncvet.test`, el vhost de Laragon): para otro,
+copiar `frontend/.env.example` a `frontend/.env` y cambiarlo. El detalle, en [`frontend/README.md`](../../frontend/README.md).
+
+### Pruebas de punta a punta (Playwright)
+
+Desde la F0.2b, contra el backend real y la base **`syncvet_e2e`** (MySQL), que se borra y se vuelve a crear en cada corrida:
+
+```bash
+cd frontend
+npm run test:e2e        # playwright test; el informe queda en playwright-report/ (npx playwright show-report)
+```
+
+Qué necesita:
+
+* MySQL andando (Laragon) con el usuario de `backend/.env`, y `php` en el `PATH`. La base `syncvet_e2e` no hace falta crearla:
+  la preparación la crea si falta.
+* El backend contra `syncvet_e2e` en `http://127.0.0.1:8010`. Playwright lo levanta solo (`php artisan serve --no-reload` desde
+  `backend/`, con `DB_DATABASE=syncvet_e2e` en el entorno); si ya hay uno levantado en ese puerto, usa ese, que tiene que usar
+  `syncvet_e2e`. También levanta Vite en `http://localhost:5174` con `/api` hacia ese backend (no choca con `npm run dev`).
+* Edge instalado: Playwright usa el navegador de la PC (`channel: 'msedge'`) y no descarga ninguno. Con otro,
+  `E2E_BROWSER_CHANNEL=chrome npm run test:e2e`.
+
+La preparación (`frontend/e2e/global-setup.ts`) **se niega a correr si la base no es `syncvet_e2e`**: controla el nombre pedido y
+el que resuelve Laravel con ese entorno (una configuración cacheada daría otro). Después hace `migrate:fresh --seed` y el
+`DemoSeeder` con una contraseña generada en cada corrida (`DEMO_PASSWORD` solo para esa ejecución; la de `backend/.env` no se
+usa), ingresa con ella en el backend de `:8010` (si no puede, ese backend no usa la base recién preparada y se detiene) y crea por
+la API la sucursal "Sucursal Norte" para `admin-a`. No toca la base `syncvet` de desarrollo.
+
+Para entrar a mano a `syncvet_e2e` después de una corrida (por ejemplo, con un backend levantado con `DB_DATABASE=syncvet_e2e`),
+la contraseña de esa corrida queda en **`frontend/e2e/.e2e-credentials`** (`DEMO_PASSWORD=…`). Lo escribe la preparación al
+terminar, lo reemplaza la corrida siguiente y está ignorado por Git (`frontend/.gitignore`): no se versiona ni se copia a otra PC.
+
+## Antivirus de Windows
+
+Microsoft Defender revisa cada archivo que se escribe: `npm ci` (decenas de miles de archivos en `frontend/node_modules`) y
+`composer install` (`backend/vendor`) tardan varios minutos más, y también Vitest y Vite al leerlos. Se recomienda excluir **solo
+esas dos carpetas** (no todo el repositorio ni el proceso `node.exe`): son dependencias que se bajan de npm y de Packagist y se
+pueden volver a instalar en cualquier momento.
+
+Con la interfaz:
+
+1. Abrir **Seguridad de Windows** → **Protección antivirus y contra amenazas**.
+2. En **Configuración de antivirus y protección contra amenazas**, **Administrar la configuración**.
+3. Bajar hasta **Exclusiones** → **Agregar o quitar exclusiones** (pide permiso de administrador).
+4. **Agregar una exclusión** → **Carpeta** y elegir `C:\laragon\www\syncvet\frontend\node_modules` (la carpeta tiene que existir:
+   correr antes `npm ci`).
+5. Repetir con `C:\laragon\www\syncvet\backend\vendor`.
+
+Con PowerShell, abierto como administrador (con la ruta del repositorio de esa PC):
+
+```powershell
+Add-MpPreference -ExclusionPath "C:\laragon\www\syncvet\frontend\node_modules"
+Add-MpPreference -ExclusionPath "C:\laragon\www\syncvet\backend\vendor"
+Get-MpPreference | Select-Object -ExpandProperty ExclusionPath   # verificar
+```
+
+Si la PC la administra la empresa, la política puede no permitir exclusiones propias: en ese caso las agrega el área de sistemas.
+Para sacar una exclusión, `Remove-MpPreference -ExclusionPath "<ruta>"`.
+
 ## Datos de demostración y cambio de rama
 
 Para probar la API a mano ([guía de Postman](../05-pruebas/guia-postman.md)), el `.env` necesita `DEMO_PASSWORD`, la contraseña de
@@ -225,8 +295,7 @@ antes, con `git switch chore/monorepo`):
 3. Revisar lo que quedó en la raíz con `git status --ignored`: borrar `vendor/` y `.phpunit.result.cache`, y `bootstrap/`,
    `database/` y `storage/` si solo les quedan archivos ignorados (cachés, bases de prueba, logs).
 4. `cd backend && composer install && php artisan optimize:clear`.
-5. Laragon: en `C:\laragontc
-ginx\sites-enabled\`, copiar `auto.syncvet.test.conf` como `syncvet.test.conf`, cambiar `root` a
+5. Laragon: en `C:\laragon\etc\nginx\sites-enabled\`, copiar `auto.syncvet.test.conf` como `syncvet.test.conf`, cambiar `root` a
    `"C:/laragon/www/syncvet/backend/public"` y borrar el `auto.` (Laragon lo regenera con la raíz
    vieja). Iniciar Laragon: `http://syncvet.test/api/me` responde 401 en JSON.
 6. Servidor para Postman: `cd backend && php artisan serve --port=8001`. Newman, desde la raíz.

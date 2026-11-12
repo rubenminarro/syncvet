@@ -35,8 +35,8 @@ class VeterinarianIndexTest extends TestCase
             ->assertJsonMissingPath('data.0.commission_percentage')
             ->assertJsonMissingPath('data.0.notes')
             ->assertJsonPath('meta.pagination.total', 2)
-            ->assertJsonPath('meta.pagination.perPage', 1)
-            ->assertJsonPath('meta.pagination.lastPage', 2);
+            ->assertJsonPath('meta.pagination.per_page', 1)
+            ->assertJsonPath('meta.pagination.last_page', 2);
 
         $this->getJson('/api/veterinarians?status=inactive')
             ->assertOk()

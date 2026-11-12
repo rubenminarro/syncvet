@@ -19,7 +19,11 @@ Antes de editar, confirmar cada punto. Si alguno falta, **detenerse e informar q
 
 * Se está en una rama de trabajo, no en `main`.
 * La suite completa pasó sobre el código actual, en esta sesión o según un resultado que el usuario haya indicado. No suponerlo ni
-  deducirlo de los commits.
+  deducirlo de los commits. Según lo que toque la entrega (`git diff --stat origin/main...HEAD`):
+  * **Backend:** `composer test` desde `backend/` (`backend/CLAUDE.md`).
+  * **Frontend:** desde `frontend/`, `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`, sin errores ni avisos
+    (`frontend/CLAUDE.md` §2).
+  * Una entrega de un proyecto confirma además que la suite del otro no cambió, si tocó algo común (la raíz, `docs/`, las skills).
 * El usuario confirmó que la entrega está validada, si requiere revisión manual.
 * **En un cierre de fase:** Newman pasó con **todas** las colecciones de `docs/05-pruebas/postman`, no solo las de la fase (`CLAUDE.md`
   de la raíz, §2, Cierre de fase), o cada falla está corregida o registrada como deuda. Informar la cifra de cada colección.
@@ -51,7 +55,7 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |
 | Historial | `docs/01-arquitectura/decisiones/registro.md` solo crece: no se corrigen secciones viejas |
-| `backend/CLAUDE.md` (o `frontend/CLAUDE.md`) | La sección 1 (**Estado actual**) se actualiza en cada cierre, con el estado de la fase y de la entrega. El resto, solo si cambió una regla, y solo esa regla |
+| `backend/CLAUDE.md` y `frontend/CLAUDE.md` | La sección 1 (**Estado actual**) del proyecto de la entrega se actualiza en cada cierre, con el estado de la fase y de la entrega; la del otro, solo si la entrega lo cambió (una entrega del backend pedida por el frontend, por ejemplo). El resto, solo si cambió una regla, y solo esa regla. Las cifras de tests de cada uno salen de su suite: las del frontend, de la corrida de `npm test` del cierre, que se registra en "Resultado" de la fase con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (de ahí la toma `/validar-docs`) |
 | Roadmap | Solo cambia el estado de lo entregado. Sin fases nuevas sin aprobación |
 
 ## 5. Verificar
@@ -66,5 +70,6 @@ Corregir los enlaces rotos que hayan causado estos cambios. Informar los demás 
 
 ## 6. Informe
 
-Mostrar los archivos modificados y qué cambió en cada uno, la evidencia usada, lo que quedó como `PENDIENTE DE VERIFICACIÓN` y el
-resultado de la verificación. Dejar los cambios sin commitear: el commit, el push y el merge los autoriza el usuario.
+Mostrar el estado de los dos proyectos después del cierre (backend y frontend: fase, entrega y cifra de tests), los archivos
+modificados y qué cambió en cada uno, la evidencia usada, lo que quedó como `PENDIENTE DE VERIFICACIÓN` y el resultado de la
+verificación. Dejar los cambios sin commitear: el commit, el push y el merge los autoriza el usuario.

@@ -64,14 +64,7 @@ class AuditLogController extends Controller implements HasMiddleware
             'Registros de auditoría obtenidos correctamente.',
             AuditLogResource::collection($logs->items()),
             200,
-            [
-                'pagination' => [
-                    'total' => $logs->total(),
-                    'perPage' => $logs->perPage(),
-                    'currentPage' => $logs->currentPage(),
-                    'lastPage' => $logs->lastPage(),
-                ],
-            ]
+            $this->paginationMeta($logs)
         );
     }
 

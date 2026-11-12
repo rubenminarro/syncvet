@@ -9,12 +9,21 @@ use App\Support\SearchTerm;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * Aviso de los orígenes de CORS descartados: como máximo uno por hora.
+     */
+    public const CORS_WARNING_KEY = 'cors:discarded-origins-warned';
+
+    public const CORS_WARNING_SECONDS = 3600;
+
     public function register(): void
     {
         // Ninguna traza lleva los argumentos de las funciones (R-010): una contraseña,
@@ -40,6 +49,16 @@ class AppServiceProvider extends ServiceProvider
     {
         // Job en curso, para el log de ClinicContextMissingException (R-005).
         ExecutionOrigin::listen();
+
+        // CORS (entrega front-00): config/cors.php descarta de CORS_ALLOWED_ORIGINS lo que no es un
+        // origen exacto (todo "*" incluido). Se avisa para que se corrija, como máximo una vez por
+        // hora (el arranque corre en cada pedido); la API sigue solo con los orígenes válidos.
+        $discarded = config('cors.discarded_origins', []);
+        if ($discarded !== [] && self::firstCorsWarningThisHour()) {
+            Log::warning('CORS_ALLOWED_ORIGINS trae valores que no son un origen exacto (esquema://host[:puerto]) y se descartaron.', [
+                'discarded' => $discarded,
+            ]);
+        }
 
         // Contraseña de los usuarios (R-009): al menos 12 caracteres, con mayúsculas,
         // minúsculas, números y símbolos, y que no aparezca en filtraciones conocidas
@@ -69,5 +88,19 @@ class AppServiceProvider extends ServiceProvider
             /** @var QueryBuilder $this */
             return $this->whereContains($column, $search, 'or');
         });
+    }
+
+    /**
+     * Cache::add solo escribe si la clave no existe: true para el primer arranque de la hora.
+     * Si el caché no responde (sin la tabla cache, durante un migrate), se avisa igual: el
+     * arranque nunca falla por el aviso.
+     */
+    private static function firstCorsWarningThisHour(): bool
+    {
+        try {
+            return Cache::add(self::CORS_WARNING_KEY, true, self::CORS_WARNING_SECONDS);
+        } catch (\Throwable) {
+            return true;
+        }
     }
 }

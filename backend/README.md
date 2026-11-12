@@ -2,7 +2,7 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Es la carpeta `backend/` del monorepo: los comandos de esta guía se corren desde acá. Las reglas de trabajo están en [`CLAUDE.md`](CLAUDE.md) y las comunes, en el [`CLAUDE.md`](../CLAUDE.md) de la raíz.
 
-Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos maestros) y FASE 3 (agenda y turnos) completadas; sigue decidir entre el frontend y la FASE 4, historia clínica. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos maestros) y FASE 3 (agenda y turnos) completadas, y la entrega de soporte del frontend (front-00) integrada con la F0 del frontend (R-063); sigue el frontend (F1 a F3) y, después, la FASE 4, historia clínica. El estado de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../docs/03-plan-desarrollo/README.md) y el punto de continuidad, en [`docs/03-plan-desarrollo/handoff.md`](../docs/03-plan-desarrollo/handoff.md).
 
 ## Qué incluye
@@ -93,6 +93,7 @@ php artisan key:generate
 |---|---|---|
 | `EMAIL_DNS_CHECK` | `true` | Validar que el dominio del email exista. `phpunit.xml` lo desactiva |
 | `SANCTUM_EXPIRATION` | `720` | Minutos de vida de un token de la API (registro R-004) |
+| `CORS_ALLOWED_ORIGINS` | vacía (en `.env.example`, `http://localhost:5173`) | Orígenes del navegador que pueden llamar a `api/*` (CORS), separados por comas; los espacios y los vacíos se descartan. Vacía: ninguno. Solo orígenes exactos (`esquema://host[:puerto]`, en minúsculas y sin la barra final, como los manda el navegador); lo demás, también todo lo que tenga un `*`, se descarta con un aviso en el log (como máximo uno por hora). En desarrollo el proxy de Vite no usa CORS (`config/cors.php`, entrega front-00) |
 | `TRUSTED_PROXIES` | vacía | Proxies de confianza para `X-Forwarded-For` ([`deployment.md`](../docs/04-desarrollo/deployment.md)) |
 | `DEMO_PASSWORD` | vacía | Contraseña de los usuarios del `DemoSeeder` (al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos; no puede aparecer en filtraciones conocidas). Sin ella, el seeder no corre |
 
