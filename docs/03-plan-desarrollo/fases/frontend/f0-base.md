@@ -14,8 +14,8 @@ clientes y pacientes empiezan en la F1.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/front-0-1-esqueleto`, desde `feature/front-00-me-sucursales` (R-059) | PENDIENTE |
-| 0.2 | Sesión: ingresar, salir, `me`, sucursal actual, cierre en todas las pestañas, vencimiento, menú por permisos y pruebas de punta a punta | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/frontend-f0-02-sesion` | PENDIENTE |
+| 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/front-0-1-esqueleto`, desde `feature/front-00-me-sucursales` (R-059) | EN CURSO (WIP, sin validar) |
+| 0.2 | Sesión: ingresar, salir, `me`, sucursal actual, cierre en todas las pestañas, vencimiento, menú por permisos y pruebas de punta a punta | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/front-0-2-sesion` | PENDIENTE |
 
 El orden es F0 → F1 → F2 → F3 y después la FASE 4 del backend (R-058, decisión D2); las tres últimas fases del frontend van sobre la API ya cerrada de las fases 1 a 3 del
 backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../prompts/README.md) y deja los tests en verde.
@@ -25,7 +25,7 @@ backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../pro
 ```text
 main ── feature/front-00-me-sucursales (B1–B3, cerrada, R-059)
            └─ feature/front-0-1-esqueleto (0.1)
-                └─ feature/frontend-f0-02-sesion (0.2) ── merge a main al cerrar la F0
+                └─ feature/front-0-2-sesion (0.2) ── merge a main al cerrar la F0
 ```
 
 **Decisión del usuario (R-059).** La entrega del backend se cerró primero y no se integra a `main` todavía: la 0.1 sale de su rama y
@@ -61,7 +61,7 @@ El aprobado en el informe de análisis del 2026-11-11 (R-058, con la alternativa
 ```text
 frontend/
 ├── .nvmrc                  26
-├── .env.example            VITE_API_PROXY_TARGET (el backend del proxy de desarrollo)
+├── .env.example            API_PROXY_TARGET (el backend del proxy de desarrollo; sin VITE_: no llega al navegador)
 ├── package.json            engines.node, scripts: dev, build, preview, lint, typecheck, test, test:e2e
 ├── vite.config.ts          React, el plugin de TanStack Router y el proxy de /api
 ├── playwright.config.ts    (0.2)
@@ -164,7 +164,7 @@ cada módulo puede sumar el trato especial de sus códigos (columna "Más adelan
    (`ApiSuccess<T>`, `ApiFailure`, `Pagination`) y `ApiError` con la tabla de `error_code`. TanStack Query con los reintentos de las
    [convenciones](#convenciones).
 5. `src/lib/format`: fechas en `America/Asuncion` con date-fns 4 y `@date-fns/tz` (`TZDate`) y guaraníes.
-6. El proxy de Vite (`/api` → `VITE_API_PROXY_TARGET`, por defecto `http://syncvet.test`).
+6. El proxy de Vite (`/api` → `API_PROXY_TARGET`, por defecto `http://syncvet.test`).
 7. Vitest con Testing Library, MSW y jsdom; ESLint y Prettier; scripts `dev`, `build`, `preview`, `lint`, `format`, `typecheck`,
    `test`.
 8. Documentación: `frontend/CLAUDE.md` (estado, comandos, estructura y convenciones) y `frontend/README.md` (instalación con Node 26);
@@ -192,6 +192,28 @@ cada módulo puede sumar el trato especial de sus códigos (columna "Más adelan
 **Qué revisar en el navegador.** `npm run dev` desde `frontend/`: la maqueta de `/ingresar` con Tabler, una URL inexistente muestra no
 encontrado, `/sin-permiso` se ve, el ancho de tablet (768 px) no rompe el layout y la consola no tiene errores ni avisos de React.
 `npm run build` sin errores y `npm run preview` sirve lo mismo.
+
+#### Pendiente para el cierre (0.1)
+
+Implementación del 2026-11-12, en WIP: falta la revisión y la validación del usuario en el navegador. Las versiones instaladas están
+en [`technology-stack.md`](../../../01-arquitectura/technology-stack.md#frontend).
+
+| # | Desvío o decisión pendiente | Motivo | Estado |
+|---|---|---|---|
+| 1 | La variable del proxy es `API_PROXY_TARGET`, no `VITE_API_PROXY_TARGET` | Pedido de la implementación. Sin el prefijo `VITE_`, Vite no la expone al código del navegador: solo la lee `vite.config.ts` | A confirmar |
+| 2 | `@tabler/core` 1.7.4, no la 1.7.5 (la última) | La 1.7.5 se publicó el mismo día y npm respondía 404 al bajar su paquete; la 1.7.4 es del 2026-11-08. El resto, la última versión de cada paquete dentro de lo pedido (TypeScript 6.0.3, porque la última es la 7) | A confirmar; subir a la 1.7.5 en la 0.2 |
+| 3 | `npm audit`: 1 aviso moderado, `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249), que traen `eslint` 10 y `typescript-eslint` 8.72.2 | Solo en las herramientas de desarrollo (ESLint sobre el código propio), no llega al build. No hay arreglo compatible: `npm audit fix --force` baja ESLint a la 9 | Decisión del usuario: registrarlo como deuda o esperar la versión de `typescript-eslint` con `minimatch` 11 |
+| 4 | Un `it()` por caso, sin `.each` ni `it()` dentro de bucles, controlado por ESLint | `/validar-docs` cuenta los tests del frontend leyendo los `it(` y `test(` (como cuenta los `test_` del backend). `vitest list` no expande los `.each` con su análisis estático y, sin él, tarda de 25 a 30 segundos | A confirmar |
+| 5 | Los tests corren con `TZ=UTC` y sin la división del código de las rutas | En UTC, mostrar una fecha con la zona de la PC hace fallar los tests aunque la PC esté en hora de Paraguay (esta lo está: sin eso, la mutación de la zona sobrevivía). Sin dividir el código, el primer render de las rutas no espera la carga de los pedazos, que con la suite en paralelo pasaba los 5 segundos | Informativo |
+| 6 | `tsconfig.test.json` aparte, con los tipos de Node | El código de la aplicación no ve `process` ni `node:fs`; los tests (el de voseo lee `src/`) sí | Informativo |
+| 7 | `frontend/.editorconfig` (sangría de 2) y `frontend/.gitattributes` (fin de línea LF) | Prettier toma la sangría de 4 del `.editorconfig` de la raíz (la del backend); con LF fijo, `prettier --check` da lo mismo en todas las PC | Informativo |
+| 8 | `toApiDateTime` manda la hora con el desplazamiento (`2026-07-01T09:00:00.000-03:00`), como da `TZDate(...).toISOString()` | Lo pedido. Que la API lo acepte en cada campo de fecha y hora se verifica con la primera llamada real (0.2 o F3) | PENDIENTE DE VERIFICACIÓN |
+| 9 | `/sin-permiso` va dentro del layout con sesión; la página de no encontrado, fuera de todo layout | El usuario sin permiso ya tiene sesión: ve la barra y el menú. Una URL desconocida puede no tener sesión | A confirmar |
+| 10 | Scripts además de los del diseño: `format:check` y `test:watch`; `test:e2e` avisa que llega en la 0.2 y sale con error | Preparar la 0.2 sin que un `test:e2e` vacío parezca en verde | Informativo |
+| 11 | El validador de la documentación (`check-docs.php`) separa las cifras: las de una cláusula que nombra al frontend o de un documento de `frontend/` se comparan con los tests del frontend; la cifra de tests de un archivo de test citado (entre comillas invertidas, con la cifra entre paréntesis) se compara con ese archivo; el resumen dice "Backend:" y "Frontend:". Una cifra del frontend que no es de tests (de rutas, por ejemplo) se excluye y se lista en `--detalle` | Pedido de la entrega; antes toda cifra del frontend se excluía como "de otro proyecto" | Informativo |
+
+Mutaciones de la implementación: las cinco del diseño, cada una detectada por sus tests (la conversión a `ApiError`, reintentar
+los 4xx, ignorar el campo en `setError`, formatear con la zona de la PC y leer `perPage`).
 
 ### 0.2 Sesión
 

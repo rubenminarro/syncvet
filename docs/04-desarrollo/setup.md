@@ -20,6 +20,20 @@ En Laragon, el vhost de nginx tiene que apuntar a `backend/public`: ver el paso 
 
 En Laragon, `mysql.exe` no está en el `PATH`: está en `C:\laragon\bin\mysql\<versión>\bin\`.
 
+## Frontend
+
+Requisitos: **Node 26 LTS** con npm 11, en todas las PC (`frontend/.nvmrc`; con `engine-strict`, `npm ci` se niega a instalar con
+otra versión). Con nvm para Windows: `nvm install 26` y `nvm use 26`.
+
+```bash
+cd frontend
+npm ci
+npm run dev    # http://localhost:5173
+```
+
+El servidor de Vite manda `/api` al backend de `API_PROXY_TARGET` (por defecto `http://syncvet.test`, el vhost de Laragon): para otro,
+copiar `frontend/.env.example` a `frontend/.env` y cambiarlo. El detalle, en [`frontend/README.md`](../../frontend/README.md).
+
 ## Datos de demostración y cambio de rama
 
 Para probar la API a mano ([guía de Postman](../05-pruebas/guia-postman.md)), el `.env` necesita `DEMO_PASSWORD`, la contraseña de

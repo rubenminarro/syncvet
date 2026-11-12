@@ -20,8 +20,17 @@ php .claude/skills/validar-docs/scripts/check-docs.php --detalle
 El script revisa enlaces y anclas (también de los `CLAUDE.md` y `README.md` de la raíz, `backend/` y `frontend/`), documentos huérfanos desde `docs/README.md`, rutas citadas que no existen (`docs/…` desde la raíz; `app/…`, `tests/…` y las demás carpetas de Laravel, desde `backend/`) y las cifras de los documentos
 vivos contra el código. Código de salida 1 si hay hallazgos.
 
-Toda cifra se compara salvo una marca explícita en su misma cláusula: datos históricos, de otro proyecto, ejemplos o diferencias. La cifra
+Toda cifra se compara salvo una marca explícita en su misma cláusula: datos históricos, ejemplos o diferencias. La cifra
 de una clase de test se valida contra esa clase. **Revisar la lista de excluidas de `--detalle`:** una exclusión equivocada es un hallazgo.
+
+Las cifras de los dos proyectos se cuentan y se validan por separado (el resumen dice "Backend:" y "Frontend:"):
+
+| Proyecto | Qué cifras | Contra qué |
+|---|---|---|
+| Backend | tests, rutas, controllers, services, migraciones y permisos; `` `LoginTest` (9 tests) `` | Los `test_` de `backend/tests`, `route:list`, las carpetas de `backend/app` y el seeder de permisos |
+| Frontend | "N tests" en una cláusula que nombra al frontend (o a Vitest) sin nombrar al backend, o en un documento de `frontend/`; `` `client.test.ts` (12 tests) `` | Los `it(` y `test(` de `frontend/src/**/*.test.ts(x)` (un `it()` por caso: `frontend/CLAUDE.md` §5) |
+
+Una cifra del frontend que no es de tests ("5 rutas del frontend") no se compara con el backend: se lista como excluida.
 
 ## 2. Revisión de consistencia
 

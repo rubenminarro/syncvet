@@ -22,8 +22,9 @@ git rev-list --left-right --count HEAD...origin/main
 
 El backend y el frontend están en el mismo repositorio (monorepo, R-057): un solo estado de Git.
 
-Leer el [`CLAUDE.md`](../../../CLAUDE.md) de la raíz y [`backend/CLAUDE.md`](../../../backend/CLAUDE.md) (y [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md) si
-la tarea es del frontend): Claude Code no carga solo el de una subcarpeta hasta leer un archivo de ella.
+Leer el [`CLAUDE.md`](../../../CLAUDE.md) de la raíz, [`backend/CLAUDE.md`](../../../backend/CLAUDE.md) y
+[`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md), al menos la sección 1 (**Estado actual**) de cada uno: Claude Code no carga solo
+el de una subcarpeta hasta leer un archivo de ella. El informe da el estado de los dos proyectos.
 
 ## 2. Último commit y último checkpoint validado
 
@@ -40,6 +41,9 @@ Leer esa sección y **Próximas tareas**. No copiar su contenido a esta Skill. P
 * Listar lo posterior con `git log --oneline <commit>..origin/main`.
 * Clasificarlo con `git diff --stat <commit> origin/main`: solo documentación, o también código.
 
+Clasificar también por proyecto: cambios en `backend/`, en `frontend/` o solo en `docs/` y la raíz. Un checkpoint del backend no
+valida código del frontend, y al revés.
+
 El último commit nunca se presenta como validado por el solo hecho de ser el último. Si hay código posterior al checkpoint, ese código
 **no está validado por el handoff**: decirlo, sin suponer que los tests pasan. Si el handoff no registra un resultado de tests, informar
 que no se pudo determinar el checkpoint.
@@ -55,6 +59,8 @@ Responder con este formato:
 
 ```text
 Estado de Git     Rama, cambios sin commitear y diferencia con origin/main
+Backend           Fase y entrega vigentes, según backend/CLAUDE.md §1 y el roadmap
+Frontend          Fase y entrega vigentes, según frontend/CLAUDE.md §1 y el roadmap
 Último commit     Hash y mensaje
 Checkpoint        Último commit validado, con fecha y tests registrados
 Desde entonces    Commits posteriores: solo documentación, o con código sin validar

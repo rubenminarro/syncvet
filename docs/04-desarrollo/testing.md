@@ -52,3 +52,11 @@ En cada cierre de fase, `composer audit` tiene que quedar sin avisos (`CLAUDE.md
 `composer update <paquete> --with-dependencies`, sin tocar las restricciones de `composer.json`. Después se corren
 `composer test:fast` y, para el cierre, `composer test` y `composer test:mysql`, una después de la otra. Lo actualizado queda en el
 registro de decisiones (R-046, la primera vez).
+
+## Frontend
+
+Vitest con Testing Library, MSW y jsdom, desde `frontend/`: `npm test` (también `npm run typecheck`, `npm run lint` y
+`npm run build` antes de terminar una entrega). Los tests no usan red (MSW con `onUnhandledFrame: 'error'`), corren en UTC para que
+una fecha mostrada con la zona de la PC falle y comprueban que `America/Asuncion` sea UTC-3 todo el año, como
+`AsuncionTimezoneTest`. Las reglas (un `it()` por caso, consultas en jsdom) están en [`frontend/CLAUDE.md`](../../frontend/CLAUDE.md)
+§5. Playwright, contra la base `syncvet_e2e`, llega en la F0.2.

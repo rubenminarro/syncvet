@@ -42,6 +42,6 @@ El plan está en [`fases/frontend/`](fases/frontend/README.md), con las decision
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| [F0](fases/frontend/f0-base.md) | Base: esqueleto (0.1) y sesión (0.2) | PENDIENTE (diseño aprobado, R-058); la 0.1, en `feature/front-0-1-esqueleto` (R-059) |
+| [F0](fases/frontend/f0-base.md) | Base: esqueleto (0.1) y sesión (0.2) | EN CURSO (diseño aprobado, R-058): la 0.1 en `feature/front-0-1-esqueleto` (R-059), implementada en WIP y sin validar |
 | [Soporte del backend](fases/backend/front-00-soporte-del-frontend.md) | B1 a B3: sucursales en `me`, CORS y paginación en `snake_case`; antes de la F0.2 | COMPLETADO (R-059), en `feature/front-00-me-sucursales`, sin integrar a `main` (se integra al cerrar la F0); diseño (R-058) |
 | F1 a F3 | Clientes y pacientes, datos maestros, agenda y turnos | PENDIENTE |

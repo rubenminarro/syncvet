@@ -1,0 +1,22 @@
+# Dependencias y salidas
+node_modules
+dist
+dist-ssr
+coverage
+*.tsbuildinfo
+
+# Variables locales (la plantilla, .env.example, sí se versiona)
+.env
+.env.*
+!.env.example
+
+# Registros y herramientas
+*.log
+npm-debug.log*
+.vite
+.eslintcache
+# Playwright (F0.2)
+test-results
+playwright-report
+playwright/.cache
+.vitest

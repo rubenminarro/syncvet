@@ -1,0 +1,4 @@
+/* Ajustes propios sobre Tabler. Sin Tailwind: las clases son las de Tabler. */
+.toast-container {
+  z-index: 1090;
+}

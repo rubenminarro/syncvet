@@ -5,9 +5,14 @@
  * estado actual y se compara con el código, salvo una marca explícita en su misma cláusula. Ante la
  * duda devuelve 'current': es preferible un falso positivo a ocultar un error.
  *
- * Tipos: current, class (cifra de una clase de test), other-project, historical, delta, example.
+ * Tipos: current (del backend), frontend (del frontend: lo nombra su cláusula), class (cifra de una
+ * clase de test del backend: `LoginTest` (9 tests)), test-file (cifra de un archivo de test del
+ * frontend: `client.test.ts` (12 tests)), historical, delta, example.
  *
- * @return array{type: string, class?: string}
+ * En un documento del frontend (frontend/…) una cifra 'current' es del frontend salvo que su cláusula
+ * nombre al backend: eso lo decide check-docs.php con mentionsBackend(), porque depende del archivo.
+ *
+ * @return array{type: string, class?: string, file?: string}
  */
 function classifyFigure(string $line, int $offset, int $length, bool $inFence = false): array
 {
@@ -22,15 +27,15 @@ function classifyFigure(string $line, int $offset, int $length, bool $inFence = 
         return ['type' => 'class', 'class' => $match[1]];
     }
 
+    if (preg_match('/`([\w.\/-]+\.test\.tsx?)`\s*\(\s*$/', $before, $match)) {
+        return ['type' => 'test-file', 'file' => $match[1]];
+    }
+
     if (preg_match('/^\s*(nuev|adicional|más\b)/iu', $after) || preg_match('/\+\s*$/', $before)) {
         return ['type' => 'delta'];
     }
 
     $clause = figureClause($before, $after);
-
-    if (preg_match('/\b(frontend|front)\b/iu', $clause)) {
-        return ['type' => 'other-project'];
-    }
 
     if (preg_match('/\b(antes|anteriores?|hasta el|hasta la|l[ií]nea base|era|eran|hab[ií]a|ten[ií]a)\b/iu', $clause)) {
         return ['type' => 'historical'];
@@ -41,7 +46,20 @@ function classifyFigure(string $line, int $offset, int $length, bool $inFence = 
         return ['type' => 'example'];
     }
 
+    // Una cifra del frontend se compara con el frontend; "Frontend y backend: 45 services" sigue siendo del backend.
+    if (preg_match('/\b(frontend|front|vitest)\b/iu', $clause) && ! mentionsBackend($clause)) {
+        return ['type' => 'frontend'];
+    }
+
     return ['type' => 'current'];
+}
+
+/**
+ * La cláusula nombra al backend.
+ */
+function mentionsBackend(string $clause): bool
+{
+    return preg_match('/\b(backend|phpunit|laravel)\b/iu', $clause) === 1;
 }
 
 /**

@@ -1293,6 +1293,7 @@ validada por el usuario. El detalle, en el [resultado de la entrega](../../03-pl
 | Colección de sucursales | El 422 del alta en la primera validación se reproduce con la versión anterior a B3 de la colección (lee `lastPage`): causa probable, el Runner con la colección vieja importada. La colección pasa a ser repetible sin límite: usa siempre `SUC-PM` (alta o reactivación), rota su establecimiento y limpia las variables al empezar | Análisis; el arreglo, pedido por el usuario |
 | R-058 | La columna de alternativas descartadas se ajustó al informe del análisis (SWR; Axios o ky; `tabler-react`, que quedó en React 16, y el JS de Tabler; Node 24, en mantenimiento, y pnpm), con "sin Tailwind" en la elección de la interfaz, a pedido del usuario | Usuario |
 | Integración | Sin merge a `main` todavía: la rama se integra al cerrar la F0 del frontend. La F0.1 (esqueleto) se hace en `feature/front-0-1-esqueleto`, creada desde esta rama (en lugar de `feature/frontend-f0-01-esqueleto` desde `main`, como decía el diseño de la F0) | Usuario |
+| Rama de la 0.2 | `feature/front-0-2-sesion` (en lugar de `feature/frontend-f0-02-sesion`), para seguir el patrón de la 0.1 | Usuario |
 
 **Validación.** El usuario, el 2026-11-12 (Collection Runner, una iteración, después de las correcciones): sucursales 123 de 123, dos
 corridas seguidas, y usuarios 136 de 136, 0 errores. Suite en serie sobre `bdaa78f`: 1445 casos; 14183 aserciones en SQLite (14

@@ -12,6 +12,13 @@ require __DIR__ . '/figures.php';
 // El backend (Laravel) vive en esta carpeta: las rutas de código citadas sin prefijo (`app/…`, `tests/…`) se leen desde acá.
 const BACKEND = 'backend';
 
+// El frontend (React + Vitest). Sus cifras ("61 tests del frontend") se comparan con sus tests, nunca con los del backend.
+const FRONTEND = 'frontend';
+
+// Un test de Vitest: it( o test( (también .skip, .only, .todo…), sin contar el método .test( de una expresión regular.
+// frontend/CLAUDE.md exige un it() por caso, sin .each ni bucles (lo controla ESLint), para que este conteo sea exacto.
+const FRONTEND_TEST_CALL = '/(?<![.\w$])(?:it|test)(?:\.(?:skip|only|todo|fails|concurrent))?\(/';
+
 // Raíces de una ruta citada que se leen desde la raíz del repositorio; las demás, desde BACKEND.
 const REPOSITORY_ROOTS = ['docs', 'backend', 'frontend'];
 
@@ -207,6 +214,26 @@ function permissionCount(): ?int
     return class_exists($class) && defined("$class::PERMISSIONS") ? count($class::PERMISSIONS) : null;
 }
 
+// Tests del frontend, por archivo (ruta desde frontend/src). Sin frontend/src, sin dato.
+$frontendTests = [];
+
+foreach (is_dir(FRONTEND . '/src') ? files(FRONTEND . '/src', '/\.test\.tsx?$/') : [] as $file) {
+    $frontendTests[substr($file, strlen(FRONTEND . '/src/'))] = preg_match_all(FRONTEND_TEST_CALL, file_get_contents($file));
+}
+
+$frontendTotal = is_dir(FRONTEND . '/src') ? array_sum($frontendTests) : null;
+
+/**
+ * El archivo de test del frontend que cita un documento (`client.test.ts` o `lib/api/client.test.ts`): el único que
+ * termina así, o null.
+ */
+function frontendTestFile(array $frontendTests, string $cited): ?string
+{
+    $matches = array_values(array_filter(array_keys($frontendTests), fn ($path) => $path === $cited || str_ends_with($path, '/' . $cited)));
+
+    return count($matches) === 1 ? $matches[0] : null;
+}
+
 $compared = 0;
 $excluded = [];
 
@@ -229,11 +256,40 @@ foreach (live() as $file) {
             $figure = classifyFigure($line, $offset, strlen($text), $inFence);
 
             // "`RolesAndPermissionsSeeder` (119 permisos)": solo una cifra de tests se refiere a la clase citada.
-            if ($figure['type'] === 'class' && $kind !== 'tests') {
+            if (in_array($figure['type'], ['class', 'test-file'], true) && $kind !== 'tests') {
                 $figure = ['type' => 'current'];
             }
 
-            if ($figure['type'] === 'current') {
+            // En un documento del frontend, una cifra sin marca es del frontend, salvo que su cláusula nombre al backend.
+            if ($figure['type'] === 'current' && str_starts_with($file, FRONTEND . '/')
+                && ! mentionsBackend(figureClause(substr($line, 0, $offset), substr($line, $offset + strlen($text))))) {
+                $figure = ['type' => 'frontend'];
+            }
+
+            if ($figure['type'] === 'frontend' && $kind === 'tests') {
+                $compared++;
+
+                if ($frontendTotal !== null && $count !== $frontendTotal) {
+                    report('Cifras', $where, "dice $count tests del frontend; el frontend tiene $frontendTotal");
+                }
+            } elseif ($figure['type'] === 'frontend') {
+                // El frontend solo tiene cifra de tests: "5 rutas" del frontend no se compara con las rutas de la API.
+                $excluded[] = "frontend sin cifra comparable: $where: $text";
+            } elseif ($figure['type'] === 'test-file') {
+                $compared++;
+                $path = frontendTestFile($frontendTests, $figure['file']);
+
+                // Sin frontend/src no hay con qué comparar.
+                if ($frontendTotal === null) {
+                    continue;
+                }
+
+                if ($path === null) {
+                    report('Cifras', $where, "cita {$figure['file']}, que no existe en frontend/src (o hay más de uno)");
+                } elseif ($frontendTests[$path] !== $count) {
+                    report('Cifras', $where, "$path tiene {$frontendTests[$path]} tests, no $count");
+                }
+            } elseif ($figure['type'] === 'current') {
                 $compared++;
 
                 if ($actual[$kind] !== null && $count !== $actual[$kind]) {
@@ -269,9 +325,13 @@ foreach (is_file(MODULES) ? [MODULES] : [] as $file) {
 // Resultado
 printf("Documentos: %d. Enlaces internos: %d. Alcanzables desde el índice: %d.\n", count($docs), $total, count($seen));
 printf(
-    "Código: %d tests, %s rutas, %d controllers, %d services, %d migraciones, %s permisos.\n",
+    "Backend: %d tests, %s rutas, %d controllers, %d services, %d migraciones, %s permisos.\n",
     $actual['tests'], $actual['rutas'] ?? 'sin dato de', $actual['controllers'], $actual['services'],
     $actual['migraciones'], $actual['permisos'] ?? 'sin dato de',
+);
+printf(
+    "Frontend: %s tests en %d archivos.\n",
+    $frontendTotal ?? 'sin dato de', count($frontendTests),
 );
 printf("Cifras comparadas: %d. Excluidas por una marca explícita: %d.\n\n", $compared, count($excluded));
 
