@@ -30,6 +30,6 @@ verificadas en npm el 2026-11-12). Las reglas de uso están en [`frontend/CLAUDE
 | Datos del servidor | `@tanstack/react-query` 5.107.1, sobre un cliente propio con `fetch` (sin Axios) |
 | Formularios | `react-hook-form` 7.92.0, `zod` 4.6.7, `@hookform/resolvers` 7.0.6 |
 | Fechas | `date-fns` 4.4.0, `@date-fns/tz` 1.5.0 |
-| Tests | `vitest` 5.1.0, `jsdom` 31.0.0, `msw` 3.0.5, `@testing-library/react` 16.3.3, `@testing-library/dom` 10.4.2, `@testing-library/user-event` 14.6.10, `@testing-library/jest-dom` 7.0.1; Playwright desde la F0.2 |
+| Tests | `vitest` 5.1.0, `jsdom` 31.0.0, `msw` 3.0.5, `@testing-library/react` 16.3.3, `@testing-library/dom` 10.4.2, `@testing-library/user-event` 14.6.10, `@testing-library/jest-dom` 7.0.1; Playwright desde la F0.2b |
 | Calidad | `eslint` 10.14.0, `@eslint/js` 10.0.1, `typescript-eslint` 8.72.2, `eslint-plugin-react-hooks` 7.1.1, `eslint-plugin-react-refresh` 0.5.7, `eslint-config-prettier` 10.1.8, `globals` 17.14.0, `prettier` 3.10.1 |
 | Tipos | `@types/react` y `@types/react-dom` 19.3.0, `@types/node` 26.6.6 |

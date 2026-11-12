@@ -8,7 +8,7 @@ convenciones están en [`CLAUDE.md`](CLAUDE.md); el plan, en
 
 * **Node 26 LTS** (con npm 11). La versión está en `.nvmrc`; con `engine-strict`, `npm ci` se niega a instalar con otra. Con nvm
   para Windows: `nvm install 26` y `nvm use 26`.
-* Para usar la API (desde la F0.2): el backend levantado, por defecto en `http://syncvet.test` (Laragon), según su
+* Para usar la API (desde la F0.2a): el backend levantado, por defecto en `http://syncvet.test` (Laragon), según su
   [`README.md`](../backend/README.md).
 
 ## Instalación

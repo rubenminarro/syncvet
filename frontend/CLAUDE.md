@@ -1,7 +1,7 @@
 # CLAUDE.md — SyncVet (Frontend)
 
 Reglas propias del frontend. Las comunes (proceso, voseo, Git, documentación por cambio) están en el [`CLAUDE.md`](../CLAUDE.md) de
-la raíz; el contrato de la API, en [`backend/CLAUDE.md`](../backend/CLAUDE.md) §4. El diseño de la F0 (con la sesión de la 0.2) está
+la raíz; el contrato de la API, en [`backend/CLAUDE.md`](../backend/CLAUDE.md) §4. El diseño de la F0 (con la sesión de la 0.2a y la 0.2b) está
 en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 ## 1. Estado actual
@@ -9,8 +9,8 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md) |
-| Entrega | 0.1, esqueleto sin backend: EN CURSO en `feature/front-0-1-esqueleto` (WIP, revisada y corregida; sin validar todavía por el usuario) |
-| Siguiente | 0.2, la sesión contra la API real, en `feature/front-0-2-sesion` |
+| Entrega | 0.1, esqueleto sin backend: COMPLETADA (R-060) en `feature/front-0-1-esqueleto` |
+| Siguiente | 0.2a, la sesión contra la API real, en `feature/front-0-2a-sesion`; después, la 0.2b (permisos, sucursal, `/perfil` y Playwright), en `feature/front-0-2b-permisos` |
 | Tests | Vitest: 93 tests en 9 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
@@ -29,7 +29,7 @@ Desde `frontend/`, con Node 26 (`.nvmrc`; `engine-strict` rechaza otra versión 
 | `npm run lint` | ESLint, sin avisos (`--max-warnings 0`) |
 | `npm run format` | Prettier sobre todo el proyecto (`format:check` solo revisa) |
 | `npm test` | Vitest, una vez (`test:watch`, en modo observación) |
-| `npm run test:e2e` | Playwright, desde la 0.2 (hoy avisa y sale con error) |
+| `npm run test:e2e` | Playwright, desde la 0.2b (hoy avisa y sale con error) |
 
 Antes de dar algo por terminado: `typecheck`, `lint`, `test` y `build`, los cuatro sin errores ni avisos. Las dependencias se
 verifican en npm antes de instalarlas y se auditan con `npm audit`.
@@ -47,7 +47,7 @@ elecciones, con su alternativa descartada, en R-058.
 | Datos del servidor | TanStack Query sobre el cliente propio de `src/lib/api/client.ts` (fetch, sin Axios) |
 | Formularios | React Hook Form con Zod (`@hookform/resolvers`) |
 | Fechas | date-fns 4 con `@date-fns/tz` |
-| Tests | Vitest, Testing Library, MSW y jsdom; Playwright desde la 0.2 |
+| Tests | Vitest, Testing Library, MSW y jsdom; Playwright desde la 0.2b |
 | Calidad | ESLint (`typescript-eslint` estricto con tipos, reglas de hooks) y Prettier |
 
 ## 4. Estructura
@@ -147,8 +147,8 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 |---|---|---|
 | 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint`; solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
 
-El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo pendiente de la 0.1 está en "Pendiente para el
-cierre (0.1)" de [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#pendiente-para-el-cierre-01).
+El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
+[resultado](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01).
 
 ## 8. Velocidad
 

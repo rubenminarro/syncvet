@@ -1303,3 +1303,30 @@ omitidos, solo de MySQL) y 14257 en MySQL. Newman, las 14 colecciones dos veces 
 **Qué no cambió.** Rutas (78), permisos (135), migraciones (36), `error_code` y códigos HTTP. Cambian, a propósito, `me` (suma
 `branches`), las claves de `meta.pagination` y las cabeceras de CORS (antes, sin `config/cors.php`, regía el valor por defecto de
 Laravel: cualquier origen).
+
+# R-060 Cierre de la entrega 0.1 del frontend (esqueleto) (2026-11-12)
+
+Entrega 0.1 de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md), en `feature/front-0-1-esqueleto`:
+implementada (`72e75bc`), revisada, corregida (`b5d3ecf`) y validada por el usuario. El detalle, en el
+[resultado de la entrega](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Desvíos 1, 2 y 5 | Aceptados: la variable del proxy es `API_PROXY_TARGET`, sin el prefijo `VITE_` (no llega a `dist/`); `@tabler/core` 1.7.4, con la 1.7.5 pendiente para la 0.2a; los tests corren con `TZ=UTC` y sin dividir el código de las rutas | Usuario |
+| Desvío 3 | `npm audit`: el aviso de `minimatch` 10.2.6 (por `eslint` y `typescript-eslint`, solo en desarrollo) queda como [deuda 19](../../03-plan-desarrollo/deuda-tecnica.md), prioridad baja | Usuario |
+| Desvío 4 (H13) | Se permiten `.each` y los bucles en los tests. La cifra de tests del frontend sale de la última corrida de `npm test` registrada en "Resultado" de la fase, con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``; `/validar-docs` la toma de ahí (la de fecha más reciente) y avisa si la cantidad de archivos de test no coincide | Usuario; el formato, revisión |
+| Correcciones de la revisión | H1 a H15: las fechas sin hora (`birth_date`) con `formatDateOnly`, sin pasar por `Date`; el 422 con claves de arreglo (`branch_ids.0`) a su campo; ESLint contra `window.fetch`, `XMLHttpRequest` y `dangerouslySetInnerHTML`; el voseo en los textos de una palabra; los guaraníes desde el texto, sin coma flotante; y los tests que no detectaban sus mutaciones | Revisión; autorizadas por el usuario |
+| 204 | Un 204 (o un 2xx sin cuerpo) es un éxito sin datos: `data = null`. Un 2xx con un cuerpo que no es JSON sigue siendo `HTTP_ERROR` | Usuario |
+| Valores vacíos o inválidos | Fechas y guaraníes muestran `''`, nunca "Gs. 0" ni un error que rompa el render | Usuario (pedido); el valor, revisión |
+| Velocidad | Sección 8 de `frontend/CLAUDE.md`, a partir del análisis del tiempo de la 0.1 (66 minutos, casi la mitad en npm y en verificaciones repetidas): versiones fijas en el diseño y un solo `npm ci`; `environment: node` para los tests sin DOM; `vitest related` durante el trabajo y la suite, `typecheck` y `lint` una vez al final; Prettier solo sobre los archivos cambiados; validador, skills y documentación general en entregas o cierres aparte. Excluir `frontend/node_modules` y `backend/vendor` del antivirus de Windows (`setup.md`) | Usuario |
+| División de la 0.2 | 0.2a, sesión (ingresar, `me`, salir, 401 y 403, vencimiento con su aviso, cerrar en todas las pestañas y pedir la sesión desde una pestaña nueva), en `feature/front-0-2a-sesion` desde `feature/front-0-1-esqueleto`; 0.2b, permisos (menú y rutas según los permisos, selector de sucursal, `/perfil` con la contraseña propia y Playwright contra `syncvet_e2e`), en `feature/front-0-2b-permisos` desde la 0.2a. Reemplaza la rama `feature/front-0-2-sesion` de R-059 | Usuario |
+| Sugerencias para la 0.2 | Un botón para mostrar la contraseña en `/ingresar` (0.2a) y en `/perfil` (0.2b); evaluar "Correo electrónico" en lugar de "Email" (pregunta 4 de la F0, en el diseño de la 0.2a) | Usuario |
+| Pendientes | Desvío 8 (`toApiDateTime` con el desplazamiento `-03:00`): PENDIENTE DE VERIFICACIÓN con la primera llamada real. Desvío 9 (`/sin-permiso` dentro del layout con sesión): sin decisión, se confirma en la 0.2b | Implementación |
+
+**Validación.** El usuario, el 2026-11-12, en el navegador con `npm run dev`: `/ingresar` con Tabler (logo, título "Ingresá a tu
+cuenta", campos obligatorios, botón con ícono) y una URL inventada con la página de no encontrado en voseo y "Volver al inicio".
+`/sin-permiso`, el ancho de tablet, la consola y `npm run preview` no figuran en la validación (PENDIENTE DE VERIFICACIÓN). La última
+corrida, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 93 tests en 9 archivos del frontend, en
+verde. `/validar-docs`, sin hallazgos (sus tests, 55 de 55).
+
+**Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales).

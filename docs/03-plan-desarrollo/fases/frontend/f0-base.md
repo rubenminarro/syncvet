@@ -7,15 +7,17 @@ del análisis y las [preguntas del diseño](#preguntas-del-diseño) respondidas.
 ## Objetivo
 
 Dejar `frontend/` listo para construir pantallas: el proyecto con sus herramientas y convenciones (0.1, sin backend) y la sesión
-contra la API real (0.2): ingresar, salir, la sucursal actual y el menú según los permisos. Ninguna pantalla de negocio: las de
+contra la API real (0.2, dividida en 0.2a y 0.2b por decisión del usuario, R-060): ingresar, salir, la sucursal actual y el menú
+según los permisos. Ninguna pantalla de negocio: las de
 clientes y pacientes empiezan en la F1.
 
 ## Entregas
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/front-0-1-esqueleto`, desde `feature/front-00-me-sucursales` (R-059) | EN CURSO (WIP, sin validar) |
-| 0.2 | Sesión: ingresar, salir, `me`, sucursal actual, cierre en todas las pestañas, vencimiento, menú por permisos y pruebas de punta a punta | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/front-0-2-sesion` | PENDIENTE |
+| 0.1 | Esqueleto: proyecto, herramientas, rutas, capa de la API con la tabla de errores, componentes base y tests; sin llamar a la API real | No | `feature/front-0-1-esqueleto`, desde `feature/front-00-me-sucursales` (R-059) | COMPLETADO (R-060, [resultado](#entrega-01)) |
+| 0.2a | Sesión: ingresar, `me`, salir, 401 y 403 con sesión, vencimiento con su aviso, cierre en todas las pestañas y la sesión pedida desde una pestaña nueva | Sí: la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | `feature/front-0-2a-sesion`, desde `feature/front-0-1-esqueleto` (R-060) | PENDIENTE |
+| 0.2b | Permisos: menú y rutas según los permisos, selector de sucursal, `/perfil` con la contraseña propia y Playwright contra `syncvet_e2e` | Sí, como la 0.2a | `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion` | PENDIENTE |
 
 El orden es F0 → F1 → F2 → F3 y después la FASE 4 del backend (R-058, decisión D2); las tres últimas fases del frontend van sobre la API ya cerrada de las fases 1 a 3 del
 backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../prompts/README.md) y deja los tests en verde.
@@ -24,8 +26,9 @@ backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../pro
 
 ```text
 main ── feature/front-00-me-sucursales (B1–B3, cerrada, R-059)
-           └─ feature/front-0-1-esqueleto (0.1)
-                └─ feature/front-0-2-sesion (0.2) ── merge a main al cerrar la F0
+           └─ feature/front-0-1-esqueleto (0.1, cerrada, R-060)
+                └─ feature/front-0-2a-sesion (0.2a)
+                     └─ feature/front-0-2b-permisos (0.2b) ── merge a main al cerrar la F0
 ```
 
 **Decisión del usuario (R-059).** La entrega del backend se cerró primero y no se integra a `main` todavía: la 0.1 sale de su rama y
@@ -33,7 +36,7 @@ todo se integra a `main` al cerrar la F0. Reemplaza la propuesta de R-058: dos r
 
 La 0.1 no llama a la API real (los tests usan MSW con el contrato ya en `snake_case`, como queda después de B3), así que **puede ir
 antes o en paralelo** con la entrega del backend: tocan carpetas distintas (`frontend/` y `backend/`) y no se pisan. La 0.2 necesita
-las dos integradas. Propuesta: primero la entrega del backend (es corta y cierra el contrato que la 0.1 tipa), después la 0.1; si
+las dos (en esta cadena de ramas, R-059). Propuesta: primero la entrega del backend (es corta y cierra el contrato que la 0.1 tipa), después la 0.1; si
 se prefiere avanzar en el frontend, la 0.1 primero no cambia nada, porque sus tipos ya nacen con `per_page`, `current_page` y
 `last_page`.
 
@@ -195,27 +198,177 @@ encontrado, `/sin-permiso` se ve, el ancho de tablet (768 px) no rompe el layout
 
 #### Pendiente para el cierre (0.1)
 
-Implementación del 2026-11-12, revisada y corregida el mismo día (WIP): falta la validación del usuario en el navegador. Las versiones instaladas están
-en [`technology-stack.md`](../../../01-arquitectura/technology-stack.md#frontend).
+Vacío: la entrega se cerró (R-060) y todo lo que había acá pasó a su [resultado](#entrega-01).
 
-| # | Desvío o decisión pendiente | Motivo | Estado |
+### 0.2a Sesión
+
+**Requisito.** La entrega del backend (B1 a B3) cerrada; en esta cadena de ramas, sin integrar a `main` hasta cerrar la F0 (R-059).
+**Rama.** `feature/front-0-2a-sesion`, desde `feature/front-0-1-esqueleto` (R-060).
+
+**Alcance.**
+
+1. `src/lib/auth`: la sesión en `sessionStorage`, el aviso previo y el temporizador de vencimiento, y el canal `syncvet-sesion`
+   (`logout` y la sesión compartida a las pestañas nuevas con `session-request` y `session-share`), según la [sesión](#sesión-02).
+2. `/ingresar` real (email y contraseña, con los errores de la tabla), con un botón para mostrar la contraseña (sugerencia del
+   usuario, R-060); salir desde el menú del usuario.
+3. Con sesión, según la [tabla de errores](#qué-hace-la-interfaz-con-cada-código-de-error): el 401 cierra todas las pestañas y lleva a
+   `/ingresar?volver=…`; el 403 `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE`, como dice la tabla.
+4. El layout con sesión exige una sesión válida (`beforeLoad`): barra con la clínica, el usuario y sus roles; `me` en la caché de
+   TanStack Query (`['me']`).
+5. `@tabler/core` 1.7.5 (desvío 2 de la 0.1), con la versión fijada en el diseño de la entrega (`frontend/CLAUDE.md` §8).
+6. Documentación: `frontend/CLAUDE.md` (la sesión).
+
+**Pregunta para el diseño de la 0.2a (sugerencia del usuario, R-060).** ¿"Correo electrónico" en lugar de "Email" en `/ingresar` (y en el
+resto de la interfaz)? La API dice "email" en sus mensajes y campos; el cambio sería solo de los textos del frontend.
+
+**Tests.**
+
+| Qué | Cómo |
+|---|---|
+| Sesión guardada | Se guarda y se lee; una sesión vencida al abrir se borra sin llamar a la API |
+| Vencimiento | Con temporizadores falsos: 10 minutos antes, el aviso; al llegar a `expires_at` se cierra la sesión en todas las pestañas; al volver a la pestaña con la hora pasada, también |
+| Entre pestañas | Una pestaña nueva recibe la sesión de una abierta (`session-request` y `session-share`) y, sin respuesta, va a `/ingresar`; al salir se publica `logout` y las demás borran su sesión sin otro `POST logout`, salvo la que tiene otro token |
+| 401 y 403 | Un 401 en cualquier pedido cierra la sesión en todas las pestañas y lleva a `/ingresar?volver=…`; `volver` con una URL externa se ignora; `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE` con sesión, como la tabla |
+| Ingresar | 422 `INVALID_CREDENTIALS`, 422 `VALIDATION_ERROR` en los campos, 429 con cuenta regresiva, 403 `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE`: cada uno con su mensaje; el botón muestra y oculta la contraseña |
+
+**Mutaciones.** No cerrar todas las pestañas con un 401; no responder `session-share`; no publicar `logout` en el canal; no
+programar el temporizador; aceptar un `volver` externo.
+
+**Qué revisar en el navegador.** Con el backend en `syncvet.test` y `npm run dev`: ingresar con `admin-a` del `DemoSeeder`;
+credenciales incorrectas cinco veces y la cuenta regresiva; mostrar y ocultar la contraseña; abrir una pestaña nueva y ver que entra
+sin ingresar; salir en una pestaña y ver que la otra vuelve a `/ingresar`; borrar `expires_at` a mano en el almacenamiento de la
+sesión (DevTools) y ver el cierre; adelantar `expires_at` a menos de 10 minutos y ver el aviso previo; inactivar al usuario desde otra
+sesión de administrador y ver que el siguiente pedido lleva a `/ingresar`; la consola sin errores.
+
+### 0.2b Permisos, sucursal, perfil y Playwright
+
+**Requisito.** La 0.2a cerrada. **Rama.** `feature/front-0-2b-permisos`, desde `feature/front-0-2a-sesion` (R-060).
+
+**Alcance.**
+
+1. `can(permiso)` en `src/lib/auth`; el menú según `me.permissions` (en la F0, Inicio); cada ruta protegida declara su permiso y,
+   sin él, muestra `/sin-permiso` (con la decisión pendiente del desvío 9 de la 0.1: `/sin-permiso` dentro del layout con sesión).
+2. Selector de la sucursal actual en la barra con `me.branches` (B1): `PATCH me/current-branch`, actualiza `['me']`, invalida el
+   resto de las consultas y publica `branch-changed` en el canal; el inicio con la sucursal actual o el pedido de elegir una.
+3. `/perfil`: los datos del usuario y el cambio de la contraseña propia, con el botón para mostrar la contraseña (sugerencia del
+   usuario, R-060).
+4. Playwright: `e2e/` y `playwright.config.ts`; antes de correr, la base `syncvet_e2e` se recrea con `migrate:fresh` y el
+   `DemoSeeder`, con el backend levantado desde `backend/` en un puerto propio y las variables de la base pasadas por el entorno (el
+   `DemoSeeder` corre solo en `local` y `testing`). **La preparación se niega a correr si la base no termina en `_e2e`.**
+5. Documentación: `frontend/CLAUDE.md` (permisos, comandos de Playwright), la base `syncvet_e2e` en `setup.md` y en
+   [`testing.md`](../../../04-desarrollo/testing.md).
+
+**Tests.**
+
+| Qué | Cómo |
+|---|---|
+| Permisos | Una ruta sin el permiso muestra `/sin-permiso`; el menú oculta lo no permitido |
+| Sucursal | El selector lista `me.branches`; el cambio llama a `PATCH me/current-branch`, actualiza `me` e invalida las consultas; `branch-changed` hace que las demás pestañas vuelvan a pedir `me` |
+| Perfil | El cambio de contraseña llama a `PATCH me/password`; 422 en `current_password` y en `password` van a sus campos; 429 con la cuenta regresiva; con el 200, la sesión sigue; el botón muestra y oculta la contraseña |
+| Punta a punta (Playwright) | Ingresar con un usuario del `DemoSeeder` y ver el inicio; credenciales incorrectas; una ruta protegida sin sesión lleva a `/ingresar` y, después de ingresar, vuelve; cambiar de sucursal; una pestaña nueva toma la sesión de la abierta; salir en una pestaña cierra la otra; cambiar la contraseña propia |
+
+**Mutaciones.** El menú sin filtrar por permisos; una ruta sin el control de su permiso; no invalidar las consultas al cambiar de
+sucursal; la preparación de Playwright sin el control del nombre de la base.
+
+**Qué revisar en el navegador.** Con el backend en `syncvet.test` y `npm run dev`: ingresar con `admin-a`, `recepcion-a` y
+`vet-a` del `DemoSeeder` y ver el menú de cada uno; cambiar de sucursal y ver el cambio en otra pestaña; cambiar la contraseña en
+`/perfil` y mostrarla con el botón; el ancho de tablet (768 px); la consola sin errores.
+
+## Documentación por entrega
+
+| Entrega | Actualizar |
+|---|---|
+| 0.1 | `frontend/CLAUDE.md`, `frontend/README.md`, `technology-stack.md`, `overview.md`, `setup.md`, este documento (Resultado), el roadmap, `modulos.md` si corresponde y el handoff |
+| 0.2a | `frontend/CLAUDE.md` (la sesión), este documento, el roadmap y el handoff |
+| 0.2b | `frontend/CLAUDE.md`, `setup.md` y `testing.md` (`syncvet_e2e` y Playwright), este documento, el roadmap y el handoff |
+
+## Preguntas del diseño
+
+Respondidas por el usuario el 2026-11-12 (R-058).
+
+| # | Pregunta | Respuesta |
+|---|---|---|
+| 1 | Con `sessionStorage`, una pestaña nueva (no duplicada) no tiene sesión: ¿pide ingresar o le pide la sesión a una abierta? | Se la pide a una pestaña abierta por el `BroadcastChannel`; con el token compartido, un 401 cierra todas las pestañas |
+| 2 | ¿Un aviso antes de que venza la sesión? | Sí, 10 minutos antes |
+| 3 | ¿La contraseña propia va en la 0.2 o en la F2? | En la 0.2 (la 0.2b desde R-060), en `/perfil` |
+| 4 | ¿"Correo electrónico" en lugar de "Email"? (sugerencia del usuario al validar la 0.1, R-060) | PENDIENTE: se responde en el diseño de la 0.2a |
+
+## Criterio de cierre
+
+* La 0.1, la 0.2a y la 0.2b cerradas, con los tests de Vitest y de Playwright en verde, `lint`, `typecheck` y `build` sin errores.
+* Con la base `syncvet_e2e`: ingresar, cambiar de sucursal, salir en todas las pestañas y el vencimiento, probados de punta a punta.
+* Las colecciones de Postman de la entrega del backend, en verde (R-057: todas, al cerrar la fase).
+
+## Resultado
+
+### Entrega 0.1
+
+**COMPLETADA el 2026-11-12 (R-060)**, en `feature/front-0-1-esqueleto`: la implementación en `72e75bc` (WIP), las correcciones de
+la revisión en `b5d3ecf` (WIP) y el commit de cierre (solo documentación). Sin merge a `main`: todo se integra al cerrar la F0
+(R-059).
+
+**Qué se hizo.** `frontend/` con el stack de R-058 (Node 26, Vite 8, React 19, TypeScript 6 estricto, TanStack Router y Query,
+React Hook Form con Zod, date-fns 4 con `@date-fns/tz`, Tabler sin su JS, Vitest con MSW, ESLint y Prettier): el cliente sobre
+`fetch` con `ApiError` y la tabla de `error_code`, las fechas en `America/Asuncion` (con las fechas sin hora aparte), los guaraníes,
+la capa de componentes sobre Tabler, `/ingresar` como maqueta, el layout, `/sin-permiso` y la página de no encontrado, el test de
+voseo con las listas del backend y las cifras del frontend en `/validar-docs`. Las reglas quedaron en
+[`frontend/CLAUDE.md`](../../../../frontend/CLAUDE.md).
+
+**Validación del usuario (2026-11-12, en el navegador con `npm run dev`).** `/ingresar` se ve bien con Tabler (logo, título
+"Ingresá a tu cuenta", campos obligatorios, botón con ícono) y una URL inventada muestra la página de no encontrado en voseo con
+"Volver al inicio". El resto de "Qué revisar en el navegador" (`/sin-permiso`, el ancho de tablet, la consola sin avisos y
+`npm run preview`) no figura en la validación: PENDIENTE DE VERIFICACIÓN (el ancho de tablet y la consola vuelven a revisarse en la
+0.2b).
+
+**Sugerencias del usuario para la 0.2.** Un botón para mostrar la contraseña en `/ingresar` (0.2a) y en `/perfil` (0.2b); evaluar
+"Correo electrónico" en lugar de "Email" (pregunta 4, en el diseño de la 0.2a).
+
+**Cifras.** La última corrida, después de las correcciones de la revisión y sobre el mismo código del cierre (desde `b5d3ecf` solo
+cambió la documentación), desde `frontend/`: `npm run typecheck`, `npm run lint` y `npm run build` sin errores ni avisos, y:
+
+Corrida de `npm test` del frontend (2026-11-12): 93 tests en 9 archivos, en verde.
+
+`/validar-docs`: sin hallazgos; sus propios tests, 55 de 55. El backend no cambió en esta entrega (ningún archivo de `backend/`): su
+suite no se volvió a correr.
+
+**Tiempo de la implementación.** Medido en el registro de la sesión de Claude Code: 66 minutos desde el inicio (con el renombrado
+de la rama del paso 0), unos 124 mil tokens de salida y 19 millones leídos del contexto en caché.
+
+| Rubro | Tiempo aproximado | Detalle |
+|---|---|---|
+| npm (red e instalación) | ~22 min | Una instalación de las dependencias de la aplicación, 13,9 min; la de desarrollo, 4,7 min; un intento con 404 (`@tabler/core` 1.7.5), 2,6 min; consultar las versiones paquete por paquete, 2,8 min |
+| Escribir los archivos | ~19 min | 53 archivos nuevos y 37 ediciones |
+| Verificaciones repetidas | ~22 min | `prettier --write .`, `tsc`, `lint` y la suite completa, muchas veces; preparar jsdom era el 63 % de cada corrida de la suite |
+| El validador y las skills | ~5 min | Otro tema, en la misma entrega |
+
+De ahí salen las reglas de la sección [Velocidad](../../../../frontend/CLAUDE.md#8-velocidad) de `frontend/CLAUDE.md` (versiones
+fijas en el diseño y un solo `npm ci`; `environment: node` para los tests sin DOM; `vitest related` durante el trabajo y la suite,
+`typecheck` y `lint` una vez al final; Prettier solo sobre los archivos cambiados; validador, skills y documentación general en
+entregas o cierres aparte) y la exclusión de `frontend/node_modules` y `backend/vendor` del antivirus en
+[`setup.md`](../../../04-desarrollo/setup.md#antivirus-de-windows). La división de la suite en `node` y jsdom ahorró poco (9,97 s
+contra 9,55 s con las mismas 93 pruebas): casi todo el tiempo de jsdom es de los tests de componentes.
+
+**Desvíos y decisiones de la implementación.** Las versiones instaladas están en
+[`technology-stack.md`](../../../01-arquitectura/technology-stack.md#frontend).
+
+| # | Desvío o decisión | Motivo | Estado al cerrar |
 |---|---|---|---|
 | 1 | La variable del proxy es `API_PROXY_TARGET`, no `VITE_API_PROXY_TARGET` | Pedido de la implementación. Sin el prefijo `VITE_`, Vite no la expone al código del navegador: solo la lee `vite.config.ts` (la revisión comprobó que no llega a `dist/`) | Aceptado (usuario) |
-| 2 | `@tabler/core` 1.7.4, no la 1.7.5 (la última) | La 1.7.5 se publicó el mismo día y npm respondía 404 al bajar su paquete; la 1.7.4 es del 2026-11-08. El resto, la última versión de cada paquete dentro de lo pedido (TypeScript 6.0.3, porque la última es la 7) | Aceptado (usuario). Pendiente para la 0.2: subir a la 1.7.5 |
+| 2 | `@tabler/core` 1.7.4, no la 1.7.5 (la última) | La 1.7.5 se publicó el mismo día y npm respondía 404 al bajar su paquete; la 1.7.4 es del 2026-11-08. El resto, la última versión de cada paquete dentro de lo pedido (TypeScript 6.0.3, porque la última es la 7) | Aceptado (usuario). Pendiente para la 0.2a: subir a la 1.7.5 |
 | 3 | `npm audit`: 1 aviso moderado, `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249), que traen `eslint` 10 y `typescript-eslint` 8.72.2 | Solo en las herramientas de desarrollo (ESLint sobre el código propio), no llega al build. No hay arreglo compatible: `npm audit fix --force` baja ESLint a la 9 | Registrado como [deuda 19](../../deuda-tecnica.md), prioridad baja (usuario) |
 | 4 | Un `it()` por caso, sin `.each` ni `it()` dentro de bucles, controlado por ESLint (así quedó la implementación) | Cambiado por el usuario en la revisión: se permiten `.each` y los bucles, y la cifra de tests del frontend sale de la última corrida de `npm test` registrada en "Resultado" de la fase (H13) | Resuelto (H13) |
 | 5 | Los tests corren con `TZ=UTC` y sin la división del código de las rutas | En UTC, mostrar una fecha con la zona de la PC hace fallar los tests aunque la PC esté en hora de Paraguay (esta lo está: sin eso, la mutación de la zona sobrevivía). Sin dividir el código, el primer render de las rutas no espera la carga de los pedazos, que con la suite en paralelo pasaba los 5 segundos | Aceptado (usuario) |
 | 6 | `tsconfig.test.json` aparte, con los tipos de Node | El código de la aplicación no ve `process` ni `node:fs`; los tests (el de voseo lee `src/`) sí | Informativo |
 | 7 | `frontend/.editorconfig` (sangría de 2) y `frontend/.gitattributes` (fin de línea LF) | Prettier toma la sangría de 4 del `.editorconfig` de la raíz (la del backend); con LF fijo, `prettier --check` da lo mismo en todas las PC | Informativo |
-| 8 | `toApiDateTime` manda la hora con el desplazamiento (`2026-07-01T09:00:00.000-03:00`), como da `TZDate(...).toISOString()` | Lo pedido. Que la API lo acepte en cada campo de fecha y hora se verifica con la primera llamada real (0.2 o F3) | PENDIENTE DE VERIFICACIÓN |
-| 9 | `/sin-permiso` va dentro del layout con sesión; la página de no encontrado, fuera de todo layout | El usuario sin permiso ya tiene sesión: ve la barra y el menú. Una URL desconocida puede no tener sesión | A confirmar |
-| 10 | Scripts además de los del diseño: `format:check` y `test:watch`; `test:e2e` avisa que llega en la 0.2 y sale con error | Preparar la 0.2 sin que un `test:e2e` vacío parezca en verde | Informativo |
+| 8 | `toApiDateTime` manda la hora con el desplazamiento (`2026-07-01T09:00:00.000-03:00`), como da `TZDate(...).toISOString()` | Lo pedido. Que la API lo acepte en cada campo de fecha y hora se verifica con la primera llamada real (0.2a o F3) | PENDIENTE DE VERIFICACIÓN |
+| 9 | `/sin-permiso` va dentro del layout con sesión; la página de no encontrado, fuera de todo layout | El usuario sin permiso ya tiene sesión: ve la barra y el menú. Una URL desconocida puede no tener sesión | Sin decisión del usuario: se confirma en la 0.2b, con las rutas por permisos |
+| 10 | Scripts además de los del diseño: `format:check` y `test:watch`; `test:e2e` avisa que llega en la 0.2 (0.2b) y sale con error | Preparar la 0.2 sin que un `test:e2e` vacío parezca en verde | Informativo |
 | 11 | El validador de la documentación (`check-docs.php`) separa las cifras: las de una cláusula que nombra al frontend o de un documento de `frontend/` se comparan con los tests del frontend; la cifra de tests de un archivo de test citado (entre comillas invertidas, con la cifra entre paréntesis) se compara con ese archivo; el resumen dice "Backend:" y "Frontend:". Una cifra del frontend que no es de tests (de rutas, por ejemplo) se excluye y se lista en `--detalle` | Pedido de la entrega; antes toda cifra del frontend se excluía como "de otro proyecto" | Informativo |
 
 Mutaciones de la implementación: las cinco del diseño, cada una detectada por sus tests (la conversión a `ApiError`, reintentar
 los 4xx, ignorar el campo en `setError`, formatear con la zona de la PC y leer `perPage`).
 
-**Revisión del 2026-11-12 y correcciones (autorizadas por el usuario).** Un revisor que no escribió la entrega encontró 15
+**Revisión del 2026-11-12 y correcciones (autorizadas por el usuario), en `b5d3ecf`.** Un revisor que no escribió la entrega encontró 15
 hallazgos; todos se corrigieron en la misma rama, cada uno con su test:
 
 | # | Hallazgo | Corrección | Estado |
@@ -234,7 +387,7 @@ hallazgos; todos se corrigieron en la misma rama, cada uno con su test:
 | H12 | Ninguna regla prohibía `dangerouslySetInnerHTML` (no se usa) | `no-restricted-syntax` sobre el atributo de JSX | Corregido |
 | H13 | Desvío 4 | Decisión del usuario: se permiten `.each` y los bucles (sin las reglas de ESLint). La cifra de tests del frontend sale de la última corrida de `npm test` registrada en "Resultado" de la fase, con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``. `/validar-docs` toma la de fecha más reciente; informa si la cantidad de archivos de test no coincide o si no hay corrida; ya no compara las cifras de un archivo de test. `check-docs-test.php`, casos 7 y 8 (55 de 55) | Corregido |
 | H14 | Desvío 3 | [Deuda 19](../../deuda-tecnica.md), prioridad baja | Registrado |
-| H15 | Desvíos 1, 2 y 5 | Aceptados por el usuario; `@tabler/core` 1.7.5, pendiente para la 0.2 | Registrado |
+| H15 | Desvíos 1, 2 y 5 | Aceptados por el usuario; `@tabler/core` 1.7.5, pendiente para la 0.2a | Registrado |
 
 Además, a pedido del usuario: la sección **Velocidad** de [`frontend/CLAUDE.md`](../../../../frontend/CLAUDE.md#8-velocidad)
 (versiones fijas en el diseño y un solo `npm ci`; `environment: node` para los tests sin DOM; `vitest related` durante el trabajo y
@@ -251,75 +404,3 @@ Corrida final, una vez, el 2026-11-12: `typecheck`, `lint` y `build` sin errores
 verde, en 9,55 s. Tiempo de la suite según el entorno: antes de la revisión (61 tests, todo en jsdom), 9,35 s (32,9 s en la primera
 corrida de la revisión, en frío); con las 93 pruebas todo en jsdom, 9,97 s (preparar el entorno, 46 %); con `node` para los
 `.test.ts`, 9,55 s (40 %). La ganancia es chica (4 %): casi todo el tiempo de jsdom es de los `.test.tsx`, que lo necesitan.
-
-### 0.2 Sesión
-
-**Requisito.** La entrega del backend (B1 a B3) integrada a `main`.
-
-**Alcance.**
-
-1. `src/lib/auth`: la sesión en `sessionStorage`, el aviso previo y el temporizador de vencimiento, el canal `syncvet-sesion` (con
-   la sesión compartida a las pestañas nuevas) y `can(permiso)`, según la
-   [sesión](#sesión-02).
-2. `/ingresar` real (email y contraseña, con los errores de la tabla); salir desde el menú del usuario.
-3. Layout con sesión: barra con la clínica, el usuario, sus roles y el selector de sucursal actual (B1); menú por permisos; inicio con
-   la sucursal actual o el pedido de elegir una.
-4. Las rutas protegidas con su permiso y `/sin-permiso`.
-5. `/perfil`: los datos del usuario y el cambio de la contraseña propia.
-6. Playwright: `e2e/` y `playwright.config.ts`; antes de correr, la base `syncvet_e2e` se recrea con `migrate:fresh` y el
-   `DemoSeeder`, con el backend levantado desde `backend/` en un puerto propio y las variables de la base pasadas por el entorno (el
-   `DemoSeeder` corre solo en `local` y `testing`). **La preparación se niega a correr si la base no termina en `_e2e`.**
-7. Documentación: `frontend/CLAUDE.md` (sesión, comandos de Playwright), la base `syncvet_e2e` en `setup.md` y en
-   [`testing.md`](../../../04-desarrollo/testing.md).
-
-**Tests.**
-
-| Qué | Cómo |
-|---|---|
-| Sesión guardada | Se guarda y se lee; una sesión vencida al abrir se borra sin llamar a la API |
-| Vencimiento | Con temporizadores falsos: 10 minutos antes, el aviso; al llegar a `expires_at` se cierra la sesión en todas las pestañas; al volver a la pestaña con la hora pasada, también |
-| Entre pestañas | Una pestaña nueva recibe la sesión de una abierta (`session-request` y `session-share`) y, sin respuesta, va a `/ingresar`; al salir se publica `logout` y las demás borran su sesión sin otro `POST logout`, salvo la que tiene otro token; `branch-changed` invalida las consultas |
-| 401 | Un 401 en cualquier pedido cierra la sesión en todas las pestañas y lleva a `/ingresar?volver=…`; `volver` con una URL externa se ignora |
-| Ingresar | 422 `INVALID_CREDENTIALS`, 422 `VALIDATION_ERROR` en los campos, 429 con cuenta regresiva, 403 `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE`: cada uno con su mensaje |
-| Permisos | Una ruta sin el permiso muestra `/sin-permiso`; el menú oculta lo no permitido |
-| Sucursal | El selector lista `me.branches`; el cambio llama a `PATCH me/current-branch`, actualiza `me` e invalida las consultas |
-| Perfil | El cambio de contraseña llama a `PATCH me/password`; 422 en `current_password` y en `password` van a sus campos; 429 con la cuenta regresiva; con el 200, la sesión sigue |
-| Punta a punta (Playwright) | Ingresar con un usuario del `DemoSeeder` y ver el inicio; credenciales incorrectas; una ruta protegida sin sesión lleva a `/ingresar` y, después de ingresar, vuelve; cambiar de sucursal; una pestaña nueva toma la sesión de la abierta; salir en una pestaña cierra la otra; cambiar la contraseña propia |
-
-**Mutaciones.** No cerrar todas las pestañas con un 401; no responder `session-share`; no publicar `logout` en el canal; no programar el temporizador; no invalidar las
-consultas al cambiar de sucursal; la preparación de Playwright sin el control del nombre de la base.
-
-**Qué revisar en el navegador.** Con el backend en `syncvet.test` y `npm run dev`: ingresar con `admin-a`, `recepcion-a` y `vet-a` del
-`DemoSeeder` y ver el menú de cada uno; credenciales incorrectas cinco veces y la cuenta regresiva; cambiar de sucursal y ver el cambio
-en otra pestaña; abrir una pestaña nueva y ver que entra sin ingresar; salir en una pestaña y ver que la otra vuelve a `/ingresar`; borrar `expires_at` a mano en el almacenamiento de la
-sesión (DevTools) y ver el cierre; adelantar `expires_at` a menos de 10 minutos y ver el aviso previo; cambiar la contraseña en `/perfil`; inactivar al usuario desde otra sesión de administrador y ver que el siguiente pedido lleva a
-`/ingresar`; la consola sin errores.
-
-## Documentación por entrega
-
-| Entrega | Actualizar |
-|---|---|
-| 0.1 | `frontend/CLAUDE.md`, `frontend/README.md`, `technology-stack.md`, `overview.md`, `setup.md`, este documento (Resultado), el roadmap, `modulos.md` si corresponde y el handoff |
-| 0.2 | `frontend/CLAUDE.md`, `setup.md` y `testing.md` (`syncvet_e2e` y Playwright), este documento, el roadmap y el handoff |
-
-## Preguntas del diseño
-
-Respondidas por el usuario el 2026-11-12 (R-058).
-
-| # | Pregunta | Respuesta |
-|---|---|---|
-| 1 | Con `sessionStorage`, una pestaña nueva (no duplicada) no tiene sesión: ¿pide ingresar o le pide la sesión a una abierta? | Se la pide a una pestaña abierta por el `BroadcastChannel`; con el token compartido, un 401 cierra todas las pestañas |
-| 2 | ¿Un aviso antes de que venza la sesión? | Sí, 10 minutos antes |
-| 3 | ¿La contraseña propia va en la 0.2 o en la F2? | En la 0.2, en `/perfil` |
-
-## Criterio de cierre
-
-* La 0.1 y la 0.2 cerradas, con los tests de Vitest y de Playwright en verde, `lint`, `typecheck` y `build` sin errores.
-* Con la base `syncvet_e2e`: ingresar, cambiar de sucursal, salir en todas las pestañas y el vencimiento, probados de punta a punta.
-* Las colecciones de Postman de la entrega del backend, en verde (R-057: todas, al cerrar la fase).
-
-## Resultado
-
-Sin entregas cerradas todavía. La 0.1, en WIP (revisada y corregida; falta la validación del usuario):
-
-Corrida de `npm test` del frontend (2026-11-12): 93 tests en 9 archivos, en verde.

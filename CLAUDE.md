@@ -92,5 +92,6 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 en curso (la 0.1, esqueleto, en `feature/front-0-1-esqueleto`); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0 en curso: la 0.1 (esqueleto) cerrada (R-060); sigue la 0.2a (sesión) en `feature/front-0-2a-sesion`; el detalle, en
+  [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

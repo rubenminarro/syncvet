@@ -61,4 +61,4 @@ una fecha mostrada con la zona de la PC falle y comprueban que `America/Asuncion
 `AsuncionTimezoneTest`. Las reglas (el entorno de cada test, consultas en jsdom, la velocidad) están en
 [`frontend/CLAUDE.md`](../../frontend/CLAUDE.md) §5 y §8. La cifra de tests del frontend sale de la última corrida de `npm test`
 registrada en "Resultado" de la fase, con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``
-(`/validar-docs` la compara con las cifras de la documentación). Playwright, contra la base `syncvet_e2e`, llega en la F0.2.
+(`/validar-docs` la compara con las cifras de la documentación). Playwright, contra la base `syncvet_e2e`, llega en la F0.2b.
