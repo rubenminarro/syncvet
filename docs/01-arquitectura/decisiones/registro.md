@@ -1233,3 +1233,25 @@ de los dos en `docs/`. Rama `chore/monorepo`, desde `main` en `3ead398` (el merg
 
 **Qué no cambió.** Código de `app/`, rutas, permisos, `error_code`, contrato de respuesta, migraciones y las colecciones (salvo la ruta
 de la guía en sus descripciones y el mensaje esperado de la deuda 18).
+
+# R-058 Análisis del frontend: decisiones y diseño de la F0 (2026-11-12)
+
+Decisiones del usuario sobre el análisis del frontend, en `docs/frontend-analisis` (desde `main` en `5244a8b`). Con ellas se escriben
+el diseño de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md) y el de la
+[entrega de soporte del backend](../../03-plan-desarrollo/fases/backend/front-00-soporte-del-frontend.md) (B1 a B3).
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Node | Node 26 LTS en todas las PC, con `frontend/.nvmrc` y `engines` en `package.json` | Usuario |
+| Stack | React 19 + TypeScript + Vite; Tabler oficial (`@tabler/core` sobre Bootstrap 5, `@tabler/icons-react`) con una capa propia de componentes y sin Tailwind; TanStack Query sobre un cliente Axios único; React Hook Form con Zod; Vitest con Testing Library y MSW; ESLint; npm. Aceptado como se propuso en el análisis | Usuario |
+| Sesión | Token en `sessionStorage` y `BroadcastChannel` para cerrar la sesión en todas las pestañas; un temporizador cierra la sesión al vencer el token (12 horas, sin renovación). Las cookies de Sanctum (SPA con estado) quedan como decisión para producción, FASE 10 | Usuario |
+| Tipos de la API | Escritos a mano; Scramble (generar OpenAPI desde Laravel) descartado por ahora | Usuario |
+| Rutas | TanStack Router, con las URL en castellano (`/ingresar`, `/clientes`, `/agenda`…) | Usuario |
+| Desarrollo | El proxy de Vite manda `/api` al backend: mismo origen, sin CORS en desarrollo | Usuario |
+| Entrega del backend antes de la F0.2 | Sí, en `feature/front-00-me-sucursales`: B1, `me` trae las sucursales activas asignadas al usuario; B2, CORS acotado por variable de entorno; B3, `meta.pagination` en `snake_case` (`per_page`, `current_page`, `last_page`) como el resto de la API, con los tests y las colecciones de Postman que la usan. La revisión pedida de otros campos fuera de `snake_case` no encontró ninguno más | Usuario; la revisión, análisis |
+| Pruebas de punta a punta | Playwright contra la base `syncvet_e2e`, sembrada con el `DemoSeeder` | Usuario |
+| Orden | F0 → F1 → F2 → F3 | Usuario |
+| "Repositorio aparte" | La mención que quedó en `overview.md` y `technology-stack.md` después de R-057 se corrige en la F0 (entrega 0.1) | Usuario |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: solo documentación. Las preguntas
+abiertas del diseño están en cada documento.
