@@ -6,9 +6,10 @@ import { MESSAGES } from '../../lib/api/errors';
 import { SESSION_KEY } from '../../lib/auth/storage';
 import { failure, success } from '../../test/api';
 import { server } from '../../test/server';
-import { ME, meHandler, renderApp, sessionFor, TOKEN } from '../../test/session';
+import { apiDateTime, ME, meHandler, renderApp, sessionFor, TOKEN } from '../../test/session';
 
-const EXPIRES_AT = '2026-11-13T00:00:00.000Z';
+// Con el formato de la API y relativo a la hora de la corrida (una fecha fija vencería con el tiempo).
+const EXPIRES_AT = apiDateTime(Date.now() + 12 * 60 * 60_000);
 
 function loginOk() {
   const requests: { body: unknown; authorization: string | null }[] = [];
@@ -133,6 +134,16 @@ describe('ingresar', () => {
       },
       { timeout: 2500 },
     );
+  });
+
+  it('429 sin Retry-After: el botón queda deshabilitado 60 segundos', async () => {
+    loginFails(429, 'AUTH_TOO_MANY_ATTEMPTS', 'Demasiados intentos.');
+    renderApp('/ingresar');
+
+    await fillAndSubmit();
+
+    const button = await screen.findByText('Esperá 60 segundos', { selector: 'button' });
+    expect(button).toBeDisabled();
   });
 
   it.each([

@@ -34,13 +34,15 @@ export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider;
 }
 
-type SessionErrorHandler = (error: ApiError) => void;
+/** Recibe el error y el token con el que salió el pedido. */
+type SessionErrorHandler = (error: ApiError, token: string) => void;
 
 let sessionErrorHandler: SessionErrorHandler = () => undefined;
 
 /**
  * La sesión (F0.2a) registra qué hacer con un error que la termina (401, USER_INACTIVE y CLINIC_NOT_AVAILABLE). Solo se
- * llama si el pedido llevó el token de la sesión: los errores del login (sin token) van a su formulario.
+ * llama si el pedido llevó el token de la sesión: los errores del login (sin token) y los de un pedido con un token
+ * explícito (el logout) no la tocan. Con el token del pedido, la sesión ignora la respuesta tardía de un token viejo.
  */
 export function setSessionErrorHandler(handler: SessionErrorHandler): void {
   sessionErrorHandler = handler;
@@ -199,7 +201,7 @@ export async function apiRequest<T>(
     const error = toApiError(response, json);
 
     if (usesSessionToken && token !== null && endsSession(error)) {
-      sessionErrorHandler(error);
+      sessionErrorHandler(error, token);
     }
 
     throw error;

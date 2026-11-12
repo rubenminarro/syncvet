@@ -28,9 +28,14 @@ export const ME: Me = {
 
 export const TOKEN = '7|secreto-de-prueba';
 
-/** Una sesión que vence en `minutes` minutos. */
+/** Una fecha como la manda la API (Carbon toISOString(): UTC con 6 decimales, `2026-11-12T22:00:00.000000Z`). */
+export function apiDateTime(ms: number): string {
+  return new Date(ms).toISOString().replace(/\.(\d{3})Z$/, '.$1000Z');
+}
+
+/** Una sesión que vence en `minutes` minutos, con expires_at en el formato de la API. */
 export function sessionFor(minutes = 12 * 60, token = TOKEN): StoredSession {
-  return { token, expires_at: new Date(Date.now() + minutes * 60_000).toISOString() };
+  return { token, expires_at: apiDateTime(Date.now() + minutes * 60_000) };
 }
 
 /** Un sessionStorage propio: cada "pestaña" de un test tiene el suyo. */
@@ -62,6 +67,7 @@ export function createTestSession(
     storage?: SessionStorageLike;
     hub?: ReturnType<typeof createMemoryChannelHub>;
     requestTimeoutMs?: number;
+    logoutTimeoutMs?: number;
   } = {},
 ) {
   const queryClient = createQueryClient({ retryDelay: 0 });
@@ -71,6 +77,7 @@ export function createTestSession(
     storage: options.storage ?? window.sessionStorage,
     channel: hub.connect(),
     requestTimeoutMs: options.requestTimeoutMs ?? 50,
+    logoutTimeoutMs: options.logoutTimeoutMs ?? 1000,
   });
   managers.push(manager);
 

@@ -15,7 +15,14 @@ export function safeRedirect(volver: unknown, origin: string = window.location.o
     return '/';
   }
 
-  if (url.origin !== new URL(origin).origin || url.pathname === '/ingresar') {
+  // Se revisa la ruta ya normalizada: '/..//otro' queda en '//otro'; '/INGRESAR/' es la misma /ingresar.
+  const path = url.pathname.replace(/\/+$/, '').toLowerCase();
+
+  if (
+    url.origin !== new URL(origin).origin ||
+    url.pathname.startsWith('//') ||
+    path === '/ingresar'
+  ) {
     return '/';
   }
 

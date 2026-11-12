@@ -5,7 +5,6 @@ import { createBroadcastSessionChannel, type SessionChannel, type SessionMessage
 import {
   clearSession,
   expiresAtMs,
-  isStoredSession,
   readSession,
   saveSession,
   tokenId,
@@ -19,13 +18,23 @@ export const WARNING_BEFORE_MS = 10 * 60 * 1000;
 /** Cuánto espera una pestaña nueva la sesión de una abierta (P1). */
 export const SESSION_REQUEST_TIMEOUT_MS = 300;
 
+/** Cuánto se espera el POST logout de "Salir" (la sesión local ya se cerró antes de mandarlo). */
+export const LOGOUT_TIMEOUT_MS = 5000;
+
+/**
+ * Cada cuánto se compara la hora con expires_at, además de los temporizadores: con la PC suspendida y la pestaña a la vista
+ * no llega visibilitychange y los temporizadores pueden no contar el tiempo suspendido. También actualiza los minutos del
+ * aviso previo.
+ */
+export const CHECK_INTERVAL_MS = 15_000;
+
 /** setTimeout no acepta más de 2^31 - 1 ms (unos 24 días); con más, el temporizador se vuelve a programar al llegar. */
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 export interface SessionSnapshot {
   /** La sesión de esta pestaña, o null. */
   session: StoredSession | null;
-  /** Los minutos que faltaban al encenderse el aviso previo (10, o menos si ya se estaba cerca), o null sin aviso. */
+  /** Los minutos que quedan con el aviso previo encendido (se actualizan), o null sin aviso. */
   warningMinutes: number | null;
   /** Qué mostrar en /ingresar después de un cierre que no pidió el usuario (sesión vencida, usuario inactivo…). */
   notice: string | null;
@@ -38,7 +47,14 @@ export interface SessionManagerOptions {
   /** BroadcastChannel('syncvet-sesion') en el navegador; uno en memoria en los tests. */
   channel?: SessionChannel;
   requestTimeoutMs?: number;
+  logoutTimeoutMs?: number;
 }
+
+/**
+ * A quién avisa un cierre: `all`, a todas las pestañas (el usuario salió: las que tienen otro token también lo revocan);
+ * `token`, solo a las que tienen el mismo token (venció o la API lo rechazó); `none`, a ninguna (el cierre vino del canal).
+ */
+type Publish = 'all' | 'token' | 'none';
 
 /**
  * La sesión de una pestaña (docs/03-plan-desarrollo/fases/frontend/f0-base.md, "Sesión (0.2)"): el token en
@@ -52,16 +68,21 @@ export class SessionManager {
   private readonly storage: SessionStorageLike;
   private readonly channel: SessionChannel;
   private readonly requestTimeoutMs: number;
+  private readonly logoutTimeoutMs: number;
   private readonly unsubscribeChannel: () => void;
   private timers: ReturnType<typeof setTimeout>[] = [];
+  private interval: ReturnType<typeof setInterval> | null = null;
   private pendingRequest: Promise<StoredSession | null> | null = null;
   private receiveShare: ((session: StoredSession | null) => void) | null = null;
+  /** Los id de los tokens cerrados en otra pestaña: una sesión compartida con uno de ellos se descarta. */
+  private readonly closedTokenIds = new Set<string>();
 
   constructor(options: SessionManagerOptions) {
     this.queryClient = options.queryClient;
     this.storage = options.storage ?? window.sessionStorage;
     this.channel = options.channel ?? createBroadcastSessionChannel();
     this.requestTimeoutMs = options.requestTimeoutMs ?? SESSION_REQUEST_TIMEOUT_MS;
+    this.logoutTimeoutMs = options.logoutTimeoutMs ?? LOGOUT_TIMEOUT_MS;
 
     // Una sesión guardada y vencida se borra sin llamar a la API.
     const stored = readSession(this.storage);
@@ -74,15 +95,20 @@ export class SessionManager {
     }
 
     setTokenProvider(() => this.snapshot.session?.token ?? null);
-    setSessionErrorHandler((error) => {
-      this.end(userMessage(error));
+    setSessionErrorHandler((error, token) => {
+      // Una respuesta tardía de un token que ya no es el de la sesión (se volvió a ingresar) no la cierra.
+      if (token === this.snapshot.session?.token) {
+        this.close(userMessage(error), 'token');
+      }
     });
     this.unsubscribeChannel = this.channel.subscribe((message) => {
       this.onMessage(message);
     });
 
-    if (typeof document !== 'undefined') {
+    if (typeof window !== 'undefined') {
       document.addEventListener('visibilitychange', this.onVisibilityChange);
+      window.addEventListener('focus', this.resync);
+      window.addEventListener('pageshow', this.resync);
     }
 
     this.schedule();
@@ -133,39 +159,20 @@ export class SessionManager {
     return true;
   }
 
-  /** Salir: POST logout con el token (si falla, igual se cierra) y el cierre en todas las pestañas. */
-  async logout(): Promise<void> {
+  /**
+   * Salir: primero cierra la sesión en todas las pestañas (aunque la API no responda) y después manda POST logout con el
+   * token, sin esperarlo más de logoutTimeoutMs. La promesa termina cuando el POST termina (o se abandona); nunca falla.
+   */
+  logout(): Promise<void> {
     const session = this.snapshot.session;
 
     if (session === null) {
-      return;
+      return Promise.resolve();
     }
 
-    try {
-      await api.post<null>('logout', undefined, { token: session.token });
-    } catch {
-      // El token puede estar vencido o el servidor caído: la sesión local se cierra igual.
-    }
+    this.close(null, 'all');
 
-    this.end(null);
-  }
-
-  /**
-   * Cierra la sesión de esta pestaña: borra el almacenamiento, los temporizadores y la caché de Query y, si `broadcast`,
-   * publica `logout` para que las demás pestañas también la cierren. `notice` es lo que muestra /ingresar.
-   */
-  end(notice: string | null, broadcast = true): void {
-    const session = this.snapshot.session;
-
-    clearSession(this.storage);
-    this.clearTimers();
-    this.set({ session: null, warningMinutes: null, notice });
-
-    if (broadcast && session !== null) {
-      this.channel.post({ type: 'logout', token_id: tokenId(session.token), notice });
-    }
-
-    this.queryClient.clear();
+    return this.revoke(session.token);
   }
 
   dispose(): void {
@@ -174,12 +181,47 @@ export class SessionManager {
     this.channel.close();
     this.receiveShare?.(null);
 
-    if (typeof document !== 'undefined') {
+    if (typeof window !== 'undefined') {
       document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      window.removeEventListener('focus', this.resync);
+      window.removeEventListener('pageshow', this.resync);
     }
 
     setTokenProvider(() => null);
     setSessionErrorHandler(() => undefined);
+  }
+
+  /**
+   * Cierra la sesión de esta pestaña: borra el almacenamiento, los temporizadores y la caché de Query y avisa a las demás
+   * pestañas según `publish`. `notice` es lo que muestra /ingresar.
+   */
+  private close(notice: string | null, publish: Publish): void {
+    const session = this.snapshot.session;
+
+    clearSession(this.storage);
+    this.clearTimers();
+    this.set({ session: null, warningMinutes: null, notice });
+
+    if (publish !== 'none' && session !== null) {
+      this.channel.post({
+        type: 'logout',
+        token_id: tokenId(session.token),
+        notice,
+        all: publish === 'all',
+      });
+    }
+
+    this.queryClient.clear();
+  }
+
+  /** POST logout con `token`, con tiempo límite; sus errores no importan (la sesión local ya se cerró). */
+  private revoke(token: string): Promise<void> {
+    return api
+      .post<null>('logout', undefined, { token, signal: AbortSignal.timeout(this.logoutTimeoutMs) })
+      .then(
+        () => undefined,
+        () => undefined,
+      );
   }
 
   private set(snapshot: SessionSnapshot): void {
@@ -191,7 +233,7 @@ export class SessionManager {
   }
 
   private expire(): void {
-    this.end(MESSAGES.sessionExpired);
+    this.close(MESSAGES.sessionExpired, 'token');
   }
 
   private requestFromOtherTabs(): Promise<StoredSession | null> {
@@ -217,6 +259,7 @@ export class SessionManager {
     return this.pendingRequest;
   }
 
+  /** Los mensajes llegan ya validados por el canal (isSessionMessage). */
   private onMessage(message: SessionMessage): void {
     const own = this.snapshot.session;
 
@@ -227,33 +270,56 @@ export class SessionManager {
         }
         break;
       case 'session-share':
-        this.receiveShare?.(isStoredSession(message.session) ? message.session : null);
+        // Una sesión de un token que otra pestaña ya cerró (el logout llegó antes que esta respuesta) no sirve.
+        if (!this.closedTokenIds.has(tokenId(message.session.token))) {
+          this.receiveShare?.(message.session);
+        }
         break;
-      case 'logout':
+      case 'logout': {
+        if (message.token_id !== '') {
+          this.closedTokenIds.add(message.token_id);
+        }
+
         if (own === null) {
           clearSession(this.storage);
           break;
         }
 
-        // Dos ingresos simultáneos: esta pestaña tiene otro token y también lo cierra en la API.
-        if (tokenId(own.token) !== message.token_id) {
-          void api.post<null>('logout', undefined, { token: own.token }).catch(() => undefined);
+        const sameToken = tokenId(own.token) === message.token_id;
+
+        // El vencimiento o el rechazo de otro token no cierran esta sesión; "Salir", sí.
+        if (!sameToken && !message.all) {
+          break;
         }
 
-        this.end(message.notice, false);
+        this.close(message.notice, 'none');
+
+        // Dos ingresos simultáneos y el usuario salió: esta pestaña también revoca su token en la API.
+        if (!sameToken) {
+          void this.revoke(own.token);
+        }
         break;
+      }
     }
   }
 
-  /** Los temporizadores se frenan con la PC suspendida: al volver a la pestaña se revisa el vencimiento. */
   private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.resync();
+    }
+  };
+
+  /**
+   * Al volver a la pestaña (visibilitychange, focus, pageshow): los temporizadores se frenan con la PC suspendida. Se relee
+   * el almacenamiento: si expires_at cambió (a mano, desde DevTools) se toma el nuevo; si no está o venció, se cierra.
+   */
+  private readonly resync = (): void => {
     const own = this.snapshot.session;
 
-    if (own === null || document.visibilityState !== 'visible') {
+    if (own === null) {
       return;
     }
 
-    // Se relee el almacenamiento: si expires_at cambió (a mano, desde DevTools) se toma el nuevo; si no está, se cierra.
     const stored = readSession(this.storage);
 
     if (stored?.token !== own.token) {
@@ -269,7 +335,25 @@ export class SessionManager {
     this.schedule();
   };
 
-  /** Programa el aviso previo y el vencimiento de la sesión actual (o los aplica ya, si su hora pasó). */
+  /** El intervalo: compara la hora con expires_at; cierra si venció y, con el aviso previo, actualiza los minutos. */
+  private readonly check = (): void => {
+    const own = this.snapshot.session;
+    const expiresAt = own === null ? null : expiresAtMs(own);
+
+    if (expiresAt === null) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (expiresAt <= now) {
+      this.expire();
+    } else if (now >= expiresAt - WARNING_BEFORE_MS) {
+      this.warn(expiresAt);
+    }
+  };
+
+  /** Programa el aviso previo, el vencimiento y el intervalo de la sesión actual (o los aplica ya, si su hora pasó). */
   private schedule(): void {
     this.clearTimers();
 
@@ -299,12 +383,14 @@ export class SessionManager {
     this.later(expiresAt - now, () => {
       this.schedule();
     });
+    this.interval = setInterval(this.check, CHECK_INTERVAL_MS);
   }
 
+  /** Enciende el aviso previo o actualiza sus minutos (los que quedan, redondeados para arriba; nunca menos de 1). */
   private warn(expiresAt: number): void {
     const minutes = Math.max(1, Math.ceil((expiresAt - Date.now()) / 60_000));
 
-    if (this.snapshot.warningMinutes === null) {
+    if (this.snapshot.warningMinutes !== minutes) {
       this.set({ ...this.snapshot, warningMinutes: minutes });
     }
   }
@@ -319,6 +405,11 @@ export class SessionManager {
     }
 
     this.timers = [];
+
+    if (this.interval !== null) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
   }
 }
 

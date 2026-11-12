@@ -109,6 +109,34 @@ describe('layout con sesión', () => {
     expect(window.sessionStorage.getItem(SESSION_KEY)).toBeNull();
   });
 
+  it('después de salir, el botón Atrás no muestra datos de la sesión', async () => {
+    server.use(
+      meHandler(),
+      http.post('/api/logout', () => success(null)),
+    );
+    const { history, queryClient } = renderApp('/', { session: sessionFor() });
+    await homeShown();
+    act(() => {
+      history.push('/sin-permiso');
+    });
+    await screen.findByText('No tenés permiso para ver esta página');
+
+    await userEvent.click(screen.getByText('Salir', { selector: 'button' }));
+    await loginShown();
+
+    act(() => {
+      history.back();
+    });
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/ingresar');
+    });
+    expect(await loginShown()).toBeInTheDocument();
+    expect(screen.queryByText('Ana Gómez')).not.toBeInTheDocument();
+    expect(screen.queryByText('Inicio', { selector: 'h2' })).not.toBeInTheDocument();
+    expect(queryClient.getQueryData(['me'])).toBeUndefined();
+  });
+
   it.each([
     ['401', 401, 'UNAUTHENTICATED', 'No autenticado.', MESSAGES.sessionExpired],
     ['403 USER_INACTIVE', 403, 'USER_INACTIVE', INACTIVE, INACTIVE],

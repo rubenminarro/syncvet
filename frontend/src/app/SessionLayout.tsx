@@ -1,7 +1,7 @@
 import { IconBuildingStore, IconHome, IconLogout, IconUserCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Alert, Button, Loading } from '../components/ui';
 import { meQueryOptions } from '../features/auth/api';
 import { useSessionManager, useSessionState } from '../lib/auth/use-session';
@@ -22,7 +22,6 @@ export function SessionLayout() {
   const { data: me } = useQuery({ ...meQueryOptions(), enabled: session !== null });
   const navigate = useNavigate();
   const router = useRouter();
-  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (session !== null) {
@@ -66,10 +65,8 @@ export function SessionLayout() {
             </div>
             <Button
               variant="secondary"
-              loading={leaving}
               icon={<IconLogout size={18} className="me-2" aria-hidden="true" />}
               onClick={() => {
-                setLeaving(true);
                 void manager.logout();
               }}
             >

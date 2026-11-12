@@ -13,6 +13,9 @@ import { useCountdown } from '../../lib/hooks/use-countdown';
 import { login, meQueryOptions } from './api';
 import { loginSchema, type LoginForm } from './schemas';
 
+/** La espera de un 429 que llega sin Retry-After. */
+const DEFAULT_RETRY_AFTER_SECONDS = 60;
+
 /**
  * Ingresar: POST /api/login; con el 200 guarda la sesión, deja el usuario en ['me'] y vuelve a la ruta pedida (`volver`,
  * solo interna) o al inicio. Los errores, según la tabla de errors.ts.
@@ -67,9 +70,8 @@ export function LoginPage() {
           break;
         case 'throttled':
           setAlert(error.message);
-          if (error.retryAfter !== null && error.retryAfter > 0) {
-            countdown.start(error.retryAfter);
-          }
+          // Sin Retry-After (o uno que no se entiende), una espera prudente.
+          countdown.start(error.retryAfter ?? DEFAULT_RETRY_AFTER_SECONDS);
           break;
         default:
           // USER_INACTIVE, CLINIC_NOT_AVAILABLE y el resto: el mensaje en el formulario.

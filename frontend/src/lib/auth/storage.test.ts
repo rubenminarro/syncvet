@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { memoryStorage } from '../../test/session';
-import { clearSession, readSession, saveSession, SESSION_KEY, tokenId } from './storage';
+import {
+  clearSession,
+  expiresAtMs,
+  readSession,
+  saveSession,
+  SESSION_KEY,
+  tokenId,
+} from './storage';
 
 const SESSION = { token: '7|secreto', expires_at: '2026-11-13T00:00:00.000Z' };
 
@@ -34,6 +41,16 @@ describe('storage', () => {
     clearSession(storage);
 
     expect(readSession(storage)).toBeNull();
+  });
+
+  it('lee expires_at con el formato de la API (6 decimales, UTC)', () => {
+    const storage = memoryStorage();
+    saveSession(storage, { token: '7|x', expires_at: '2026-11-13T00:00:00.000000Z' });
+
+    const session = readSession(storage);
+
+    expect(session).not.toBeNull();
+    expect(expiresAtMs(session ?? SESSION)).toBe(Date.UTC(2026, 10, 13, 0, 0, 0));
   });
 
   it('el id del token es la parte anterior a |', () => {

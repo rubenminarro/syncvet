@@ -22,6 +22,10 @@ describe('safeRedirect', () => {
     ['javascript:alert(1)'],
     ['/ingresar'],
     ['/ingresar?volver=/clientes'],
+    ['/..//otro.sitio/robar'],
+    ['/./..//otro.sitio'],
+    ['/ingresar/'],
+    ['/INGRESAR'],
     [42],
   ])('lleva al inicio con %s', (volver) => {
     expect(safeRedirect(volver, ORIGIN)).toBe('/');
