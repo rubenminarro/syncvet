@@ -1,10 +1,13 @@
 import {
   createMemoryHistory,
   createRootRoute,
+  createRoute,
   createRouter,
+  Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../lib/api/errors';
 import { server } from '../test/server';
@@ -89,7 +92,70 @@ function renderError(error: unknown) {
   render(<RouterProvider router={router} />);
 }
 
+describe('ruta sin permiso y el botón Atrás (B2 de la revisión)', () => {
+  it('el redirect a /sin-permiso reemplaza la entrada: Atrás vuelve a la página anterior, no a la prohibida', async () => {
+    server.use(meHandler(meFor('recepcionista')));
+    const { history } = renderApp('/', { session: sessionFor() });
+    await screen.findByText('Inicio', { selector: 'h2' });
+
+    act(() => {
+      history.push('/configuracion');
+    });
+    expect(await screen.findByText('No tenés permiso para ver esta página')).toBeInTheDocument();
+    expect(history.location.pathname).toBe('/sin-permiso');
+
+    act(() => {
+      history.back();
+    });
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/');
+    });
+    expect(await screen.findByText('Inicio', { selector: 'h2' })).toBeInTheDocument();
+  });
+});
+
 describe('RouteErrorPage', () => {
+  it('un 403 de negocio (no FORBIDDEN) no es la página de sin permiso: decide el error_code (B4)', async () => {
+    const error = new ApiError({
+      status: 403,
+      errorCode: 'APPOINTMENT_NOT_YOURS',
+      message: 'Ese turno no es de tu agenda.',
+    });
+    renderError(error);
+
+    expect(await screen.findByText('No se pudo cargar esta página')).toBeInTheDocument();
+    expect(screen.getByText('Ese turno no es de tu agenda.')).toBeInTheDocument();
+    expect(screen.queryByText('No tenés permiso para ver esta página')).not.toBeInTheDocument();
+  });
+
+  it('"Reintentar" vuelve a cargar la ruta: un loader que falló una vez muestra la página (B4)', async () => {
+    let attempts = 0;
+    const root = createRootRoute({ component: Outlet });
+    const page = createRoute({
+      getParentRoute: () => root,
+      path: '/',
+      loader: () => {
+        attempts++;
+        if (attempts === 1) {
+          throw new ApiError({ status: 503, errorCode: 'SERVICE_UNAVAILABLE', message: 'x' });
+        }
+        return 'ok';
+      },
+      component: () => <p>Página cargada</p>,
+    });
+    const router = createRouter({
+      routeTree: root.addChildren([page]),
+      defaultErrorComponent: RouteErrorPage,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    });
+    render(<RouterProvider router={router} />);
+
+    await userEvent.click(await screen.findByText('Reintentar'));
+
+    expect(await screen.findByText('Página cargada')).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
+
   it('un 403 FORBIDDEN de la API muestra la página de sin permiso con el mensaje de la API', async () => {
     const error = new ApiError({
       status: 403,

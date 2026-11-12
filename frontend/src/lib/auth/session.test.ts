@@ -7,6 +7,7 @@ import { server } from '../../test/server';
 import { createTestSession, memoryStorage, sessionFor, TOKEN } from '../../test/session';
 import { api } from '../api/client';
 import { MESSAGES } from '../api/errors';
+import { branchKey } from '../api/query-keys';
 import { createMemoryChannelHub } from './channel';
 import { CHECK_INTERVAL_MS } from './session';
 import { readSession, saveSession, SESSION_KEY } from './storage';
@@ -391,7 +392,7 @@ describe('SessionManager', () => {
     expect(manager.getSnapshot().warningMinutes).toBe(1);
   });
 
-  it('branch-changed: la otra pestaña con sesión invalida sus consultas (me incluida); sin sesión, nada', async () => {
+  it('branch-changed: la otra pestaña con sesión invalida me y las consultas de la sucursal; sin sesión, nada', async () => {
     const hub = createMemoryChannelHub();
     const storageA = memoryStorage();
     const storageB = memoryStorage();
@@ -403,14 +404,17 @@ describe('SessionManager', () => {
 
     for (const tab of [a, b, c]) {
       tab.queryClient.setQueryData(['me'], { id: 1 });
-      tab.queryClient.setQueryData(['clientes'], []);
+      tab.queryClient.setQueryData(branchKey(10, 'appointments'), []);
+      tab.queryClient.setQueryData(['species'], []);
     }
 
     a.manager.publishBranchChanged();
     await flush();
 
     expect(b.queryClient.getQueryState(['me'])?.isInvalidated).toBe(true);
-    expect(b.queryClient.getQueryState(['clientes'])?.isInvalidated).toBe(true);
+    expect(b.queryClient.getQueryState(branchKey(10, 'appointments'))?.isInvalidated).toBe(true);
+    // B6: las que no dependen de la sucursal no se tocan.
+    expect(b.queryClient.getQueryState(['species'])?.isInvalidated).toBe(false);
     expect(a.queryClient.getQueryState(['me'])?.isInvalidated).toBe(false);
     expect(c.queryClient.getQueryState(['me'])?.isInvalidated).toBe(false);
   });

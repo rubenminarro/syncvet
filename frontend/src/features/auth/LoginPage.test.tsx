@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
@@ -187,5 +188,52 @@ describe('ingresar', () => {
 
     expect(await screen.findByText('Inicio', { selector: 'h2' })).toBeInTheDocument();
     expect(history.location.pathname).toBe('/');
+  });
+
+  describe('la contraseña no queda en la caché de mutaciones (M1 de la revisión de la 0.2b)', () => {
+    async function expectNoPasswordsCached(queryClient: QueryClient) {
+      await waitFor(() => {
+        expect(queryClient.getMutationCache().getAll()).toEqual([]);
+      });
+    }
+
+    it('con el 200', async () => {
+      loginOk();
+      const { queryClient } = renderApp('/ingresar');
+
+      await fillAndSubmit();
+
+      expect(
+        await screen.findByText('Ana Gómez', { selector: '.session-user' }),
+      ).toBeInTheDocument();
+      await expectNoPasswordsCached(queryClient);
+    });
+
+    it.each([
+      [422, 'INVALID_CREDENTIALS', 'El email o la contraseña no son correctos.'],
+      [429, 'AUTH_TOO_MANY_ATTEMPTS', 'Demasiados intentos.'],
+      [403, 'USER_INACTIVE', 'Tu usuario está inactivo.'],
+    ])('con un %i %s', async (status, code, message) => {
+      loginFails(status, code, message);
+      const { queryClient } = renderApp('/ingresar');
+
+      await fillAndSubmit();
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      await expectNoPasswordsCached(queryClient);
+    });
+  });
+
+  it('el aviso de la sesión cerrada se va con el primer intento, aunque falle', async () => {
+    loginFails(422, 'INVALID_CREDENTIALS', 'El email o la contraseña no son correctos.');
+    renderApp('/', { session: sessionFor(-1) });
+    expect(await screen.findByText('Tu sesión terminó. Ingresá de nuevo.')).toBeInTheDocument();
+
+    await fillAndSubmit();
+
+    expect(
+      await screen.findByText('El email o la contraseña no son correctos.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Tu sesión terminó. Ingresá de nuevo.')).not.toBeInTheDocument();
   });
 });

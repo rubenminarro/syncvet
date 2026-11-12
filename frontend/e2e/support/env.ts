@@ -9,3 +9,6 @@ export const PASSWORD_ENV = 'E2E_DEMO_PASSWORD';
 
 /** La sucursal que la preparación crea y le asigna a admin-a (el DemoSeeder da una sola). */
 export const SECOND_BRANCH = { code: 'NOR', name: 'Sucursal Norte' } as const;
+
+/** La contraseña de la última corrida, para entrar a mano a syncvet_e2e (ignorado por Git: frontend/.gitignore). */
+export const CREDENTIALS_FILE = new URL('../.e2e-credentials', import.meta.url);

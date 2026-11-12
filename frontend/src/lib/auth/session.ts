@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { api, setSessionErrorHandler, setTokenProvider } from '../api/client';
 import { MESSAGES, userMessage } from '../api/errors';
+import { invalidateBranchQueries } from '../api/query-keys';
 import { createBroadcastSessionChannel, type SessionChannel, type SessionMessage } from './channel';
 import {
   clearSession,
@@ -286,9 +287,11 @@ export class SessionManager {
         }
         break;
       case 'branch-changed':
-        // Todas las consultas, `me` incluida (staleTime: Infinity; invalidarla la vuelve a pedir si está a la vista).
+        // `me` (staleTime: Infinity; invalidarla la vuelve a pedir si está a la vista) y las consultas que dependen de la
+        // sucursal (query-keys.ts); las demás no cambian con la sucursal.
         if (own !== null) {
-          void this.queryClient.invalidateQueries();
+          void this.queryClient.invalidateQueries({ queryKey: ['me'] });
+          void invalidateBranchQueries(this.queryClient);
         }
         break;
       case 'logout': {

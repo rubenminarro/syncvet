@@ -1,9 +1,9 @@
 import { IconLogout, IconUserCircle } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { Alert, Button, Loading } from '../components/ui';
-import { meQueryOptions } from '../features/auth/api';
+import { authKeys, meQueryOptions } from '../features/auth/api';
 import { BranchSelector } from '../features/auth/BranchSelector';
 import type { Me } from '../features/auth/types';
 import { can } from '../lib/auth/permissions';
@@ -35,8 +35,33 @@ export function SessionLayout() {
   const manager = useSessionManager();
   const { session, warningMinutes, notice } = useSessionState();
   const { data: me } = useQuery({ ...meQueryOptions(), enabled: session !== null });
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const router = useRouter();
+
+  // Al volver a la pestaña, `me` se vuelve a pedir: la sucursal actual pudo cambiar en otro lado (inactivada por un
+  // administrador, elegida en otra PC). Sin cancelar un pedido de `me` en curso.
+  useEffect(() => {
+    if (session === null) {
+      return;
+    }
+
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void queryClient.refetchQueries(
+          { queryKey: authKeys.me, type: 'active' },
+          { cancelRefetch: false },
+        );
+      }
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [session, queryClient]);
 
   useEffect(() => {
     if (session !== null) {

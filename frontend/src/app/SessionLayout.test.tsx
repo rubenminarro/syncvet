@@ -227,4 +227,37 @@ describe('layout con sesión', () => {
       expect(window.sessionStorage.getItem(SESSION_KEY)).toBeNull();
     });
   });
+
+  it.each([
+    ['focus', () => window.dispatchEvent(new Event('focus'))],
+    ['visibilitychange', () => document.dispatchEvent(new Event('visibilitychange'))],
+  ])(
+    'al volver a la pestaña (%s) vuelve a pedir me: una sucursal inactivada en otro lado se ve (M2)',
+    async (_, back) => {
+      let current: typeof ME.current_branch = ME.current_branch;
+      let calls = 0;
+      server.use(
+        http.get('/api/me', () => {
+          calls++;
+          return success({ ...ME, current_branch: current });
+        }),
+      );
+      renderApp('/', { session: sessionFor() });
+      expect(await screen.findByText('Estás trabajando en Casa central.')).toBeInTheDocument();
+      const before = calls;
+
+      // Un administrador inactivó la sucursal: la API la deja en null.
+      current = null;
+      act(() => {
+        back();
+      });
+
+      expect(
+        await screen.findByText(
+          'Elegí tu sucursal actual en la barra de arriba para empezar a trabajar.',
+        ),
+      ).toBeInTheDocument();
+      expect(calls).toBe(before + 1);
+    },
+  );
 });

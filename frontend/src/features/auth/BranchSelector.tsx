@@ -17,10 +17,16 @@ export function BranchSelector({ me }: { me: Me }) {
 
   const mutation = useMutation({
     mutationFn: updateCurrentBranch,
-    onSuccess: async (updated) => {
-      await applyBranchChange(queryClient, updated);
+    onSuccess: async () => {
+      // `me` vuelve a pedirse al servidor (no se usa la respuesta del PATCH): converge con la que quedó guardada.
+      const updated = await applyBranchChange(queryClient);
       manager.publishBranchChanged();
-      toast.show(`Tu sucursal actual es ${updated.current_branch?.name ?? ''}.`, 'success');
+      toast.show(
+        updated.current_branch === null
+          ? 'No tenés sucursal actual.'
+          : `Tu sucursal actual es ${updated.current_branch.name}.`,
+        'success',
+      );
     },
     onError: (error) => {
       toast.show(isApiError(error) ? userMessage(error) : MESSAGES.programming);

@@ -1,23 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { assertE2eDatabase, E2E_DATABASE } from './support/database';
-import { BACKEND_URL, PASSWORD_ENV, SECOND_BRANCH } from './support/env';
+import { E2E_DATABASE } from './support/database';
+import { BACKEND_URL, CREDENTIALS_FILE, PASSWORD_ENV } from './support/env';
+import { prepareE2eDatabase } from './support/prepare';
 
 const BACKEND_DIR = resolve(import.meta.dirname, '..', '..', 'backend');
-
-/** La base pedida: E2E_DB_DATABASE si se pasa (para que la guarda se pueda probar a mano), si no syncvet_e2e. */
-const DATABASE = process.env.E2E_DB_DATABASE ?? E2E_DATABASE;
 
 interface Envelope<T> {
   success: boolean;
   message: string;
   data: T;
-}
-
-interface MeData {
-  id: number;
-  current_branch: { id: number } | null;
 }
 
 /** Una contraseña nueva por corrida (cumple la regla del proyecto): solo un backend con la base recién preparada la acepta. */
@@ -53,67 +47,33 @@ async function call<T>(method: string, path: string, body?: unknown, token?: str
   return json.data;
 }
 
+function writeCredentials(password: string): void {
+  writeFileSync(
+    CREDENTIALS_FILE,
+    [
+      '# syncvet_e2e: la contraseña de los usuarios del DemoSeeder en la última corrida de npm run test:e2e.',
+      '# La genera e2e/global-setup.ts en cada corrida; no se versiona (frontend/.gitignore).',
+      `DEMO_PASSWORD=${password}`,
+      '',
+    ].join('\n'),
+  );
+}
+
 /**
  * Prepara syncvet_e2e antes de las pruebas (corre después de levantar el backend y Vite, los webServer de la
- * configuración). Se niega a seguir si la base no es syncvet_e2e, si Laravel resuelve otra (una configuración cacheada) o
- * si el backend de :8010 no usa la base recién preparada.
+ * configuración): los pasos y sus controles, en e2e/support/prepare.ts.
  */
 export default async function globalSetup(): Promise<void> {
-  // 1. El nombre pedido.
-  assertE2eDatabase(DATABASE);
-  const env = { DB_DATABASE: DATABASE };
-
-  // 2. La base que Laravel resuelve de verdad con ese entorno (con la configuración cacheada, sería otra).
-  const resolved = artisan(
-    [
-      'tinker',
-      '--execute',
-      "echo config('database.connections.'.config('database.default').'.database');",
-    ],
-    env,
-  )
-    .trim()
-    .split(/\r?\n/)
-    .pop();
-  assertE2eDatabase(resolved);
-
-  // 3. La base desde cero, con los roles y los datos de demostración. migrate crea la base si falta.
   const password = runPassword();
-  artisan(['migrate', '--force'], env);
-  artisan(['migrate:fresh', '--seed', '--force'], env);
-  artisan(['db:seed', '--class=DemoSeeder', '--force'], { ...env, DEMO_PASSWORD: password });
 
-  // 4. El backend de :8010 usa la base recién preparada: solo ahí vale la contraseña de esta corrida.
-  let login: { token: string; user: MeData };
-  try {
-    login = await call('POST', 'login', { email: 'admin-a@example.com', password });
-  } catch (error) {
-    throw new Error(
-      `El backend de ${BACKEND_URL} no usa la base ${E2E_DATABASE} recién preparada (no aceptó la contraseña de esta corrida). Levantalo con DB_DATABASE=${E2E_DATABASE}.`,
-      { cause: error },
-    );
-  }
-
-  // 5. Una segunda sucursal para admin-a (el DemoSeeder da una sola por usuario), por la API.
-  const branch = await call<{ id: number }>(
-    'POST',
-    'branches',
-    {
-      code: SECOND_BRANCH.code,
-      name: SECOND_BRANCH.name,
-      establishment: '002',
-      warehouse_code: `DEP-${SECOND_BRANCH.code}`,
-    },
-    login.token,
-  );
-  const current = login.user.current_branch?.id;
-  await call(
-    'PATCH',
-    `users/${String(login.user.id)}`,
-    { branch_ids: current === undefined ? [branch.id] : [current, branch.id] },
-    login.token,
-  );
-  await call('POST', 'logout', undefined, login.token);
+  await prepareE2eDatabase({
+    // E2E_DB_DATABASE solo para probar la guarda a mano: con cualquier otro nombre, se niega.
+    database: process.env.E2E_DB_DATABASE ?? E2E_DATABASE,
+    password,
+    artisan,
+    call,
+    writeCredentials,
+  });
 
   process.env[PASSWORD_ENV] = password;
 }

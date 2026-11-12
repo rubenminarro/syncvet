@@ -77,11 +77,17 @@ function PasswordCard() {
     formState: { errors },
   } = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),
-    defaultValues: { current_password: '', password: '' },
+    defaultValues: { current_password: '', password: '', password_confirmation: '' },
   });
 
   const mutation = useMutation({
     mutationFn: updateOwnPassword,
+    // Las contraseñas no quedan en la caché de mutaciones (M1 de la revisión de la 0.2b): al terminar, reset() suelta la
+    // mutación y, con gcTime 0, la caché la descarta enseguida (con sus variables).
+    gcTime: 0,
+    onSettled: () => {
+      mutation.reset();
+    },
     onMutate: () => {
       setFeedback(null);
     },
@@ -137,6 +143,13 @@ function PasswordCard() {
           hint="Al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos."
           error={errors.password?.message}
           {...register('password')}
+        />
+        <PasswordField
+          label="Repetí la contraseña nueva"
+          autoComplete="new-password"
+          required
+          error={errors.password_confirmation?.message}
+          {...register('password_confirmation')}
         />
         <Button
           type="submit"

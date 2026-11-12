@@ -1,7 +1,8 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { delay, http } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { branchKey } from '../../lib/api/query-keys';
 import type { SessionMessage } from '../../lib/auth/channel';
 import { failure, success } from '../../test/api';
 import { meFor } from '../../test/roles';
@@ -40,31 +41,83 @@ describe('selector de sucursal', () => {
     expect(screen.getByText('Casa central', { selector: '.session-branch' })).toBeInTheDocument();
   });
 
-  it('al cambiar: PATCH me/current-branch, me actualizado, las consultas invalidadas y branch-changed', async () => {
-    const bodies: unknown[] = [];
+  /** El servidor: GET me devuelve `serverMe.current`; el PATCH la cambia (salvo `patchSets: false`). */
+  function branchServer(options: { patchSets?: boolean; delayMs?: number } = {}) {
+    const state = { current: ME_TWO, bodies: [] as unknown[], meCalls: 0 };
     server.use(
-      meHandler(ME_TWO),
+      http.get('/api/me', () => {
+        state.meCalls++;
+        return success(state.current);
+      }),
       http.patch('/api/me/current-branch', async ({ request }) => {
-        bodies.push(await request.json());
-        return success({ ...ME_TWO, current_branch: NORTE });
+        const body = (await request.json()) as { branch_id: number };
+        state.bodies.push(body);
+        if (options.delayMs !== undefined) {
+          await delay(options.delayMs);
+        }
+        const chosen = [CENTRAL, NORTE].find((branch) => branch.id === body.branch_id) ?? null;
+        if (options.patchSets !== false) {
+          state.current = { ...ME_TWO, current_branch: chosen };
+        }
+        return success({ ...ME_TWO, current_branch: chosen });
       }),
     );
+
+    return state;
+  }
+
+  it('al cambiar: PATCH me/current-branch, me vuelto a pedir, solo las consultas de la sucursal invalidadas y branch-changed', async () => {
+    const state = branchServer();
     const { queryClient, hub } = renderApp('/', { session: sessionFor() });
     const received: SessionMessage[] = [];
     hub.connect().subscribe((message) => received.push(message));
 
     await screen.findByText('Inicio', { selector: 'h2' });
-    queryClient.setQueryData(['clientes'], []);
+    queryClient.setQueryData(branchKey(10, 'appointments', 'queue'), []);
+    queryClient.setQueryData(['species'], []);
+    const meCallsBefore = state.meCalls;
     await userEvent.selectOptions(selector(), '11');
 
     expect(await screen.findByText('Tu sucursal actual es Sucursal Norte.')).toBeInTheDocument();
-    expect(bodies).toEqual([{ branch_id: 11 }]);
+    expect(state.bodies).toEqual([{ branch_id: 11 }]);
+    expect(state.meCalls).toBe(meCallsBefore + 1);
     expect(selector().value).toBe('11');
     expect(screen.getByText('Estás trabajando en Sucursal Norte.')).toBeInTheDocument();
-    expect(queryClient.getQueryState(['clientes'])?.isInvalidated).toBe(true);
+    // B6: solo las que dependen de la sucursal (query-keys.ts); los catálogos de la clínica, no.
+    expect(queryClient.getQueryState(branchKey(10, 'appointments', 'queue'))?.isInvalidated).toBe(
+      true,
+    );
+    expect(queryClient.getQueryState(['species'])?.isInvalidated).toBe(false);
     await waitFor(() => {
       expect(received).toContainEqual({ type: 'branch-changed' });
     });
+  });
+
+  it('después del PATCH muestra la sucursal que quedó en el servidor, no la de la respuesta (B5: otra pestaña cambió a la vez)', async () => {
+    // El PATCH responde Norte, pero otra pestaña ya dejó Casa central: GET me manda.
+    branchServer({ patchSets: false });
+    renderApp('/', { session: sessionFor() });
+
+    await screen.findByText('Inicio', { selector: 'h2' });
+    await userEvent.selectOptions(selector(), '11');
+
+    expect(await screen.findByText('Tu sucursal actual es Casa central.')).toBeInTheDocument();
+    expect(selector().value).toBe('10');
+    expect(screen.getByText('Estás trabajando en Casa central.')).toBeInTheDocument();
+  });
+
+  it('el selector queda deshabilitado mientras el PATCH está en curso (B3)', async () => {
+    branchServer({ delayMs: 200 });
+    renderApp('/', { session: sessionFor() });
+
+    await screen.findByText('Inicio', { selector: 'h2' });
+    await userEvent.selectOptions(selector(), '11');
+
+    await waitFor(() => {
+      expect(selector()).toBeDisabled();
+    });
+    expect(await screen.findByText('Tu sucursal actual es Sucursal Norte.')).toBeInTheDocument();
+    expect(selector()).toBeEnabled();
   });
 
   it('un 422 muestra el mensaje de la API, vuelve a pedir me y deja la sucursal actual', async () => {

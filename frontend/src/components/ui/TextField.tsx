@@ -34,8 +34,11 @@ export function TextField({
       {...rest}
     />
   );
+  // Siempre fuera del grupo del botón (addon): el contorno de foco de Tabler (.input-group-flat:focus-within) rodea el
+  // grupo entero y, con el mensaje adentro, lo encerraba también (B1 de la revisión de la 0.2b). Afuera, ya no es hermano
+  // del input con .is-invalid: se muestra con d-block.
   const feedback = error ? (
-    <div id={errorId} className="invalid-feedback">
+    <div id={errorId} className="invalid-feedback d-block">
       {error}
     </div>
   ) : null;
@@ -46,11 +49,13 @@ export function TextField({
         {label}
       </label>
       {addon ? (
-        <div className={`input-group input-group-flat has-validation${error ? ' is-invalid' : ''}`}>
-          {input}
-          <span className={`input-group-text${error ? ' border-danger' : ''}`}>{addon}</span>
+        <>
+          <div className={`input-group input-group-flat${error ? ' is-invalid' : ''}`}>
+            {input}
+            <span className={`input-group-text${error ? ' border-danger' : ''}`}>{addon}</span>
+          </div>
           {feedback}
-        </div>
+        </>
       ) : (
         <>
           {input}

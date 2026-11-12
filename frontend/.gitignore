@@ -20,4 +20,5 @@ npm-debug.log*
 test-results
 playwright-report
 playwright/.cache
+e2e/.e2e-credentials
 .vitest

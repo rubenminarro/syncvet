@@ -41,6 +41,7 @@ test('cambio de contraseña: el error en su campo, la sesión sigue y se ingresa
   const change = async (from: string, to: string) => {
     await page.getByLabel('Contraseña actual', { exact: true }).fill(from);
     await page.getByLabel('Contraseña nueva', { exact: true }).fill(to);
+    await page.getByLabel('Repetí la contraseña nueva', { exact: true }).fill(to);
     await page.getByRole('button', { name: 'Cambiar la contraseña' }).click();
   };
 
@@ -91,4 +92,50 @@ test('salir en una pestaña cierra la otra', async ({ page, context }) => {
 
   await expect(other).toHaveURL(/\/ingresar$/);
   await expect(other.getByRole('heading', { name: 'Ingresá a tu cuenta' })).toBeVisible();
+});
+
+test('credenciales incorrectas: el mensaje de la API, la contraseña borrada y sin sesión', async ({
+  page,
+}) => {
+  await page.goto('/ingresar');
+  await page.getByLabel('Email', { exact: true }).fill(USERS.recepcion.email);
+  await page.getByLabel('Contraseña', { exact: true }).fill(`${demoPassword()}-mal`);
+  await page.getByRole('button', { name: 'Ingresar' }).click();
+
+  await expect(page.locator('.alert-danger')).toContainText(
+    'El email o la contraseña no son correctos.',
+  );
+  await expect(page.getByLabel('Contraseña', { exact: true })).toHaveValue('');
+  await expect(page).toHaveURL(/\/ingresar$/);
+  expect(await page.evaluate(() => sessionStorage.getItem('syncvet.session'))).toBeNull();
+
+  // Con la correcta entra (y el contador del límite vuelve a cero).
+  await submitLogin(page, USERS.recepcion);
+});
+
+test('vencimiento: expires_at pasado en sessionStorage cierra la sesión en las pestañas con ese token', async ({
+  page,
+  context,
+}) => {
+  await login(page, USERS.recepcion);
+  const other = await context.newPage();
+  await other.goto('/');
+  await expect(other.locator('.session-user')).toHaveText(USERS.recepcion.name);
+
+  // Forzado: la sesión guardada vence hace un minuto; al volver a la pestaña (focus) se relee y se cierra.
+  await page.evaluate(() => {
+    const stored = JSON.parse(sessionStorage.getItem('syncvet.session') ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    stored.expires_at = new Date(Date.now() - 60_000).toISOString();
+    sessionStorage.setItem('syncvet.session', JSON.stringify(stored));
+    window.dispatchEvent(new Event('focus'));
+  });
+
+  await expect(page).toHaveURL(/\/ingresar/);
+  await expect(page.getByText('Tu sesión terminó. Ingresá de nuevo.')).toBeVisible();
+  // La otra pestaña, con el mismo token, también se cierra.
+  await expect(other).toHaveURL(/\/ingresar/);
+  await expect(other.getByText('Tu sesión terminó. Ingresá de nuevo.')).toBeVisible();
 });

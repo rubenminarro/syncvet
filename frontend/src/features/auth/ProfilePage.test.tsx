@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
@@ -13,9 +14,11 @@ const CHANGED =
 const WRONG_CURRENT = 'La contraseña actual no es correcta.';
 const WEAK = 'La contraseña debe tener al menos 12 caracteres.';
 const DIFFERENT = 'La contraseña nueva tiene que ser distinta de la actual.';
+const MISMATCH = 'Las dos contraseñas nuevas no coinciden.';
 
 const current = () => screen.getByLabelText<HTMLInputElement>('Contraseña actual');
 const fresh = () => screen.getByLabelText<HTMLInputElement>('Contraseña nueva');
+const repeat = () => screen.getByLabelText<HTMLInputElement>('Repetí la contraseña nueva');
 const submit = () => screen.getByText('Cambiar la contraseña', { selector: 'button' });
 
 /** El elemento `index` de la lista (falla el test si no está). */
@@ -29,15 +32,25 @@ function nth(list: HTMLElement[], index: number): HTMLElement {
   return element;
 }
 
-async function openProfile() {
-  renderApp('/perfil', { session: sessionFor() });
+async function openProfile(): Promise<QueryClient> {
+  const { queryClient } = renderApp('/perfil', { session: sessionFor() });
   await screen.findByText('Tu perfil', { selector: 'h2' });
+
+  return queryClient;
 }
 
-async function fill(currentValue: string, newValue: string) {
+async function fill(currentValue: string, newValue: string, repeated = newValue) {
   await userEvent.type(current(), currentValue);
   await userEvent.type(fresh(), newValue);
+  await userEvent.type(repeat(), repeated);
   await userEvent.click(submit());
+}
+
+/** M1 de la revisión: después de cada pedido, ninguna contraseña queda en la caché de mutaciones. */
+async function expectNoPasswordsCached(queryClient: QueryClient) {
+  await waitFor(() => {
+    expect(queryClient.getMutationCache().getAll()).toEqual([]);
+  });
 }
 
 describe('/perfil', () => {
@@ -56,7 +69,7 @@ describe('/perfil', () => {
     }
   });
 
-  it('cambia la contraseña con PATCH me/password: el formulario se vacía y la sesión sigue', async () => {
+  it('cambia la contraseña con PATCH me/password (sin la repetición): el formulario se vacía y la sesión sigue', async () => {
     const requests: { body: unknown; auth: string | null }[] = [];
     server.use(
       meHandler(),
@@ -65,7 +78,7 @@ describe('/perfil', () => {
         return success(null);
       }),
     );
-    await openProfile();
+    const queryClient = await openProfile();
     await fill('Vieja-Clave#2026', 'Nueva-Clave#2027');
 
     expect(await screen.findByText(CHANGED)).toBeInTheDocument();
@@ -77,8 +90,10 @@ describe('/perfil', () => {
     ]);
     expect(current().value).toBe('');
     expect(fresh().value).toBe('');
+    expect(repeat().value).toBe('');
     expect(window.sessionStorage.getItem(SESSION_KEY)).toContain(TOKEN);
     expect(screen.getByText('Ana Gómez', { selector: '.session-user' })).toBeInTheDocument();
+    await expectNoPasswordsCached(queryClient);
   });
 
   it('los campos vacíos se marcan sin llamar a la API', async () => {
@@ -88,6 +103,18 @@ describe('/perfil', () => {
 
     expect(await screen.findByText('Ingresá tu contraseña actual.')).toBeInTheDocument();
     expect(screen.getByText('Ingresá la contraseña nueva.')).toBeInTheDocument();
+    expect(screen.getByText('Repetí la contraseña nueva.')).toBeInTheDocument();
+  });
+
+  it('la repetición distinta se marca en su campo sin llamar a la API', async () => {
+    // Sin handler de PATCH: si se llamara a la API, MSW haría fallar el test.
+    server.use(meHandler());
+    await openProfile();
+    await fill('Vieja-Clave#2026', 'Nueva-Clave#2027', 'Nueva-Clave#2028');
+
+    expect(await screen.findByText(MISMATCH)).toBeInTheDocument();
+    expect(repeat()).toHaveAttribute('aria-invalid', 'true');
+    expect(fresh()).not.toHaveAttribute('aria-invalid');
   });
 
   it('un 422 en current_password va a su campo', async () => {
@@ -99,7 +126,7 @@ describe('/perfil', () => {
         }),
       ),
     );
-    await openProfile();
+    const queryClient = await openProfile();
     await fill('incorrecta', 'Nueva-Clave#2027');
 
     expect(await screen.findByText(WRONG_CURRENT)).toBeInTheDocument();
@@ -108,6 +135,7 @@ describe('/perfil', () => {
     await waitFor(() => {
       expect(current()).toHaveFocus();
     });
+    await expectNoPasswordsCached(queryClient);
   });
 
   it('un 422 en password junta sus mensajes en su campo; otra clave va a la alerta', async () => {
@@ -119,13 +147,14 @@ describe('/perfil', () => {
         }),
       ),
     );
-    await openProfile();
+    const queryClient = await openProfile();
     await fill('Vieja-Clave#2026', 'corta');
 
     expect(await screen.findByText(`${WEAK} ${DIFFERENT}`)).toBeInTheDocument();
     expect(fresh()).toHaveAttribute('aria-invalid', 'true');
     expect(current()).not.toHaveAttribute('aria-invalid');
     expect(screen.getByText('Algo más.', { selector: '.alert-title' })).toBeInTheDocument();
+    await expectNoPasswordsCached(queryClient);
   });
 
   it('un 429 muestra el mensaje y deshabilita el botón con la cuenta regresiva', async () => {
@@ -136,11 +165,12 @@ describe('/perfil', () => {
         failure(429, 'AUTH_TOO_MANY_ATTEMPTS', message, { headers: { 'Retry-After': '1' } }),
       ),
     );
-    await openProfile();
+    const queryClient = await openProfile();
     await fill('Vieja-Clave#2026', 'Nueva-Clave#2027');
 
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.getByText('Esperá 1 segundo', { selector: 'button' })).toBeDisabled();
+    await expectNoPasswordsCached(queryClient);
     expect(
       await screen.findByText('Cambiar la contraseña', { selector: 'button' }, { timeout: 2500 }),
     ).toBeEnabled();
@@ -166,7 +196,7 @@ describe('/perfil', () => {
         failure(403, 'FORBIDDEN', 'No tenés permiso para realizar esta acción.'),
       ),
     );
-    await openProfile();
+    const queryClient = await openProfile();
     await fill('Vieja-Clave#2026', 'Nueva-Clave#2027');
 
     expect(
@@ -174,15 +204,54 @@ describe('/perfil', () => {
     ).toBeInTheDocument();
     expect(current().value).toBe('Vieja-Clave#2026');
     expect(fresh().value).toBe('Nueva-Clave#2027');
+    await expectNoPasswordsCached(queryClient);
   });
 
-  it('el botón muestra y oculta cada campo', async () => {
+  it('el aviso de éxito se borra al volver a intentar, ya mientras el pedido está en curso (B7 de la revisión)', async () => {
+    let calls = 0;
+    let release: () => void = () => undefined;
+    server.use(
+      meHandler(),
+      http.patch('/api/me/password', async () => {
+        calls++;
+        if (calls === 1) {
+          return success(null);
+        }
+        // El segundo pedido queda en curso hasta que el test lo suelta.
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return failure(422, 'VALIDATION_ERROR', WRONG_CURRENT, {
+          errors: { current_password: [WRONG_CURRENT] },
+        });
+      }),
+    );
+    await openProfile();
+    await fill('Vieja-Clave#2026', 'Nueva-Clave#2027');
+    expect(await screen.findByText(CHANGED)).toBeInTheDocument();
+
+    await fill('incorrecta', 'Otra-Clave#2028');
+
+    await waitFor(() => {
+      expect(screen.queryByText(CHANGED)).not.toBeInTheDocument();
+    });
+    expect(calls).toBe(2);
+    release();
+    expect(await screen.findByText(WRONG_CURRENT)).toBeInTheDocument();
+  });
+
+  it('el botón muestra y oculta cada campo, también la repetición', async () => {
     server.use(meHandler());
     await openProfile();
     const toggles = screen.getAllByLabelText('Mostrar la contraseña');
 
-    expect(toggles).toHaveLength(2);
-    expect(current()).toHaveAttribute('type', 'password');
+    expect(toggles).toHaveLength(3);
+    for (const field of [current(), fresh(), repeat()]) {
+      expect(field).toHaveAttribute('type', 'password');
+    }
+
+    await userEvent.click(nth(toggles, 2));
+    expect(repeat()).toHaveAttribute('type', 'text');
     expect(fresh()).toHaveAttribute('type', 'password');
 
     await userEvent.click(nth(toggles, 1));
@@ -194,5 +263,17 @@ describe('/perfil', () => {
 
     await userEvent.click(nth(screen.getAllByLabelText('Ocultar la contraseña'), 0));
     expect(current()).toHaveAttribute('type', 'password');
+  });
+
+  it('el mensaje de error queda fuera del grupo con el borde (B1 de la revisión)', async () => {
+    server.use(meHandler());
+    await openProfile();
+    await userEvent.click(submit());
+
+    const message = await screen.findByText('Ingresá tu contraseña actual.');
+    expect(message.closest('.input-group')).toBeNull();
+    expect(message).toHaveClass('invalid-feedback', 'd-block');
+    expect(current().closest('.input-group')).toHaveClass('is-invalid');
+    expect(current()).toHaveAttribute('aria-describedby', message.id);
   });
 });

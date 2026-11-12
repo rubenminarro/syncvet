@@ -28,6 +28,8 @@ export function LoginPage() {
   const { volver } = useSearch({ from: '/_publico/ingresar' });
   const countdown = useCountdown();
   const [alert, setAlert] = useState<string | null>(null);
+  // El aviso de la sesión cerrada se muestra hasta el primer intento (antes, mutation.isIdle: con reset() vuelve a idle).
+  const [attempted, setAttempted] = useState(false);
   const {
     register,
     handleSubmit,
@@ -42,8 +44,14 @@ export function LoginPage() {
 
   const mutation = useMutation({
     mutationFn: login,
+    // La contraseña no queda en la caché de mutaciones (M1 de la revisión de la 0.2b): reset() al terminar y gcTime 0.
+    gcTime: 0,
+    onSettled: () => {
+      mutation.reset();
+    },
     onMutate: () => {
       setAlert(null);
+      setAttempted(true);
     },
     onSuccess: async (data) => {
       session.start({ token: data.token, expires_at: data.expires_at });
@@ -89,7 +97,7 @@ export function LoginPage() {
     <div className="card card-md">
       <div className="card-body">
         <h2 className="h2 text-center mb-4">Ingresá a tu cuenta</h2>
-        {notice !== null && mutation.isIdle ? <Alert tone="warning" title={notice} /> : null}
+        {notice !== null && !attempted ? <Alert tone="warning" title={notice} /> : null}
         {alert !== null ? <Alert title={alert} /> : null}
         <form onSubmit={(event) => void onSubmit(event)} noValidate>
           <TextField
