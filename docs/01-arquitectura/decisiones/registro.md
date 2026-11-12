@@ -1360,3 +1360,32 @@ consola, sin errores de la aplicación. La corrida del cierre, desde `frontend/`
 avisos; `npm test`, 195 tests en 15 archivos del frontend, en verde.
 
 **Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales).
+
+# R-062 Cierre de la entrega 0.2b del frontend (permisos) (2026-11-12)
+
+Entrega 0.2b de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-base.md), en `feature/front-0-2b-permisos`:
+implementada (`68c68b6`), validada en el navegador (`023a90e`), revisada, corregida (`e77f64a`, `91dca14` y `b1bc017`) y validada
+de nuevo. El detalle, en el [resultado de la entrega](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-02b).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| `/configuracion` provisoria (desvío 1) | Una página "En construcción" con `system-settings.update`: el administrador la ve en el menú y en el inicio; recepción y veterinario van a `/sin-permiso`. La F2 la reemplaza por la pantalla real | Usuario |
+| Preparación de Playwright (desvío 2) | Se niega a correr si la base no es exactamente `syncvet_e2e`; controla además la base que resuelve Laravel y que el backend de `:8010` use la base recién preparada (contraseña al azar por corrida). La contraseña de la corrida queda en `frontend/e2e/.e2e-credentials`, ignorado por Git, para entrar a mano | Usuario |
+| Segunda sucursal y servidores de Playwright (desvíos 3 y 4) | La preparación crea por la API "Sucursal Norte" para `admin-a`; Playwright levanta el backend (`:8010`, `DB_DATABASE=syncvet_e2e`) y Vite (`:5174`), o usa un backend ya levantado en `:8010` | Usuario (aceptados en el cierre) |
+| Edge instalado (desvío 5) | Playwright usa `channel: 'msedge'` y no descarga navegadores (`E2E_BROWSER_CHANNEL` para otro) | Usuario |
+| Repetir la contraseña nueva (desvío 7) | `/perfil` pide "Repetí la contraseña nueva", controlada solo en el navegador: la API no la recibe | Usuario |
+| Playwright completo (desvío 10) | Se suman "credenciales incorrectas" y el vencimiento en las dos pestañas con el mismo token: 11 casos, y el criterio de cierre de la F0 queda como estaba | Usuario |
+| `/sin-permiso` (desvío 9 de la 0.1, 13 de la 0.2b) | Dentro del layout con sesión, con la barra y el menú | Usuario |
+| Correcciones de la revisión | M1, las contraseñas de `/ingresar` y `/perfil` fuera de la caché de mutaciones (`gcTime: 0` y `reset()`); M2, `me` vuelto a pedir al volver a la pestaña; B1, el mensaje de error fuera del grupo con borde de `PasswordField`; B2, test de `replace: true` (el riesgo no era real); B3, B4 y B7, tests de las mutaciones que sobrevivían; B5, `me` pedido al servidor después del `PATCH me/current-branch`; B6, la convención de claves de las consultas (`src/lib/api/query-keys.ts`): el cambio de sucursal invalida `['me']` y solo las consultas de la sucursal. B8: PENDIENTE DE VERIFICACIÓN (el pedido del cierre nombra B1 a B8; en el repositorio constan B1 a B7) | Usuario (pedido) |
+| Espera de la pestaña nueva | 1000 ms en lugar de 300 (`SESSION_REQUEST_TIMEOUT_MS`, P1): en la PC de una recepción el equipo puede ser lento. Playwright ya no supone que la sesión llegó: `openSecondTab` la espera con su tiempo límite | Usuario |
+| Pruebas en el navegador | Todas las hizo Claude Code, a pedido del usuario, con Edge sin ventana contra `syncvet.test` y `npm run dev`: 14 pruebas sobre la implementación y 11 sobre la corrección, con la demo restaurada | Usuario (pedido) |
+| Limpieza de la raíz (PC nueva) | Se borraron los restos del backend de antes del monorepo, sin versionar (unos 81 MB; 551 de los 552 archivos, sin `vendor/`, ya estaban en el historial de Git), y el `.env` viejo se movió fuera del repositorio, a `C:\laragon\www\syncvet-raiz-vieja.env`. El vhost `syncvet.test` de esa PC se apuntó a `backend/public` (paso 5 de la migración al monorepo) | Usuario |
+
+**Validación.** Claude Code, a pedido del usuario, en Edge sin ventana contra el backend real: los menús de los tres roles, la ruta
+sin permiso, el 403 de la API, el cambio de sucursal (también en otra pestaña, al recargar y al volver a la pestaña), el usuario sin
+sucursal actual, `/perfil` (la repetición, los errores fuera del borde, el cambio y la vuelta a `DEMO_PASSWORD`), el ancho de tablet
+y la consola. Playwright, 11 de 11 en dos corridas seguidas. La corrida del cierre, desde `frontend/`: `typecheck`, `lint` y `build`
+sin errores ni avisos; `npm test`, 269 tests en 21 archivos del frontend, en verde.
+
+**Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales); `composer
+test:fast`, 1445 casos (1431 en verde y 14 omitidos, solo de MySQL).

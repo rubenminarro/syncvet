@@ -92,6 +92,6 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 en curso: la 0.1 (esqueleto) y la 0.2a (sesión) cerradas (R-060 y R-061); sigue la 0.2b (permisos) en
-  `feature/front-0-2b-permisos`; el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0 en curso: la 0.1 (esqueleto), la 0.2a (sesión) y la 0.2b (permisos) cerradas (R-060 a R-062); sigue el cierre
+  de la F0 y su merge a `main`; el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).
