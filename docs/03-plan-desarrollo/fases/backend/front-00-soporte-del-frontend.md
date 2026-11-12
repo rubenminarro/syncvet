@@ -1,7 +1,8 @@
 # Entrega de soporte del frontend (B1 a B3)
 
 Entrega del backend fuera de las fases del MVP, pedida por la [F0 del frontend](../frontend/f0-base.md) antes de su entrega 0.2
-(R-058). Estado: **DISEÑO**, en `docs/frontend-analisis`. Rama de implementación: `feature/front-00-me-sucursales`, desde `main`.
+(R-058). Estado: **DISEÑO APROBADO** por el usuario el 2026-11-12 (R-058), en `docs/frontend-analisis`, con las [preguntas](#preguntas)
+respondidas. Rama de implementación: `feature/front-00-me-sucursales`, desde `main`.
 
 ## Objetivo
 
@@ -31,8 +32,7 @@ cada una con `id`, `code` y `name` (lo mismo que `current_branch`). Sale en toda
 
 * Son las mismas que acepta `PATCH me/current-branch` (`AuthService::setCurrentBranch`: activa y asignada al usuario): toda sucursal
   de la lista se puede elegir, y ninguna otra.
-* El administrador también ve solo las suyas, porque `me/current-branch` le exige la asignación igual que a los demás (ver la
-  [pregunta 1](#preguntas)).
+* El administrador también ve solo las suyas, porque `me/current-branch` le exige la asignación igual que a los demás (pregunta 1).
 * Sin sucursales asignadas activas, `branches` es `[]`.
 * Se carga en `AuthService::profile` con la relación filtrada (una consulta más), dentro de `CurrentClinic::run`, como las demás.
 
@@ -128,10 +128,12 @@ el handoff, y una sección `R-NNN` en el registro.
 
 ## Preguntas
 
-| # | Pregunta | Recomendación |
+Respondidas por el usuario el 2026-11-12 (R-058).
+
+| # | Pregunta | Respuesta |
 |---|---|---|
-| 1 | ¿El administrador ve en `branches` todas las sucursales activas de la clínica, o solo las asignadas? | Solo las asignadas: es lo que hoy acepta `me/current-branch` para todos; cambiarlo para el administrador es otra regla de negocio |
-| 2 | ¿La protección de `snake_case` (`SnakeCaseKeysTest`) entra en esta entrega? | Sí: es barata y es la que habría evitado B3 |
+| 1 | ¿El administrador ve en `branches` todas las sucursales activas de la clínica, o solo las asignadas? | Solo las asignadas, también el administrador |
+| 2 | ¿La protección de `snake_case` (`SnakeCaseKeysTest`) entra en esta entrega? | Sí |
 
 ## Pendiente para el cierre
 

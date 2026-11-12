@@ -1242,16 +1242,38 @@ el diseño de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-ba
 
 | Tema | Decisión | Quién |
 |---|---|---|
-| Node | Node 26 LTS en todas las PC, con `frontend/.nvmrc` y `engines` en `package.json` | Usuario |
-| Stack | React 19 + TypeScript + Vite; Tabler oficial (`@tabler/core` sobre Bootstrap 5, `@tabler/icons-react`) con una capa propia de componentes y sin Tailwind; TanStack Query sobre un cliente Axios único; React Hook Form con Zod; Vitest con Testing Library y MSW; ESLint; npm. Aceptado como se propuso en el análisis | Usuario |
+| Stack | El aprobado en el informe de análisis del 2026-11-11, con la alternativa descartada de cada elección en la tabla siguiente. La primera versión de esta sección, en el commit `f015002`, traía otro stack (Axios, sin date-fns ni Prettier, sin las versiones): se corrigió antes de aprobar el diseño | Usuario |
 | Sesión | Token en `sessionStorage` y `BroadcastChannel` para cerrar la sesión en todas las pestañas; un temporizador cierra la sesión al vencer el token (12 horas, sin renovación). Las cookies de Sanctum (SPA con estado) quedan como decisión para producción, FASE 10 | Usuario |
 | Tipos de la API | Escritos a mano; Scramble (generar OpenAPI desde Laravel) descartado por ahora | Usuario |
 | Rutas | TanStack Router, con las URL en castellano (`/ingresar`, `/clientes`, `/agenda`…) | Usuario |
 | Desarrollo | El proxy de Vite manda `/api` al backend: mismo origen, sin CORS en desarrollo | Usuario |
 | Entrega del backend antes de la F0.2 | Sí, en `feature/front-00-me-sucursales`: B1, `me` trae las sucursales activas asignadas al usuario; B2, CORS acotado por variable de entorno; B3, `meta.pagination` en `snake_case` (`per_page`, `current_page`, `last_page`) como el resto de la API, con los tests y las colecciones de Postman que la usan. La revisión pedida de otros campos fuera de `snake_case` no encontró ninguno más | Usuario; la revisión, análisis |
 | Pruebas de punta a punta | Playwright contra la base `syncvet_e2e`, sembrada con el `DemoSeeder` | Usuario |
-| Orden | F0 → F1 → F2 → F3 | Usuario |
+| Orden | F0 → F1 → F2 → F3 y después la FASE 4 del backend (ver D2 más abajo) | Usuario |
 | "Repositorio aparte" | La mención que quedó en `overview.md` y `technology-stack.md` después de R-057 se corrige en la F0 (entrega 0.1) | Usuario |
+| P1 de la F0: pestaña nueva | Le pide la sesión a una pestaña abierta por el `BroadcastChannel`; todas comparten el token, así que un 401 cierra todas las pestañas | Usuario |
+| P2 de la F0: aviso | Aviso 10 minutos antes del vencimiento | Usuario |
+| P3 de la F0: contraseña propia | En la 0.2, en `/perfil` (`PATCH me/password`) | Usuario |
+| P1 del backend: sucursales del administrador | `me.branches` trae solo las sucursales asignadas, también al administrador (lo mismo que acepta `me/current-branch`) | Usuario |
+| P2 del backend: `SnakeCaseKeysTest` | Entra en la entrega de soporte del backend | Usuario |
+| D2: frontend y backend | El frontend recorre F0 → F3 sobre la API de las fases 1 a 3 y después sigue la FASE 4 del backend (resuelve la decisión pendiente D2) | Usuario |
+| Diseños | El de la F0 y el de la entrega de soporte del backend, aprobados el 2026-11-12. La rama `feature/front-00-me-sucursales` se crea desde `docs/frontend-analisis`, sin implementar todavía | Usuario |
 
-**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: solo documentación. Las preguntas
-abiertas del diseño están en cada documento.
+**Stack aprobado y alternativas descartadas.**
+
+| Tema | Elección | Descartado |
+|---|---|---|
+| Entorno | Node 26 LTS en todas las PC, con `frontend/.nvmrc` y `engines`; npm 11 | Node 24 LTS (más viejo; 26 ya es LTS); pnpm (una herramienta más que instalar en cada PC) |
+| Build | Vite 8 con `@vitejs/plugin-react` | Next.js (servidor y SSR que una aplicación interna detrás de un login no necesita) |
+| Lenguaje | TypeScript 6 estricto | TypeScript 7 (el compilador nuevo en Go, todavía sin el ecosistema de plugins asentado) |
+| Rutas | TanStack Router, URL en castellano | React Router (menos tipado en los parámetros y la búsqueda) |
+| Datos del servidor | TanStack Query, reintentos solo ante fallas de red o 5xx | SWR (menos control de mutaciones e invalidación); estado propio con `useEffect` |
+| Cliente HTTP | Propio sobre `fetch` | Axios (una dependencia menos; `fetch` alcanza para el contrato de la API) |
+| Formularios | React Hook Form + Zod; el 422 con `setError` | Formik + Yup (más lento y menos mantenido); formularios a mano |
+| Fechas | date-fns 4 + `@date-fns/tz` (`TZDate`, `America/Asuncion`) | Day.js y Luxon (otra forma de manejar zonas); solo `Intl` (no alcanza para calcular en una zona fija) |
+| Interfaz | Tabler (`@tabler/core` y `@tabler/icons-react`) con componentes propios, sin el JS de Tabler | El JS de Tabler y Bootstrap (manipula el DOM por fuera de React); `tabler-react` (archivado); Tailwind (prohibido junto a Tabler) |
+| Tipos de la API | Escritos a mano | Scramble para generar OpenAPI y los tipos (descartado por ahora) |
+| Tests | Vitest + Testing Library + MSW + jsdom; Playwright contra `syncvet_e2e` con el `DemoSeeder` | Jest (configuración aparte de Vite); happy-dom (menos fiel); Cypress (más pesado, sin varias pestañas) |
+| Calidad | ESLint + Prettier | Biome (todavía sin las reglas de hooks de React que da ESLint) |
+
+**Qué no cambió.** Código, rutas, permisos, `error_code`, contrato de respuesta y colecciones: solo documentación.

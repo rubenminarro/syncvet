@@ -34,14 +34,14 @@ pacientes, sin tests todavía. Registro: [`decisions/registro.md`](../01-arquite
 | [FASE 10](fases/backend/fase-10-reportes-y-piloto.md) | Lanzamiento | Reportes y piloto | PENDIENTE |
 
 El orden sigue el flujo de la clínica: turno → consulta → lo que se usó → stock → factura → pago → recordatorio. Cada etapa empieza
-cuando la anterior está cerrada. El frontend avanza en paralelo según la decisión D2.
+cuando la anterior está cerrada. El frontend recorre F0 a F3 y después sigue la FASE 4 (D2, R-058).
 
 ## Fases del frontend
 
-El plan está en [`fases/frontend/`](fases/frontend/README.md), con las decisiones del análisis en R-058. Orden: F0 → F1 → F2 → F3.
+El plan está en [`fases/frontend/`](fases/frontend/README.md), con las decisiones del análisis en R-058. Orden: F0 → F1 → F2 → F3 y después la FASE 4 del backend.
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| [F0](fases/frontend/f0-base.md) | Base: esqueleto (0.1) y sesión (0.2) | PENDIENTE (diseño en `docs/frontend-analisis`) |
-| [Soporte del backend](fases/backend/front-00-soporte-del-frontend.md) | B1 a B3: sucursales en `me`, CORS y paginación en `snake_case`; antes de la F0.2 | PENDIENTE (diseño en `docs/frontend-analisis`) |
+| [F0](fases/frontend/f0-base.md) | Base: esqueleto (0.1) y sesión (0.2) | PENDIENTE (diseño aprobado, R-058) |
+| [Soporte del backend](fases/backend/front-00-soporte-del-frontend.md) | B1 a B3: sucursales en `me`, CORS y paginación en `snake_case`; antes de la F0.2 | PENDIENTE (diseño aprobado, R-058) |
 | F1 a F3 | Clientes y pacientes, datos maestros, agenda y turnos | PENDIENTE |
