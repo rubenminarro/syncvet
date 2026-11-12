@@ -304,7 +304,7 @@ Listados: `meta.pagination` (`total`, `per_page`, `current_page`, `last_page`), 
 `roles`, `permissions` y `veterinarian`.
 
 CORS (`config/cors.php`, entrega front-00, B2): solo `api/*`, los orígenes de `CORS_ALLOWED_ORIGINS` (separados por comas; vacía,
-ninguno), sin credenciales, `Retry-After` expuesto y `max_age` de 600 (`CorsTest`).
+ninguno; un `*` se descarta y queda un aviso en el log), sin credenciales, `Retry-After` expuesto y `max_age` de 600 (`CorsTest`).
 
 Las únicas respuestas exitosas sin `ApiResponse` son las descargas de un archivo (`GET patients/{patient}/photo` y
 `GET system-settings/logo`, las dos con `PrivateImageStore`): el cuerpo es el archivo, con `Content-Type` según el tipo guardado,

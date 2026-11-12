@@ -1263,7 +1263,7 @@ el diseño de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-ba
 
 | Tema | Elección | Descartado |
 |---|---|---|
-| Entorno | Node 26 LTS en todas las PC, con `frontend/.nvmrc` y `engines`; npm 11 | Node 24 (en mantenimiento) |
+| Entorno | Node 26 LTS en todas las PC, con `frontend/.nvmrc` y `engines`; npm 11 | Node 24 (en mantenimiento); pnpm (una herramienta más que instalar en cada PC) |
 | Build | Vite 8 con `@vitejs/plugin-react` | Next.js (servidor y SSR que una aplicación interna detrás de un login no necesita) |
 | Lenguaje | TypeScript 6 estricto | TypeScript 7 (el compilador nuevo en Go, todavía sin el ecosistema de plugins asentado) |
 | Rutas | TanStack Router, URL en castellano | React Router (menos tipado en los parámetros y la búsqueda) |
@@ -1271,7 +1271,7 @@ el diseño de la [F0 del frontend](../../03-plan-desarrollo/fases/frontend/f0-ba
 | Cliente HTTP | Propio sobre `fetch` | Axios o ky |
 | Formularios | React Hook Form + Zod; el 422 con `setError` | Formik + Yup (más lento y menos mantenido); formularios a mano |
 | Fechas | date-fns 4 + `@date-fns/tz` (`TZDate`, `America/Asuncion`) | Day.js y Luxon (otra forma de manejar zonas); solo `Intl` (no alcanza para calcular en una zona fija) |
-| Interfaz | Tabler (`@tabler/core` y `@tabler/icons-react`) con componentes propios, sin el JS de Tabler | `tabler-react` (quedó en React 16) y el JS de Tabler |
+| Interfaz | Tabler (`@tabler/core` y `@tabler/icons-react`) con componentes propios, sin el JS de Tabler y sin Tailwind | `tabler-react` (quedó en React 16) y el JS de Tabler |
 | Tipos de la API | Escritos a mano | Scramble para generar OpenAPI y los tipos (descartado por ahora) |
 | Tests | Vitest + Testing Library + MSW + jsdom; Playwright contra `syncvet_e2e` con el `DemoSeeder` | Jest (configuración aparte de Vite); happy-dom (menos fiel); Cypress (más pesado, sin varias pestañas) |
 | Calidad | ESLint + Prettier | Biome (todavía sin las reglas de hooks de React que da ESLint) |

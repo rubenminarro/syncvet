@@ -10,6 +10,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -40,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
     {
         // Job en curso, para el log de ClinicContextMissingException (R-005).
         ExecutionOrigin::listen();
+
+        // CORS (entrega front-00): config/cors.php descarta un "*" de CORS_ALLOWED_ORIGINS; se
+        // avisa para que la configuración se corrija (la API sigue solo con los demás orígenes).
+        if (config('cors.wildcard_discarded') === true) {
+            Log::warning('CORS_ALLOWED_ORIGINS trae "*": se descartó. Indicá los orígenes permitidos uno por uno.');
+        }
 
         // Contraseña de los usuarios (R-009): al menos 12 caracteres, con mayúsculas,
         // minúsculas, números y símbolos, y que no aparezca en filtraciones conocidas

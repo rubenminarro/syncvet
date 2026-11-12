@@ -156,8 +156,15 @@ Implementación del 2026-11-12 (commit WIP en `feature/front-00-me-sucursales`),
 5. El pedido mencionó `backend/CLAUDE.md` §5 para el contrato; el contrato está en §4 (Contrato de respuesta), y ahí se documentó,
    junto con la convención `snake_case` en §3 y el perfil en §6.5.
 
-**Para decidir.** Si alguien pone `*` a propósito en `CORS_ALLOWED_ORIGINS`, Laravel (php-cors) lo toma como comodín: la
-configuración no lo filtra (el diseño pide no tenerlo por defecto, y no lo tiene). ¿Se rechaza `*` en `config/cors.php`?
+**Desvíos aceptados.** El usuario aceptó los desvíos 1 a 5 el 2026-11-12.
+
+**Decidido: el `*` de CORS** (usuario, 2026-11-12). Laravel (php-cors) toma un `*` de `allowed_origins` como "cualquier origen":
+`config/cors.php` lo descarta de `CORS_ALLOWED_ORIGINS` (los demás orígenes siguen) y marca `wildcard_discarded`, una clave propia
+que php-cors no lee; con ella, `AppServiceProvider::boot` deja un aviso en el log. El aviso sale en cada arranque de la aplicación
+(en cada pedido), mientras la variable siga con el `*`. Tests: `CorsTest` (el descarte, con y sin otros orígenes, y el aviso, con y
+sin `*`); las mutaciones "sin descartar" y "sin aviso" fallan.
+
+**R-058.** Vuelven pnpm como alternativa descartada del entorno y "sin Tailwind" en la elección de la interfaz.
 
 **Notas.**
 

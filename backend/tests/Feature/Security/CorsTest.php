@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Security;
 
+use App\Providers\AppServiceProvider;
+use Illuminate\Support\Facades\Log;
 use Tests\Concerns\InteractsWithAuth;
 use Tests\TestCase;
 
@@ -107,6 +109,44 @@ class CorsTest extends TestCase
             ->assertHeader('Access-Control-Allow-Origin', self::ALLOWED)
             ->assertHeader('Access-Control-Expose-Headers', 'Retry-After');
         $this->assertNotNull($response->headers->get('Retry-After'));
+    }
+
+    /**
+     * Decisión del usuario: un "*" de CORS_ALLOWED_ORIGINS se descarta (Laravel lo tomaría
+     * como "cualquier origen"); los demás orígenes siguen.
+     */
+    public function test_a_wildcard_in_the_variable_is_discarded(): void
+    {
+        $this->assertSame([], $this->originsFrom('*'));
+        $this->assertSame(['http://a.test'], $this->originsFrom('http://a.test, * ,'));
+        $this->assertTrue($this->configWith(' * ')['wildcard_discarded']);
+        $this->assertFalse($this->configWith('http://a.test')['wildcard_discarded']);
+        $this->assertFalse($this->configWith(null)['wildcard_discarded']);
+
+        config(['cors.allowed_origins' => $this->originsFrom('*')]);
+        $this->withHeader('Origin', 'https://evil.test')
+            ->getJson('/api/me')
+            ->assertHeaderMissing('Access-Control-Allow-Origin');
+    }
+
+    public function test_a_discarded_wildcard_is_logged_as_a_warning(): void
+    {
+        Log::spy();
+
+        config(['cors.wildcard_discarded' => true]);
+        (new AppServiceProvider($this->app))->boot();
+
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn (string $message) => str_contains($message, 'CORS_ALLOWED_ORIGINS'));
+    }
+
+    public function test_without_a_wildcard_nothing_is_logged(): void
+    {
+        Log::spy();
+
+        config(['cors.wildcard_discarded' => false]);
+        (new AppServiceProvider($this->app))->boot();
+
+        Log::shouldNotHaveReceived('warning');
     }
 
     /**
