@@ -15,6 +15,7 @@ coverage
 npm-debug.log*
 .vite
 .eslintcache
+.tanstack
 # Playwright (F0.2)
 test-results
 playwright-report

@@ -1,4 +1,4 @@
-import { ApiError, MESSAGES, NETWORK_ERROR } from './errors';
+import { ApiError, errorTreatment, MESSAGES, NETWORK_ERROR } from './errors';
 import type { ApiFailure, ApiSuccess, Page } from './types';
 
 /**
@@ -16,6 +16,11 @@ export interface RequestOptions {
   body?: unknown;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
+  /**
+   * El token del pedido: sin indicar, el de la sesión (setTokenProvider); null, ninguno (el login); un texto, ese token (el
+   * logout de otra pestaña, con su propio token).
+   */
+  token?: string | null;
 }
 
 type ReadOptions = Omit<RequestOptions, 'method' | 'body'>;
@@ -27,6 +32,29 @@ let tokenProvider: TokenProvider = () => null;
 /** La sesión (F0.2) registra de dónde sale el token. */
 export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider;
+}
+
+type SessionErrorHandler = (error: ApiError) => void;
+
+let sessionErrorHandler: SessionErrorHandler = () => undefined;
+
+/**
+ * La sesión (F0.2a) registra qué hacer con un error que la termina (401, USER_INACTIVE y CLINIC_NOT_AVAILABLE). Solo se
+ * llama si el pedido llevó el token de la sesión: los errores del login (sin token) van a su formulario.
+ */
+export function setSessionErrorHandler(handler: SessionErrorHandler): void {
+  sessionErrorHandler = handler;
+}
+
+/** Los tratos de la tabla de errores que terminan la sesión. */
+export function endsSession(error: ApiError): boolean {
+  const treatment = errorTreatment(error.errorCode);
+
+  return (
+    treatment === 'session-expired' ||
+    treatment === 'user-inactive' ||
+    treatment === 'clinic-unavailable'
+  );
 }
 
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
@@ -130,7 +158,8 @@ export async function apiRequest<T>(
   options: RequestOptions = {},
 ): Promise<ApiSuccess<T>> {
   const headers = new Headers({ Accept: 'application/json' });
-  const token = tokenProvider();
+  const usesSessionToken = options.token === undefined;
+  const token = options.token === undefined ? tokenProvider() : options.token;
   let body: BodyInit | undefined;
 
   if (token !== null) {
@@ -167,7 +196,13 @@ export async function apiRequest<T>(
   const json = received.kind === 'json' ? received.value : null;
 
   if (!response.ok || isFailure(json)) {
-    throw toApiError(response, json);
+    const error = toApiError(response, json);
+
+    if (usesSessionToken && token !== null && endsSession(error)) {
+      sessionErrorHandler(error);
+    }
+
+    throw error;
   }
 
   // Un 204 (o un 2xx sin cuerpo) es un éxito sin datos: data = null. Quien llama a un endpoint así lo tipa con T = null.

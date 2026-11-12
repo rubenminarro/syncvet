@@ -13,8 +13,8 @@ export function HomePage() {
       </div>
       <Card title="Bienvenido a SyncVet">
         <p className="mb-0 text-secondary">
-          Acá vas a ver la sucursal actual y los accesos a cada módulo. La sesión y el menú según
-          tus permisos llegan en la próxima entrega.
+          Acá vas a ver la sucursal actual y los accesos a cada módulo. El menú según tus permisos y
+          el cambio de sucursal llegan en la próxima entrega.
         </p>
       </Card>
     </>
