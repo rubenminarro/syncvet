@@ -2,7 +2,7 @@
 
 Esquema del MVP y arquitectura base de SyncVet. Es la carpeta `backend/` del monorepo: los comandos de esta guía se corren desde acá. Las reglas de trabajo están en [`CLAUDE.md`](CLAUDE.md) y las comunes, en el [`CLAUDE.md`](../CLAUDE.md) de la raíz.
 
-Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos maestros) y FASE 3 (agenda y turnos) completadas; sigue decidir entre el frontend y la FASE 4, historia clínica. El estado de cada fase está en
+Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos maestros) y FASE 3 (agenda y turnos) completadas, y la entrega de soporte del frontend (front-00) integrada con la F0 del frontend (R-063); sigue el frontend (F1 a F3) y, después, la FASE 4, historia clínica. El estado de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../docs/03-plan-desarrollo/README.md) y el punto de continuidad, en [`docs/03-plan-desarrollo/handoff.md`](../docs/03-plan-desarrollo/handoff.md).
 
 ## Qué incluye

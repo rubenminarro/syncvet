@@ -1389,3 +1389,23 @@ sin errores ni avisos; `npm test`, 269 tests en 21 archivos del frontend, en ver
 
 **Qué no cambió.** El backend: ni código ni tests (rutas, permisos, migraciones, `error_code` y códigos HTTP iguales); `composer
 test:fast`, 1445 casos (1431 en verde y 14 omitidos, solo de MySQL).
+
+# R-063 Cierre de la F0 del frontend y merge a `main` (2026-11-12)
+
+Cierre de la F0 del frontend (base y login), junto con la entrega de soporte del backend (front-00), con las cuatro entregas cerradas
+(R-059 a R-062). El detalle, en el [cierre de la F0](../../03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Entregas | front-00 (R-059), 0.1 (R-060), 0.2a (R-061) y 0.2b (R-062): COMPLETADO, cada una con su revisión, sus correcciones y su validación; las cinco ramas de la cadena, en GitHub | Cierre |
+| F0 | COMPLETADO: el criterio de cierre se cumple, punto por punto en el cierre de la F0 (ingresar, cambiar de sucursal, salir en todas las pestañas y el vencimiento, de punta a punta con Playwright contra `syncvet_e2e`) | Usuario |
+| Regresión del backend | Desde `backend/`, en serie, sobre `2cd113a` (código de `b1bc017`): SQLite, 1445 casos (14 omitidos, solo de MySQL), 14183 aserciones; MySQL, 1445 casos sin omitidos, 14257 aserciones. 78 rutas, 135 permisos y 36 migraciones, sin cambios desde front-00. `composer audit`, sin avisos | Cierre |
+| Regresión del frontend | Desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 269 tests en 21 archivos; `npm run test:e2e`, 11 de 11. `npm audit`: solo el aviso de `minimatch` de la deuda 19 (npm lo cuenta 10 veces, una por paquete que lo trae) | Cierre |
+| Postman | Newman, las 14 colecciones de `docs/05-pruebas/postman` (R-057), servidor en el puerto 8001: 483 pedidos y 1072 aserciones, sin fallas | Cierre |
+| `npm run preview` | Lo que quedaba PENDIENTE DE VERIFICACIÓN de la 0.1, verificado por HTTP: sirve `dist/`, las rutas de la aplicación y el proxy de `/api` | Cierre |
+| Deudas | Nuevas en la F0: 19 y 20 (frontend, prioridad baja). Las del backend, sin cambios. Abiertas: 2, 3, 5, 6, 15 y 17 (backend); 19 y 20 (frontend). La 19 aclara que npm cuenta el aviso por paquete | Cierre |
+| Pendientes | El desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`) pasa a la F3; B8 de la 0.2b sigue PENDIENTE DE VERIFICACIÓN | Cierre |
+| Merge a `main` | Autorizado por el usuario el 2026-11-12: merge `--no-ff` desde `feature/front-0-2b-permisos`, que contiene `docs/frontend-analisis`, `feature/front-00-me-sucursales`, `feature/front-0-1-esqueleto` y `feature/front-0-2a-sesion`. Antes del push de `main`, en `main`: la suite del backend en serie (SQLite y MySQL) y `npm test` del frontend. Las ramas se conservan. El hash del merge no puede ir en el commit que lo precede: se informa al usuario y se anota en el handoff al empezar lo siguiente | Usuario |
+| Siguiente | El análisis y el diseño de la F1 del frontend (clientes y pacientes), sobre la API de la FASE 1 | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

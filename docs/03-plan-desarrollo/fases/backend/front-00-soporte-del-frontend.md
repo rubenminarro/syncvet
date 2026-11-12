@@ -3,7 +3,7 @@
 Entrega del backend fuera de las fases del MVP, pedida por la [F0 del frontend](../frontend/f0-base.md) antes de su entrega 0.2
 (R-058). Estado: **CERRADA** (R-059): implementada, revisada, corregida y validada por el usuario el 2026-11-12 ([resultado](#resultado)).
 Diseño aprobado el 2026-11-12 (R-058), en `docs/frontend-analisis`, con las [preguntas](#preguntas) respondidas. Rama:
-`feature/front-00-me-sucursales`, sin integrar a `main` todavía: se integra al cerrar la F0 del frontend (R-059).
+`feature/front-00-me-sucursales`, integrada a `main` con el cierre de la F0 del frontend (R-059, R-063; [cierre de la F0](../frontend/f0-base.md#cierre-de-la-f0)).
 
 ## Objetivo
 

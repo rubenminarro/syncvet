@@ -42,6 +42,7 @@ El plan está en [`fases/frontend/`](fases/frontend/README.md), con las decision
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| [F0](fases/frontend/f0-base.md) | Base: esqueleto (0.1) y sesión (0.2a y 0.2b) | EN CURSO (diseño aprobado, R-058): la 0.1 COMPLETADA (R-060) en `feature/front-0-1-esqueleto`; la 0.2a (sesión) COMPLETADA (R-061) en `feature/front-0-2a-sesion`; la 0.2b (permisos) COMPLETADA (R-062) en `feature/front-0-2b-permisos`; falta el cierre de la F0 |
-| [Soporte del backend](fases/backend/front-00-soporte-del-frontend.md) | B1 a B3: sucursales en `me`, CORS y paginación en `snake_case`; antes de la F0.2 | COMPLETADO (R-059), en `feature/front-00-me-sucursales`, sin integrar a `main` (se integra al cerrar la F0); diseño (R-058) |
-| F1 a F3 | Clientes y pacientes, datos maestros, agenda y turnos | PENDIENTE |
+| [F0](fases/frontend/f0-base.md) | Base: esqueleto (0.1) y sesión (0.2a y 0.2b) | COMPLETADO (R-063): 0.1 (R-060), 0.2a (R-061) y 0.2b (R-062); diseño (R-058). Integrada a `main` con un merge `--no-ff` desde `feature/front-0-2b-permisos` ([cierre](fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| [Soporte del backend](fases/backend/front-00-soporte-del-frontend.md) | B1 a B3: sucursales en `me`, CORS y paginación en `snake_case`; antes de la F0.2 | COMPLETADO (R-059); diseño (R-058). Integrada a `main` con la F0 (R-063) |
+| F1 | Clientes y pacientes, sobre la API de la FASE 1 | PENDIENTE: sigue su análisis y diseño |
+| F2 y F3 | Datos maestros, agenda y turnos | PENDIENTE |

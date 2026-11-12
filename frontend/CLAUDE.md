@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md) |
-| Entrega | 0.1, esqueleto sin backend: COMPLETADA (R-060) en `feature/front-0-1-esqueleto`; 0.2a, la sesión contra la API real: COMPLETADA (R-061) en `feature/front-0-2a-sesion`; 0.2b, permisos, sucursal, `/perfil` y Playwright: COMPLETADA (R-062) en `feature/front-0-2b-permisos` |
-| Siguiente | El cierre de la F0: el [criterio de cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#criterio-de-cierre) (con Newman y todas las colecciones de Postman, R-057) y el merge de la cadena de ramas a `main` (R-059) |
-| Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
+| Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | Ninguna en curso |
+| Siguiente | El análisis y el diseño de la F1 (clientes y pacientes), sobre la API de la FASE 1 del backend; ningún código antes del diseño aprobado |
+| Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del cierre de la F0, el 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -177,7 +177,7 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 
 | # | Deuda | Prioridad |
 |---|---|---|
-| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint`; solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
+| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta 10 veces, una por paquete); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
 | 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su

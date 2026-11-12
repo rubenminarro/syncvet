@@ -1,7 +1,8 @@
 # F0 — Base del frontend
 
-Etapa: Base. Estado: **DISEÑO APROBADO** por el usuario el 2026-11-12 (R-058), en `docs/frontend-analisis`, con las decisiones
-del análisis y las [preguntas del diseño](#preguntas-del-diseño) respondidas. El estado vigente de cada fase está en
+Etapa: Base. Estado: **COMPLETADO** el 2026-11-12 (R-063; [cierre](#cierre-de-la-f0)) e integrado a `main`. Diseño aprobado
+por el usuario el 2026-11-12 (R-058), en `docs/frontend-analisis`, con las decisiones del análisis y las
+[preguntas del diseño](#preguntas-del-diseño) respondidas. El estado vigente de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
@@ -28,7 +29,7 @@ backend. Cada entrega recorre los pasos 4 a 7 de [`prompts/README.md`](../../pro
 main ── feature/front-00-me-sucursales (B1–B3, cerrada, R-059)
            └─ feature/front-0-1-esqueleto (0.1, cerrada, R-060)
                 └─ feature/front-0-2a-sesion (0.2a, cerrada, R-061)
-                     └─ feature/front-0-2b-permisos (0.2b, cerrada, R-062) ── merge a main al cerrar la F0
+                     └─ feature/front-0-2b-permisos (0.2b, cerrada, R-062) ── merge a main al cerrar la F0 (R-063)
 ```
 
 **Decisión del usuario (R-059).** La entrega del backend se cerró primero y no se integra a `main` todavía: la 0.1 sale de su rama y
@@ -841,8 +842,104 @@ bases SQLite de prueba, `config/`, `resources/`, `storage/`, `bootstrap/`, `publ
 comprobó que ninguna ruta tuviera archivos versionados y que 551 de los 552 archivos sueltos (sin `vendor/`) fueran idénticos a
 alguna versión del historial de Git (el que no, `.phpunit.result.cache`, es una caché); sin fotos ni logos en `storage/app`. El
 `.env` viejo (otra `APP_KEY`, sin `CORS_ALLOWED_ORIGINS`) se movió fuera del repositorio, a
-`C:laragonwwwsyncvet-raiz-vieja.env`, como respaldo; el resto se borró. `syncvet.code-workspace` quedó. Después: `git status`
+`C:\laragon\www\syncvet-raiz-vieja.env`, como respaldo; el resto se borró. `syncvet.code-workspace` quedó. Después: `git status`
 sin cambios en lo versionado, `composer test:fast` (desde `backend/`) 1445 casos, 1431 en verde y 14 omitidos (solo de MySQL), y
 `npm test` en verde (las cifras del cierre, abajo). En `setup.md`, la ruta del paso 5 estaba rota (un `\e` y un
 `\n` convertidos en caracteres de control): corregida. El `backend/.env` de esa PC tiene `DEMO_PASSWORD` entre comillas dobles, no
 simples como pide `setup.md`.
+
+### Cierre de la F0
+
+**COMPLETADA el 2026-11-12 (R-063)**, con la entrega de soporte del backend (front-00). Las ramas se encadenaron
+(`docs/frontend-analisis` → `feature/front-00-me-sucursales` → `feature/front-0-1-esqueleto` → `feature/front-0-2a-sesion` →
+`feature/front-0-2b-permisos`), todas en GitHub, y se integran a `main` con un merge `--no-ff` desde `feature/front-0-2b-permisos`,
+autorizado por el usuario (R-063). Las ramas se conservan.
+
+**Qué se construyó.** El frontend nace en `frontend/` con el stack de R-058 (Node 26, React 19, Vite 8, TypeScript 6 estricto,
+TanStack Router y Query, React Hook Form con Zod, date-fns con `@date-fns/tz`, Tabler sin su JS, Vitest con MSW y Playwright con el
+Edge instalado): el cliente de la API sobre `fetch` con `ApiError` y la tabla de `error_code`, las fechas en `America/Asuncion` y los
+guaraníes, la capa de componentes sobre Tabler, el test de voseo con las listas del backend, la sesión contra la API real (token en
+`sessionStorage`, aviso previo, vencimiento, cierre por token y entre pestañas, pestaña nueva que pide la sesión), los permisos (menú
+y rutas según `me.permissions`), el selector de la sucursal actual y `/perfil` con la contraseña propia. Rutas del frontend:
+`/ingresar`, `/`, `/perfil`, `/configuracion` (provisoria, solo el administrador), `/sin-permiso` y la página de no encontrado. Del
+lado del backend (front-00): `me.branches`, CORS por `CORS_ALLOWED_ORIGINS` y `meta.pagination` en `snake_case`. En la cadena, contra
+`main`: 112 archivos de `frontend/` y 38 de `backend/` (23 de `app/`, `config/`, la documentación del backend y `.env.example`; 15 de
+tests).
+
+| Entrega | Contenido | Commits | Al cerrar |
+|---|---|---|---|
+| Diseño | Análisis del frontend y diseño de la F0 y de front-00 | `db76757` (R-058) | — |
+| [front-00](../backend/front-00-soporte-del-frontend.md#resultado) | B1 a B3: sucursales en `me`, CORS y paginación en `snake_case` | `cec996c`, `9495067`, `3615e60`, `bdaa78f` (cierre `ce5da95`) | Backend: 1445 casos; 14183 aserciones en SQLite y 14257 en MySQL |
+| [0.1](#entrega-01) | Esqueleto, sin la API real | `72e75bc`, `b5d3ecf` (cierre `76047b2`) | Frontend: 93 tests en 9 archivos |
+| [0.2a](#entrega-02a) | Sesión | `93e347c`, `ece1faf` (cierre `6ddb195`) | Frontend: 195 tests en 15 archivos |
+| [0.2b](#entrega-02b) | Permisos, sucursal, `/perfil` y Playwright | `68c68b6`, `023a90e`, `e77f64a`, `91dca14`, `b1bc017` (cierre `2cd113a`) | Frontend: 269 tests en 21 archivos; Playwright, 11 casos |
+
+**Regresión del cierre** (2026-11-12, en `feature/front-0-2b-permisos` sobre `2cd113a`; el código es el de `b1bc017`):
+
+* **Backend**, desde `backend/`, en serie: `composer test` (SQLite), 1445 casos, 1431 en verde y 14 omitidos (solo de MySQL), 14183
+  aserciones (4 min 33 s); después `composer test:mysql` (`syncvet_test_mysql`), 1445 casos en verde, sin omitidos, 14257 aserciones
+  (7 min 15 s). Frente a `main` antes de la F0 (monorepo, R-057: 1395 casos; 13964 y 14038 aserciones), 50 casos más, todos de
+  front-00. Rutas, permisos y migraciones sin cambios: 78, 135 y 36. `composer audit`: "No security vulnerability advisories found.".
+* **Frontend**, desde `frontend/`: `npm run typecheck`, `npm run lint` y `npm run build`, sin errores ni avisos; `npm test` en 33 s;
+  `npm run test:e2e` (Playwright, Edge, contra `syncvet_e2e`, recreada por la preparación), 11 de 11 en 2,3 min. `npm audit`: 10
+  avisos moderados, todos el mismo, `minimatch` (GHSA-g3hv-75wg-m249; [deuda 19](../../deuda-tecnica.md)).
+* **`npm run preview`** (PENDIENTE DE VERIFICACIÓN desde la 0.1): verificado por HTTP, no en el navegador: sirve `dist/` (`/ingresar`
+  responde 200 con el bundle del build, una URL inventada también cae en la aplicación) y `/api/me` pasa por el proxy al backend
+  (401 en JSON).
+
+Corrida de `npm test` del frontend (2026-11-12): 269 tests en 21 archivos, en verde.
+
+**Colecciones de Postman** (R-057: todas las de `docs/05-pruebas/postman`). Newman 6.2.3, desde la raíz, con el servidor levantado
+desde `backend/` en el puerto 8001 contra la base de desarrollo; una vuelta, sin fallas: 483 pedidos y 1072 aserciones.
+
+| Colección | Pedidos | Aserciones | Fallas |
+|---|---|---|---|
+| Clientes | 24 | 48 | 0 |
+| Especies | 41 | 93 | 0 |
+| Foto | 23 | 60 | 0 |
+| Pacientes | 30 | 61 | 0 |
+| Auditoría | 16 | 47 | 0 |
+| Configuración | 24 | 67 | 0 |
+| Servicios | 27 | 64 | 0 |
+| Sucursales | 44 | 123 | 0 |
+| Usuarios | 54 | 136 | 0 |
+| Veterinarios | 32 | 75 | 0 |
+| Agendas | 35 | 68 | 0 |
+| Disponibilidad | 50 | 81 | 0 |
+| Series | 25 | 42 | 0 |
+| Turnos | 58 | 107 | 0 |
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| La 0.1, la 0.2a y la 0.2b cerradas | R-060, R-061 y R-062, cada una con su revisión, sus correcciones y su validación en el navegador ([0.1](#entrega-01), [0.2a](#entrega-02a), [0.2b](#entrega-02b)) |
+| Los tests de Vitest y de Playwright en verde | `npm test`, 269 de 269 en 21 archivos; `npm run test:e2e`, 11 de 11 (corridas de este cierre) |
+| `lint`, `typecheck` y `build` sin errores | Sin errores ni avisos (corridas de este cierre) |
+| Con `syncvet_e2e`: ingresar | `permisos.spec.ts`: los tres roles ingresan y ven su menú; una ruta protegida sin sesión lleva a `/ingresar` y vuelve después de ingresar; `sesion.spec.ts`: credenciales incorrectas |
+| Con `syncvet_e2e`: cambiar de sucursal | `sesion.spec.ts`, "cambio de sucursal": la barra, el inicio y la otra pestaña, y la vuelta a la original |
+| Con `syncvet_e2e`: salir en todas las pestañas | `sesion.spec.ts`, "salir en una pestaña cierra la otra" |
+| Con `syncvet_e2e`: el vencimiento | `sesion.spec.ts`, "vencimiento": `expires_at` pasado cierra la sesión en las dos pestañas con ese token |
+| Las colecciones de Postman en verde (R-057: todas) | Las 14 con Newman, sin fallas (tabla de arriba) |
+
+**Deudas** ([`deuda-tecnica.md`](../../deuda-tecnica.md)). Nuevas en la F0: 19 (`npm audit`, `minimatch`, solo en las herramientas de
+desarrollo; R-060) y 20 (el validador no ignora los bloques de código en "Resultado"; 0.2b), las dos de prioridad baja. Ninguna del
+backend se abrió ni se cerró. Abiertas al cerrar: del backend, 2, 3, 5, 6, 15 y 17; del frontend, 19 y 20.
+
+**Decisiones de la fase.** R-058 (análisis del frontend: stack, sesión, tipos a mano, rutas en castellano, proxy, Playwright con
+`syncvet_e2e`, el orden F0 → F1 → F2 → F3 → FASE 4 y el diseño de la F0 y de front-00), R-059 (cierre de front-00 y la cadena de
+ramas, con el merge a `main` al cerrar la F0), R-060 (cierre de la 0.1: la cifra de tests del frontend sale de la corrida registrada,
+la deuda 19 y la división de la 0.2 en 0.2a y 0.2b), R-061 (cierre de la 0.2a: el cierre por token, "Tu sesión terminó" y las
+cifras de los resultados cerrados fuera de `/validar-docs`), R-062 (cierre de la 0.2b: `/configuracion` provisoria, la preparación
+de `syncvet_e2e`, Edge, la repetición de la contraseña y la espera de 1000 ms de la pestaña nueva) y R-063 (este cierre y el merge),
+en el [registro](../../../01-arquitectura/decisiones/registro.md).
+
+**Quedan PENDIENTE DE VERIFICACIÓN:** el desvío 8 de la 0.1 (`toApiDateTime` con `-03:00`), que pasa a la F3, la primera que manda
+fechas con hora a la API; y B8 de la revisión de la 0.2b (el pedido nombraba B1 a B8; en el repositorio constan B1 a B7).
+
+**Pendiente para la F1** (clientes y pacientes, sobre la API de la FASE 1 del backend): el análisis y el diseño, con sus preguntas,
+antes de cualquier código. Lo que la F0 deja preparado y la F1 estrena: los listados con `getPage` y `meta.pagination`
+(`DataTable` y la paginación), las claves de consulta de la clínica (`['clients', …]`, que no se invalidan al cambiar de sucursal),
+los formularios con el 422 por campo (`applyValidationErrors`), el primer trato propio de un código de negocio (`*_IN_USE` ofrece
+inactivar), la foto del paciente como descarga con token (`blob` y una URL de objeto) con `PAYLOAD_TOO_LARGE` en su campo, las
+fechas sin hora (`birth_date`, `formatDateOnly`) y la primera entrada de un módulo en el menú, con su permiso.

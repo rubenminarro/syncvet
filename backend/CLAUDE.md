@@ -41,10 +41,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   diseño aprobado (R-047 y R-048); entregas 3.0, zona de la sesión de MySQL (deuda 16 resuelta; R-049), 3.1, agendas, horario
   semanal y bloqueos (R-050), 3.2a, turnos únicos (R-051), 3.2b, estados del turno (R-053), 3.3, turnos recurrentes (R-054), y 3.4,
   disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Después, la entrega de soporte del
-  frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) en
-  `feature/front-00-me-sucursales`, sin integrar a `main`: se integra al cerrar la F0 del frontend. Sigue la F0 del frontend (R-058)
-  y, después de la F3, la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de front-00,
-  1445 casos (14183 aserciones en SQLite y 14257 en MySQL).
+  frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) e integrada a
+  `main` con la F0 del frontend (R-063). Sigue el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy:
+  78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F0 del frontend, 1445 casos (14183 aserciones en SQLite y 14257
+  en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -80,8 +80,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
   *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** historia clínica, aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
-* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; F0 en curso, con la
-  0.1 (esqueleto), la 0.2a (sesión contra esta API) y la 0.2b (permisos) cerradas (R-060 a R-062). Su estado y sus reglas, en
+* **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; la F0 (esqueleto,
+  sesión contra esta API y permisos) completada e integrada a `main` (R-063); sigue la F1, clientes y pacientes. Su estado y sus reglas, en
   [`frontend/CLAUDE.md`](../frontend/CLAUDE.md).
 
 ---
