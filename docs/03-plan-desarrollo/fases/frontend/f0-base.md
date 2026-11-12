@@ -195,16 +195,16 @@ encontrado, `/sin-permiso` se ve, el ancho de tablet (768 px) no rompe el layout
 
 #### Pendiente para el cierre (0.1)
 
-Implementación del 2026-11-12, en WIP: falta la revisión y la validación del usuario en el navegador. Las versiones instaladas están
+Implementación del 2026-11-12, revisada y corregida el mismo día (WIP): falta la validación del usuario en el navegador. Las versiones instaladas están
 en [`technology-stack.md`](../../../01-arquitectura/technology-stack.md#frontend).
 
 | # | Desvío o decisión pendiente | Motivo | Estado |
 |---|---|---|---|
-| 1 | La variable del proxy es `API_PROXY_TARGET`, no `VITE_API_PROXY_TARGET` | Pedido de la implementación. Sin el prefijo `VITE_`, Vite no la expone al código del navegador: solo la lee `vite.config.ts` | A confirmar |
-| 2 | `@tabler/core` 1.7.4, no la 1.7.5 (la última) | La 1.7.5 se publicó el mismo día y npm respondía 404 al bajar su paquete; la 1.7.4 es del 2026-11-08. El resto, la última versión de cada paquete dentro de lo pedido (TypeScript 6.0.3, porque la última es la 7) | A confirmar; subir a la 1.7.5 en la 0.2 |
-| 3 | `npm audit`: 1 aviso moderado, `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249), que traen `eslint` 10 y `typescript-eslint` 8.72.2 | Solo en las herramientas de desarrollo (ESLint sobre el código propio), no llega al build. No hay arreglo compatible: `npm audit fix --force` baja ESLint a la 9 | Decisión del usuario: registrarlo como deuda o esperar la versión de `typescript-eslint` con `minimatch` 11 |
-| 4 | Un `it()` por caso, sin `.each` ni `it()` dentro de bucles, controlado por ESLint | `/validar-docs` cuenta los tests del frontend leyendo los `it(` y `test(` (como cuenta los `test_` del backend). `vitest list` no expande los `.each` con su análisis estático y, sin él, tarda de 25 a 30 segundos | A confirmar |
-| 5 | Los tests corren con `TZ=UTC` y sin la división del código de las rutas | En UTC, mostrar una fecha con la zona de la PC hace fallar los tests aunque la PC esté en hora de Paraguay (esta lo está: sin eso, la mutación de la zona sobrevivía). Sin dividir el código, el primer render de las rutas no espera la carga de los pedazos, que con la suite en paralelo pasaba los 5 segundos | Informativo |
+| 1 | La variable del proxy es `API_PROXY_TARGET`, no `VITE_API_PROXY_TARGET` | Pedido de la implementación. Sin el prefijo `VITE_`, Vite no la expone al código del navegador: solo la lee `vite.config.ts` (la revisión comprobó que no llega a `dist/`) | Aceptado (usuario) |
+| 2 | `@tabler/core` 1.7.4, no la 1.7.5 (la última) | La 1.7.5 se publicó el mismo día y npm respondía 404 al bajar su paquete; la 1.7.4 es del 2026-11-08. El resto, la última versión de cada paquete dentro de lo pedido (TypeScript 6.0.3, porque la última es la 7) | Aceptado (usuario). Pendiente para la 0.2: subir a la 1.7.5 |
+| 3 | `npm audit`: 1 aviso moderado, `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249), que traen `eslint` 10 y `typescript-eslint` 8.72.2 | Solo en las herramientas de desarrollo (ESLint sobre el código propio), no llega al build. No hay arreglo compatible: `npm audit fix --force` baja ESLint a la 9 | Registrado como [deuda 19](../../deuda-tecnica.md), prioridad baja (usuario) |
+| 4 | Un `it()` por caso, sin `.each` ni `it()` dentro de bucles, controlado por ESLint (así quedó la implementación) | Cambiado por el usuario en la revisión: se permiten `.each` y los bucles, y la cifra de tests del frontend sale de la última corrida de `npm test` registrada en "Resultado" de la fase (H13) | Resuelto (H13) |
+| 5 | Los tests corren con `TZ=UTC` y sin la división del código de las rutas | En UTC, mostrar una fecha con la zona de la PC hace fallar los tests aunque la PC esté en hora de Paraguay (esta lo está: sin eso, la mutación de la zona sobrevivía). Sin dividir el código, el primer render de las rutas no espera la carga de los pedazos, que con la suite en paralelo pasaba los 5 segundos | Aceptado (usuario) |
 | 6 | `tsconfig.test.json` aparte, con los tipos de Node | El código de la aplicación no ve `process` ni `node:fs`; los tests (el de voseo lee `src/`) sí | Informativo |
 | 7 | `frontend/.editorconfig` (sangría de 2) y `frontend/.gitattributes` (fin de línea LF) | Prettier toma la sangría de 4 del `.editorconfig` de la raíz (la del backend); con LF fijo, `prettier --check` da lo mismo en todas las PC | Informativo |
 | 8 | `toApiDateTime` manda la hora con el desplazamiento (`2026-07-01T09:00:00.000-03:00`), como da `TZDate(...).toISOString()` | Lo pedido. Que la API lo acepte en cada campo de fecha y hora se verifica con la primera llamada real (0.2 o F3) | PENDIENTE DE VERIFICACIÓN |
@@ -214,6 +214,43 @@ en [`technology-stack.md`](../../../01-arquitectura/technology-stack.md#frontend
 
 Mutaciones de la implementación: las cinco del diseño, cada una detectada por sus tests (la conversión a `ApiError`, reintentar
 los 4xx, ignorar el campo en `setError`, formatear con la zona de la PC y leer `perPage`).
+
+**Revisión del 2026-11-12 y correcciones (autorizadas por el usuario).** Un revisor que no escribió la entrega encontró 15
+hallazgos; todos se corrigieron en la misma rama, cada uno con su test:
+
+| # | Hallazgo | Corrección | Estado |
+|---|---|---|---|
+| H1 | `formatDate('2020-05-10')` mostraba `09/05/2020`: una fecha sin hora (`birth_date`) pasaba por `Date` como medianoche UTC; un valor inválido rompía el render (`RangeError`) | `formatDateOnly` solo cambia el formato del texto (valida año, mes y día, con los bisiestos); `formatDate` la reconoce. Fechas vacías o inválidas: `''` | Corregido |
+| H2 | Un 422 con `branch_ids.0` no llegaba al campo `branch_ids`: `applyValidationErrors` buscaba la clave exacta | La clave va al campo con el mismo nombre, al de un patrón con `*` (`hours.*.starts_at`) o al campo padre; las de un mismo campo juntan sus mensajes | Corregido |
+| H3 | Un 204 (o un 2xx sin cuerpo) terminaba en `HTTP_ERROR` | Decisión del usuario: es un éxito sin datos (`data = null`). Un 2xx con un cuerpo que no es JSON sigue siendo `HTTP_ERROR` | Corregido |
+| H4 | ESLint no frenaba `window.fetch`, `globalThis.fetch`, `self.fetch` ni `XMLHttpRequest` | `no-restricted-properties` y `XMLHttpRequest` en `no-restricted-globals` | Corregido |
+| H5 | El test de voseo no revisaba los textos de una palabra ("Ingrese" en un botón, `'Elija'`) | Revisa todo texto de JSX y las cadenas de una palabra con mayúscula inicial; no da falsos positivos en `src/` | Corregido |
+| H6 | `formatGuaranies` convertía el texto con `Number` (coma flotante): `''` mostraba "Gs. 0" y `'12345678901234567'`, `…568` | Decisión del usuario: el texto se valida con `/^-?\d+(?:\.\d+)?$/` y va tal cual a `Intl.NumberFormat`. Vacío o inválido (`null`, `''`, `' '`, `'abc'`, `'12abc'`, `'1e3'`, `NaN`, `Infinity`): `''` | Corregido |
+| H7 | Sin test: una cancelación convertida en `NETWORK_ERROR` | El cliente mira la señal (`signal.aborted`), no el tipo del error (`fetch` rechaza con el motivo de `abort()`); test | Corregido |
+| H8 | Sin test: un 2xx con `success: false` | Test | Corregido |
+| H9 | Sin test que distinga `last_page` de `total` en "Siguiente"; una página fuera de rango mostraba "Mostrando 61 a 32" | Test de la última página con `total` mayor que `last_page`; fuera de rango, "Mostrando 0 a 0 de 32" | Corregido |
+| H10 | Sin test: los parámetros `null`, `undefined` o vacíos no van en la URL | Test | Corregido |
+| H11 | En el informe figuraba como "`Retry-After` con `parseInt`", pero la mutación que sobrevivió era otra: guaraníes con `parseFloat` (acepta `"12abc"`) | La cubre H6 (`'12abc'` da `''`) | Corregido (por H6) |
+| H12 | Ninguna regla prohibía `dangerouslySetInnerHTML` (no se usa) | `no-restricted-syntax` sobre el atributo de JSX | Corregido |
+| H13 | Desvío 4 | Decisión del usuario: se permiten `.each` y los bucles (sin las reglas de ESLint). La cifra de tests del frontend sale de la última corrida de `npm test` registrada en "Resultado" de la fase, con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``. `/validar-docs` toma la de fecha más reciente; informa si la cantidad de archivos de test no coincide o si no hay corrida; ya no compara las cifras de un archivo de test. `check-docs-test.php`, casos 7 y 8 (55 de 55) | Corregido |
+| H14 | Desvío 3 | [Deuda 19](../../deuda-tecnica.md), prioridad baja | Registrado |
+| H15 | Desvíos 1, 2 y 5 | Aceptados por el usuario; `@tabler/core` 1.7.5, pendiente para la 0.2 | Registrado |
+
+Además, a pedido del usuario: la sección **Velocidad** de [`frontend/CLAUDE.md`](../../../../frontend/CLAUDE.md#8-velocidad)
+(versiones fijas en el diseño y un solo `npm ci`; `environment: node` para los tests sin DOM; `vitest related` durante el trabajo y
+la suite, `typecheck` y `lint` una vez al final; Prettier solo sobre los archivos cambiados; validador, skills y documentación general
+en entregas aparte) y cómo excluir `frontend/node_modules` y `backend/vendor` del antivirus en
+[`setup.md`](../../../04-desarrollo/setup.md#antivirus-de-windows). Vitest se divide en dos proyectos: `node` (los `.test.ts`) y
+`dom` (los `.test.tsx`, jsdom); `client.test.ts` pide jsdom con `// @vitest-environment jsdom`.
+
+Mutaciones de la revisión, cada una detectada por sus tests (solo los relacionados): la fecha sin hora por `Date`; sin el campo
+padre (`branch_ids.0`); el 204 como error; la cancelación como `NETWORK_ERROR`; los guaraníes con `Number()`; el voseo sin las
+palabras sueltas; "Siguiente" por `total`; un 2xx con `success: false` como éxito; los parámetros vacíos en la URL.
+
+Corrida final, una vez, el 2026-11-12: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test` del frontend, 93 tests en 9 archivos, en
+verde, en 9,55 s. Tiempo de la suite según el entorno: antes de la revisión (61 tests, todo en jsdom), 9,35 s (32,9 s en la primera
+corrida de la revisión, en frío); con las 93 pruebas todo en jsdom, 9,97 s (preparar el entorno, 46 %); con `node` para los
+`.test.ts`, 9,55 s (40 %). La ganancia es chica (4 %): casi todo el tiempo de jsdom es de los `.test.tsx`, que lo necesitan.
 
 ### 0.2 Sesión
 
@@ -283,4 +320,6 @@ Respondidas por el usuario el 2026-11-12 (R-058).
 
 ## Resultado
 
-Sin entregas todavía.
+Sin entregas cerradas todavía. La 0.1, en WIP (revisada y corregida; falta la validación del usuario):
+
+Corrida de `npm test` del frontend (2026-11-12): 93 tests en 9 archivos, en verde.

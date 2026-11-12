@@ -74,8 +74,10 @@ interface PaginationBarProps {
 
 export function PaginationBar({ pagination, onPageChange }: PaginationBarProps) {
   const { total, per_page, current_page, last_page } = pagination;
-  const from = total === 0 ? 0 : (current_page - 1) * per_page + 1;
-  const to = Math.min(current_page * per_page, total);
+  const start = (current_page - 1) * per_page + 1;
+  // Una página fuera de rango (la 5 de 3, después de borrar) no tiene filas: "Mostrando 0 a 0 de 32".
+  const from = start > total ? 0 : start;
+  const to = from === 0 ? 0 : Math.min(current_page * per_page, total);
 
   return (
     <div className="d-flex align-items-center">

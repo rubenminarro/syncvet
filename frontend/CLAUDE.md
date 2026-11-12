@@ -9,9 +9,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md) |
-| Entrega | 0.1, esqueleto sin backend: EN CURSO en `feature/front-0-1-esqueleto` (WIP, sin validar todavía por el usuario) |
+| Entrega | 0.1, esqueleto sin backend: EN CURSO en `feature/front-0-1-esqueleto` (WIP, revisada y corregida; sin validar todavía por el usuario) |
 | Siguiente | 0.2, la sesión contra la API real, en `feature/front-0-2-sesion` |
-| Tests | Vitest: 61 tests en 9 archivos, en verde |
+| Tests | Vitest: 93 tests en 9 archivos, en verde (corrida del 2026-11-12, registrada en "Resultado" de `f0-base.md`) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -57,7 +57,7 @@ frontend/
 ├── .nvmrc, .npmrc       Node 26; engine-strict y save-exact
 ├── .env.example         API_PROXY_TARGET (el backend del proxy de desarrollo)
 ├── vite.config.ts       React, el plugin de TanStack Router, el proxy de /api y Vitest
-├── eslint.config.js     Reglas, con fetch prohibido fuera del cliente y un it() por caso en los tests
+├── eslint.config.js     Reglas, con fetch y XMLHttpRequest prohibidos fuera del cliente y sin dangerouslySetInnerHTML
 └── src/
     ├── main.tsx         Arranque: estilos de Tabler y <App>
     ├── routeTree.gen.ts Generado por el plugin del router (se versiona; no se edita a mano)
@@ -83,25 +83,38 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   en `src/lib/api/errors.ts` (`errorTreatment`, `userMessage`).
 * **Toda llamada a la API pasa por `src/lib/api/client.ts`** (`api.get`, `api.post`…, `getPage` para los listados): pone
   `Accept: application/json` y el token y convierte cualquier falla en un `ApiError` (`status`, `errorCode`, `message`, `errors`,
-  `retryAfter`). ESLint prohíbe `fetch` en el resto del código.
+  `retryAfter`). Un 204 (o un 2xx sin cuerpo) es un éxito sin datos: `data` es `null` (el endpoint se tipa con `T = null`); un
+  2xx con un cuerpo que no es JSON es `HTTP_ERROR`. Una cancelación (la señal abortada) se propaga tal cual, no es
+  `NETWORK_ERROR`. ESLint prohíbe en el resto del código `fetch` (también `window.fetch`, `globalThis.fetch` y `self.fetch`) y
+  `XMLHttpRequest`, y en todo el código `dangerouslySetInnerHTML`.
 * **Lecturas con `useQuery` y cambios con `useMutation`**, con las claves en el `api.ts` de cada módulo. `createQueryClient()`
   (`src/lib/api/query.ts`): una lectura se reintenta una vez solo con una falla de red o un 5xx; una mutación, nunca.
 * **Tipos escritos a mano** en el `types.ts` del módulo, con los nombres de la API (`snake_case`, también `meta.pagination`:
   `per_page`, `current_page`, `last_page`); no se traducen a `camelCase`.
 * **Formularios**: React Hook Form con Zod; un 422 se vuelca con `applyValidationErrors` (`src/lib/api/form-errors.ts`): cada clave
-  de `errors` a su campo con `setError` y foco en el primero; las demás, a una `Alert` arriba del formulario.
+  de `errors` a su campo con `setError` y foco en el primero; las demás, a una `Alert` arriba del formulario. Las claves con índice
+  de Laravel (`branch_ids.0`) van al campo padre declarado (`branch_ids`), o al de un patrón con `*` (`hours.*.starts_at` recibe
+  `hours.1.starts_at`); varias claves de un mismo campo juntan sus mensajes.
 * **Componentes de Tabler a través de `src/components/ui`**: las páginas no repiten el marcado de Tabler. Sin Tailwind ni otra
   biblioteca de componentes; sin el JS de Tabler (menús, diálogos y avisos son componentes de React).
 * **Fechas y dinero**: la API manda las fechas con hora en UTC (`Z`); se muestran con `formatDate`, `formatDateTime` y `formatTime`
   (`src/lib/format/dates.ts`, siempre en `America/Asuncion`, nunca con la zona de la PC); se mandan con `toApiDateTime` (la hora de
-  pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Guaraníes con
-  `formatGuaranies` (`Intl.NumberFormat('es-PY')`, PYG, sin decimales).
+  pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Una fecha sin
+  hora (`birth_date`, `Y-m-d`) no es un instante: `formatDateOnly` solo cambia el formato del texto, sin pasar por `Date`
+  (`formatDate` la reconoce y hace lo mismo). Guaraníes con `formatGuaranies` (`Intl.NumberFormat('es-PY')`, PYG, sin decimales):
+  el texto decimal de la API se valida con una expresión regular y se formatea tal cual, sin pasar por un número de coma flotante.
+  Un valor vacío (`null`, `undefined`, `''`) o inválido se muestra vacío (`''`), en las fechas y en el dinero (nunca "Gs. 0" ni
+  un error que rompa el render).
 * **Permisos** (0.2): el menú y los botones según `me.permissions`; la API vuelve a controlar todo (un botón oculto no protege).
 * **Descargas con token** (desde la F1): se piden con el cliente como `blob` y se muestran con una URL de objeto.
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
-  con la zona de la PC falle. **Un `it()` por caso, escrito**: sin `.each` ni `it()` dentro de bucles (ESLint lo controla), porque
-  `/validar-docs` cuenta los tests leyendo los `it(` y `test(`. Para casos repetidos, una función auxiliar llamada desde cada `it()`.
-  En las páginas con el layout, consultar por texto con selector: `*ByRole` tarda segundos en jsdom con los íconos SVG.
+  con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
+  necesita el DOM lo pide con `// @vitest-environment jsdom` en la primera línea (`client.test.ts`). Se permiten `.each` y los
+  bucles. La cifra de tests del frontend sale de la última corrida de `npm test`, registrada en "Resultado" de la fase con la
+  línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``: `/validar-docs` la compara con la
+  documentación (no cuenta los tests en el código). En las páginas con el layout, consultar por texto con selector: `*ByRole`
+  tarda segundos en jsdom con los íconos SVG. Los textos de JSX y las cadenas de una palabra con mayúscula inicial también pasan
+  por el test de voseo.
 
 ## 6. Qué hace la interfaz con cada código de error
 
@@ -130,5 +143,28 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 
 ## 7. Deuda técnica abierta
 
-Ninguna registrada. Lo pendiente de la 0.1 está en "Pendiente para el cierre (0.1)" de
-[`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#pendiente-para-el-cierre-01).
+| # | Deuda | Prioridad |
+|---|---|---|
+| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint`; solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
+
+El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo pendiente de la 0.1 está en "Pendiente para el
+cierre (0.1)" de [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#pendiente-para-el-cierre-01).
+
+## 8. Velocidad
+
+Reglas para que una entrega no se vaya en esperas (la F0.1 tardó más de 50 minutos, casi la mitad en npm y en verificaciones
+repetidas):
+
+* **Versiones fijas en el diseño y un solo `npm ci`.** Las versiones exactas de los paquetes nuevos se deciden y se anotan en el
+  diseño de la entrega; la implementación las instala de una vez (`npm install <a>@x <b>@y …`) y después solo `npm ci`. Nada de
+  consultar paquete por paquete con `npm view`.
+* **`environment: node` para los tests sin DOM.** Preparar jsdom es la mayor parte del tiempo de la suite: los `.test.ts` corren
+  en `node` (proyecto `node` de `vite.config.ts`) y solo los `.test.tsx`, o un `.test.ts` que lo pide, en jsdom.
+* **Durante el trabajo, `npx vitest related <archivos tocados> --run`**, o el archivo de test puntual. La suite completa,
+  `typecheck`, `lint` y `build`, una sola vez al final de la entrega.
+* **Prettier solo sobre los archivos cambiados**: `npx prettier --write <archivos>` (por ejemplo, los de
+  `git diff --name-only -- frontend`), no `npm run format` sobre todo el proyecto en cada vuelta.
+* **Una entrega, un tema.** El validador de la documentación, las skills y la documentación general (roadmap, handoff,
+  `technology-stack.md`) van en entregas o cierres separados, no mezclados con el código del frontend.
+* En Windows, excluir `frontend/node_modules` del antivirus (los pasos, en
+  [`setup.md`](../docs/04-desarrollo/setup.md#antivirus-de-windows)): sin eso, una instalación tarda varios minutos más.

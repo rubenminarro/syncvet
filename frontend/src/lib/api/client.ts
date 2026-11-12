@@ -72,15 +72,30 @@ function isFailure(body: unknown): body is ApiFailure {
   );
 }
 
-async function readJson(response: Response): Promise<unknown> {
+/** El cuerpo de la respuesta: vacío (un 204), JSON o algo fuera del contrato (HTML de un proxy, JSON roto). */
+type Body = { kind: 'empty' } | { kind: 'json'; value: unknown } | { kind: 'other' };
+
+async function readBody(response: Response): Promise<Body> {
+  let text: string;
+
+  try {
+    text = await response.text();
+  } catch {
+    return { kind: 'other' };
+  }
+
+  if (text.trim() === '') {
+    return { kind: 'empty' };
+  }
+
   if (!(response.headers.get('Content-Type') ?? '').includes('json')) {
-    return null;
+    return { kind: 'other' };
   }
 
   try {
-    return await response.json();
+    return { kind: 'json', value: JSON.parse(text) as unknown };
   } catch {
-    return null;
+    return { kind: 'other' };
   }
 }
 
@@ -139,21 +154,36 @@ export async function apiRequest<T>(
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
   } catch (error) {
-    // Una cancelación (TanStack Query, al desmontar) no es una falla de la red.
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    // Una cancelación (TanStack Query, al desmontar) no es una falla de la red: se propaga tal cual. Se mira la señal y
+    // no el tipo del error, porque fetch rechaza con el motivo de abort(), que puede no ser un DOMException.
+    if (options.signal?.aborted === true) {
       throw error;
     }
 
     throw new ApiError({ status: 0, errorCode: NETWORK_ERROR, message: MESSAGES.network });
   }
 
-  const json = await readJson(response);
+  const received = await readBody(response);
+  const json = received.kind === 'json' ? received.value : null;
 
   if (!response.ok || isFailure(json)) {
     throw toApiError(response, json);
   }
 
-  if (json === null) {
+  // Un 204 (o un 2xx sin cuerpo) es un éxito sin datos: data = null. Quien llama a un endpoint así lo tipa con T = null.
+  if (received.kind === 'empty') {
+    return {
+      success: true,
+      status: response.status,
+      message: '',
+      data: null as T,
+      errors: null,
+      meta: null,
+      timestamp: '',
+    };
+  }
+
+  if (received.kind === 'other') {
     throw new ApiError({
       status: response.status,
       errorCode: 'HTTP_ERROR',

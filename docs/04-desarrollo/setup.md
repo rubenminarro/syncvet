@@ -34,6 +34,33 @@ npm run dev    # http://localhost:5173
 El servidor de Vite manda `/api` al backend de `API_PROXY_TARGET` (por defecto `http://syncvet.test`, el vhost de Laragon): para otro,
 copiar `frontend/.env.example` a `frontend/.env` y cambiarlo. El detalle, en [`frontend/README.md`](../../frontend/README.md).
 
+## Antivirus de Windows
+
+Microsoft Defender revisa cada archivo que se escribe: `npm ci` (decenas de miles de archivos en `frontend/node_modules`) y
+`composer install` (`backend/vendor`) tardan varios minutos más, y también Vitest y Vite al leerlos. Se recomienda excluir **solo
+esas dos carpetas** (no todo el repositorio ni el proceso `node.exe`): son dependencias que se bajan de npm y de Packagist y se
+pueden volver a instalar en cualquier momento.
+
+Con la interfaz:
+
+1. Abrir **Seguridad de Windows** → **Protección antivirus y contra amenazas**.
+2. En **Configuración de antivirus y protección contra amenazas**, **Administrar la configuración**.
+3. Bajar hasta **Exclusiones** → **Agregar o quitar exclusiones** (pide permiso de administrador).
+4. **Agregar una exclusión** → **Carpeta** y elegir `C:\laragon\www\syncvet\frontend\node_modules` (la carpeta tiene que existir:
+   correr antes `npm ci`).
+5. Repetir con `C:\laragon\www\syncvet\backend\vendor`.
+
+Con PowerShell, abierto como administrador (con la ruta del repositorio de esa PC):
+
+```powershell
+Add-MpPreference -ExclusionPath "C:\laragon\www\syncvet\frontend\node_modules"
+Add-MpPreference -ExclusionPath "C:\laragon\www\syncvet\backend\vendor"
+Get-MpPreference | Select-Object -ExpandProperty ExclusionPath   # verificar
+```
+
+Si la PC la administra la empresa, la política puede no permitir exclusiones propias: en ese caso las agrega el área de sistemas.
+Para sacar una exclusión, `Remove-MpPreference -ExclusionPath "<ruta>"`.
+
 ## Datos de demostración y cambio de rama
 
 Para probar la API a mano ([guía de Postman](../05-pruebas/guia-postman.md)), el `.env` necesita `DEMO_PASSWORD`, la contraseña de

@@ -7,7 +7,8 @@
  *
  * Tipos: current (del backend), frontend (del frontend: lo nombra su cláusula), class (cifra de una
  * clase de test del backend: `LoginTest` (9 tests)), test-file (cifra de un archivo de test del
- * frontend: `client.test.ts` (12 tests)), historical, delta, example.
+ * frontend: `client.test.ts` (12 tests); check-docs.php no la compara, porque los tests del frontend no se
+ * cuentan en el código), historical, delta, example.
  *
  * En un documento del frontend (frontend/…) una cifra 'current' es del frontend salvo que su cláusula
  * nombre al backend: eso lo decide check-docs.php con mentionsBackend(), porque depende del archivo.

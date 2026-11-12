@@ -27,10 +27,28 @@ export default defineConfig([
       },
     },
     rules: {
-      // Toda llamada a la API pasa por src/lib/api/client.ts.
+      // Toda llamada a la API pasa por src/lib/api/client.ts: ni fetch (tampoco window.fetch, globalThis.fetch ni
+      // self.fetch) ni XMLHttpRequest en el resto del código.
       'no-restricted-globals': [
         'error',
         { name: 'fetch', message: 'Usá el cliente de src/lib/api/client.ts.' },
+        { name: 'XMLHttpRequest', message: 'Usá el cliente de src/lib/api/client.ts.' },
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis', 'self'].map((object) => ({
+          object,
+          property: 'fetch',
+          message: 'Usá el cliente de src/lib/api/client.ts.',
+        })),
+      ],
+      // Sin HTML crudo: React escapa el texto; dangerouslySetInnerHTML abre la puerta a un XSS.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message: 'Sin dangerouslySetInnerHTML: mostrá el texto como texto.',
+        },
       ],
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
     },
@@ -47,26 +65,5 @@ export default defineConfig([
   {
     files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
-    rules: {
-      // Un it() por caso, escrito: /validar-docs cuenta los tests leyendo los it( y test( (como el backend cuenta los
-      // test_), así que ni .each ni it() dentro de un bucle o de un callback de arreglo.
-      'no-restricted-properties': [
-        'error',
-        ...['it', 'test', 'describe'].map((object) => ({
-          object,
-          property: 'each',
-          message: 'Escribí un it() por caso (con una función auxiliar si se repite).',
-        })),
-      ],
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector:
-            ':matches(ForStatement, ForOfStatement, ForInStatement, WhileStatement, DoWhileStatement, CallExpression[callee.property.name=/^(forEach|map|flatMap)$/]) CallExpression[callee.name=/^(it|test)$/]',
-          message:
-            'Escribí un it() por caso, fuera de bucles (con una función auxiliar si se repite).',
-        },
-      ],
-    },
   },
 ]);

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateTime, formatTime, todayInAppZone, toApiDateTime } from './dates';
+import {
+  formatDate,
+  formatDateOnly,
+  formatDateTime,
+  formatTime,
+  todayInAppZone,
+  toApiDateTime,
+} from './dates';
 
 describe('fechas en America/Asuncion', () => {
   /**
@@ -51,5 +58,38 @@ describe('fechas en America/Asuncion', () => {
     // 01:30 UTC del 1 de julio son las 22:30 del 30 de junio en Asunción.
     expect(todayInAppZone('2026-07-01T01:30:00Z')).toBe('2026-06-30');
     expect(todayInAppZone('2026-07-01T03:00:00Z')).toBe('2026-07-01');
+  });
+
+  it('"hoy" cambia justo a la medianoche de Asunción (03:00 UTC)', () => {
+    expect(todayInAppZone('2026-07-01T02:59:59.999Z')).toBe('2026-06-30');
+    expect(todayInAppZone('2026-07-01T03:00:00.000Z')).toBe('2026-07-01');
+  });
+
+  it('una fecha sin hora (birth_date) se muestra tal cual, sin convertirla de zona', () => {
+    expect(formatDateOnly('2020-05-10')).toBe('10/05/2020');
+    expect(formatDateOnly('2024-02-29')).toBe('29/02/2024');
+    // formatDate también la reconoce: new Date('2020-05-10') sería medianoche UTC, el 9 en Asunción.
+    expect(formatDate('2020-05-10')).toBe('10/05/2020');
+  });
+
+  it.each([
+    null,
+    undefined,
+    '',
+    '2023-02-29',
+    '2020-13-01',
+    '2020-04-31',
+    '10/05/2020',
+    '2020-05-10T00:00:00Z',
+  ])('una fecha sin hora vacía o inválida (%j) se muestra vacía', (value) => {
+    expect(formatDateOnly(value)).toBe('');
+  });
+
+  it('una fecha con hora vacía o inválida se muestra vacía, sin romper el render', () => {
+    expect(formatDate('basura')).toBe('');
+    expect(formatDateTime(null)).toBe('');
+    expect(formatTime(undefined)).toBe('');
+    expect(formatDateTime('')).toBe('');
+    expect(formatDateTime(Number.NaN)).toBe('');
   });
 });

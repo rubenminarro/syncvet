@@ -17,7 +17,16 @@ describe('guaraníes', () => {
     expect(plain(formatGuaranies(99999.6))).toBe('Gs. 100.000');
   });
 
-  it('un valor que no es un número queda vacío', () => {
-    expect(formatGuaranies('abc')).toBe('');
+  it('el texto decimal se formatea exacto, sin pasar por un número de coma flotante', () => {
+    // Number('12345678901234567') es 12345678901234568.
+    expect(plain(formatGuaranies('12345678901234567'))).toBe('Gs. 12.345.678.901.234.567');
+    expect(plain(formatGuaranies('-2500.00'))).toBe('Gs. -2.500');
   });
+
+  it.each(['', ' ', null, undefined, 'abc', '12abc', '1e3', '1.234.567', Number.NaN, Infinity])(
+    'un valor vacío o inválido (%j) se muestra vacío, nunca "Gs. 0"',
+    (value) => {
+      expect(formatGuaranies(value)).toBe('');
+    },
+  );
 });

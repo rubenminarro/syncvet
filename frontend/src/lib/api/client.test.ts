@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// El cliente arma la URL con window.location.origin: necesita el DOM.
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { failure, success } from '../../test/api';
@@ -159,6 +161,74 @@ describe('client', () => {
       items: [{ id: 1 }],
       pagination: { total: 31, per_page: 15, current_page: 2, last_page: 3 },
     });
+  });
+
+  it('un 204 es un éxito sin datos (data = null)', async () => {
+    server.use(http.delete('/api/clients/1', () => new HttpResponse(null, { status: 204 })));
+
+    const response = await api.delete<null>('clients/1');
+
+    expect(response).toMatchObject({ success: true, status: 204, data: null, meta: null });
+  });
+
+  it('un 200 sin cuerpo también es un éxito sin datos', async () => {
+    server.use(http.post('/api/logout', () => new HttpResponse('', { status: 200 })));
+
+    const response = await api.post<null>('logout');
+
+    expect(response).toMatchObject({ success: true, status: 200, data: null });
+  });
+
+  it('un 200 con un cuerpo que no es JSON (una página HTML) es HTTP_ERROR', async () => {
+    server.use(
+      http.get(
+        '/api/me',
+        () =>
+          new HttpResponse('<!doctype html><title>SyncVet</title>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    );
+
+    const error = await caught(api.get('me'));
+
+    expect(error).toMatchObject({ status: 200, errorCode: 'HTTP_ERROR' });
+  });
+
+  it('un 2xx con success: false del contrato también es ApiError', async () => {
+    server.use(http.get('/api/me', () => failure(200, 'CLIENT_IN_USE', 'El cliente está en uso.')));
+
+    const error = await caught(api.get('me'));
+
+    expect(error).toMatchObject({ status: 200, errorCode: 'CLIENT_IN_USE' });
+  });
+
+  it('una cancelación se propaga tal cual: no es NETWORK_ERROR', async () => {
+    server.use(http.get('/api/me', () => success({ id: 1 })));
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = api.get('me', { signal: controller.signal });
+
+    await expect(result).rejects.not.toBeInstanceOf(ApiError);
+    await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('los parámetros null, undefined o vacíos no van en la URL', async () => {
+    let params: URLSearchParams | undefined;
+    server.use(
+      http.get('/api/clients', ({ request }) => {
+        params = new URL(request.url).searchParams;
+        return success([]);
+      }),
+    );
+
+    await api.get('clients', {
+      query: { page: 1, search: null, status: undefined, name: '', active: false },
+    });
+
+    expect(params?.toString()).toBe('page=1&active=false');
   });
 
   it('parseRetryAfter acepta segundos o una fecha HTTP', () => {

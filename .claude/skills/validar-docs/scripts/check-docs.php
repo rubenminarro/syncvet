@@ -12,12 +12,15 @@ require __DIR__ . '/figures.php';
 // El backend (Laravel) vive en esta carpeta: las rutas de código citadas sin prefijo (`app/…`, `tests/…`) se leen desde acá.
 const BACKEND = 'backend';
 
-// El frontend (React + Vitest). Sus cifras ("61 tests del frontend") se comparan con sus tests, nunca con los del backend.
+// El frontend (React + Vitest). Sus cifras ("93 tests del frontend") se comparan con la última corrida registrada, nunca
+// con los tests del backend.
 const FRONTEND = 'frontend';
 
-// Un test de Vitest: it( o test( (también .skip, .only, .todo…), sin contar el método .test( de una expresión regular.
-// frontend/CLAUDE.md exige un it() por caso, sin .each ni bucles (lo controla ESLint), para que este conteo sea exacto.
-const FRONTEND_TEST_CALL = '/(?<![.\w$])(?:it|test)(?:\.(?:skip|only|todo|fails|concurrent))?\(/';
+// La cifra de tests del frontend no se cuenta en el código (los .each y los bucles generan casos): sale de la última
+// corrida de `npm test` registrada en "Resultado" de una fase del frontend, con esta línea de formato fijo:
+// Corrida de `npm test` del frontend (2026-11-12): 93 tests en 9 archivos, en verde.
+const FRONTEND_PHASES = 'docs/03-plan-desarrollo/fases/frontend';
+const FRONTEND_RUN = '/^Corrida de `npm test` del frontend \((\d{4}-\d{2}-\d{2})\): (\d+) tests en (\d+) archivos\b/u';
 
 // Raíces de una ruta citada que se leen desde la raíz del repositorio; las demás, desde BACKEND.
 const REPOSITORY_ROOTS = ['docs', 'backend', 'frontend'];
@@ -214,24 +217,55 @@ function permissionCount(): ?int
     return class_exists($class) && defined("$class::PERMISSIONS") ? count($class::PERMISSIONS) : null;
 }
 
-// Tests del frontend, por archivo (ruta desde frontend/src). Sin frontend/src, sin dato.
-$frontendTests = [];
+/**
+ * Las corridas de `npm test` del frontend registradas en "Resultado" de las fases del frontend (FRONTEND_RUN), con su
+ * fecha, tests, archivos y dónde están. Una línea con ese formato fuera de "Resultado" no cuenta.
+ *
+ * @return list<array{date: string, tests: int, files: int, where: string}>
+ */
+function frontendRuns(): array
+{
+    $runs = [];
 
-foreach (is_dir(FRONTEND . '/src') ? files(FRONTEND . '/src', '/\.test\.tsx?$/') : [] as $file) {
-    $frontendTests[substr($file, strlen(FRONTEND . '/src/'))] = preg_match_all(FRONTEND_TEST_CALL, file_get_contents($file));
+    foreach (is_dir(FRONTEND_PHASES) ? files(FRONTEND_PHASES, '/\.md$/') : [] as $file) {
+        $inResult = false;
+
+        foreach (preg_split('/\R/', file_get_contents($file)) as $number => $line) {
+            if (preg_match('/^(#+)\s+(.*)$/u', $line, $heading)) {
+                // "Resultado" abre la sección; un título del mismo nivel o superior, la cierra.
+                if ($inResult !== false && strlen($heading[1]) <= $inResult) {
+                    $inResult = false;
+                }
+
+                if (preg_match('/^Resultado\b/u', trim($heading[2]))) {
+                    $inResult = strlen($heading[1]);
+                }
+
+                continue;
+            }
+
+            if ($inResult !== false && preg_match(FRONTEND_RUN, $line, $match)) {
+                $runs[] = ['date' => $match[1], 'tests' => (int) $match[2], 'files' => (int) $match[3], 'where' => $file . ':' . ($number + 1)];
+            }
+        }
+    }
+
+    return $runs;
 }
 
-$frontendTotal = is_dir(FRONTEND . '/src') ? array_sum($frontendTests) : null;
+// La última corrida registrada (la de fecha más reciente; con la misma fecha, la última encontrada). Sin frontend/src,
+// sin dato.
+$frontendRuns = frontendRuns();
+usort($frontendRuns, fn ($a, $b) => strcmp($a['date'], $b['date']));
+$frontendRun = is_dir(FRONTEND . '/src') && $frontendRuns !== [] ? end($frontendRuns) : null;
+$frontendTotal = $frontendRun['tests'] ?? null;
+$frontendTestFiles = is_dir(FRONTEND . '/src') ? count(files(FRONTEND . '/src', '/\.test\.tsx?$/')) : 0;
 
-/**
- * El archivo de test del frontend que cita un documento (`client.test.ts` o `lib/api/client.test.ts`): el único que
- * termina así, o null.
- */
-function frontendTestFile(array $frontendTests, string $cited): ?string
-{
-    $matches = array_values(array_filter(array_keys($frontendTests), fn ($path) => $path === $cited || str_ends_with($path, '/' . $cited)));
-
-    return count($matches) === 1 ? $matches[0] : null;
+if (is_dir(FRONTEND . '/src') && $frontendTestFiles > 0 && $frontendRun === null) {
+    report('Cifras', FRONTEND_PHASES, 'no hay ninguna corrida de `npm test` del frontend registrada en "Resultado"');
+} elseif ($frontendRun !== null && $frontendRun['files'] !== $frontendTestFiles) {
+    // Un archivo de test agregado o borrado después de la última corrida registrada: la cifra quedó vieja.
+    report('Cifras', $frontendRun['where'], "la última corrida registrada tiene {$frontendRun['files']} archivos de test; frontend/src tiene $frontendTestFiles");
 }
 
 $compared = 0;
@@ -266,29 +300,22 @@ foreach (live() as $file) {
                 $figure = ['type' => 'frontend'];
             }
 
-            if ($figure['type'] === 'frontend' && $kind === 'tests') {
+            if (preg_match(FRONTEND_RUN, $line)) {
+                // La línea de una corrida registrada es el dato, no una cifra a comparar (las de fases anteriores son
+                // historia).
+                $excluded[] = "corrida registrada: $where: $text";
+            } elseif ($figure['type'] === 'frontend' && $kind === 'tests') {
                 $compared++;
 
                 if ($frontendTotal !== null && $count !== $frontendTotal) {
-                    report('Cifras', $where, "dice $count tests del frontend; el frontend tiene $frontendTotal");
+                    report('Cifras', $where, "dice $count tests del frontend; la última corrida registrada tiene $frontendTotal");
                 }
             } elseif ($figure['type'] === 'frontend') {
                 // El frontend solo tiene cifra de tests: "5 rutas" del frontend no se compara con las rutas de la API.
                 $excluded[] = "frontend sin cifra comparable: $where: $text";
             } elseif ($figure['type'] === 'test-file') {
-                $compared++;
-                $path = frontendTestFile($frontendTests, $figure['file']);
-
-                // Sin frontend/src no hay con qué comparar.
-                if ($frontendTotal === null) {
-                    continue;
-                }
-
-                if ($path === null) {
-                    report('Cifras', $where, "cita {$figure['file']}, que no existe en frontend/src (o hay más de uno)");
-                } elseif ($frontendTests[$path] !== $count) {
-                    report('Cifras', $where, "$path tiene {$frontendTests[$path]} tests, no $count");
-                }
+                // Los tests de un archivo del frontend no se pueden contar en el código (.each, bucles): no se compara.
+                $excluded[] = "cifra de un archivo de test del frontend: $where: $text";
             } elseif ($figure['type'] === 'current') {
                 $compared++;
 
@@ -329,10 +356,14 @@ printf(
     $actual['tests'], $actual['rutas'] ?? 'sin dato de', $actual['controllers'], $actual['services'],
     $actual['migraciones'], $actual['permisos'] ?? 'sin dato de',
 );
-printf(
-    "Frontend: %s tests en %d archivos.\n",
-    $frontendTotal ?? 'sin dato de', count($frontendTests),
-);
+if ($frontendRun === null) {
+    printf("Frontend: sin corrida registrada (%d archivos de test).\n", $frontendTestFiles);
+} else {
+    printf(
+        "Frontend: %d tests en %d archivos (corrida del %s, %s).\n",
+        $frontendRun['tests'], $frontendRun['files'], $frontendRun['date'], $frontendRun['where'],
+    );
+}
 printf("Cifras comparadas: %d. Excluidas por una marca explícita: %d.\n\n", $compared, count($excluded));
 
 if (in_array('--detalle', $argv, true)) {

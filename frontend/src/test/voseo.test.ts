@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
@@ -236,6 +235,19 @@ function isClassList(text: string): boolean {
   return classes && (text.startsWith(' ') || tokens.some((token) => token.includes('-')));
 }
 
+/**
+ * Un texto que llega al usuario: el de JSX siempre (un botón "Guardar"); una cadena, si tiene un espacio o es una sola
+ * palabra con mayúscula inicial ("Ingresar", label="Elija"). Una cadena de una palabra en minúsculas o en mayúsculas
+ * ("json", "GET", "Content-Type", "ApiError") es un identificador, no texto.
+ */
+function isUserText(text: string, jsx: boolean): boolean {
+  if (text === '' || isClassList(text)) {
+    return false;
+  }
+
+  return jsx || text.includes(' ') || /^\p{Lu}\p{Ll}+$/u.test(text);
+}
+
 const SRC = join(import.meta.dirname, '..');
 
 function sourceFiles(dir: string): string[] {
@@ -266,6 +278,7 @@ function texts(path: string): [number, string][] {
 
   const visit = (node: ts.Node): void => {
     let text: string | null = null;
+    let jsx = false;
 
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       text = node.text;
@@ -273,9 +286,10 @@ function texts(path: string): [number, string][] {
       text = node.text;
     } else if (ts.isJsxText(node)) {
       text = node.text.replace(/\s+/g, ' ').trim();
+      jsx = true;
     }
 
-    if (text !== null && text.includes(' ') && !isClassList(text)) {
+    if (text !== null && isUserText(text, jsx)) {
       found.push([source.getLineAndCharacterOfPosition(node.getStart()).line + 1, text]);
     }
 
@@ -301,6 +315,18 @@ describe('voseo', () => {
     expect(forbiddenForms('Elegí tu sucursal y revisalos.')).toEqual([]);
     expect(forbiddenForms('La consulta registra la fecha.')).toEqual([]);
     expect(forbiddenForms('CLIENT_IN_USE')).toEqual([]);
+  });
+
+  it('los textos de JSX y las palabras sueltas con mayúscula inicial se revisan; los identificadores, no', () => {
+    expect(isUserText('Ingrese', false)).toBe(true);
+    expect(isUserText('Anterior', true)).toBe(true);
+    expect(isUserText('ingrese', true)).toBe(true);
+    expect(isUserText('GET', false)).toBe(false);
+    expect(isUserText('ApiError', false)).toBe(false);
+    expect(isUserText('Content-Type', false)).toBe(false);
+    expect(isUserText('json', false)).toBe(false);
+    expect(forbiddenForms('Ingrese')).toEqual(['ingrese']);
+    expect(forbiddenForms('Elija')).toEqual(['elija']);
   });
 
   it('las clases de CSS no son texto', () => {

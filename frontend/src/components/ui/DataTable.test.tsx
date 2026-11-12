@@ -46,4 +46,33 @@ describe('DataTable', () => {
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
   });
+
+  it('deshabilita "Siguiente" por last_page, no por total', () => {
+    render(
+      <DataTable
+        columns={[{ header: 'Nombre', cell: (row: { id: number; name: string }) => row.name }]}
+        rows={rows}
+        rowKey={(row) => row.id}
+        pagination={{ total: 45, per_page: 15, current_page: 3, last_page: 3 }}
+      />,
+    );
+
+    expect(screen.getByText('Mostrando 31 a 45 de 45')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Anterior' })).toBeEnabled();
+  });
+
+  it('una página fuera de rango muestra "Mostrando 0 a 0"', () => {
+    render(
+      <DataTable
+        columns={[{ header: 'Nombre', cell: (row: { id: number; name: string }) => row.name }]}
+        rows={[]}
+        rowKey={(row) => row.id}
+        pagination={{ total: 32, per_page: 15, current_page: 5, last_page: 3 }}
+      />,
+    );
+
+    expect(screen.getByText('Mostrando 0 a 0 de 32')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  });
 });

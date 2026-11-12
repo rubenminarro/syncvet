@@ -28,9 +28,9 @@ Las cifras de los dos proyectos se cuentan y se validan por separado (el resumen
 | Proyecto | Qué cifras | Contra qué |
 |---|---|---|
 | Backend | tests, rutas, controllers, services, migraciones y permisos; `` `LoginTest` (9 tests) `` | Los `test_` de `backend/tests`, `route:list`, las carpetas de `backend/app` y el seeder de permisos |
-| Frontend | "N tests" en una cláusula que nombra al frontend (o a Vitest) sin nombrar al backend, o en un documento de `frontend/`; `` `client.test.ts` (12 tests) `` | Los `it(` y `test(` de `frontend/src/**/*.test.ts(x)` (un `it()` por caso: `frontend/CLAUDE.md` §5) |
+| Frontend | "N tests" en una cláusula que nombra al frontend (o a Vitest) sin nombrar al backend, o en un documento de `frontend/` | La última corrida registrada en "Resultado" de una fase de `docs/03-plan-desarrollo/fases/frontend/`, con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (la de fecha más reciente). Los tests no se cuentan en el código: `.each` y los bucles generan casos |
 
-Una cifra del frontend que no es de tests ("5 rutas del frontend") no se compara con el backend: se lista como excluida.
+Una cifra del frontend que no es de tests ("5 rutas del frontend"), la de un archivo de test (`` `client.test.ts` (12 tests) ``) y las líneas de las corridas registradas no se comparan: se listan como excluidas. Si la cantidad de archivos de test de `frontend/src` no coincide con la de la última corrida, o no hay ninguna corrida registrada, se informa: hay que registrar la corrida nueva.
 
 ## 2. Revisión de consistencia
 

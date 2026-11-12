@@ -38,10 +38,20 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
-      environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}'],
       restoreMocks: true,
+      // Velocidad: preparar jsdom es la mayor parte del tiempo de la suite. Los tests de .ts (lógica, sin DOM) corren en
+      // node; los de .tsx (componentes), en jsdom. Un .ts que necesita el DOM lo pide con // @vitest-environment jsdom.
+      projects: [
+        {
+          extends: true,
+          test: { name: 'node', environment: 'node', include: ['src/**/*.test.ts'] },
+        },
+        {
+          extends: true,
+          test: { name: 'dom', environment: 'jsdom', include: ['src/**/*.test.tsx'] },
+        },
+      ],
     },
   };
 });

@@ -55,8 +55,10 @@ registro de decisiones (R-046, la primera vez).
 
 ## Frontend
 
-Vitest con Testing Library, MSW y jsdom, desde `frontend/`: `npm test` (también `npm run typecheck`, `npm run lint` y
+Vitest con Testing Library, MSW y jsdom (solo los tests de componentes; la lógica corre en `node`), desde `frontend/`: `npm test` (también `npm run typecheck`, `npm run lint` y
 `npm run build` antes de terminar una entrega). Los tests no usan red (MSW con `onUnhandledFrame: 'error'`), corren en UTC para que
 una fecha mostrada con la zona de la PC falle y comprueban que `America/Asuncion` sea UTC-3 todo el año, como
-`AsuncionTimezoneTest`. Las reglas (un `it()` por caso, consultas en jsdom) están en [`frontend/CLAUDE.md`](../../frontend/CLAUDE.md)
-§5. Playwright, contra la base `syncvet_e2e`, llega en la F0.2.
+`AsuncionTimezoneTest`. Las reglas (el entorno de cada test, consultas en jsdom, la velocidad) están en
+[`frontend/CLAUDE.md`](../../frontend/CLAUDE.md) §5 y §8. La cifra de tests del frontend sale de la última corrida de `npm test`
+registrada en "Resultado" de la fase, con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``
+(`/validar-docs` la compara con las cifras de la documentación). Playwright, contra la base `syncvet_e2e`, llega en la F0.2.

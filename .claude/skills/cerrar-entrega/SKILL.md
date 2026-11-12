@@ -55,7 +55,7 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |
 | Historial | `docs/01-arquitectura/decisiones/registro.md` solo crece: no se corrigen secciones viejas |
-| `backend/CLAUDE.md` y `frontend/CLAUDE.md` | La sección 1 (**Estado actual**) del proyecto de la entrega se actualiza en cada cierre, con el estado de la fase y de la entrega; la del otro, solo si la entrega lo cambió (una entrega del backend pedida por el frontend, por ejemplo). El resto, solo si cambió una regla, y solo esa regla. Las cifras de tests de cada uno salen de su suite: las del frontend, de `npm test` |
+| `backend/CLAUDE.md` y `frontend/CLAUDE.md` | La sección 1 (**Estado actual**) del proyecto de la entrega se actualiza en cada cierre, con el estado de la fase y de la entrega; la del otro, solo si la entrega lo cambió (una entrega del backend pedida por el frontend, por ejemplo). El resto, solo si cambió una regla, y solo esa regla. Las cifras de tests de cada uno salen de su suite: las del frontend, de la corrida de `npm test` del cierre, que se registra en "Resultado" de la fase con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (de ahí la toma `/validar-docs`) |
 | Roadmap | Solo cambia el estado de lo entregado. Sin fases nuevas sin aprobación |
 
 ## 5. Verificar
