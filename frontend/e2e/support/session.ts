@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { PASSWORD_ENV } from './env';
 
 /** Los usuarios de la Clínica A del DemoSeeder (docs/05-pruebas/guia-postman.md). */
@@ -36,6 +36,29 @@ export async function login(page: Page, user: User, password = demoPassword()) {
   await page.goto('/ingresar');
   await submitLogin(page, user, password);
   await expect(page.getByRole('heading', { name: 'Inicio' })).toBeVisible();
+}
+
+/** Cuánto se espera que una pestaña nueva reciba la sesión de la abierta (la app espera 1 s; la PC puede estar cargada). */
+export const SHARED_SESSION_TIMEOUT_MS = 20_000;
+
+/**
+ * Abre una segunda pestaña y espera, con su tiempo límite, a que llegue la sesión de la abierta: primero en su
+ * sessionStorage (session-share) y después en la barra. No lo supone: si no llega, falla acá y no en un paso posterior.
+ */
+export async function openSecondTab(context: BrowserContext, user: User): Promise<Page> {
+  const other = await context.newPage();
+  await other.goto('/');
+  await expect
+    .poll(() => other.evaluate(() => sessionStorage.getItem('syncvet.session')), {
+      message: 'la segunda pestaña no recibió la sesión de la abierta',
+      timeout: SHARED_SESSION_TIMEOUT_MS,
+    })
+    .not.toBeNull();
+  await expect(other.locator('.session-user')).toHaveText(user.name, {
+    timeout: SHARED_SESSION_TIMEOUT_MS,
+  });
+
+  return other;
 }
 
 export async function logout(page: Page) {

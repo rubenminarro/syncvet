@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { SECOND_BRANCH } from './support/env';
-import { demoPassword, login, logout, submitLogin, USERS } from './support/session';
+import { demoPassword, login, logout, openSecondTab, submitLogin, USERS } from './support/session';
 
 test('cambio de sucursal: la barra, el inicio y la otra pestaña (y vuelve a la original)', async ({
   page,
@@ -11,9 +11,8 @@ test('cambio de sucursal: la barra, el inicio y la otra pestaña (y vuelve a la 
   const original = (await selector.locator('option:checked').textContent()) ?? '';
   expect(original).not.toBe('');
 
-  // Una segunda pestaña toma la sesión de la primera.
-  const other = await context.newPage();
-  await other.goto('/');
+  // Una segunda pestaña toma la sesión de la primera (y se espera a que llegue).
+  const other = await openSecondTab(context, USERS.admin);
   const otherSelector = other.getByLabel('Sucursal actual');
   await expect(otherSelector.locator('option:checked')).toHaveText(original);
 
@@ -84,9 +83,7 @@ test('cambio de contraseña: el error en su campo, la sesión sigue y se ingresa
 
 test('salir en una pestaña cierra la otra', async ({ page, context }) => {
   await login(page, USERS.recepcion);
-  const other = await context.newPage();
-  await other.goto('/');
-  await expect(other.locator('.session-user')).toHaveText(USERS.recepcion.name);
+  const other = await openSecondTab(context, USERS.recepcion);
 
   await logout(page);
 
@@ -118,9 +115,7 @@ test('vencimiento: expires_at pasado en sessionStorage cierra la sesión en las 
   context,
 }) => {
   await login(page, USERS.recepcion);
-  const other = await context.newPage();
-  await other.goto('/');
-  await expect(other.locator('.session-user')).toHaveText(USERS.recepcion.name);
+  const other = await openSecondTab(context, USERS.recepcion);
 
   // Forzado: la sesión guardada vence hace un minuto; al volver a la pestaña (focus) se relee y se cierra.
   await page.evaluate(() => {

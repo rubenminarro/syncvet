@@ -16,8 +16,8 @@ import {
 /** El aviso previo: 10 minutos antes de expires_at (P2). */
 export const WARNING_BEFORE_MS = 10 * 60 * 1000;
 
-/** Cuánto espera una pestaña nueva la sesión de una abierta (P1). */
-export const SESSION_REQUEST_TIMEOUT_MS = 300;
+/** Cuánto espera una pestaña nueva la sesión de una abierta (P1): 1 s, no 300 ms, para una PC lenta (revisión de la 0.2b). */
+export const SESSION_REQUEST_TIMEOUT_MS = 1000;
 
 /** Cuánto se espera el POST logout de "Salir" (la sesión local ya se cerró antes de mandarlo). */
 export const LOGOUT_TIMEOUT_MS = 5000;

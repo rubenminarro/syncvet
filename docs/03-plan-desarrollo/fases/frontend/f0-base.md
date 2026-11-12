@@ -117,7 +117,7 @@ Se escriben en [`frontend/CLAUDE.md`](../../../../frontend/CLAUDE.md) en la 0.1;
 | Al abrir la aplicación | Si hay una sesión guardada sin vencer, `GET /api/me` la valida; si venció, se borra sin llamar a la API |
 | Aviso previo | 10 minutos antes de `expires_at`, un aviso que queda visible con los minutos que quedan, actualizados: "Tu sesión vence en N minutos. Guardá los cambios pendientes." (P2; el texto, desvío 1 de la 0.2a, R-061) |
 | Vencimiento | Un temporizador hasta `expires_at` (los tokens duran 12 horas y la API no los renueva) cierra la sesión con "Tu sesión terminó. Ingresá de nuevo." en las pestañas con ese token (R-061); además se revisa al volver a la pestaña (`visibilitychange`, `focus` y `pageshow`) y cada 15 s, porque los temporizadores se frenan con la PC suspendida |
-| Pestaña nueva | Sin sesión propia, publica `session-request` en `BroadcastChannel('syncvet-sesion')` y espera la respuesta un instante (alrededor de 300 ms); una pestaña con sesión responde `session-share` con el token y `expires_at`, y la nueva lo guarda en su `sessionStorage`. Sin respuesta, va a `/ingresar` (P1). Todas las pestañas comparten así un mismo token |
+| Pestaña nueva | Sin sesión propia, publica `session-request` en `BroadcastChannel('syncvet-sesion')` y espera la respuesta un instante (1000 ms; 300 ms hasta la revisión de la 0.2b); una pestaña con sesión responde `session-share` con el token y `expires_at`, y la nueva lo guarda en su `sessionStorage`. Sin respuesta, va a `/ingresar` (P1). Todas las pestañas comparten así un mismo token |
 | Salir | Primero se borra la sesión local, se limpia la caché de Query y se publica `logout` a todas las pestañas; después, `POST /api/logout` sin esperarlo, con un tiempo límite de 5 s (si falla o no responde, la sesión ya se cerró; R-061) |
 | Todas las pestañas | El mensaje `logout` lleva el id del token (la parte anterior a `\|` del token de Sanctum, que no es secreta) y `all`. Con "Salir" (`all: true`), cada pestaña borra su sesión y su caché y va a `/ingresar`, y una con otro token (dos ingresos simultáneos) también hace su propio `POST /api/logout`. Con el vencimiento o un error de sesión (`all: false`), solo cierran las pestañas con ese mismo token (R-061). Los mensajes con otro formato se descartan. Al cambiar de sucursal, `branch-changed`: las demás pestañas vuelven a pedir `me` e invalidan sus consultas |
 | 401 | En un pedido con el token de la sesión (si el token ya cambió, se ignora): se cierra la sesión en las pestañas con ese token (`logout` en el canal, sin `POST /api/logout`) y se va a `/ingresar?volver=…` con el aviso de sesión vencida (P1, R-061). `USER_INACTIVE` y `CLINIC_NOT_AVAILABLE` con sesión, igual, con el mensaje de la API |
@@ -253,7 +253,7 @@ pestañas es el `BroadcastChannel` del navegador.
    `user-inactive`, `clinic-unavailable` y el resto, alerta con `userMessage(error)`.
 2. **Al abrir o recargar.** El `SessionManager` lee el almacenamiento al crearse: una sesión vencida se borra sin llamar a la API y
    deja el `notice` "Tu sesión terminó. Ingresá de nuevo." (R-061). El `beforeLoad` de `_sesion`: sin sesión propia, `session-request` y
-   espera 300 ms; sin respuesta, `redirect` a `/ingresar?volver=…` (sin `volver` si la ruta era `/`). Con sesión,
+   espera 1000 ms (300 ms hasta la revisión de la 0.2b); sin respuesta, `redirect` a `/ingresar?volver=…` (sin `volver` si la ruta era `/`). Con sesión,
    `ensureQueryData(meQueryOptions())`; un error de sesión hace `redirect` a `/ingresar` (el `SessionManager` ya la cerró). Mientras
    tanto, el `pendingComponent` del layout ("Cargando tu sesión…", `pendingMs: 0`): nunca se ve el formulario de ingreso.
 3. **Salir** (actualizado en el cierre, R-061). Primero cierra: borra el almacenamiento, publica `logout` con `all: true` y limpia la
@@ -514,8 +514,15 @@ anterior a B5 y B6. Se actualizan en el cierre, como en la 0.2a.
   11. Falló "vencimiento": la segunda pestaña no llegó a mostrar la sesión de la primera en 10 s (la traza quedó cortada). Ese caso
   solo pasó, y la suite completa repetida, **11 de 11** (2,3 min). Es intermitente: la pestaña nueva espera la sesión de la abierta
   300 ms (`SESSION_REQUEST_TIMEOUT_MS`, P1) y la primera corrida en una PC nueva es más lenta (Vite compila en frío y el antivirus
-  revisa cada archivo). No se cambió el código. Decidir en el cierre: dejarlo así, darle más espera a la prueba o registrarlo como
-  deuda.
+  revisa cada archivo). En esa corrida no se cambió el código; lo resolvió la decisión siguiente.
+* **Vencimiento intermitente, decisión del usuario (2026-11-12):** la pestaña nueva espera la sesión de la abierta **1000 ms**, no
+  300 (`SESSION_REQUEST_TIMEOUT_MS` en `src/lib/auth/session.ts`): en la PC de una recepción el equipo puede ser lento. Actualizados
+  el flujo 2 de la 0.2a, la fila "Pestaña nueva" de [Sesión (0.2)](#sesión-02) y `frontend/CLAUDE.md` §5. Y Playwright ya no supone
+  que la sesión llegó: `openSecondTab` (`e2e/support/session.ts`), que usan los tres casos con dos pestañas (sucursal, salir y
+  vencimiento), espera con su tiempo límite (`SHARED_SESSION_TIMEOUT_MS`, 20 s) a que la sesión esté en el `sessionStorage` de la
+  pestaña nueva (`expect.poll`) y después en la barra; si no llega, falla ahí, con su mensaje, y no en un paso posterior.
+  `npx vitest related` sobre lo tocado: 128 tests en 9 archivos, en verde. `npm run test:e2e` dos veces seguidas: **11 de 11** (3,4
+  min) y **11 de 11** (2,9 min).
 
 **Validación en el navegador de la corrección (2026-11-12),** como la de arriba: Edge sin ventana, contra `syncvet.test` (base
 `syncvet`) y `npm run dev` (`http://localhost:5173`), con un script y las capturas fuera del repositorio.

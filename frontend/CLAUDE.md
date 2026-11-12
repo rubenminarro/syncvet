@@ -119,7 +119,7 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   token y `expires_at` solo en `sessionStorage` (`syncvet.session`), nunca en `localStorage`, la URL ni el log; `me` en la caché de
   Query (`['me']`). Todo pasa por el `SessionManager` (`src/lib/auth/session.ts`), creado una vez por pestaña en `main.tsx`: los
   componentes lo leen con `useSessionManager()` y `useSessionState()`. Entre pestañas, `BroadcastChannel('syncvet-sesion')`
-  (`channel.ts`), con cada mensaje validado completo (`isSessionMessage`): una pestaña nueva pide la sesión (`session-request`, 300
+  (`channel.ts`), con cada mensaje validado completo (`isSessionMessage`): una pestaña nueva pide la sesión (`session-request`, 1000
   ms); "Salir" cierra todas (`logout` con `all: true`) y manda el `POST logout` después, sin esperarlo (5 s de límite); el
   vencimiento y un error de sesión (401, `USER_INACTIVE`, `CLINIC_NOT_AVAILABLE`) cierran solo las pestañas con ese token, y solo
   si el pedido salió con el token actual. El vencimiento se revisa con temporizadores, al volver a la pestaña (`visibilitychange`,
