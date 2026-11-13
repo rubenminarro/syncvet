@@ -10,7 +10,7 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 |---|---|
 | Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
 | Entrega | Ninguna en curso |
-| Siguiente | El análisis y el diseño de la F1 (clientes y pacientes), sobre la API de la FASE 1 del backend; ningún código antes del diseño aprobado |
+| Siguiente | La F1 (clientes y pacientes): diseño propuesto en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md), a la espera de las decisiones del usuario; ningún código antes del diseño aprobado |
 | Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del cierre de la F0, el 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
