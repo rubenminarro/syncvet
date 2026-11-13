@@ -1,14 +1,20 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { delay, http } from 'msw';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { failure, success } from '../../test/api';
 import { COMPANY, pagination, PERSON } from '../../test/clients';
 import { meFor } from '../../test/roles';
 import { server } from '../../test/server';
 import { meHandler, renderApp, sessionFor } from '../../test/session';
 import { CLIENTS_PER_PAGE } from './api';
+import { SEARCH_DEBOUNCE_MS } from './ClientListPage';
 import type { Client } from './types';
+
+// Un test que falla con los relojes falsos puestos no se los deja a los siguientes.
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 /** Los pedidos a GET /api/clients, con sus parámetros. */
 function clientsHandler(
@@ -108,33 +114,205 @@ describe('/clientes: listado', () => {
     },
   );
 
+  // Relojes falsos solo para la espera (la página carga con los reales): 299 ms después de la última tecla, nada; a los
+  // 300 ms, la URL y un solo pedido. Los 300 ms son los del diseño, escritos acá (no SEARCH_DEBOUNCE_MS): con otra espera
+  // (50 ms, 1000 ms) el test falla.
   it('la búsqueda espera 300 ms, manda un solo pedido, vuelve a la página 1 y no llena el historial', async () => {
     const { api, history } = await openList('/clientes?pagina=2');
     await screen.findByText('Laura Martínez', { selector: 'a' });
     const entries = history.length;
-    const user = userEvent.setup();
+    const searches = () => api.calls.filter((params) => params.has('search'));
 
-    await user.type(searchInput(), 'Firu');
-    // Escribir no busca: todavía ningún pedido con lo escrito.
-    expect(api.calls.filter((params) => params.has('search'))).toHaveLength(0);
+    vi.useFakeTimers();
+    // Cuatro teclas, una cada 100 ms: cada una vuelve a empezar la espera.
+    for (const typed of ['F', 'Fi', 'Fir', 'Firu']) {
+      fireEvent.change(searchInput(), { target: { value: typed } });
+      await act(() => vi.advanceTimersByTimeAsync(100));
+    }
+    // 299 ms después de la última tecla (los 100 del bucle y 199 más): ni la URL ni la API.
+    await act(() => vi.advanceTimersByTimeAsync(199));
+    expect(history.location.search).toBe('?pagina=2');
+    expect(searches()).toHaveLength(0);
+
+    // A los 300 ms: la URL, con replace y de vuelta en la página 1.
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(history.location.search).toBe('?buscar=Firu');
+    expect(history.length).toBe(entries);
+    // Y nada más, aunque pase el tiempo.
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    vi.useRealTimers();
 
     await waitFor(() => {
-      expect(history.location.search).toBe('?buscar=Firu');
-    });
-    await waitFor(() => {
-      expect(api.calls.filter((params) => params.has('search'))).toHaveLength(1);
+      expect(searches()).toHaveLength(1);
     });
     expect(Object.fromEntries(api.calls.at(-1) ?? [])).toEqual({
       search: 'Firu',
       page: '1',
       per_page: '20',
     });
-    // replace: la búsqueda no suma entradas al historial.
-    expect(history.length).toBe(entries);
+  });
 
-    // Sin más teclas, no hay más pedidos.
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    expect(api.calls.filter((params) => params.has('search'))).toHaveLength(1);
+  it('un espacio al final no se pierde: "Laura ", pausa, "M" da "Laura M"', async () => {
+    const { history } = await openList();
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+    const user = userEvent.setup();
+
+    await user.type(searchInput(), 'Laura ');
+    // La URL lleva lo escrito sin el espacio; el campo lo conserva.
+    await waitFor(() => {
+      expect(history.location.search).toBe('?buscar=Laura');
+    });
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+    expect(searchInput().value).toBe('Laura ');
+
+    await user.type(searchInput(), 'M');
+    expect(searchInput().value).toBe('Laura M');
+    await waitFor(() => {
+      expect(history.location.search).toBe('?buscar=Laura+M');
+    });
+    expect(searchInput().value).toBe('Laura M');
+  });
+
+  it('una tecla escrita mientras la URL cambia no se pierde', async () => {
+    const { history } = await openList();
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+
+    vi.useFakeTimers();
+    fireEvent.change(searchInput(), { target: { value: 'Laura' } });
+    // Se cumple la espera: sale la navegación con "Laura", sin dejarla terminar (act sincrónico, sin microtareas)…
+    act(() => {
+      vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS);
+    });
+    // …y llega otra tecla antes de que la página reciba la URL nueva (la historia ya cambió; el estado del router, todavía
+    // no). Con los relojes reales: la espera de esta tecla tiene que cumplirse.
+    vi.useRealTimers();
+    fireEvent.change(searchInput(), { target: { value: 'LauraM' } });
+
+    await waitFor(() => {
+      expect(history.location.search).toBe('?buscar=LauraM');
+    });
+    expect(searchInput().value).toBe('LauraM');
+  });
+
+  it('una búsqueda vieja que responde tarde no pisa a la nueva', async () => {
+    const calls: string[] = [];
+    server.use(
+      meHandler(meFor('administrador')),
+      http.get('/api/clients', async ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search') ?? '';
+        calls.push(search);
+
+        if (search === 'La') {
+          await delay(600);
+
+          return success([PERSON], { meta: pagination({ total: 1 }) });
+        }
+
+        return search === 'Granja'
+          ? success([COMPANY], { meta: pagination({ total: 1 }) })
+          : success([PERSON, COMPANY], { meta: pagination({ total: 2 }) });
+      }),
+    );
+    renderApp('/clientes', { session: sessionFor() });
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+
+    fireEvent.change(searchInput(), { target: { value: 'La' } });
+    await waitFor(() => {
+      expect(calls).toContain('La');
+    });
+    fireEvent.change(searchInput(), { target: { value: 'Granja' } });
+    await waitFor(() => {
+      expect(rowNames()).toEqual(['Granja San Jorge S.R.L.']);
+    });
+
+    // La respuesta de "La" llega después (600 ms): la tabla sigue con la de "Granja".
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect(rowNames()).toEqual(['Granja San Jorge S.R.L.']);
+    expect(searchInput().value).toBe('Granja');
+  });
+
+  it('mientras llega otra búsqueda, el campo lo anuncia ("Buscando…") en una región que siempre está', async () => {
+    // Los pedidos con búsqueda quedan retenidos hasta release (todos, si hubiera más de uno).
+    const held: (() => void)[] = [];
+    const release = () => {
+      for (const resolve of held.splice(0)) {
+        resolve();
+      }
+    };
+    server.use(
+      meHandler(meFor('administrador')),
+      http.get('/api/clients', async ({ request }) => {
+        if (new URL(request.url).searchParams.has('search')) {
+          await new Promise<void>((resolve) => {
+            held.push(resolve);
+          });
+        }
+
+        return success([PERSON], { meta: pagination({ total: 1 }) });
+      }),
+    );
+    renderApp('/clientes', { session: sessionFor() });
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+    const status = () => document.querySelector('.search-status');
+
+    expect(status()).toHaveAttribute('role', 'status');
+    expect(status()?.textContent).toBe('');
+
+    fireEvent.change(searchInput(), { target: { value: 'Laura' } });
+    await waitFor(() => {
+      expect(held.length).toBeGreaterThan(0);
+    });
+    await waitFor(() => {
+      expect(status()?.textContent).toBe('Buscando…');
+    });
+
+    release();
+    await waitFor(() => {
+      expect(status()?.textContent).toBe('');
+    });
+  });
+
+  it('una página más allá de la última: "Esta página no existe." con el enlace a la página 1', async () => {
+    server.use(
+      meHandler(meFor('administrador')),
+      http.get('/api/clients', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'));
+
+        return page === 99
+          ? success([], { meta: pagination({ total: 132, current_page: 99, last_page: 7 }) })
+          : success([PERSON], {
+              meta: pagination({ total: 132, current_page: page, last_page: 7 }),
+            });
+      }),
+    );
+    const { history } = renderApp('/clientes?buscar=a&pagina=99', { session: sessionFor() });
+
+    expect(await screen.findByText(/Esta página no existe\./)).toBeInTheDocument();
+    expect(screen.queryByText('No hay clientes que coincidan con la búsqueda.')).toBeNull();
+    const link = screen.getByText('Ir a la página 1', { selector: 'a' });
+    expect(link).toHaveAttribute('href', '/clientes?buscar=a');
+
+    fireEvent.click(link);
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+    expect(history.location.search).toBe('?buscar=a');
+  });
+
+  it('?buscar=1e3 llega a la API y al campo como el texto "1e3" (no el número 1000)', async () => {
+    const { api } = await openList('/clientes?buscar=1e3');
+
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+    expect(api.calls[0]?.get('search')).toBe('1e3');
+    expect(searchInput().value).toBe('1e3');
+  });
+
+  it('lo escrito que parece un número va a la URL sin comillas', async () => {
+    const { history } = await openList();
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+
+    fireEvent.change(searchInput(), { target: { value: '99100001' } });
+    await waitFor(() => {
+      expect(history.location.search).toBe('?buscar=99100001');
+    });
   });
 
   it('el campo se recorta a 100 caracteres (el máximo de la API)', async () => {

@@ -9,7 +9,7 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064) y front-01 cerrada (R-065). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | 1.1 (clientes: listado y detalle), implementada en `feature/front-1-1-clientes` (commit WIP), sin cerrar: [pendiente para el cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#pendiente-para-el-cierre-11) |
+| Entrega | 1.1 (clientes: listado y detalle), implementada en `feature/front-1-1-clientes` (commits WIP), revisada y con los hallazgos 1 a 7 corregidos, sin cerrar: [pendiente para el cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#pendiente-para-el-cierre-11) |
 | Siguiente | La F1 (clientes y pacientes), con el diseño aprobado (R-064) en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md): front-01 (backend, el dueño en `GET patients`) cerrada (R-065); la 1.1 implementada: siguen su revisión y su cierre, y después la 1.2 (clientes: alta, edición y baja) |
 | Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del cierre de la F0, el 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
 
@@ -64,7 +64,7 @@ frontend/
     ├── main.tsx         Arranque: estilos de Tabler y <App>
     ├── routeTree.gen.ts Generado por el plugin del router (se versiona; no se edita a mano)
     ├── routes/          Una ruta por archivo; el nombre es la URL en castellano
-    ├── app/             Proveedores (App), router, layouts, menú y páginas de error
+    ├── app/             Proveedores (App), router (con search-params.ts: la búsqueda escrita como texto), layouts, menú y páginas de error
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
@@ -98,14 +98,29 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   `branchKey(idDeLaSucursal, …)` (`['branch', 10, 'appointments', 'queue', { date }]`), así los datos de dos sucursales no se
   mezclan y el cambio de sucursal invalida solo esas (`invalidateBranchQueries`); las demás (catálogos, clientes, pacientes: son
   de la clínica) empiezan con su módulo (`['clients', …]`) y no se tocan al cambiar de sucursal.
-* **Listados: búsqueda, filtros y página en la URL** (desde la 1.1, `/clientes?buscar=&tipo=&pagina=`): la ruta los valida en
-  `validateSearch` con Zod (`features/clients/search.ts`); un valor inválido vuelve al valor por defecto, y los valores por defecto
-  no van en la URL. `validateSearch` devuelve **siempre todas sus claves** (`undefined` si el valor se descarta): el router mezcla
-  lo que devuelve sobre la búsqueda cruda, así que una clave que falta deja pasar el valor de la URL. El campo de búsqueda es local
-  y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`, `src/lib/hooks/`), con `replace: true` y de vuelta en la
-  página 1; el filtro y la página cambian la URL con historial ("Atrás" vuelve). La consulta usa `placeholderData:
-  keepPreviousData` y 20 por página, fijo. Un detalle valida su id en el `loader` (sin llamar a la API si no es un entero positivo)
-  y convierte el 404 de la API en `notFound()`, con el `notFoundComponent` de la ruta, dentro del layout.
+* **Listados** (desde la 1.1; el modelo es `/clientes`, `features/clients/ClientListPage.tsx`, y sus tests):
+  * **Búsqueda, filtros y página en la URL** (`/clientes?buscar=&tipo=&pagina=`): la ruta los valida en `validateSearch` con Zod
+    (`features/clients/search.ts`); un valor inválido vuelve al valor por defecto, y los valores por defecto no van en la URL.
+    `validateSearch` devuelve **siempre todas sus claves** (`undefined` si el valor se descarta): el router mezcla lo que
+    devuelve sobre la búsqueda cruda, así que una clave que falta deja pasar el valor de la URL.
+  * **Lo escrito es siempre texto en la URL**: el router lee cada valor como JSON (`?buscar=1e3` sería el número 1000); las
+    claves de `TEXT_SEARCH_PARAMS` (`src/app/search-params.ts`, el `parseSearch` y el `stringifySearch` del router) se leen y
+    se escriben tal cual. `buscar` ya está y vale para todos los listados; otro parámetro de texto se suma a esa lista.
+  * **El campo de búsqueda es local** (`SearchField`) y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`,
+    `src/lib/hooks/`, solo con primitivos), sin los espacios de los extremos, con `replace: true` y de vuelta en la página 1; el
+    filtro y la página cambian la URL con historial ("Atrás" vuelve). El campo toma lo de la URL **solo si el cambio vino de
+    afuera** ("Atrás", un enlace): no si es lo que el campo mandó y todavía no llegó, ni si coincide con lo escrito sin los
+    espacios de los extremos (así no se pierden el espacio de "Laura " ni la tecla escrita mientras la URL cambiaba).
+  * **La consulta** usa `placeholderData: keepPreviousData` (una respuesta vieja no pisa a la nueva: cada búsqueda tiene su
+    clave) y 20 por página, fijo. Mientras llega, `SearchField` recibe `busy`: el indicador y "Buscando…" en su región
+    `role="status"`, que está siempre en el DOM.
+  * **Página fuera de rango** (`current_page > last_page`, por una URL editada o después de borrar): `DataTable` muestra "Esta
+    página no existe." con el `firstPageLink` del listado (un `<Link>` con la misma búsqueda, sin `pagina`), no el vacío.
+  * **Tests**: la espera con relojes falsos y los 300 ms escritos en el test (299 ms sin URL ni pedido, 300 ms con uno); el
+    espacio final ("Laura ", pausa, "M"), la tecla durante la navegación, la respuesta fuera de orden, "Buscando…", la página
+    fuera de rango y `?buscar=1e3`.
+  * Un **detalle** valida su id en el `loader` (sin llamar a la API si no es un entero positivo) y convierte el 404 de la API en
+    `notFound()`, con el `notFoundComponent` de la ruta, dentro del layout.
 * **Contraseñas fuera de la caché de mutaciones** (0.2b): una mutación que manda una contraseña (`/ingresar`, `/perfil`) va con
   `gcTime: 0` y `mutation.reset()` en `onSettled`, para que sus variables no queden en la caché de Query.
 * **Tipos escritos a mano** en el `types.ts` del módulo, con los nombres de la API (`snake_case`, también `meta.pagination`:
@@ -151,7 +166,10 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
   con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
   necesita el DOM lo pide con `// @vitest-environment jsdom` en la primera línea (`client.test.ts`). Se permiten `.each` y los
-  bucles. La cifra de tests del frontend sale de la última corrida de `npm test`, registrada en "Resultado" de la fase con la
+  bucles. Límites (desde la 1.1): `findBy*` y `waitFor` esperan hasta 3 s (`configure({ asyncUtilTimeout: 3000 })` en
+  `src/test/setup.ts`) y cada test de jsdom, hasta 15 s (`testTimeout` del proyecto `dom`): con la PC cargada, el primer render
+  con el layout pasaba el segundo. Una espera de tiempo se prueba con relojes falsos (`vi.useFakeTimers()` después de cargar la
+  página y `vi.useRealTimers()` en `afterEach`), no con `setTimeout` reales. La cifra de tests del frontend sale de la última corrida de `npm test`, registrada en "Resultado" de la fase con la
   línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``: `/validar-docs` la compara con la
   documentación (no cuenta los tests en el código). En las páginas con el layout, consultar por texto con selector: `*ByRole`
   tarda segundos en jsdom con los íconos SVG. Los textos de JSX y las cadenas de una palabra con mayúscula inicial también pasan

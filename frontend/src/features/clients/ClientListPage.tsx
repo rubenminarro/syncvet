@@ -51,11 +51,24 @@ export function ClientListPage() {
   const [text, setText] = useState(search.buscar ?? '');
   const [urlText, setUrlText] = useState(search.buscar);
   const debounced = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
+  // El último valor con espera que ya tuvo su cambio de URL (o el del principio): si `debounced` es otro, el campo mandó
+  // algo a la URL que todavía no llegó.
+  const [answered, setAnswered] = useState(debounced);
 
-  // La URL cambió por otro lado ("Atrás", un enlace): el campo muestra lo de la URL.
+  // La URL cambió. Si el cambio vino del campo (lo que mandó y estaba en camino, o lo mismo que muestra sin los espacios de
+  // los extremos), el campo queda como está: no se pierde el espacio de "Laura " ni la tecla escrita mientras la URL
+  // cambiaba. Si vino de afuera ("Atrás", un enlace), el campo muestra lo de la URL.
   if (search.buscar !== urlText) {
+    const url = search.buscar ?? '';
+    const fromField =
+      (debounced !== answered && normalizeSearchText(debounced) === url) ||
+      normalizeSearchText(text) === url;
     setUrlText(search.buscar);
-    setText(search.buscar ?? '');
+    setAnswered(debounced);
+
+    if (!fromField) {
+      setText(url);
+    }
   }
 
   const applySearch = useEffectEvent((value: string) => {
@@ -119,6 +132,15 @@ export function ClientListPage() {
           filters.search === '' && filters.kind === null
             ? 'Todavía no hay clientes.'
             : 'No hay clientes que coincidan con la búsqueda.'
+        }
+        firstPageLink={
+          <Link
+            to="/clientes"
+            search={(previous: ClientListSearch) => ({ ...previous, pagina: undefined })}
+            className="first-page-link"
+          >
+            Ir a la página 1
+          </Link>
         }
       />
     );

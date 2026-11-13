@@ -159,9 +159,11 @@ página; el ancho de tablet (768 px): la tabla con desplazamiento horizontal pro
 
 #### Pendiente para el cierre (1.1)
 
-Implementada el 2026-11-13 en `feature/front-1-1-clientes` (desde `6ee193a`), commit WIP. Falta la revisión y el cierre
-(`/cerrar-entrega`: el resultado, la línea de la corrida de `npm test` en "Resultado", el roadmap, `modulos.md`, el handoff y la
-cifra de tests de `frontend/CLAUDE.md` §1).
+Implementada el 2026-11-13 en `feature/front-1-1-clientes` (desde `6ee193a`), commit WIP `3ea03b9`; revisada y con los
+hallazgos 1 a 7 corregidos el mismo día (commit WIP siguiente, ver [Correcciones de la revisión](#correcciones-de-la-revisión-11)).
+Falta el cierre (`/cerrar-entrega`: el resultado, la línea de la corrida de `npm test` en "Resultado", el roadmap, `modulos.md`, el
+handoff y la cifra de tests de `frontend/CLAUDE.md` §1). Las cifras vigentes son las de las correcciones (357 tests en 25 archivos),
+no las de abajo.
 
 **Qué se hizo.** `/clientes` (`src/routes/_sesion/clientes/index.tsx`, `ClientListPage`): búsqueda con espera de 300 ms
 (`useDebouncedValue`, `src/lib/hooks/`) que cambia la URL con `replace` y vuelve a la página 1; el tipo y la página en la URL (con
@@ -219,6 +221,68 @@ Capturas (fuera del repositorio, en la PC de la validación): `01-listado-admin.
 | 9 | La primera corrida completa de `npm test` dio 3 fallas por tiempo: `/ingresar` y `/perfil` (5 s) y "lee la búsqueda…" del listado (el segundo de `findByText`), con la PC cargada justo después de `lint` y `build`. Después de corregir el lint, la segunda corrida completa quedó en verde, y 5 vueltas de esos archivos no fallaron | Carga de la PC; no se reproduce | Informativo |
 | 10 | La validación en el navegador simula el fallecido en la respuesta de la API (prueba 5) | La demo no tiene pacientes fallecidos y el pedido era no cambiar sus datos | Informativo |
 | 11 | El paso 0 del pedido: deuda 21 (backend, baja), `countQueries` copiado en tres tests, en `deuda-tecnica.md` y `backend/CLAUDE.md` §7 | Pedido del usuario | Informativo |
+
+Los desvíos 1 a 11, aceptados por el usuario en la revisión.
+
+#### Correcciones de la revisión (1.1)
+
+La revisión (2026-11-13, sobre `3ea03b9`, sin corregir) dio 8 hallazgos; el usuario pidió corregir del 1 al 7 ("este listado es el
+modelo de los próximos") y dejar el 8 como informativo. La convención que sale de acá quedó en `frontend/CLAUDE.md` §5
+("Listados" y "Tests").
+
+| # | Hallazgo | Corrección | Test |
+|---|---|---|---|
+| 1 | Alta. El campo de búsqueda perdía el espacio final: "Laura ", pausa, "M" daba "LauraM" (la URL llegaba sin el espacio y pisaba lo escrito) | `ClientListPage`: el campo toma lo de la URL solo si el cambio vino de afuera: no si coincide con lo escrito sin los espacios de los extremos (`normalizeSearchText(text)`, la regla del usuario) **ni si es lo que el campo mandó y todavía no llegó** (`debounced` distinto de `answered`; ver el desvío 12) | "un espacio al final no se pierde…" y "una tecla escrita mientras la URL cambia no se pierde" |
+| 2 | Media. `?pagina=99` de 7 decía "Todavía no hay clientes." | `DataTable` (genérico): con `current_page > last_page` y sin filas, "Esta página no existe." y el `firstPageLink` del listado; `/clientes` le pasa "Ir a la página 1" (un `<Link>` con la misma búsqueda, sin `pagina`) | "una página más allá de la última…" |
+| 3 | Media. El test de la espera pasaba con 50 ms | Relojes falsos después de cargar la página: cuatro teclas cada 100 ms, a los 299 ms ni URL ni pedido, a los 300 ms la URL (con `replace`) y un solo pedido. Los 300 ms van escritos en el test, no `SEARCH_DEBOUNCE_MS` (con la constante, una espera de 1000 ms también pasaba) | El mismo, reescrito |
+| 4 | Media. Tres tests frágiles por tiempo | `configure({ asyncUtilTimeout: 3000 })` en `src/test/setup.ts`; `testTimeout: 15_000` en el proyecto `dom` de `vite.config.ts`; las esperas reales de los tests de la búsqueda, cambiadas por relojes falsos donde se mide tiempo | La suite completa |
+| 5 | Baja. "Buscando…" sin test y sin anuncio para el lector de pantalla | `SearchField`: un `<span role="status" className="visually-hidden search-status">` siempre en el DOM, con "Buscando…" o vacío; el spinner, `aria-hidden` | "mientras llega otra búsqueda, el campo lo anuncia…" |
+| 6 | Baja. `?buscar=1e3` llegaba como 1000; `?buscar=12345678901234567890` perdía dígitos; `?buscar=null` se descartaba | `src/app/search-params.ts`: `parseSearch` y `stringifySearch` del router (`router.ts`); las claves de `TEXT_SEARCH_PARAMS` (`buscar`) se leen y se escriben como texto, sin comillas, y las demás siguen con el JSON del router | `search-params.test.ts` (nuevo, 18 casos) y dos casos del listado (`?buscar=1e3`; lo escrito que parece un número va sin comillas) |
+| 7 | Baja. `useDebouncedValue` con un objeto armado en cada render se re-renderizaba sin fin | El tipo admite solo primitivos (`DebounceablePrimitive`) | `typecheck` |
+| 8 | Informativo. Un rol con `clients.show` y sin `clients.index` llegaría a `/sin-permiso` desde "Clientes" o "Volver a los clientes" del detalle; ningún rol real está en ese caso | Sin cambios (decisión del usuario) | — |
+
+Además, el test pedido de **respuestas fuera de orden**: "una búsqueda vieja que responde tarde no pisa a la nueva" ("La" responde
+600 ms después de "Granja"; la tabla sigue con "Granja").
+
+**Mutaciones** (cada una con los tests de `src/features/clients`, revertida desde una copia del archivo):
+
+| # | Mutación | Resultado |
+|---|---|---|
+| 1 | `SEARCH_DEBOUNCE_MS = 50` | Falla "la búsqueda espera 300 ms…" (pedido por el usuario) |
+| 2 | `SEARCH_DEBOUNCE_MS = 1000` | Falla el mismo |
+| 3 | `busy={false}` | Falla "…anuncia ("Buscando…")…" |
+| 4 | Sin `firstPageLink` | Falla "una página más allá de la última…" |
+| 5 | El router sin `parseSearch` ni `stringifySearch` | Fallan los dos casos de `?buscar=1e3` y del número sin comillas |
+| 6 | `DataTable` con `>=` en lugar de `>` | Fallan los tres casos del listado vacío |
+| 7 | H1 solo con la regla de `normalizeSearchText` (sin lo que está en camino) | Falla "una tecla escrita mientras la URL cambia…" |
+| 8 | H1 sin ninguna de las dos (el código revisado) | Fallan los dos tests de H1 |
+
+**Cifras.** `npm test`: 357 tests en 25 archivos, en verde (antes 332 en 24; el archivo nuevo es `src/app/search-params.test.ts`).
+`typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 13 de 13 en verde (3,1 min). Una sola corrida de cada
+uno al final, salvo un `lint` que falló antes (ver el desvío 13) y obligó a repetir la corrida completa.
+
+**Validación en el navegador** (2026-11-13), solo de lo que cambió: Edge sin ventana (`channel: 'msedge'`) contra el backend real
+(`syncvet.test`, base `syncvet`), como `admin-a`, con un script fuera del repositorio. 4 de 4 en verde:
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | Escribir "Laura ", pausa de 800 ms, "M" | OK | Después de la pausa, el campo "Laura " con la URL `?buscar=Laura`; al final, "Laura M" con `?buscar=Laura+M`. Un pedido por búsqueda (`search=Laura` y `search=Laura+M`) |
+| 2 | `/clientes?pagina=99` | OK | "Esta página no existe. Ir a la página 1", con el pie "Mostrando 0 a 0 de 132", "Página 99 de 7"; el enlace va a `/clientes` y muestra la página 1 |
+| 3 | `/clientes?buscar=1e3` | OK | El campo "1e3" y la API con `search=1e3` (no 1000) |
+| 4 | Consola | OK | Sin errores ni avisos |
+
+Capturas (fuera del repositorio, en la PC de la validación): `01-laura-m.png`, `02-pagina-99.png` y `03-buscar-1e3.png`, en
+`%TEMP%\claude\…\scratchpad\capturas-1-1-correcciones`. **Datos de la demo:** sin cambios (solo un ingreso).
+
+**Desvíos de las correcciones.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 12 | H1 suma a la regla del usuario (la URL distinta de `normalizeSearchText(text)`) una segunda condición: lo que el campo mandó y todavía no llegó (`debounced !== answered`) | Con la regla sola, la tecla escrita mientras la URL cambia se perdía: la URL "Laura" llegaba con el campo en "LauraM" (distinto) y lo pisaba (mutación 7). Se calcula en el render, sin `setState` dentro del efecto (lo prohíbe la regla de React de ESLint) | Para revisar |
+| 13 | La primera corrida final tuvo 2 errores de `lint`: `DataTable` exportaba `isPageOutOfRange` junto al componente (Fast Refresh) y la primera versión de H1 guardaba lo enviado con `setState` dentro del efecto. Se corrigieron (la función quedó interna y H1 pasó a la versión del desvío 12) y se repitió la corrida completa | La regla de "una sola vez" se cumplió sobre el código final | Informativo |
+| 14 | La página fuera de rango se resolvió en `DataTable` (genérico, con la prop `firstPageLink`), no solo en `/clientes` | Los próximos listados la heredan; el enlace lo arma cada página porque conoce su ruta y su búsqueda | Para revisar |
+| 15 | La validación en el navegador usó un `npm run dev` que ya estaba en `:5173` (PID 34856, iniciado a las 10:02, desde `frontend/`, con `--strictPort`): el que levantó Claude Code no pudo tomar el puerto. Sirve el árbol de trabajo actual (HMR), así que la prueba vale para el código corregido. **No se detuvo** (no lo levantó esta sesión): puede ser el de la validación anterior, que el pendiente daba por detenido | Regla de procesos del `CLAUDE.md` de la raíz | Para revisar: cerrarlo a mano si no es tuyo |
+| 16 | En la prueba 3 hubo dos pedidos iguales al entrar (`?search=1e3…` dos veces); al escribir, uno por búsqueda | Probablemente el `StrictMode` de desarrollo (el primero, cancelado); no se investigó | PENDIENTE DE VERIFICACIÓN |
 
 ### 1.2 Clientes: alta, edición y baja
 

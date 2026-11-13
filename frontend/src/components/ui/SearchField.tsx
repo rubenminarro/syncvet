@@ -46,11 +46,15 @@ export function SearchField({
           {...rest}
         />
         {busy ? (
-          <span className="input-icon-addon search-busy" role="status" aria-label="Buscando…">
-            <span className="spinner-border spinner-border-sm text-secondary" aria-hidden="true" />
+          <span className="input-icon-addon search-busy" aria-hidden="true">
+            <span className="spinner-border spinner-border-sm text-secondary" />
           </span>
         ) : null}
       </div>
+      {/* Siempre en el DOM: un lector de pantalla anuncia el cambio de texto de una región que ya existía, no la que aparece. */}
+      <span role="status" className="visually-hidden search-status">
+        {busy ? 'Buscando…' : ''}
+      </span>
     </div>
   );
 }
