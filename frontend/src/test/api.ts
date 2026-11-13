@@ -3,14 +3,17 @@ import type { ApiErrors, ApiMeta } from '../lib/api/types';
 
 /** Las respuestas del contrato de la API (backend/CLAUDE.md §4), para los handlers de MSW. */
 
-export function success(data: unknown, init: { status?: number; meta?: ApiMeta | null } = {}) {
+export function success(
+  data: unknown,
+  init: { status?: number; meta?: ApiMeta | null; message?: string } = {},
+) {
   const status = init.status ?? 200;
 
   return HttpResponse.json(
     {
       success: true,
       status,
-      message: 'Operación realizada correctamente.',
+      message: init.message ?? 'Operación realizada correctamente.',
       data,
       errors: null,
       meta: init.meta ?? null,

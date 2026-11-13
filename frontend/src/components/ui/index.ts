@@ -1,12 +1,16 @@
 export { Alert } from './Alert';
 export { Button } from './Button';
 export { Card } from './Card';
+export { CheckboxField } from './CheckboxField';
+export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable, PaginationBar, type Column } from './DataTable';
 export { ErrorPage } from './ErrorPage';
 export { Loading } from './Loading';
 export { PasswordField } from './PasswordField';
+export { RadioGroup } from './RadioGroup';
 export { SearchField } from './SearchField';
 export { SelectField, type SelectOption } from './SelectField';
+export { TextareaField } from './TextareaField';
 export { TextField } from './TextField';
 export { ToastProvider } from './Toasts';
 export { useToast, type ToastTone } from './toast-context';

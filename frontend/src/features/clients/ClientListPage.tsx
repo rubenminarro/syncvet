@@ -1,3 +1,4 @@
+import { IconPlus } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useState } from 'react';
@@ -17,6 +18,7 @@ import { PERMISSIONS } from '../../lib/auth/permissions';
 import { useDebouncedValue } from '../../lib/hooks/use-debounced-value';
 import { useCan } from '../auth/permissions';
 import { clientListQueryOptions } from './api';
+import { withClientList } from './navigation';
 import {
   normalizeSearchText,
   SEARCH_MAX_LENGTH,
@@ -98,7 +100,12 @@ export function ClientListPage() {
       header: 'Nombre',
       cell: (client) =>
         showLink ? (
-          <Link to="/clientes/$id" params={{ id: String(client.id) }} className="client-link">
+          <Link
+            to="/clientes/$id"
+            params={{ id: String(client.id) }}
+            state={withClientList(search)}
+            className="client-link"
+          >
             {client.display_name}
           </Link>
         ) : (
@@ -170,7 +177,23 @@ export function ClientListPage() {
   return (
     <>
       <div className="page-header mb-3">
-        <h2 className="page-title">Clientes</h2>
+        <div className="row g-2 align-items-center">
+          <div className="col">
+            <h2 className="page-title">Clientes</h2>
+          </div>
+          {can(PERMISSIONS.clientsStore) ? (
+            <div className="col-auto">
+              <Link
+                to="/clientes/nuevo"
+                state={withClientList(search)}
+                className="btn btn-primary client-new"
+              >
+                <IconPlus size={18} className="me-2" aria-hidden="true" />
+                Nuevo cliente
+              </Link>
+            </div>
+          ) : null}
+        </div>
       </div>
       <Card flush>
         <div className="card-body border-bottom">

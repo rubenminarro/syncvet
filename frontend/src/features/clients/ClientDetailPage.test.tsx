@@ -2,7 +2,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { failure, success } from '../../test/api';
-import { COMPANY, detail, patient, PERSON } from '../../test/clients';
+import { COMPANY, detail, pagination, patient, PERSON } from '../../test/clients';
 import { meFor } from '../../test/roles';
 import { server } from '../../test/server';
 import { meHandler, renderApp, sessionFor } from '../../test/session';
@@ -244,5 +244,150 @@ describe('/clientes/$id: detalle', () => {
     expect(await screen.findByText('Clientes', { selector: 'h2' })).toBeInTheDocument();
     expect(history.location.search).toBe('?buscar=Firulais');
     expect(screen.getByLabelText<HTMLInputElement>('Buscar clientes').value).toBe('Firulais');
+  });
+});
+
+const IN_USE = 'El cliente tiene pacientes, turnos, consultas o facturas y no puede eliminarse.';
+
+/** DELETE clients/{id}: cuenta los pedidos y responde lo que diga `respond`. */
+function deleteHandler(
+  respond: () => Response = () => success(null, { message: 'Cliente eliminado correctamente.' }),
+) {
+  const calls: string[] = [];
+  const handler = http.delete('/api/clients/:id', ({ params }) => {
+    calls.push(String(params.id));
+
+    return respond();
+  });
+
+  return { handler, calls };
+}
+
+const dialog = () => document.querySelector('[role="dialog"]');
+const button = (text: string) => screen.getByText(text, { selector: 'button' });
+
+describe('/clientes/$id: editar y eliminar', () => {
+  it.each([
+    ['administrador', true],
+    ['recepcionista', false],
+    ['veterinario', false],
+  ] as const)(
+    '%s: "Editar" siempre; "Eliminar" solo con clients.destroy (%s)',
+    async (role, canDelete) => {
+      server.use(meHandler(meFor(role)), detailHandler(detail(PERSON)).handler);
+      renderApp('/clientes/1', { session: sessionFor() });
+
+      await screen.findByText('Laura Martínez', { selector: 'h2' });
+      expect(document.querySelector('a.client-edit')).toHaveAttribute('href', '/clientes/1/editar');
+      expect(document.querySelector('button.client-delete') !== null).toBe(canDelete);
+    },
+  );
+
+  it('"Cancelar" en la confirmación no llama a la API', async () => {
+    const api = deleteHandler();
+    server.use(
+      meHandler(meFor('administrador')),
+      detailHandler(detail(PERSON)).handler,
+      api.handler,
+    );
+    renderApp('/clientes/1', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    expect(dialog()).toHaveTextContent('¿Querés eliminar a Laura Martínez? No se puede deshacer.');
+    fireEvent.click(button('Cancelar'));
+
+    expect(dialog()).toBeNull();
+    expect(api.calls).toEqual([]);
+  });
+
+  it('con la confirmación, DELETE y al listado de donde se vino; la página fuera de rango sigue la regla de la 1.1', async () => {
+    const api = deleteHandler();
+    let deleted = false;
+    server.use(
+      meHandler(meFor('administrador')),
+      detailHandler(detail(PERSON)).handler,
+      api.handler,
+      // La página 2 tenía solo a Laura: después de la baja, queda una sola página.
+      http.get('/api/clients', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'));
+
+        return deleted
+          ? success([], { meta: pagination({ total: 20, current_page: page, last_page: 1 }) })
+          : success([PERSON], {
+              meta: pagination({ total: 21, current_page: page, last_page: 2 }),
+            });
+      }),
+    );
+    const { history } = renderApp('/clientes?pagina=2', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Laura Martínez', { selector: 'a' }));
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    deleted = true;
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+
+    expect(await screen.findByText('Esta página no existe.')).toBeInTheDocument();
+    expect(api.calls).toEqual(['1']);
+    expect(history.location.pathname).toBe('/clientes');
+    expect(history.location.search).toBe('?pagina=2');
+    expect(screen.getByText('Cliente eliminado correctamente.')).toBeInTheDocument();
+    expect(screen.queryByText('Laura Martínez', { selector: 'a' })).toBeNull();
+  });
+
+  it('CLIENT_IN_USE: el mensaje de la API dentro del diálogo y solo "Cerrar", con el foco', async () => {
+    const api = deleteHandler(() => failure(409, 'CLIENT_IN_USE', IN_USE));
+    server.use(
+      meHandler(meFor('administrador')),
+      detailHandler(detail(PERSON, [patient()])).handler,
+      api.handler,
+    );
+    const { history } = renderApp('/clientes/1', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+
+    expect(await screen.findByText(IN_USE)).toBeInTheDocument();
+    expect(dialog()).toContainElement(screen.getByText(IN_USE));
+    expect(screen.queryByText('Eliminar a Laura Martínez', { selector: 'button' })).toBeNull();
+    expect(document.activeElement).toBe(button('Cerrar'));
+    expect(history.location.pathname).toBe('/clientes/1');
+
+    fireEvent.click(button('Cerrar'));
+    expect(dialog()).toBeNull();
+  });
+
+  it('un 403 FORBIDDEN: el mensaje dentro del diálogo, que sigue con la acción', async () => {
+    const api = deleteHandler(() =>
+      failure(403, 'FORBIDDEN', 'No tenés permiso para eliminar clientes.'),
+    );
+    server.use(
+      meHandler(meFor('administrador')),
+      detailHandler(detail(PERSON)).handler,
+      api.handler,
+    );
+    renderApp('/clientes/1', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+
+    expect(await screen.findByText('No tenés permiso para eliminar clientes.')).toBeInTheDocument();
+    expect(button('Eliminar a Laura Martínez')).toBeInTheDocument();
+  });
+
+  it('un 404 (otra persona ya lo borró): aviso y al listado', async () => {
+    const api = deleteHandler(() => failure(404, 'RESOURCE_NOT_FOUND', 'El recurso no existe.'));
+    server.use(
+      meHandler(meFor('administrador')),
+      detailHandler(detail(PERSON)).handler,
+      api.handler,
+      http.get('/api/clients', () => success([], { meta: pagination({ total: 0 }) })),
+    );
+    const { history } = renderApp('/clientes/1', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+
+    expect(await screen.findByText('El recurso no existe.')).toBeInTheDocument();
+    expect(await screen.findByText('Clientes', { selector: 'h2' })).toBeInTheDocument();
+    expect(history.location.pathname).toBe('/clientes');
   });
 });

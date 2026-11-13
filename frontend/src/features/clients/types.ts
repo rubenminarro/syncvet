@@ -56,3 +56,24 @@ export interface ClientListFilters {
   kind: ClientKind | null;
   page: number;
 }
+
+/**
+ * El cuerpo de POST clients y PATCH clients/{id}: el formulario completo (la edición también, la API lo admite y compara).
+ * Los campos del otro tipo y los opcionales vacíos van en null.
+ */
+export interface ClientPayload {
+  kind: ClientKind;
+  first_name: string | null;
+  last_name: string | null;
+  business_name: string | null;
+  document_number: string;
+  email: string;
+  phone: string;
+  address: string | null;
+  city: string | null;
+  notifications_enabled: boolean;
+  notes: string | null;
+}
+
+/** La respuesta del alta y la edición (ShowClientResource): el alta no carga los pacientes (`whenLoaded`), así que no los trae. */
+export type SavedClient = Omit<ClientDetail, 'patients'> & { patients?: ClientPatient[] };

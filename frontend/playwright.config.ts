@@ -31,7 +31,9 @@ export default defineConfig({
       command: `php artisan serve --no-reload --host=127.0.0.1 --port=${String(BACKEND_PORT)}`,
       cwd: '../backend',
       url: `${BACKEND_URL}/up`,
-      env: { DB_DATABASE: E2E_DATABASE },
+      // Sin la consulta de DNS del email (como la suite del backend): los casos no dependen de la red y los emails de
+      // prueba (@example.com, sin MX) se aceptan (1.2).
+      env: { DB_DATABASE: E2E_DATABASE, EMAIL_DNS_CHECK: 'false' },
       reuseExistingServer: true,
       timeout: 60_000,
     },

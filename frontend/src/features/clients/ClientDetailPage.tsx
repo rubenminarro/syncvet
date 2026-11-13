@@ -1,22 +1,49 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Fragment, useState } from 'react';
-import { Button, Card, ErrorPage } from '../../components/ui';
+import { Button, Card, ConfirmDialog, ErrorPage, useToast } from '../../components/ui';
+import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatDateTime } from '../../lib/format/dates';
-import { clientDetailQueryOptions } from './api';
+import { useCan } from '../auth/permissions';
+import { afterClientGone, clientDetailQueryOptions, deleteClient } from './api';
+import { useClientListSearch, withClientList } from './navigation';
 import type { ClientDetail, ClientPatient } from './types';
 
 /** /clientes/$id: los datos del cliente y sus pacientes (los del GET clients/{id}, pregunta 3 del diseño). */
 export function ClientDetailPage({ id }: { id: number }) {
   const { data: client } = useSuspenseQuery(clientDetailQueryOptions(id));
+  const can = useCan();
+  const listSearch = useClientListSearch();
 
   return (
     <>
       <div className="page-header mb-3">
-        <div className="page-pretitle">
-          <Link to="/clientes">Clientes</Link>
+        <div className="row g-2 align-items-center">
+          <div className="col">
+            <div className="page-pretitle">
+              <Link to="/clientes" search={listSearch}>
+                Clientes
+              </Link>
+            </div>
+            <h2 className="page-title">{client.display_name}</h2>
+          </div>
+          <div className="col-auto d-flex gap-2 client-actions">
+            {can(PERMISSIONS.clientsUpdate) ? (
+              <Link
+                to="/clientes/$id/editar"
+                params={{ id: String(client.id) }}
+                state={withClientList(listSearch)}
+                className="btn btn-primary client-edit"
+              >
+                <IconEdit size={18} className="me-2" aria-hidden="true" />
+                Editar
+              </Link>
+            ) : null}
+            {can(PERMISSIONS.clientsDestroy) ? <DeleteClient client={client} /> : null}
+          </div>
         </div>
-        <h2 className="page-title">{client.display_name}</h2>
       </div>
       <div className="row row-cards">
         <div className="col-lg-5">
@@ -26,6 +53,98 @@ export function ClientDetailPage({ id }: { id: number }) {
           <ClientPatients patients={client.patients} />
         </div>
       </div>
+    </>
+  );
+}
+
+/** Un cliente con pacientes, turnos, consultas o facturas no se elimina (backend/CLAUDE.md §6.1). */
+const CLIENT_IN_USE = 'CLIENT_IN_USE';
+
+/**
+ * La baja (solo el administrador, `clients.destroy`), con confirmación. CLIENT_IN_USE se muestra dentro del diálogo, con
+ * solo "Cerrar" (los clientes no se inactivan). Con el 200, al listado de donde se vino.
+ */
+function DeleteClient({ client }: { client: ClientDetail }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const listSearch = useClientListSearch();
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inUse, setInUse] = useState(false);
+
+  // Los listados se vacían antes de volver (no se ve el cliente borrado) y el detalle sale de la caché después.
+  const leave = () => {
+    const forgetDetail = afterClientGone(queryClient, client.id);
+
+    return navigate({ to: '/clientes', search: listSearch, replace: true }).then(forgetDetail);
+  };
+
+  const mutation = useMutation({
+    mutationFn: () => deleteClient(client.id),
+    onMutate: () => {
+      setError(null);
+    },
+    onSuccess: (response) => {
+      toast.show(response.message, 'success');
+      void leave();
+    },
+    onError: (failure) => {
+      if (!isApiError(failure)) {
+        setError(MESSAGES.programming);
+
+        return;
+      }
+
+      if (failure.errorCode === CLIENT_IN_USE) {
+        setInUse(true);
+        setError(failure.message);
+
+        return;
+      }
+
+      if (errorTreatment(failure.errorCode) === 'not-found') {
+        // Ya no está (otra persona lo borró): aviso y al listado.
+        toast.show(failure.message);
+        void leave();
+
+        return;
+      }
+
+      setError(userMessage(failure));
+    },
+  });
+
+  return (
+    <>
+      <Button
+        variant="danger"
+        className="client-delete"
+        icon={<IconTrash size={18} className="me-2" aria-hidden="true" />}
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        Eliminar
+      </Button>
+      <ConfirmDialog
+        open={open}
+        title="Eliminar el cliente"
+        confirmLabel={`Eliminar a ${client.display_name}`}
+        busy={mutation.isPending}
+        error={error}
+        canConfirm={!inUse}
+        onConfirm={() => {
+          mutation.mutate();
+        }}
+        onClose={() => {
+          setOpen(false);
+          setError(null);
+          setInUse(false);
+        }}
+      >
+        ¿Querés eliminar a <strong>{client.display_name}</strong>? No se puede deshacer.
+      </ConfirmDialog>
     </>
   );
 }

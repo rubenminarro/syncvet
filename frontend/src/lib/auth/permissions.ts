@@ -9,6 +9,12 @@ export const PERMISSIONS = {
   clientsIndex: 'clients.index',
   /** /clientes/$id (F1, entrega 1.1): los tres roles. */
   clientsShow: 'clients.show',
+  /** /clientes/nuevo (F1, entrega 1.2): los tres roles. */
+  clientsStore: 'clients.store',
+  /** /clientes/$id/editar (F1, entrega 1.2): los tres roles. */
+  clientsUpdate: 'clients.update',
+  /** La baja desde el detalle (F1, entrega 1.2): solo el administrador. */
+  clientsDestroy: 'clients.destroy',
   /** /configuracion (provisoria en la F0; solo el administrador). */
   settingsUpdate: 'system-settings.update',
 } as const;

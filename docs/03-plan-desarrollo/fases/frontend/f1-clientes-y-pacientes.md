@@ -204,6 +204,87 @@ dígito mal (sin llamar a la API); edición; baja de un cliente sin pacientes y 
 **En el navegador.** El cambio de tipo con datos cargados; el foco en el primer error; el diálogo con el teclado (Tab, Escape); el
 ancho de tablet.
 
+#### Pendiente para el cierre (1.2)
+
+Implementada el 2026-11-13 en `feature/front-1-2-clientes-abm` (desde `feature/front-1-1-clientes` en `78e9657`), sin revisar
+todavía.
+
+**Qué se hizo.** `/clientes/nuevo` (`clients.store`) y `/clientes/$id/editar` (`clients.update`, archivo `$id_.editar.tsx`: no se
+dibuja dentro del detalle), con el mismo `ClientForm` (`features/clients/ClientForm.tsx` y `ClientFormPages.tsx`). Las reglas de
+forma de `StoreClientRequest` con los mensajes de `ClientMessages` en `features/clients/form.ts` (`clientFormErrors`, el esquema
+de Zod y `clientFormToPayload`: los campos del otro tipo y los opcionales vacíos en `null`, el email sin espacios y en minúsculas,
+el teléfono sin espacios ni guiones). El dígito verificador en `features/clients/ruc.ts` (`rucCheckDigit`, `hasValidRucCheckDigit`
+y `RUC_MESSAGE`). Un 422 a sus campos con `applyValidationErrors` (las claves que no son de un campo, a la alerta);
+`CLIENT_KIND_NOT_EDITABLE`, alerta y el tipo vuelve al guardado; 403 y los demás, alerta con el `message`; 404 al guardar, aviso y
+al listado. La baja, en el detalle (`clients.destroy`, solo el administrador), con `ConfirmDialog`; `CLIENT_IN_USE` dentro del
+diálogo con solo "Cerrar". "Nuevo cliente" en el listado (`clients.store`) y "Editar" en el detalle (`clients.update`). El
+`loader` del detalle pasó a `features/clients/loader.ts` (lo comparten las dos rutas). Componentes nuevos: `ConfirmDialog`,
+`RadioGroup`, `CheckboxField` y `TextareaField`; `Button` admite `ref`. `success()` de `src/test/api.ts` admite el `message`.
+Permisos `clients.store`, `clients.update` y `clients.destroy` en `PERMISSIONS`. Sin paquetes nuevos.
+
+**Cifras.** `npm test`: 466 tests en 29 archivos, en verde (antes 357 en 25; los nuevos son `ruc.test.ts`, `form.test.ts`,
+`ConfirmDialog.test.tsx` y `ClientFormPages.test.tsx`; `ClientDetailPage.test.tsx` y `ClientListPage.test.tsx` suman la baja y los
+botones por rol). `typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 16 de 16 en verde (4,0 min; los 13 de
+antes y 3 nuevos en `e2e/clientes-abm.spec.ts`: alta de persona con el documento repetido, edición y baja del cliente recién
+creado; alta de empresa con el RUC mal, sin llamar a la API, y después bien; la baja de Laura Martínez de la demo, `CLIENT_IN_USE`).
+La corrida final se hizo dos veces (desvío 10).
+
+**Mutaciones** (cada una con los tests relacionados, revertida desde una copia del archivo):
+
+| # | Mutación | Resultado |
+|---|---|---|
+| 1 | Sin el control del dígito verificador | Fallan el caso de `form.test.ts` y "el RUC con el dígito verificador equivocado…" del alta |
+| 2 | Sin `null` en los campos del otro tipo (`first_name` siempre) | Fallan "persona → empresa…" de `form.test.ts` y del alta |
+| 3 | La baja sin confirmación (el botón llama a la API) | Fallan "Cancelar en la confirmación no llama a la API" y el de la baja |
+| 4 | El email sin pasar a minúsculas | Fallan el cuerpo del alta, el de la edición y el de `form.test.ts` |
+| 5 | La baja vuelve a `/clientes` sin la búsqueda de donde se vino | Falla "con la confirmación, DELETE y al listado de donde se vino…" |
+
+**Validación en el navegador** (2026-11-13): Edge sin ventana (`channel: 'msedge'`) contra el backend real (`syncvet.test`, base
+`syncvet`) y un Vite propio en `:5180` (detenido al final), con un script fuera del repositorio. 19 de 19 en verde (segunda corrida;
+ver el desvío 11):
+
+| # | Prueba | Resultado |
+|---|---|---|
+| 1 | `admin-a`: "Nuevo cliente" y el alta, con "Persona" y "Recibe recordatorios" marcados | OK |
+| 2 | Guardar vacío: los obligatorios con sus mensajes y el foco en "Nombre", sin `POST` | OK |
+| 3 | Cambio de tipo con datos cargados: persona → empresa (los nombres se ocultan, el documento queda) → persona (vuelven) | OK |
+| 4 | Email `@example.com`: el navegador lo acepta y la API lo rechaza (la base de desarrollo tiene `EMAIL_DNS_CHECK=true`); el 422 en el campo, con el foco | OK |
+| 5 | Alta de persona: al detalle, con el email en minúsculas y el teléfono sin espacios | OK |
+| 6 | Documento repetido (el de Laura): el 422 en "Documento", con el foco | OK |
+| 7 | Edición (teléfono y notas): al detalle con lo guardado | OK |
+| 8 | `recepcion-a`: RUC con el dígito mal, el error en el campo y el foco, sin `POST`; con el dígito bien, la empresa creada; "Editar" sí, "Eliminar" no; edición de la empresa; editar a Laura y "Cancelar" | OK |
+| 9 | `vet-a`: "Nuevo cliente" y "Editar" sí, "Eliminar" no (`clinic-roles.json`: `clients.store` y `clients.update` sí, `clients.destroy` no) | OK |
+| 10 | 768 px: formulario, detalle y diálogo sin desplazamiento horizontal de la página | OK |
+| 11 | El diálogo con el teclado: el foco en "Cancelar", Tab y Shift+Tab sin salir, Escape cierra y el foco vuelve a "Eliminar" | OK |
+| 12 | Baja de Laura Martínez (demo, con pacientes): `CLIENT_IN_USE` en el diálogo, solo "Cerrar", con el foco | OK |
+| 13 | Baja de los dos clientes creados: al listado con el aviso; la baja vuelve a la página del listado de donde se vino (`?pagina=2`) | OK |
+| 14 | Los clientes creados ya no están (búsqueda por documento en la API) | OK |
+| 15 | Consola | OK: sin errores ni avisos de la aplicación; solo los registros de red de los dos 422 y el 409 esperados |
+
+Capturas (fuera del repositorio, en la PC de la validación), en `%TEMP%\claude\…\scratchpad\capturas-1-2`:
+`00-listado-nuevo-cliente.png`, `01-formulario-persona.png`, `02-formulario-empresa-ruc.png`, `03-formulario-768.png`,
+`04-dialogo-768.png`, `05-dialogo-baja.png`, `06-dialogo-baja-409.png` y `07-detalle-editar-eliminar.png`. **Datos de la demo:**
+los clientes creados se borraron con la baja de la aplicación (ver el desvío 12).
+
+**Desvíos.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 1 | La búsqueda del listado de donde se vino viaja en el estado del historial (`clientList`, `features/clients/navigation.ts`, validada con `validateClientListSearch`): la baja, el 404 en una acción y "Cancelar" del alta vuelven a `/clientes` **con esa búsqueda y página**, y el enlace "Clientes" del encabezado también. El diseño decía "vuelve a `/clientes`" | El pedido: "si la página quedó fuera de rango, se aplica la regla de la 1.1"; sin la página de donde se vino, la baja siempre volvería a la 1. En la URL no va (no es parte del detalle) | A aceptar |
+| 2 | Caché: el alta y la edición invalidan `['clients']` sin volver a pedir (`refetchType: 'none'`) y ponen la respuesta en `['clients', 'detail', id]` (el alta, con `patients: []`: el 201 no los trae); la edición invalida además `['patients', 'detail']`. La baja **vacía** los listados (`resetQueries`) antes de volver y saca el detalle después | Invalidar solo dejaba ver un momento el cliente borrado en el listado (los datos viejos mientras llega el nuevo pedido) | A aceptar |
+| 3 | Guardar y "Cancelar" reemplazan la entrada del formulario (`replace`): "Atrás" no vuelve al formulario. Después de editar, el historial queda listado, detalle, detalle | Volver a un formulario ya guardado lo mandaría otra vez | A aceptar |
+| 4 | `ruc.test.ts` copia la tabla de `RucCheckDigitTest` con sus **RUC reales** (los publicados por la DNIT) | Pedido del usuario (los casos del backend, no inventados). `FictitiousDocumentsTest` del backend no revisa `frontend/`: hoy nada lo controla allá | A decidir: aceptar o sumar `frontend/src` a `FictitiousDocumentsTest` con este archivo en `ALLOWED` |
+| 5 | `SelectField` no suma el error (el formulario no tiene selectores); `CheckboxField` deja la pista fuera de la etiqueta (asociada con `aria-describedby`); `Button` admite `ref` (el foco del diálogo) | Lo que pidió el código | Informativo |
+| 6 | El formato del email lo revisa `z.email()`, no la validación RFC de Laravel; pueden diferir en casos raros. Con `EMAIL_DNS_CHECK=true` (la base de desarrollo), `@example.com` pasa en el navegador y la API lo rechaza: el 422 llega al campo (prueba 4) | Manda la API (decisión común de la fase) | Informativo |
+| 7 | `playwright.config.ts`: el backend de Playwright corre con `EMAIL_DNS_CHECK=false` | Heredaba `backend/.env` (`true`): los emails de prueba `@example.com` no tienen MX y los casos dependerían de la red. La suite del backend ya corre así | A aceptar |
+| 8 | Los campos llevan `maxLength` con el máximo de la API: los mensajes de "no debe tener más de…" de Zod no se ven en la interfaz salvo en el teléfono (sin `maxLength`); los cubren los tests de `form.test.ts` | El navegador no deja escribir de más | Informativo |
+| 9 | Encabezado del listado y del detalle con `row`/`col` de Tabler ("Nuevo cliente", "Editar" y "Eliminar" a la derecha del título) | Con `d-flex` los botones quedaban debajo del título (visto en la primera captura) | Informativo |
+| 10 | La primera corrida final tuvo 1 falla: el test de voseo tomó como texto en inglés el selector de los elementos con foco de `ConfirmDialog` (`"button:not([disabled]), …, select, …"`). Se armó como lista sin espacios y se repitió la corrida completa (`typecheck`, `lint`, `test`, `build`); `test:e2e` corrió una vez, sobre el código final | La regla de "una sola vez" se cumplió sobre el código final | Informativo |
+| 11 | La primera corrida del script de validación dio 7 de 18: el alta de persona usó `@example.com` (desvío 6) y un selector de "Empresa" encontró 3 elementos (el listado). No creó ningún cliente. La segunda usó emails `@gmail.com` (con MX) y sumó la prueba 4 | Ajustes del script, no de la aplicación | Informativo |
+| 12 | La baja de clientes es lógica (`SoftDeletes`): en la base de desarrollo quedan las filas eliminadas (con el sufijo `//deleted_…`) de los 2 clientes de la validación y su auditoría, y los tokens de los ingresos. Nada visible en la aplicación ni en la API | Es la baja de la aplicación; no se tocó la base a mano | Informativo |
+| 13 | El Vite de `:5173` (PID 34856, el del desvío 15 de la 1.1) seguía corriendo; no se usó ni se detuvo (no lo levantó esta sesión). La validación usó uno propio en `:5180`, detenido al final | Regla de procesos del `CLAUDE.md` de la raíz | Informativo |
+| 14 | Textos propios no definidos en el diseño: "Editar el cliente", "Datos del cliente", las pistas del documento y del teléfono, "¿Querés eliminar a … ? No se puede deshacer." y el botón "Eliminar a …"; el aviso de éxito es el `message` de la API | Detalles de presentación | A aceptar |
+
 ### 1.3a Pacientes: listado, detalle, alta y edición
 
 **Pantallas.**

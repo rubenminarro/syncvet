@@ -483,4 +483,31 @@ describe('/clientes: listado', () => {
     expect(history.location.pathname).toBe('/sin-permiso');
     expect(api.calls).toHaveLength(0);
   });
+
+  it.each(['administrador', 'recepcionista', 'veterinario'] as const)(
+    '%s tiene clients.store: ve "Nuevo cliente", que lleva al alta',
+    async (role) => {
+      server.use(meHandler(meFor(role)), clientsHandler().handler);
+      const { history } = renderApp('/clientes', { session: sessionFor() });
+
+      fireEvent.click(await screen.findByText('Nuevo cliente', { selector: 'a' }));
+      expect(await screen.findByText('Nuevo cliente', { selector: 'h2' })).toBeInTheDocument();
+      expect(history.location.pathname).toBe('/clientes/nuevo');
+    },
+  );
+
+  it('sin clients.store, sin "Nuevo cliente"', async () => {
+    const me = meFor('recepcionista');
+    server.use(
+      meHandler({
+        ...me,
+        permissions: me.permissions.filter((permission) => permission !== 'clients.store'),
+      }),
+      clientsHandler().handler,
+    );
+    renderApp('/clientes', { session: sessionFor() });
+
+    expect(await screen.findByText('Laura Martínez', { selector: 'a' })).toBeInTheDocument();
+    expect(document.querySelector('a.client-new')).toBeNull();
+  });
 });
