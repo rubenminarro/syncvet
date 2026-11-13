@@ -1409,3 +1409,21 @@ Cierre de la F0 del frontend (base y login), junto con la entrega de soporte del
 | Siguiente | El análisis y el diseño de la F1 del frontend (clientes y pacientes), sobre la API de la FASE 1 | Usuario |
 
 **Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-064 Aprobación del diseño de la F1 del frontend (clientes y pacientes) (2026-11-12)
+
+El usuario aprueba el diseño de la F1 del frontend,
+[`f1-clientes-y-pacientes.md`](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md), en `docs/front-f1-diseno`
+(desde `main` en `668eb48`), con las 13 [preguntas del diseño](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#preguntas-del-diseño)
+respondidas con la recomendación.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | front-01 (backend: el dueño en `GET patients`), 1.1, 1.2, 1.3a, 1.3b, 1.4 y 1.5, en ramas encadenadas desde `docs/front-f1-diseno`; todo se integra a `main` al cerrar la F1 | Usuario |
+| Dueño en el listado de pacientes (pregunta 1) | Entrega de soporte del backend front-01, aditiva: `client: { id, display_name }` en `GET patients`, sin N+1 y sin cambiar otras respuestas | Usuario |
+| Interfaz (preguntas 2 a 4, 7 a 9, 11 y 13) | Listados en tabla, 20 por página sin selector; los pacientes del cliente desde `GET clients/{id}`, con los fallecidos detrás de un botón; diálogo simple antes de borrar; alta del paciente en una página propia; "Especies" con menú propio; foto con vista previa y botón; sin aviso de cambios sin guardar en la F1 | Usuario |
+| Validación (preguntas 5 y 6) | El dígito verificador del RUC también en el navegador, con los casos de `RucCheckDigitTest`; el email se pasa a minúsculas al mandar | Usuario |
+| Pacientes (preguntas 10 y 12) | "Anular el fallecimiento" con confirmación; pacientes en dos entregas (1.3a y 1.3b, con la verificación del desvío 8 de la 0.1 en la 1.3b) | Usuario |
+| Rama de front-01 | `feature/front-01-dueno-pacientes` (el nombre que dio el usuario; el diseño decía `feature/front-01-duenio-en-pacientes`) | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos y colecciones: la aprobación solo documenta.

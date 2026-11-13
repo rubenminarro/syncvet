@@ -1,7 +1,7 @@
 # F1 — Clientes y pacientes (frontend)
 
-Etapa: Datos de la clínica. Estado: **PROPUESTO** el 2026-11-12, en `docs/front-f1-diseno` (desde `main` en `668eb48`), a la espera
-de las [preguntas del diseño](#preguntas-del-diseño). Ningún código antes de la aprobación del usuario. El estado vigente de cada
+Etapa: Datos de la clínica. Estado: **APROBADO** por el usuario el 2026-11-12 (R-064), en `docs/front-f1-diseno` (desde `main` en `668eb48`), con las
+[preguntas del diseño](#preguntas-del-diseño) respondidas: todas las recomendaciones, también la entrega front-01 del backend. El estado vigente de cada
 fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
@@ -102,13 +102,13 @@ interfaz.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| front-01 | Soporte del backend: el dueño en `GET patients` (solo si se aprueba la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-01-duenio-en-pacientes`, desde `docs/front-f1-diseno` | PROPUESTA |
-| 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes-listado` | PROPUESTA |
-| 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | PROPUESTA |
-| 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 si se aprueba | `feature/front-1-3a-pacientes` | PROPUESTA |
-| 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes-estado` | PROPUESTA |
-| 1.4 | Foto del paciente: ver (como `Blob`), subir y borrar | No | `feature/front-1-4-foto` | PROPUESTA |
-| 1.5 | Especies y razas: listado, alta, edición, inactivación y baja | No | `feature/front-1-5-especies` | PROPUESTA |
+| front-01 | Soporte del backend: el dueño en `GET patients` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-01-dueno-pacientes`, desde `docs/front-f1-diseno` | APROBADA (R-064) |
+| 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes-listado` | APROBADA (R-064) |
+| 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | APROBADA (R-064) |
+| 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 | `feature/front-1-3a-pacientes` | APROBADA (R-064) |
+| 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes-estado` | APROBADA (R-064) |
+| 1.4 | Foto del paciente: ver (como `Blob`), subir y borrar | No | `feature/front-1-4-foto` | APROBADA (R-064) |
+| 1.5 | Especies y razas: listado, alta, edición, inactivación y baja | No | `feature/front-1-5-especies` | APROBADA (R-064) |
 
 Cada rama sale de la anterior, como en la F0, y todo se integra a `main` al cerrar la F1. La entrega de pacientes del pedido original
 se divide en dos (1.3a y 1.3b, [pregunta 12](#preguntas-del-diseño)): sola sería el doble que las demás. Las especies quedan al final:
@@ -119,7 +119,7 @@ los formularios del paciente solo leen `GET species`, que ya existe. Cada entreg
 
 ### front-01 Soporte del backend: el dueño en el listado de pacientes
 
-**Solo si se aprueba la pregunta 1.** `PatientResource` suma `client` con `whenLoaded('client')`: `{ id, display_name }` (el
+**Aprobada con la pregunta 1 (R-064).** `PatientResource` suma `client` con `whenLoaded('client')`: `{ id, display_name }` (el
 detalle ya lo pisa con `ShowPatientResource`, más completo). `GET patients` ya carga `client`; `clients/{client}/patients` y el
 detalle del cliente no lo cargan, así que no cambian. Sin rutas, permisos ni migraciones. Tests: el listado trae el dueño (persona
 y empresa, `display_name`), sin N+1 (cantidad de consultas fija con 1 y con 5 pacientes), y el listado de un cliente no lo trae.
@@ -344,23 +344,23 @@ recepcionista ve la lista sin botones.
 
 ## Preguntas del diseño
 
-Para decidir antes de empezar. Cada una con la recomendación.
+Respondidas por el usuario el 2026-11-12 (R-064): todas con la recomendación.
 
-| # | Pregunta | Opciones | Recomendación |
-|---|---|---|---|
-| 1 | El listado de pacientes no trae el dueño (H1). ¿Se suma en el backend? | (a) Entrega de soporte front-01, chica y aditiva; (b) el listado sin dueño | **(a)**: en una veterinaria el paciente se reconoce por el dueño; el controller ya lo carga, falta solo sacarlo |
-| 2 | ¿Listados en tabla o en tarjetas? | Tabla (`DataTable`) o tarjetas | **Tabla**, también en tablet (con su desplazamiento horizontal); las tarjetas, solo para los pacientes dentro del detalle del cliente |
-| 3 | ¿Dónde se cargan los pacientes de un cliente? | (a) Del `GET clients/{id}`, que ya los trae; (b) `GET clients/{id}/patients` aparte | **(a)**: un pedido menos; los fallecidos se filtran en el navegador detrás de "Mostrar los fallecidos" |
-| 4 | ¿Confirmación antes de borrar? | Diálogo simple; diálogo que pide escribir el nombre; sin confirmación | **Diálogo simple** con el nombre en el texto y el botón rojo; escribir el nombre es demasiado para registros que la API ya protege con `*_IN_USE` |
-| 5 | ¿El dígito verificador del RUC se valida también en el navegador? | Sí (función pura con los casos del backend) o solo la API | **Sí**: el aviso llega al salir del campo; la cuenta es corta y queda atada a los casos de `RucCheckDigitTest` |
-| 6 | ¿El email se pasa a minúsculas solo (H3)? | Sí, o un error "en minúsculas" | **Sí**, en el envío: nadie escribe el email pensando en mayúsculas |
-| 7 | ¿El alta de un paciente es una página o un diálogo? | `/clientes/$id/pacientes/nuevo` o un diálogo en el detalle | **Página**: el formulario es largo y la URL permite volver |
-| 8 | ¿Dónde van las especies? | Menú propio "Especies" o dentro de Configuración | **Menú propio**: `/configuracion` es solo del administrador y el veterinario también administra el catálogo |
-| 9 | ¿La foto se sube al elegirla o con vista previa y botón? | Al elegir; vista previa y "Subir la foto" | **Vista previa y botón**: evita subir la foto equivocada |
-| 10 | ¿Se ofrece "Anular el fallecimiento"? (la API acepta `deceased_at: null`) | Sí, con confirmación; no | **Sí**, con confirmación y el mismo permiso de edición: corrige un error de carga |
-| 11 | ¿Avisar al salir de un formulario con cambios sin guardar? | Sí; no | **No en la F1**: se suma más adelante si hace falta, para todos los formularios a la vez |
-| 12 | ¿Pacientes en dos entregas (1.3a y 1.3b)? | Dos entregas; una sola | **Dos**: así las entregas quedan de tamaño parecido y el desvío 8 tiene su propia revisión |
-| 13 | ¿Cuántos por página? | Los 10 de la API; 20; un selector | **20**, sin selector (`per_page=20` fijo, no va en la URL) |
+| # | Pregunta | Opciones | Recomendación | Respuesta |
+|---|---|---|---|---|
+| 1 | El listado de pacientes no trae el dueño (H1). ¿Se suma en el backend? | (a) Entrega de soporte front-01, chica y aditiva; (b) el listado sin dueño | **(a)**: en una veterinaria el paciente se reconoce por el dueño; el controller ya lo carga, falta solo sacarlo | Aprobada (usuario, 2026-11-12) |
+| 2 | ¿Listados en tabla o en tarjetas? | Tabla (`DataTable`) o tarjetas | **Tabla**, también en tablet (con su desplazamiento horizontal); las tarjetas, solo para los pacientes dentro del detalle del cliente | Aprobada (usuario, 2026-11-12) |
+| 3 | ¿Dónde se cargan los pacientes de un cliente? | (a) Del `GET clients/{id}`, que ya los trae; (b) `GET clients/{id}/patients` aparte | **(a)**: un pedido menos; los fallecidos se filtran en el navegador detrás de "Mostrar los fallecidos" | Aprobada (usuario, 2026-11-12) |
+| 4 | ¿Confirmación antes de borrar? | Diálogo simple; diálogo que pide escribir el nombre; sin confirmación | **Diálogo simple** con el nombre en el texto y el botón rojo; escribir el nombre es demasiado para registros que la API ya protege con `*_IN_USE` | Aprobada (usuario, 2026-11-12) |
+| 5 | ¿El dígito verificador del RUC se valida también en el navegador? | Sí (función pura con los casos del backend) o solo la API | **Sí**: el aviso llega al salir del campo; la cuenta es corta y queda atada a los casos de `RucCheckDigitTest` | Aprobada (usuario, 2026-11-12) |
+| 6 | ¿El email se pasa a minúsculas solo (H3)? | Sí, o un error "en minúsculas" | **Sí**, en el envío: nadie escribe el email pensando en mayúsculas | Aprobada (usuario, 2026-11-12) |
+| 7 | ¿El alta de un paciente es una página o un diálogo? | `/clientes/$id/pacientes/nuevo` o un diálogo en el detalle | **Página**: el formulario es largo y la URL permite volver | Aprobada (usuario, 2026-11-12) |
+| 8 | ¿Dónde van las especies? | Menú propio "Especies" o dentro de Configuración | **Menú propio**: `/configuracion` es solo del administrador y el veterinario también administra el catálogo | Aprobada (usuario, 2026-11-12) |
+| 9 | ¿La foto se sube al elegirla o con vista previa y botón? | Al elegir; vista previa y "Subir la foto" | **Vista previa y botón**: evita subir la foto equivocada | Aprobada (usuario, 2026-11-12) |
+| 10 | ¿Se ofrece "Anular el fallecimiento"? (la API acepta `deceased_at: null`) | Sí, con confirmación; no | **Sí**, con confirmación y el mismo permiso de edición: corrige un error de carga | Aprobada (usuario, 2026-11-12) |
+| 11 | ¿Avisar al salir de un formulario con cambios sin guardar? | Sí; no | **No en la F1**: se suma más adelante si hace falta, para todos los formularios a la vez | Aprobada (usuario, 2026-11-12) |
+| 12 | ¿Pacientes en dos entregas (1.3a y 1.3b)? | Dos entregas; una sola | **Dos**: así las entregas quedan de tamaño parecido y el desvío 8 tiene su propia revisión | Aprobada (usuario, 2026-11-12) |
+| 13 | ¿Cuántos por página? | Los 10 de la API; 20; un selector | **20**, sin selector (`per_page=20` fijo, no va en la URL) | Aprobada (usuario, 2026-11-12) |
 
 ## Criterio de cierre
 
