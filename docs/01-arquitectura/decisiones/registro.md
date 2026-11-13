@@ -1464,3 +1464,24 @@ en `6ee193a`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en
 | Siguiente | La entrega 1.2 del frontend (clientes: alta, edición y baja), APROBADA (R-064) | Diseño (R-064) |
 
 **Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-067 Cierre de la entrega 1.2 del frontend (clientes: alta, edición y baja) (2026-11-13)
+
+Segunda entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-2-clientes-abm` (desde `feature/front-1-1-clientes`
+en `78e9657`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/clientes/nuevo` (`clients.store`) y `/clientes/$id/editar` (`clients.update`) con el mismo formulario de persona y empresa (los campos del otro tipo, en `null`), las reglas de forma de la API en el navegador con sus mensajes (el dígito verificador del RUC con los casos de `RucCheckDigitTest`) y los 422 en cada campo; la baja desde el detalle (`clients.destroy`, solo el administrador) con `ConfirmDialog` y `CLIENT_IN_USE` en el diálogo; "Nuevo cliente" y "Editar" según el permiso; la baja vuelve a la página del listado de donde se vino. Componentes nuevos: `ConfirmDialog`, `RadioGroup`, `CheckboxField` y `TextareaField`; sin paquetes nuevos | Diseño (R-064) |
+| Desvíos de la implementación | 1 a 14: aceptados el 1 (la búsqueda del listado en el estado del historial), el 2 (la baja vacía los listados antes de volver), el 3 (guardar y "Cancelar" reemplazan el formulario en el historial), el 5 (detalles de los componentes) y el 6 (el email lo decide la API); el 4 (los RUC reales en `ruc.test.ts`) queda con las excepciones justificadas de los RUC públicos de empresas; los demás, informativos. En las correcciones, el 17 (la única diferencia del email con la API, `"juan perez"@…`), aceptado | Usuario |
+| Revisión | En una sesión que la revisó como quien no la escribió, sobre el WIP `657100e`: 7 hallazgos (1 alto: el doble clic en Guardar mandaba dos altas y la segunda daba 500; 4 medios: el foco del diálogo, el email más estricto que la API, 14 mutaciones que pasaban los tests y `FictitiousDocumentsTest` sin revisar el frontend; 1 bajo y 1 informativo) | Revisión |
+| RUC reales | Los 7 RUC de `ruc.test.ts` (los de `RucCheckDigitTest`, de la DNIT) son de empresas, de la serie de las personas jurídicas: quedan, en `ALLOWED`. Los ejemplos de 7 dígitos de `FictitiousDocumentsTest` (el rango de las cédulas reales) pasan a números con un cero adelante, que no pueden ser una cédula | Usuario |
+| Correcciones | Hallazgos 1 a 6: Guardar se deshabilita también con `isSubmitting` y una `ref` deja pasar un solo envío; en el backend (commit aparte, `594ad20`), `ClientService` responde 422 en `document_number` o `email` cuando choca con un índice único de `clients`, nunca 500 (identificado por el nombre del índice); `ConfirmDialog` con las teclas en `document`, el foco de vuelta a "Cancelar", `aria-disabled` y el fondo sin desplazamiento; el email del navegador, solo la forma mínima; tests de los límites, la caché de la baja, la invalidación de pacientes y la vuelta de la edición; `FictitiousDocumentsTest` revisa también `frontend/src` y `frontend/e2e`; en `bb8cab5` | Usuario |
+| Procesos | `frontend/CLAUDE.md` §8: un Vite de una prueba se detiene por el PID de `vite.js` (detener la tarea dejaba vivo a Vite), comprobando después que el puerto quedó libre | Usuario |
+| Deuda 22 | `PatientService` guarda el microchip solo con la regla `unique`: dos altas o ediciones simultáneas con el mismo microchip darían 500 (el mismo hueco que tenía `ClientService`). Prioridad media; se corrige al empezar la 1.3a, como commit aparte del backend | Usuario |
+| Validación | El usuario revisó los formularios en el navegador ("están bien") y dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 19 de 19 de la implementación y 8 de 8 de las correcciones (el doble clic, el teclado en el diálogo y un email con tilde); la demo sin clientes nuevos. Desde `frontend/`, sobre el código de `bb8cab5`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 502 tests en 29 archivos; `npm run test:e2e`, 17 de 17. Desde `backend/`: `composer test:fast` y la suite en serie, 1458 casos (14262 aserciones en SQLite, 15 omitidos; 14342 en MySQL, sin omitidos); Newman de la colección de clientes, 24 pedidos y 48 aserciones, sin fallas | Usuario |
+| Siguiente | La entrega 1.3a del frontend (pacientes: listado, detalle, alta y edición), APROBADA (R-064) | Diseño (R-064) |
+
+**Qué no cambió.** Rutas, permisos, `error_code`, códigos HTTP de lo que ya respondía la API y colecciones. Lo único nuevo del backend
+es el 422 donde antes había un 500 (el choque con un índice único de `clients`).

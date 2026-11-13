@@ -43,9 +43,11 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Después, la entrega de soporte del
   frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) e integrada a
   `main` con la F0 del frontend (R-063). La entrega de soporte front-01 (el dueño en `GET patients`, pedida por la F1 del
-  frontend) está cerrada (R-065), en `feature/front-01-dueno-pacientes`, sin integrar a `main` (se integra al cerrar la F1). Sigue
-  el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la
-  suite del cierre de front-01, 1451 casos (14225 aserciones en SQLite y 14299 en MySQL).
+  frontend) está cerrada (R-065), en `feature/front-01-dueno-pacientes`, sin integrar a `main` (se integra al cerrar la F1). La
+  entrega 1.2 del frontend (R-067) cambió el backend en un commit aparte: el choque con un índice único de `clients` responde 422
+  en su campo, nunca 500 (§6.1). Sigue el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy: 78
+  rutas, 135 permisos y 36 migraciones; la suite del cierre de la 1.2 del frontend, 1458 casos (14262 aserciones en SQLite y 14342
+  en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -120,7 +122,8 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   `services_clinic_id_name_unique`) o por `tabla.columna` (SQLite, `UNIQUE constraint failed: services.clinic_id, services.name`),
   nunca buscando el nombre de la columna en el mensaje: el mensaje trae el SQL, que nombra todas las columnas. Una violación que no
   es la esperada sigue su camino; la del código llega a `DocumentSequenceService` (409 `DOCUMENT_CODE_CONFLICT`). Ejemplos:
-  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039).
+  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039), y `ClientService::UNIQUE_INDEXES`
+  (R-067).
 * Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
   `error_code` en inglés. `VoseoTest` rechaza las palabras de tú y de usted, los imperativos de tú y de usted de sus verbos
   (un verbo nuevo en un mensaje se agrega a su lista) y los mensajes en inglés. Los mensajes de validación sin mensaje propio
@@ -241,8 +244,10 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   Been Pwned se simula en `TestCase`.
 * **Datos de ejemplo:** documentos ficticios. RUC `999999xx` con su dígito verificador y cédulas `99xxxxxx` (R-011); la
   `ClinicFactory`, RUC de 9 dígitos, que hoy no se emiten (R-013). Nunca un número de 7 dígitos (el rango de las cédulas
-  reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
-  guía de Postman con sus colecciones (`docs/05-pruebas`); los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
+  reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures, la
+  guía de Postman con sus colecciones (`docs/05-pruebas`) y el frontend (`frontend/src` y `frontend/e2e`, `*.ts` y `*.tsx`;
+  R-067); los RUC reales, solo en `tests/Unit/RucCheckDigitTest` y en su espejo del frontend (`ruc.test.ts`), en su lista
+  permitida. Un documento con el dígito verificador mal se arma en el código (`wrongRuc()`), no se escribe literal.
 * Claves de la API en **`snake_case`**: datos, `meta` y `errors` (entrega front-00, B3). `SnakeCaseKeysTest` revisa `app/` y
   `bootstrap/app.php` y falla con una clave literal en `camelCase` en un arreglo (`'fooBar' =>`, también anidada), asignada por
   índice (`$data['fooBar'] = …`), en `compact()` o como clave de `Arr::set`, `Arr::add`, `data_set` o `data_fill`. No cuentan los
@@ -411,6 +416,9 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   turnos, consultas o facturas y no puede eliminarse."); el uso se revisa dentro de la transacción de la baja, con la fila del
   cliente bloqueada (§3).
 * La búsqueda (`search`) también encuentra al dueño por el nombre o el código de su mascota.
+* Dos altas o ediciones simultáneas con el mismo documento (también la misma base) o el mismo email pasan las dos la
+  validación: la segunda choca con el índice único y responde el 422 de la regla `unique` en `document_number` o `email`,
+  nunca 500 (`ClientService`, por el nombre del índice; R-067). `ClientConcurrencyTest` (MySQL) lo prueba con dos procesos.
 
 ### 6.2 Pacientes
 
@@ -895,3 +903,4 @@ Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../doc
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
 | 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |
 | 21 | Tests: `countQueries` copiado en tres tests (turnos, agenda y pacientes); prioridad baja: unificarlo cuando se toquen esos tests |
+| 22 | Pacientes: el microchip repetido en dos pedidos simultáneos responde 500 (solo lo frena la regla `unique`); prioridad media: se corrige al empezar la 1.3a del frontend, en un commit aparte, traduciendo el choque con el índice a 422, como `ClientService` (R-067) |

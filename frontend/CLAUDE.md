@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065) y la 1.1 cerrada (R-066). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
-| Siguiente | La 1.2 de la F1 (clientes: alta, edición y baja), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#12-clientes-alta-edición-y-baja); los listados siguen la convención de la 1.1 (§5) |
-| Tests | Vitest: 357 tests en 25 archivos, en verde (corrida del cierre de la 1.1, el 2026-11-13, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 13 casos contra `syncvet_e2e`, en verde |
+| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066) y la 1.2 cerrada (R-067). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
+| Siguiente | La 1.3a de la F1 (pacientes: listado, detalle, alta y edición), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#13a-pacientes-listado-detalle-alta-y-edición); los listados siguen la convención de la 1.1 y los formularios, la de la 1.2 (§5); queda la deuda 22 del backend (el microchip) |
+| Tests | Vitest: 502 tests en 29 archivos, en verde (corrida del cierre de la 1.2, el 2026-11-13, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 17 casos contra `syncvet_e2e`, en verde |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -68,13 +68,14 @@ frontend/
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, SearchField, SelectField, Alert, Card, DataTable, ErrorPage, Loading, avisos
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
     ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
 Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/`, `/perfil`,
-`/configuracion`, provisoria y solo para el administrador, `/clientes` y `/clientes/$id`, desde la 1.1, y `/sin-permiso`; exige
+`/configuracion`, provisoria y solo para el administrador, `/clientes` y `/clientes/$id`, desde la 1.1, `/clientes/nuevo` y
+`/clientes/$id/editar` (archivo `$id_.editar.tsx`: con `_`, no se dibuja dentro del detalle), desde la 1.2, y `/sin-permiso`; exige
 la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
 
@@ -128,9 +129,24 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
 * **Formularios**: React Hook Form con Zod; un 422 se vuelca con `applyValidationErrors` (`src/lib/api/form-errors.ts`): cada clave
   de `errors` a su campo con `setError` y foco en el primero; las demás, a una `Alert` arriba del formulario. Las claves con índice
   de Laravel (`branch_ids.0`) van al campo padre declarado (`branch_ids`), o al de un patrón con `*` (`hours.*.starts_at` recibe
-  `hours.1.starts_at`); varias claves de un mismo campo juntan sus mensajes.
+  `hours.1.starts_at`); varias claves de un mismo campo juntan sus mensajes. Desde la 1.2 (el modelo es `features/clients/form.ts`,
+  `ClientForm.tsx` y `ClientFormPages.tsx`):
+  * **Las reglas de forma de la API, con sus mensajes**, en una función pura con sus tests (cada límite en su borde: pasa en el
+    límite y falla pasándolo), comparadas con el Form Request; el largo en caracteres (`Array.from`, como `mb_strlen`). El
+    navegador no rechaza nada que la API acepta: el email, solo la forma mínima (`^[^\s@]+@[^\s@]+$`); el formato completo y el
+    DNS, la API.
+  * **Un solo envío**: Guardar se deshabilita con `formState.isSubmitting` y con la mutación pendiente, y una `ref` deja pasar un
+    solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido.
+  * **Los opcionales vacíos van en `null`** y la edición manda el formulario completo; guardar y "Cancelar" reemplazan la entrada
+    del formulario en el historial (`replace`).
 * **Componentes de Tabler a través de `src/components/ui`**: las páginas no repiten el marcado de Tabler. Sin Tailwind ni otra
   biblioteca de componentes; sin el JS de Tabler (menús, diálogos y avisos son componentes de React).
+* **Confirmación antes de borrar** (desde la 1.2): `ConfirmDialog` (`role="dialog"`, `aria-modal`), con el foco en "Cancelar" al
+  abrir. Mientras está abierto escucha las teclas en `document` (Escape cierra; Tab y Shift+Tab recorren solo el diálogo), devuelve
+  el foco a "Cancelar" si sale del diálogo o al terminar la espera y bloquea el desplazamiento del fondo; al cerrar, el foco vuelve
+  al botón que lo abrió. Los botones inactivos del diálogo usan `aria-disabled` (`Button` con `focusableWhenInactive`): con
+  `disabled`, el botón suelta el foco. El error de negocio (`*_IN_USE`) va dentro del diálogo, con la acción que corresponda o solo
+  "Cerrar" (`canConfirm={false}`).
 * **Fechas y dinero**: la API manda las fechas con hora en UTC (`Z`); se muestran con `formatDate`, `formatDateTime` y `formatTime`
   (`src/lib/format/dates.ts`, siempre en `America/Asuncion`, nunca con la zona de la PC); se mandan con `toApiDateTime` (la hora de
   pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Una fecha sin
