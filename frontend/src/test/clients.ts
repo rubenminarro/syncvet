@@ -1,3 +1,4 @@
+import { rucCheckDigit } from '../features/clients/ruc';
 import type { Client, ClientDetail, ClientPatient } from '../features/clients/types';
 import type { Pagination } from '../lib/api/types';
 
@@ -69,4 +70,12 @@ export function detail(client: Client, patients: ClientPatient[] = []): ClientDe
 
 export function pagination(overrides: Partial<Pagination> = {}): { pagination: Pagination } {
   return { pagination: { total: 2, per_page: 20, current_page: 1, last_page: 1, ...overrides } };
+}
+
+/**
+ * Un RUC con el dígito verificador equivocado (el correcto más uno), como wrongRuc() de ClientStoreTest del backend: se
+ * arma en el código para que FictitiousDocumentsTest no lo tome como un documento de ejemplo.
+ */
+export function wrongRuc(number: string): string {
+  return `${number}-${String((rucCheckDigit(number) + 1) % 10)}`;
 }

@@ -9,7 +9,7 @@ import {
   type ClientFormValues,
 } from './form';
 import { RUC_MESSAGE } from './ruc';
-import { COMPANY, PERSON } from '../../test/clients';
+import { COMPANY, PERSON, wrongRuc } from '../../test/clients';
 
 // Los documentos son los ficticios de ClientStoreTest (R-011).
 const person: ClientFormValues = {
@@ -105,9 +105,32 @@ describe('clientFormErrors: las reglas de StoreClientRequest, con sus mensajes',
   });
 
   it('el RUC con el dígito verificador equivocado: el mensaje de RucCheckDigit', () => {
-    expect(errorsFor({ document_number: '99999903-7' }).document_number).toBe(RUC_MESSAGE);
-    expect(errorsFor({ document_number: '99999904-5' }, company).document_number).toBe(RUC_MESSAGE);
+    expect(errorsFor({ document_number: wrongRuc('99999903') }).document_number).toBe(RUC_MESSAGE);
+    expect(errorsFor({ document_number: wrongRuc('99999904') }, company).document_number).toBe(
+      RUC_MESSAGE,
+    );
   });
+
+  it('el RUC con espacios en los extremos se revisa sin ellos (como TrimStrings de la API)', () => {
+    expect(errorsFor({ document_number: `  ${wrongRuc('99999903')}  ` }).document_number).toBe(
+      RUC_MESSAGE,
+    );
+    expect(errorsFor({ document_number: '  99999903-6  ' })).toEqual({});
+  });
+
+  it.each(['josé@example.com', 'juan@ñandutí.com.py', 'juan!x@example.com', "o'brien@example.com"])(
+    'el email %s pasa: el navegador revisa solo la forma mínima (el formato completo y el DNS, la API)',
+    (email) => {
+      expect(errorsFor({ email })).toEqual({});
+    },
+  );
+
+  it.each(['juan', 'juan@', '@example.com', 'ju an@example.com', 'juan@@example.com'])(
+    'el email %j no tiene la forma mínima',
+    (email) => {
+      expect(errorsFor({ email }).email).toBe(M.email.email);
+    },
+  );
 
   it('una persona no pide la razón social; una empresa no pide nombre ni apellido', () => {
     expect(errorsFor({ business_name: '' })).toEqual({});
@@ -122,6 +145,42 @@ describe('clientFormErrors: las reglas de StoreClientRequest, con sus mensajes',
       ['first_name', M.first_name.required],
       ['phone', M.phone.regex],
     ]);
+  });
+});
+
+/**
+ * Cada largo de la API en su borde exacto (revisión de la 1.2: con 100 → 99 o 50 → 49 los tests seguían pasando): el
+ * valor en el límite pasa y el del límite más uno (o menos uno, en los mínimos) falla, con el mensaje de la API. Los
+ * números se arman en el código: no son documentos de ejemplo (FictitiousDocumentsTest).
+ */
+describe('clientFormErrors: los límites de cada campo', () => {
+  const digits = (count: number) => '9'.repeat(count);
+
+  it.each([
+    ['first_name', person, 'a'.repeat(100), 'a'.repeat(101), M.first_name.max],
+    ['first_name', person, 'Jo', 'J', M.first_name.min],
+    ['last_name', person, 'a'.repeat(100), 'a'.repeat(101), M.last_name.max],
+    ['last_name', person, 'Po', 'P', M.last_name.min],
+    ['business_name', company, 'a'.repeat(150), 'a'.repeat(151), M.business_name.max],
+    ['business_name', company, 'HS', 'H', M.business_name.min],
+    ['document_number', person, digits(20), digits(21), M.document_number.max],
+    ['document_number', person, digits(5), digits(4), M.document_number.min],
+    [
+      'email',
+      person,
+      `${'a'.repeat(38)}@example.com`,
+      `${'a'.repeat(39)}@example.com`,
+      M.email.max,
+    ],
+    // 15 y 16 dígitos (el máximo de la regla); 8 y 7 (el mínimo).
+    ['phone', person, `+${digits(15)}`, `+${digits(16)}`, M.phone.regex],
+    ['phone', person, `+${digits(8)}`, `+${digits(7)}`, M.phone.regex],
+    ['address', person, 'a'.repeat(255), 'a'.repeat(256), M.address.max],
+    ['city', person, 'a'.repeat(100), 'a'.repeat(101), M.city.max],
+    ['notes', person, 'a'.repeat(1000), 'a'.repeat(1001), M.notes.max],
+  ] as const)('%s: pasa en el límite y falla pasándolo', (field, base, atLimit, past, message) => {
+    expect(errorsFor({ [field]: atLimit }, base)[field]).toBeUndefined();
+    expect(errorsFor({ [field]: past }, base)[field]).toBe(message);
   });
 });
 

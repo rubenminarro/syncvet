@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from 'react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 
@@ -20,7 +20,8 @@ interface ConfirmDialogProps {
   canConfirm?: boolean;
 }
 
-// Una lista sin espacios: el test de voseo no la toma por un texto de la interfaz.
+// Una lista sin espacios: el test de voseo no la toma por un texto de la interfaz. Los botones inactivos del diálogo usan
+// aria-disabled (siguen en la lista): el foco no se pierde mientras se espera la API.
 const FOCUSABLE = [
   'button:not([disabled])',
   '[href]',
@@ -31,9 +32,11 @@ const FOCUSABLE = [
 ].join(',');
 
 /**
- * Confirmación antes de una acción que no se deshace (el modal de Tabler, sin su JS): role="dialog" con aria-modal, el
- * foco en "Cancelar" al abrir, Tab y Shift+Tab sin salir del diálogo, Escape cierra y, al cerrar, el foco vuelve a donde
- * estaba. El error de negocio se muestra adentro.
+ * Confirmación antes de una acción que no se deshace (el modal de Tabler, sin su JS): role="dialog" con aria-modal y el
+ * foco en "Cancelar" al abrir. Mientras está abierto (revisión de la 1.2): las teclas se escuchan en `document` (Escape
+ * cierra y Tab y Shift+Tab recorren solo el diálogo, esté el foco donde esté), el foco vuelve a "Cancelar" si sale del
+ * diálogo o al terminar la espera, los botones inactivos no sueltan el foco (aria-disabled) y el fondo no se desplaza. Al
+ * cerrar, el foco vuelve a donde estaba. El error de negocio se muestra adentro.
  */
 export function ConfirmDialog({
   open,
@@ -48,33 +51,10 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const titleId = useId();
   const bodyId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-
-  // Al abrir, el foco en "Cancelar"; al cerrar, de vuelta al botón que lo abrió.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    cancelRef.current?.focus();
-
-    return () => {
-      previous?.focus();
-    };
-  }, [open]);
-
-  // Sin la acción (llegó un *_IN_USE), el botón rojo desaparece: el foco pasa a "Cerrar".
-  useEffect(() => {
-    if (open && !canConfirm) {
-      cancelRef.current?.focus();
-    }
-  }, [open, canConfirm]);
-
-  if (!open) {
-    return null;
-  }
+  const wasBusy = useRef(busy);
 
   const close = () => {
     if (!busy) {
@@ -82,45 +62,106 @@ export function ConfirmDialog({
     }
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onDocumentKeyDown = useEffectEvent((event: KeyboardEvent) => {
     if (event.key === 'Escape') {
-      event.stopPropagation();
+      event.preventDefault();
       close();
 
       return;
     }
 
-    if (event.key !== 'Tab' || dialogRef.current === null) {
+    if (event.key !== 'Tab') {
       return;
     }
 
-    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    // Tab siempre lo mueve el diálogo: desde un botón, el siguiente (o el primero después del último); desde afuera o
+    // desde el contenedor (un clic en el texto), el primero, o el último con Shift.
+    event.preventDefault();
+    const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
 
-    if (first === undefined || last === undefined) {
+    if (focusable.length === 0) {
       return;
     }
 
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
+    const index =
+      document.activeElement instanceof HTMLElement
+        ? focusable.indexOf(document.activeElement)
+        : -1;
+    let next: number;
+
+    if (event.shiftKey) {
+      next = index <= 0 ? focusable.length - 1 : index - 1;
+    } else {
+      next = index === -1 || index === focusable.length - 1 ? 0 : index + 1;
     }
-  };
+
+    focusable[next]?.focus();
+  });
+
+  // El foco salió del diálogo (un programa, un lector de pantalla, el fondo): de vuelta a "Cancelar".
+  const onDocumentFocusIn = useEffectEvent((event: FocusEvent) => {
+    if (
+      rootRef.current !== null &&
+      event.target instanceof Node &&
+      !rootRef.current.contains(event.target)
+    ) {
+      cancelRef.current?.focus();
+    }
+  });
+
+  // Al abrir: el foco en "Cancelar", las teclas y el foco escuchados en document y el fondo sin desplazamiento. Al cerrar,
+  // todo vuelve como estaba y el foco, al botón que lo abrió.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflow = document.body.style.overflow;
+    const keydown = (event: KeyboardEvent) => {
+      onDocumentKeyDown(event);
+    };
+    const focusin = (event: FocusEvent) => {
+      onDocumentFocusIn(event);
+    };
+
+    cancelRef.current?.focus();
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', keydown);
+    document.addEventListener('focusin', focusin);
+
+    return () => {
+      document.removeEventListener('keydown', keydown);
+      document.removeEventListener('focusin', focusin);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, [open]);
+
+  // Al terminar la espera (con un error: la acción no se hizo), el foco vuelve a "Cancelar" (o "Cerrar"). También si el
+  // botón rojo desaparece (un *_IN_USE).
+  useEffect(() => {
+    if (open && ((wasBusy.current && !busy) || !canConfirm)) {
+      cancelRef.current?.focus();
+    }
+
+    wasBusy.current = busy;
+  }, [open, busy, canConfirm]);
+
+  if (!open) {
+    return null;
+  }
 
   return (
     <>
       <div
+        ref={rootRef}
         className="modal modal-blur fade show d-block confirm-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
         tabIndex={-1}
-        onKeyDown={onKeyDown}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             close();
@@ -153,12 +194,13 @@ export function ConfirmDialog({
                 variant="secondary"
                 className="me-auto"
                 disabled={busy}
+                focusableWhenInactive
                 onClick={close}
               >
                 {canConfirm ? 'Cancelar' : 'Cerrar'}
               </Button>
               {canConfirm ? (
-                <Button variant="danger" loading={busy} onClick={onConfirm}>
+                <Button variant="danger" loading={busy} focusableWhenInactive onClick={onConfirm}>
                   {confirmLabel}
                 </Button>
               ) : null}

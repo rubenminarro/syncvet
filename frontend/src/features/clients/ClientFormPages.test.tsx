@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { failure, success } from '../../test/api';
-import { detail, pagination, PERSON } from '../../test/clients';
+import { detail, pagination, PERSON, wrongRuc } from '../../test/clients';
 import { meFor, ROLE_PERMISSIONS, ROLES } from '../../test/roles';
 import { server } from '../../test/server';
 import { meHandler, renderApp, sessionFor } from '../../test/session';
@@ -174,13 +174,80 @@ describe('/clientes/nuevo: alta', () => {
     const { store } = await openCreate();
 
     fillPerson();
-    type('Documento', '99999903-7');
+    type('Documento', wrongRuc('99999903'));
     submit();
 
     expect(await screen.findByText(RUC_MESSAGE)).toBeInTheDocument();
     expect(fieldError('Documento')).toBe(RUC_MESSAGE);
     expect(document.activeElement).toBe(field('Documento'));
     expect(store.bodies).toEqual([]);
+  });
+
+  // Revisión de la 1.2: dos clics seguidos llegaban los dos a mutate antes de que el botón se deshabilitara (dos POST).
+  it('dos clics seguidos en Guardar: un solo POST', async () => {
+    const { store } = await openCreate();
+
+    fillPerson();
+    submit();
+    submit();
+
+    expect(await screen.findByText('Juan Pérez', { selector: 'h2' })).toBeInTheDocument();
+    expect(store.bodies).toHaveLength(1);
+  });
+
+  // El envío del formulario no pasa por el botón (Enter en un campo, requestSubmit): lo frena la ref, no el botón
+  // deshabilitado.
+  it('dos envíos seguidos del formulario: un solo POST', async () => {
+    const { store } = await openCreate();
+
+    fillPerson();
+    const form = document.querySelector('form.client-form');
+
+    if (form === null) {
+      throw new Error('Falta el formulario.');
+    }
+
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    expect(await screen.findByText('Juan Pérez', { selector: 'h2' })).toBeInTheDocument();
+    expect(store.bodies).toHaveLength(1);
+  });
+
+  it('Guardar se deshabilita en el mismo clic, mientras valida (antes de que salga el pedido)', async () => {
+    await openCreate();
+
+    fillPerson();
+    submit();
+
+    expect(screen.getByText('Guardar', { selector: 'button' })).toBeDisabled();
+    await screen.findByText('Juan Pérez', { selector: 'h2' });
+  });
+
+  it('mientras espera la API, Guardar está deshabilitado', async () => {
+    const { store } = await openCreate();
+    let release: () => void = () => undefined;
+    server.use(
+      http.post('/api/clients', async ({ request }) => {
+        store.bodies.push((await request.json()) as ClientPayload);
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+
+        return failure(403, 'FORBIDDEN', 'No tenés permiso para crear clientes.');
+      }),
+    );
+
+    fillPerson();
+    submit();
+
+    await waitFor(() => {
+      expect(screen.getByText('Guardar', { selector: 'button' })).toBeDisabled();
+    });
+    release();
+    await screen.findByText('No tenés permiso para crear clientes.', { selector: '.alert-title' });
+    expect(screen.getByText('Guardar', { selector: 'button' })).toBeEnabled();
+    expect(store.bodies).toHaveLength(1);
   });
 
   it('vacío: cada obligatorio con su mensaje y el foco en el primero, sin llamar a la API', async () => {
@@ -363,6 +430,63 @@ describe('/clientes/$id/editar: edición', () => {
     expect(await screen.findByText('Cliente actualizado correctamente.')).toBeInTheDocument();
     // El detalle muestra lo guardado.
     expect(screen.getByText('laura@example.com', { selector: 'dd' })).toBeInTheDocument();
+  });
+
+  it('dos clics seguidos en Guardar: un solo PATCH', async () => {
+    const { update, history } = await openEdit();
+
+    type('Teléfono', '+595981999888');
+    submit();
+    submit();
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/clientes/1');
+    });
+    expect(update.bodies).toHaveLength(1);
+  });
+
+  it('guardar invalida el detalle de los pacientes (muestra el nombre del dueño) y no otras consultas', async () => {
+    const { queryClient, history } = await openEdit();
+    const patientKey = ['patients', 'detail', 5];
+    const otherKey = ['species', { include_inactive: false }];
+    queryClient.setQueryData(patientKey, { id: 5 });
+    queryClient.setQueryData(otherKey, []);
+
+    submit();
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/clientes/1');
+    });
+    expect(queryClient.getQueryState(patientKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
+  });
+
+  it('desde el listado: guardar vuelve al detalle (reemplazando el formulario) con la búsqueda del listado', async () => {
+    const update = updateHandler();
+    server.use(
+      meHandler(meFor('recepcionista')),
+      http.get('/api/clients', () =>
+        success([PERSON], { meta: pagination({ current_page: 2, last_page: 2, total: 21 }) }),
+      ),
+      http.get('/api/clients/:id', () => success(PERSON_DETAIL)),
+      update.handler,
+    );
+    const { history } = renderApp('/clientes?buscar=Laura&pagina=2', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Laura Martínez', { selector: 'a' }));
+    fireEvent.click(await screen.findByText('Editar', { selector: 'a' }));
+    await screen.findByText('Editar el cliente', { selector: 'h2' });
+    submit();
+
+    await screen.findByText('Cliente actualizado correctamente.');
+    expect(history.location.pathname).toBe('/clientes/1');
+    // El encabezado "Clientes" (y la baja) vuelven a la misma búsqueda y página.
+    expect(document.querySelector('.page-pretitle a')).toHaveAttribute(
+      'href',
+      '/clientes?buscar=Laura&pagina=2',
+    );
+    // Listado, detalle y el detalle que reemplazó al formulario: "Atrás" no vuelve al formulario.
+    expect(history.length).toBe(3);
   });
 
   it('CLIENT_KIND_NOT_EDITABLE: la alerta arriba y el tipo vuelve al guardado', async () => {

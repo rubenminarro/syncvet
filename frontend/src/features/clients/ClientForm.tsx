@@ -49,7 +49,7 @@ export function ClientForm({
     register,
     handleSubmit,
     control,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = form;
   const isCompany = useWatch({ control, name: 'kind' }) === 'company';
 
@@ -175,7 +175,8 @@ export function ClientForm({
         <div className="d-flex gap-2 align-items-center">
           <Button
             type="submit"
-            loading={saving}
+            // También mientras valida: el segundo clic de un doble clic llega antes de que la mutación esté pendiente.
+            loading={saving || isSubmitting}
             icon={<IconDeviceFloppy size={18} className="me-2" aria-hidden="true" />}
           >
             Guardar

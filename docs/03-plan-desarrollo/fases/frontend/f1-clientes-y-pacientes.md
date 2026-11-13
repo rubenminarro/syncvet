@@ -240,7 +240,7 @@ La corrida final se hizo dos veces (desvío 10).
 | 5 | La baja vuelve a `/clientes` sin la búsqueda de donde se vino | Falla "con la confirmación, DELETE y al listado de donde se vino…" |
 
 **Validación en el navegador** (2026-11-13): Edge sin ventana (`channel: 'msedge'`) contra el backend real (`syncvet.test`, base
-`syncvet`) y un Vite propio en `:5180` (detenido al final), con un script fuera del repositorio. 19 de 19 en verde (segunda corrida;
+`syncvet`) y un Vite propio en `:5180` (que **no** quedó detenido: ver el desvío 13), con un script fuera del repositorio. 19 de 19 en verde (segunda corrida;
 ver el desvío 11):
 
 | # | Prueba | Resultado |
@@ -270,20 +270,116 @@ los clientes creados se borraron con la baja de la aplicación (ver el desvío 1
 
 | # | Desvío | Motivo | Estado |
 |---|---|---|---|
-| 1 | La búsqueda del listado de donde se vino viaja en el estado del historial (`clientList`, `features/clients/navigation.ts`, validada con `validateClientListSearch`): la baja, el 404 en una acción y "Cancelar" del alta vuelven a `/clientes` **con esa búsqueda y página**, y el enlace "Clientes" del encabezado también. El diseño decía "vuelve a `/clientes`" | El pedido: "si la página quedó fuera de rango, se aplica la regla de la 1.1"; sin la página de donde se vino, la baja siempre volvería a la 1. En la URL no va (no es parte del detalle) | A aceptar |
-| 2 | Caché: el alta y la edición invalidan `['clients']` sin volver a pedir (`refetchType: 'none'`) y ponen la respuesta en `['clients', 'detail', id]` (el alta, con `patients: []`: el 201 no los trae); la edición invalida además `['patients', 'detail']`. La baja **vacía** los listados (`resetQueries`) antes de volver y saca el detalle después | Invalidar solo dejaba ver un momento el cliente borrado en el listado (los datos viejos mientras llega el nuevo pedido) | A aceptar |
-| 3 | Guardar y "Cancelar" reemplazan la entrada del formulario (`replace`): "Atrás" no vuelve al formulario. Después de editar, el historial queda listado, detalle, detalle | Volver a un formulario ya guardado lo mandaría otra vez | A aceptar |
-| 4 | `ruc.test.ts` copia la tabla de `RucCheckDigitTest` con sus **RUC reales** (los publicados por la DNIT) | Pedido del usuario (los casos del backend, no inventados). `FictitiousDocumentsTest` del backend no revisa `frontend/`: hoy nada lo controla allá | A decidir: aceptar o sumar `frontend/src` a `FictitiousDocumentsTest` con este archivo en `ALLOWED` |
-| 5 | `SelectField` no suma el error (el formulario no tiene selectores); `CheckboxField` deja la pista fuera de la etiqueta (asociada con `aria-describedby`); `Button` admite `ref` (el foco del diálogo) | Lo que pidió el código | Informativo |
-| 6 | El formato del email lo revisa `z.email()`, no la validación RFC de Laravel; pueden diferir en casos raros. Con `EMAIL_DNS_CHECK=true` (la base de desarrollo), `@example.com` pasa en el navegador y la API lo rechaza: el 422 llega al campo (prueba 4) | Manda la API (decisión común de la fase) | Informativo |
-| 7 | `playwright.config.ts`: el backend de Playwright corre con `EMAIL_DNS_CHECK=false` | Heredaba `backend/.env` (`true`): los emails de prueba `@example.com` no tienen MX y los casos dependerían de la red. La suite del backend ya corre así | A aceptar |
+| 1 | La búsqueda del listado de donde se vino viaja en el estado del historial (`clientList`, `features/clients/navigation.ts`, validada con `validateClientListSearch`): la baja, el 404 en una acción y "Cancelar" del alta vuelven a `/clientes` **con esa búsqueda y página**, y el enlace "Clientes" del encabezado también. El diseño decía "vuelve a `/clientes`" | El pedido: "si la página quedó fuera de rango, se aplica la regla de la 1.1"; sin la página de donde se vino, la baja siempre volvería a la 1. En la URL no va (no es parte del detalle) | Aceptado (usuario, revisión) |
+| 2 | Caché: el alta y la edición invalidan `['clients']` sin volver a pedir (`refetchType: 'none'`) y ponen la respuesta en `['clients', 'detail', id]` (el alta, con `patients: []`: el 201 no los trae); la edición invalida además `['patients', 'detail']`. La baja **vacía** los listados (`resetQueries`) antes de volver y saca el detalle después | Invalidar solo dejaba ver un momento el cliente borrado en el listado (los datos viejos mientras llega el nuevo pedido) | Aceptado (usuario, revisión); con test desde las correcciones (mutación Q1) |
+| 3 | Guardar y "Cancelar" reemplazan la entrada del formulario (`replace`): "Atrás" no vuelve al formulario. Después de editar, el historial queda listado, detalle, detalle | Volver a un formulario ya guardado lo mandaría otra vez | Aceptado (usuario, revisión) |
+| 4 | `ruc.test.ts` copia la tabla de `RucCheckDigitTest` con sus **RUC reales** (los publicados por la DNIT) | Pedido del usuario (los casos del backend, no inventados). `FictitiousDocumentsTest` del backend no revisa `frontend/`: hoy nada lo controla allá | Resuelto en las correcciones: los 7 son de empresas (ninguno de una persona física) y quedan, en `ALLOWED` de `FictitiousDocumentsTest`, que ahora revisa el frontend (corrección 5) |
+| 5 | `SelectField` no suma el error (el formulario no tiene selectores); `CheckboxField` deja la pista fuera de la etiqueta (asociada con `aria-describedby`); `Button` admite `ref` (el foco del diálogo) | Lo que pidió el código | Aceptado (usuario, revisión) |
+| 6 | El formato del email lo revisa `z.email()`, no la validación RFC de Laravel; pueden diferir en casos raros. Con `EMAIL_DNS_CHECK=true` (la base de desarrollo), `@example.com` pasa en el navegador y la API lo rechaza: el 422 llega al campo (prueba 4) | Manda la API (decisión común de la fase) | Aceptado (usuario, revisión); corregido después: el navegador revisa solo la forma mínima (corrección 3) |
+| 7 | `playwright.config.ts`: el backend de Playwright corre con `EMAIL_DNS_CHECK=false` | Heredaba `backend/.env` (`true`): los emails de prueba `@example.com` no tienen MX y los casos dependerían de la red. La suite del backend ya corre así | Informativo (usuario, revisión) |
 | 8 | Los campos llevan `maxLength` con el máximo de la API: los mensajes de "no debe tener más de…" de Zod no se ven en la interfaz salvo en el teléfono (sin `maxLength`); los cubren los tests de `form.test.ts` | El navegador no deja escribir de más | Informativo |
 | 9 | Encabezado del listado y del detalle con `row`/`col` de Tabler ("Nuevo cliente", "Editar" y "Eliminar" a la derecha del título) | Con `d-flex` los botones quedaban debajo del título (visto en la primera captura) | Informativo |
 | 10 | La primera corrida final tuvo 1 falla: el test de voseo tomó como texto en inglés el selector de los elementos con foco de `ConfirmDialog` (`"button:not([disabled]), …, select, …"`). Se armó como lista sin espacios y se repitió la corrida completa (`typecheck`, `lint`, `test`, `build`); `test:e2e` corrió una vez, sobre el código final | La regla de "una sola vez" se cumplió sobre el código final | Informativo |
 | 11 | La primera corrida del script de validación dio 7 de 18: el alta de persona usó `@example.com` (desvío 6) y un selector de "Empresa" encontró 3 elementos (el listado). No creó ningún cliente. La segunda usó emails `@gmail.com` (con MX) y sumó la prueba 4 | Ajustes del script, no de la aplicación | Informativo |
 | 12 | La baja de clientes es lógica (`SoftDeletes`): en la base de desarrollo quedan las filas eliminadas (con el sufijo `//deleted_…`) de los 2 clientes de la validación y su auditoría, y los tokens de los ingresos. Nada visible en la aplicación ni en la API | Es la baja de la aplicación; no se tocó la base a mano | Informativo |
-| 13 | El Vite de `:5173` (PID 34856, el del desvío 15 de la 1.1) seguía corriendo; no se usó ni se detuvo (no lo levantó esta sesión). La validación usó uno propio en `:5180`, detenido al final | Regla de procesos del `CLAUDE.md` de la raíz | Informativo |
-| 14 | Textos propios no definidos en el diseño: "Editar el cliente", "Datos del cliente", las pistas del documento y del teléfono, "¿Querés eliminar a … ? No se puede deshacer." y el botón "Eliminar a …"; el aviso de éxito es el `message` de la API | Detalles de presentación | A aceptar |
+| 13 | El Vite de `:5173` (PID 34856, el del desvío 15 de la 1.1) seguía corriendo; no se usó ni se detuvo (no lo levantó esta sesión). La validación usó uno propio en `:5180`; el informe lo dio por detenido, pero `TaskStop` cortó solo el envoltorio y el proceso de Vite (PID 27608) siguió escuchando hasta la revisión, que lo detuvo por su PID | Regla de procesos del `CLAUDE.md` de la raíz | Informativo |
+| 14 | Textos propios no definidos en el diseño: "Editar el cliente", "Datos del cliente", las pistas del documento y del teléfono, "¿Querés eliminar a … ? No se puede deshacer." y el botón "Eliminar a …"; el aviso de éxito es el `message` de la API | Detalles de presentación | Informativo (usuario, revisión) |
+
+**Validación del usuario** (2026-11-13): revisó los formularios en el navegador: "están bien".
+
+##### Revisión (1.2)
+
+La revisión (2026-11-13, sobre `657100e`, como quien no la escribió, sin corregir) comparó el navegador con la API con 195
+casos pasados por `clientFormErrors` y por el `StoreClientRequest` real (con `TrimStrings` y `ConvertEmptyStringsToNull`): 183
+coincidían y las 12 diferencias eran del email. También probó el doble envío y el foco del diálogo en Edge, y corrió mutaciones.
+Encontró 7 hallazgos:
+
+| # | Gravedad | Hallazgo |
+|---|---|---|
+| 1 | Alta | El doble clic en Guardar mandaba dos `POST`: el segundo chocaba con el índice único y la API respondía **500** (un solo cliente, por el índice). En la edición, dos `PATCH` |
+| 2 | Media | `ConfirmDialog`: con un clic en el texto, Shift+Tab sacaba el foco al botón de la página (caso A); el botón rojo se deshabilitaba al confirmar y, después de un error (un 403), el foco quedaba en `body` y Escape no cerraba (caso B) |
+| 3 | Media | El email (`z.email()`) rechazaba 11 formas que la API acepta (`josé@…`, dominios con ñ, `juan!x@…`, …) |
+| 4 | Media | Pasaban los tests 14 de 15 mutaciones: los límites de largo, el RUC con espacios, la caché de la baja, la invalidación del detalle de pacientes, el botón deshabilitado y la vuelta de la edición (ver el desvío 15) |
+| 5 | Media | `FictitiousDocumentsTest` no revisaba el frontend: con su regla, había 15 números fuera del rango ficticio (los RUC con el dígito mal escritos literales, los 7 RUC reales y los importes de `money`) |
+| 6 | Baja | El Vite de `:5180` de la implementación seguía corriendo (desvío 13) |
+| 7 | Informativo | El fondo se desplazaba con el diálogo abierto; el foco del 422 sigue el orden de la API (Ciudad y Dirección no se alcanzan); sin aviso de cambios sin guardar (pregunta 11) |
+
+Desvío 4: los 7 RUC de `ruc.test.ts` son los de `RucCheckDigitTest` (rankings de contribuyentes de la DNIT de 2010: Telecel,
+Petropar, Banco Itaú, Cervecería Paraguaya, DHL, BBVA y Agrotec), todos de empresas, de la serie de las personas jurídicas que
+empieza con 80; ninguno de una persona física. En el backend, `FictitiousDocumentsTest` usaba como ejemplos de documento real
+dos números de 7 dígitos (el rango de las cédulas reales), que podían ser de personas.
+
+##### Correcciones de la revisión (1.2)
+
+Decisiones del usuario: corregir los hallazgos 1 a 6, con los desvíos 1, 2, 3, 5 y 6 aceptados (y los demás, informativos).
+
+| # | Corrección | Tests |
+|---|---|---|
+| 1 | **Frontend**: Guardar se deshabilita también con `formState.isSubmitting` (`ClientForm`) y una `ref` deja pasar un solo `mutate` a la vez, en el alta y en la edición (`ClientFormPages`; se suelta en `onSettled`). **Backend** (commit aparte): `ClientService` traduce la violación de los índices únicos de `clients` (`document_number`, `document_base` y `email`), identificada por el nombre del índice (MySQL) o por `tabla.columna` (SQLite), al 422 `VALIDATION_ERROR` del campo con el mensaje de la regla `unique`, en el alta y en la edición; otra violación sigue su camino | Vitest: dos clics seguidos y dos envíos del formulario dan un solo `POST`; dos clics en la edición, un solo `PATCH`; Guardar deshabilitado en el mismo clic y mientras espera. Playwright: `dblclick()` da un solo `201`, un solo cliente y ningún 500. Backend: `ClientUniqueIndexTest` (6 casos, SQLite y MySQL: el alta y la edición con el documento, la cédula del RUC y el email que otro pedido guardó en el medio) y `ClientConcurrencyTest` (MySQL: dos procesos piden la misma alta con el hueco del índice tomado; uno 201 y el otro 422 en `document_number`) |
+| 2 | `ConfirmDialog`: las teclas se escuchan en `document` mientras está abierto (Escape cierra; Tab y Shift+Tab recorren solo el diálogo, desde donde esté el foco), el foco vuelve a "Cancelar" si sale del diálogo (`focusin`) o al terminar la espera, los botones inactivos usan `aria-disabled` (`Button` suma `focusableWhenInactive`) y el fondo no se desplaza (`overflow: hidden` en `body`, devuelto al cerrar) | `ConfirmDialog.test.tsx`: caso A (desde el contenedor, Shift+Tab al último botón, Tab al primero y Escape cierra; el foco que sale vuelve a "Cancelar"; Tab y Escape con el foco en `body`), caso B (el botón rojo conserva el foco, `aria-disabled`, sin confirmar dos veces; con el error, el foco en "Cancelar" y Escape cierra) y el desplazamiento |
+| 3 | El email, en el navegador, solo con la forma mínima (`^[^\s@]+@[^\s@]+$`, después de pasarlo a minúsculas y sin espacios en los extremos); el formato completo y el DNS los valida la API | `form.test.ts`: pasan `josé@example.com`, `juan@ñandutí.com.py`, `juan!x@example.com` y `o'brien@example.com`; fallan `juan`, `juan@`, `@example.com`, `ju an@example.com` y `juan@@example.com` |
+| 4 | Tests nuevos (sin cambios de código) | `form.test.ts`: cada largo en su borde (pasa en el límite y falla en el límite más uno; los mínimos, uno menos) y el RUC con espacios en los extremos. `ClientDetailPage.test.tsx`: después de la baja, con el listado demorado 300 ms, un `MutationObserver` comprueba que el cliente borrado no aparece nunca. `ClientFormPages.test.tsx`: guardar invalida `['patients', 'detail', …]` y no otras consultas; desde el listado, guardar vuelve al detalle con la búsqueda (`?buscar=Laura&pagina=2` en el encabezado) y reemplazando el formulario (3 entradas en el historial) |
+| 5 | `FictitiousDocumentsTest` revisa también `frontend/src` y `frontend/e2e` (`*.ts` y `*.tsx`, con las rutas desde la raíz). Los RUC con el dígito mal se arman en el código: `wrongRuc()` en `src/test/clients.ts` (como el de `ClientStoreTest`) y, en `e2e/clientes-abm.spec.ts`, el RUC correcto con su dígito más uno. En `ALLOWED`: `ruc.test.ts` (los mismos RUC de `RucCheckDigitTest`: públicos, de empresas) y los importes de `money.ts` y `money.test.ts` (importes en guaraníes, no documentos). En el backend, los ejemplos de 7 dígitos pasaron a números con un cero adelante, que no pueden ser una cédula (`0456789`, `0.456.789`, `0 456 789` y `0999999`) | El test pasa de 40 a 69 aserciones; con un RUC con el dígito mal escrito literal en `form.test.ts`, falla en `frontend/src/features/clients/form.test.ts:108` |
+| 6 | El documento: las dos líneas que daban el Vite de `:5180` por detenido (la validación y el desvío 13). `frontend/CLAUDE.md` §8 ("Velocidad"): un Vite levantado para una prueba se detiene por el PID del proceso `vite.js` (buscado por el puerto y confirmado por su línea de comando), no deteniendo la tarea que lo lanzó, y se comprueba después que el puerto quedó libre | — |
+
+**Mutaciones** (cada una con los tests relacionados, revertida desde una copia del archivo): las 14 que pasaban en la revisión
+ahora fallan, y también 6 sobre lo nuevo.
+
+| # | Mutación | Resultado |
+|---|---|---|
+| R1 a R8 | Nombre máximo 100 → 99, razón social 150 → 149, documento mínimo 5 → 6, email 50 → 49, teléfono de 15 a 14 dígitos, nombre mínimo 2 → 3, ciudad 100 → 99, notas 1000 → 999 | Cada una falla en "…: pasa en el límite y falla pasándolo" |
+| R9 | El RUC revisado sin recortar los espacios | Falla "el RUC con espacios en los extremos…" |
+| Q1 | La baja invalida los listados en lugar de vaciarlos | Falla "después de la baja, el cliente borrado no aparece nunca…" |
+| Q3 | La edición sin invalidar el detalle de los pacientes | Falla "guardar invalida el detalle de los pacientes…" |
+| U1 | Guardar sin deshabilitarse (`loading={false}`) | Falla "mientras espera la API, Guardar está deshabilitado" |
+| U2, U3 | La edición vuelve al detalle sin la búsqueda; sin `replace` | Falla "desde el listado: guardar vuelve al detalle…" |
+| N1 | Sin la `ref` | Falla "dos envíos seguidos del formulario: un solo POST" |
+| N2 | Sin `isSubmitting` | Fallan "Guardar se deshabilita en el mismo clic…" y otro |
+| N3 a N6 | El diálogo sin el foco de vuelta al salir, sin el foco al terminar la espera, con `disabled` en el botón rojo, sin bloquear el desplazamiento | Cada una falla en `ConfirmDialog.test.tsx` |
+| B1 | Backend: `ClientService` sin el `catch` | Fallan los 6 casos de `ClientUniqueIndexTest` (500) y `ClientConcurrencyTest` (`[201, 500]`) |
+| F1 | Un RUC con el dígito mal escrito literal en `form.test.ts` | Falla `FictitiousDocumentsTest` |
+
+**Otros Services con el mismo hueco** (aviso, sin cambios): `PatientService` guarda el microchip (índice
+`patients_clinic_id_microchip_unique`) con solo la regla `unique` del Form Request, sin bloqueo ni `catch`: dos altas o ediciones
+simultáneas con el mismo microchip darían 500. Los demás índices únicos de negocio de los módulos hechos están cubiertos: por
+`CatalogLock` (sucursales, depósitos, especies, razas, la configuración, usuarios), por un `catch` (servicios, veterinarios,
+usuarios y las series de `DocumentSequenceService`) o se escriben fuera de la API (`clinics.ruc`, `clinic:create`).
+
+**Cifras.** `npm test`: 502 tests en 29 archivos, en verde (antes 466; sin archivos nuevos). `typecheck`, `lint` y `build`, sin
+errores ni avisos. `npm run test:e2e`: 17 de 17 en verde (3,0 min; el caso nuevo es el del doble clic), en la segunda corrida (ver
+el desvío 16). Backend, desde `backend/`: `composer test:fast`, 1458 casos (1443 en verde y 15 omitidos, los de solo MySQL); en
+serie, SQLite, 1458 casos y 14262 aserciones (15 omitidos); MySQL, 1458 casos y 14342 aserciones, sin omitidos. Newman de la colección de clientes (`syncvet-fase-01-clientes`), desde la raíz con un servidor propio en `:8002` levantado desde `backend/` (detenido por su PID, con el puerto libre comprobado): 24 pedidos y 48 aserciones, sin fallas.
+
+**Validación en el navegador** (2026-11-13), solo de lo que cambió: Edge sin ventana contra `syncvet.test` (base `syncvet`) y un
+Vite propio en `:5182`, detenido por el PID de `vite.js` y con el puerto libre comprobado. 8 de 8 en verde:
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | Doble clic en Guardar | OK | Un solo `POST` (201), un solo cliente con ese documento y ningún 500 (el log del backend no tiene choques nuevos con el índice) |
+| 2 | Un email con tilde (`josé.tilde.syncvet@gmail.com`) | OK | El navegador lo deja pasar y la API lo guarda (el detalle lo muestra) |
+| 3 | Caso A | OK | Clic en el título, Shift+Tab → "Eliminar a José Tilde"; Tab → "Cancelar"; el fondo con `overflow: hidden`; Escape cierra y el foco vuelve a "Eliminar" |
+| 4 | Caso B con la API real (Laura, demo con pacientes; el `DELETE` demorado 800 ms) | OK | Mientras espera, el foco sigue en "Eliminar a Laura Martínez" (`aria-disabled`); con el 409, en "Cerrar"; Escape cierra |
+| 5 | Caso B con un 403 (el `DELETE` interceptado) | OK | Con el error, el foco en "Cancelar"; Escape cierra |
+| 6 a 8 | Baja de los 2 clientes creados desde el diálogo, y que ya no estén | OK | — |
+
+Consola: solo los registros de red del 409 y del 403 esperados. Capturas (fuera del repositorio, en la PC de la validación):
+`01-email-con-tilde.png`, `02-dialogo-caso-a.png`, `03-dialogo-caso-b-409.png` y `04-dialogo-caso-b-403.png`, en
+`%TEMP%\claude\…\scratchpad\revision-1-2\capturas-1-2-correcciones`. **Datos de la demo:** los 2 clientes creados se borraron con
+la baja de la aplicación (quedan sus filas eliminadas y la auditoría, como en el desvío 12).
+
+**Desvíos de las correcciones.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 15 | La revisión informó "13 de 15 mutaciones"; en realidad pasaban 14 (todas salvo "guardar sin poner la respuesta en el detalle") | Un error de cuenta del informe; la corrección se verificó sobre las 14 | Informativo |
+| 16 | La primera corrida de `test:e2e` dio 16 de 17: el caso del doble clic falló en el ayudante `deleteFromDetail`, que esperaba volver a `/clientes` exacto, y la baja vuelve con la búsqueda de donde se vino (`?buscar=…`, desvío 1). El doble clic ya había pasado (un solo 201). El ayudante acepta ahora la búsqueda y la corrida completa se repitió (17 de 17) | Un test, no la aplicación | Informativo |
+| 17 | El email con la parte local entre comillas y un espacio (`"juan perez"@example.com`) sigue rechazado en el navegador (la API lo acepta) | La forma mínima elegida no admite espacios | Informativo |
+| 18 | Dos tests más que los pedidos para el doble envío: "dos envíos seguidos del formulario" (la `ref`) y "Guardar se deshabilita en el mismo clic" (`isSubmitting`) | Con solo los dos clics seguidos, cada mecanismo tapaba al otro: quitar la `ref` o `isSubmitting` por separado no hacía fallar ningún test (N1 y N2) | Informativo |
+| 19 | El caso B se validó con un 409 real (Laura) y con un 403 interceptado (`page.route`) | La API no le responde 403 al administrador, el único que ve "Eliminar" | Informativo |
+| 20 | El motivo de `ruc.test.ts` en `ALLOWED` no escribe "80.000.000": la primera versión lo hacía y el propio test lo marcó como documento | — | Informativo |
+| 21 | `FictitiousDocumentsTest` va en el commit WIP del frontend, no en el del backend: su `ALLOWED` nombra archivos del frontend y cambia con ellos | El commit aparte del backend tiene solo la corrección 1 (`ClientService` y sus dos tests) | Informativo |
+| 22 | En `:8001` sigue un servidor de PHP del 12/11 a las 09:06 (PID 12580, probablemente el de Newman de front-01) y en `:5173` el Vite del desvío 13; no se tocaron | No los levantó esta sesión (regla de procesos del `CLAUDE.md` de la raíz) | Informativo |
+| 23 | La primera corrida de Newman usó `base_url` sin `/api` (`http://127.0.0.1:8002`): los 24 pedidos dieron 404 y no se creó nada. La segunda, con `/api`, sin fallas | Un error al pasar la variable | Informativo |
 
 ### 1.3a Pacientes: listado, detalle, alta y edición
 

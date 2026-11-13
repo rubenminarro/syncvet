@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react';
-import { http } from 'msw';
+import { delay, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { failure, success } from '../../test/api';
 import { COMPANY, detail, pagination, patient, PERSON } from '../../test/clients';
@@ -331,6 +331,46 @@ describe('/clientes/$id: editar y eliminar', () => {
     expect(history.location.search).toBe('?pagina=2');
     expect(screen.getByText('Cliente eliminado correctamente.')).toBeInTheDocument();
     expect(screen.queryByText('Laura Martínez', { selector: 'a' })).toBeNull();
+  });
+
+  // Revisión de la 1.2 (desvío 2): con solo invalidar, el listado mostraba sus datos viejos (con el cliente borrado)
+  // mientras llegaba el pedido nuevo. Un observador del DOM registra si aparece aunque sea un instante.
+  it('después de la baja, el cliente borrado no aparece nunca en el listado, aunque el listado tarde', async () => {
+    let deleted = false;
+    server.use(
+      meHandler(meFor('administrador')),
+      detailHandler(detail(PERSON)).handler,
+      deleteHandler().handler,
+      http.get('/api/clients', async () => {
+        if (!deleted) {
+          return success([PERSON, COMPANY], { meta: pagination() });
+        }
+
+        await delay(300);
+
+        return success([COMPANY], { meta: pagination({ total: 1 }) });
+      }),
+    );
+    renderApp('/clientes', { session: sessionFor() });
+
+    fireEvent.click(await screen.findByText('Laura Martínez', { selector: 'a' }));
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    deleted = true;
+
+    let seen = false;
+    const observer = new MutationObserver(() => {
+      seen ||= Array.from(document.querySelectorAll('a.client-link')).some(
+        (link) => link.textContent === 'Laura Martínez',
+      );
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+
+    expect(
+      await screen.findByText('Granja San Jorge S.R.L.', { selector: 'a' }),
+    ).toBeInTheDocument();
+    observer.disconnect();
+    expect(seen).toBe(false);
   });
 
   it('CLIENT_IN_USE: el mensaje de la API dentro del diálogo y solo "Cerrar", con el foco', async () => {

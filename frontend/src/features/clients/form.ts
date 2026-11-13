@@ -174,7 +174,12 @@ function textError(value: string, rule: TextRule): string | null {
   return null;
 }
 
-const emailFormat = z.email();
+/**
+ * Solo la forma mínima del email (algo, una arroba y algo, sin espacios): el formato completo (RFC) y el DNS los valida
+ * la API. Un control más estricto en el navegador rechazaba emails que la API acepta (josé@…, dominios con ñ; revisión
+ * de la 1.2).
+ */
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+$/;
 
 /** Los errores de cada campo; vacío si el formulario se puede mandar. */
 export function clientFormErrors(
@@ -214,7 +219,7 @@ export function clientFormErrors(
 
   if (email === '') {
     errors.email = m.email.required;
-  } else if (!emailFormat.safeParse(email).success) {
+  } else if (!EMAIL_SHAPE.test(email)) {
     errors.email = m.email.email;
   } else if (length(email) > 50) {
     errors.email = m.email.max;

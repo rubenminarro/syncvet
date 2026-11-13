@@ -228,3 +228,8 @@ repetidas):
   `technology-stack.md`) van en entregas o cierres separados, no mezclados con el código del frontend.
 * En Windows, excluir `frontend/node_modules` del antivirus (los pasos, en
   [`setup.md`](../docs/04-desarrollo/setup.md#antivirus-de-windows)): sin eso, una instalación tarda varios minutos más.
+* **Un Vite levantado para una prueba se detiene por el PID del proceso `vite.js`**, no deteniendo la tarea que lo lanzó
+  (`npx` y `timeout` son envoltorios: cortarlos deja vivo a Vite escuchando en su puerto). El PID se busca por el puerto
+  (`netstat -ano`) y se confirma con su línea de comando (`vite.js --port <puerto>`) antes de cerrarlo; después se comprueba
+  que el puerto quedó libre. Así quedaron vivos el de `:5180` de la 1.2 y, probablemente, el de `:5173` de la 1.1 (revisión
+  de la 1.2).

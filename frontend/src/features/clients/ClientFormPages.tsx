@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { useToast } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
@@ -85,11 +85,15 @@ export function ClientCreatePage() {
   const toast = useToast();
   const listSearch = useClientListSearch();
   const [alert, setAlert] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   const mutation = useMutation({
     mutationFn: (values: ClientFormValues) => createClient(clientFormToPayload(values)),
     onMutate: () => {
       setAlert(null);
+    },
+    onSettled: () => {
+      inFlight.current = false;
     },
     onSuccess: (response) => {
       afterClientSaved(queryClient, response.data, { edited: false });
@@ -119,6 +123,12 @@ export function ClientCreatePage() {
         alert={alert}
         saving={mutation.isPending}
         onSubmit={(values, form) => {
+          // Un solo envío a la vez: dos handleSubmit seguidos llegan acá antes de que el botón se deshabilite.
+          if (inFlight.current) {
+            return;
+          }
+
+          inFlight.current = true;
           mutation.mutate(values, {
             onError: (error) => {
               handleSaveError(error, { form, setAlert });
@@ -143,11 +153,15 @@ export function ClientEditPage({ id }: { id: number }) {
   const listSearch = useClientListSearch();
   const { data: client } = useSuspenseQuery(clientDetailQueryOptions(id));
   const [alert, setAlert] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   const mutation = useMutation({
     mutationFn: (values: ClientFormValues) => updateClient(id, clientFormToPayload(values)),
     onMutate: () => {
       setAlert(null);
+    },
+    onSettled: () => {
+      inFlight.current = false;
     },
     onSuccess: (response) => {
       afterClientSaved(queryClient, response.data, { edited: true });
@@ -187,6 +201,12 @@ export function ClientEditPage({ id }: { id: number }) {
         alert={alert}
         saving={mutation.isPending}
         onSubmit={(values, form) => {
+          // Un solo envío a la vez: dos handleSubmit seguidos llegan acá antes de que el botón se deshabilite.
+          if (inFlight.current) {
+            return;
+          }
+
+          inFlight.current = true;
           mutation.mutate(values, {
             onError: (error) => {
               handleSaveError(error, {
