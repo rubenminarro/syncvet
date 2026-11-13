@@ -1444,3 +1444,23 @@ Entrega de soporte del backend pedida por la F1 del frontend (R-064), en `featur
 | Revisión | Sin hallazgos que corregir, en una sesión aparte sobre el WIP `3e3e386`; una observación sin cambio (`countQueries` repetido en tres tests) | Revisión |
 | Validación | Desde `backend/`, en serie sobre `3e3e386`: SQLite, 1451 casos y 14225 aserciones (14 omitidos, solo de MySQL); MySQL, 1451 casos y 14299 aserciones, sin omitidos. Newman, las 14 colecciones desde la raíz (puerto 8001): 483 pedidos y 1074 aserciones, sin fallas (pacientes, 61 → 63). La suite del frontend no cambió (`npm test`, 269 tests en 21 archivos del frontend) | Usuario |
 | Siguiente | La entrega 1.1 del frontend (clientes: listado y detalle), en `feature/front-1-1-clientes`, creada desde `feature/front-01-dueno-pacientes` | Usuario |
+
+# R-066 Cierre de la entrega 1.1 del frontend (clientes: listado y detalle) (2026-11-13)
+
+Primera entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-1-clientes` (desde `feature/front-01-dueno-pacientes`
+en `6ee193a`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/clientes` (búsqueda con espera de 300 ms, tipo y página en la URL; 20 por página) y `/clientes/$id` (datos y pacientes, con los fallecidos detrás de "Mostrar los fallecidos (N)"); permisos `clients.index` y `clients.show` en las rutas y en el menú ("Clientes", los tres roles); `SearchField` y `SelectField`; sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvíos de la implementación | 1 a 11 (la rama, `SelectField` adelantado, la página de no encontrado dentro del layout, `validateSearch` con las tres claves siempre, `NotFoundError` en ESLint, `queryClient.query` en lugar de `ensureQueryData`, el error del listado en la tarjeta, detalles de presentación, 3 fallas por tiempo de la primera corrida, el fallecido simulado en la validación y la deuda 21 del backend) | Usuario: aceptados en la revisión |
+| Revisión | En una sesión que la revisó como quien no la escribió, sobre el WIP `3ea03b9`: 8 hallazgos (1 alto: el campo de búsqueda perdía el espacio final; 3 medios; 4 bajos o informativos) | Revisión |
+| Correcciones | Hallazgos 1 a 7 corregidos en `104aee1`: el campo toma lo de la URL solo si el cambio vino de afuera; "Esta página no existe." con el enlace a la página 1 (en `DataTable`); la espera probada con relojes falsos; límites de 3 s (`asyncUtilTimeout`) y 15 s (`testTimeout` de jsdom); "Buscando…" en una región `role="status"` fija; `parseSearch` y `stringifySearch` del router (la búsqueda escrita es siempre texto); `useDebouncedValue` solo con primitivos. El hallazgo 8 (un rol con `clients.show` sin `clients.index`), informativo | Usuario |
+| Convención de listados | El modelo para los próximos listados, en [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md) §5 ("Listados" y "Tests"): búsqueda y página en la URL, lo escrito siempre como texto (`TEXT_SEARCH_PARAMS`), el campo local con espera y cuándo toma la URL, la página fuera de rango y cómo probar la espera | Usuario |
+| Desvíos de las correcciones | 12 (H1 suma "lo que el campo mandó y todavía no llegó" a la regla del usuario), 13 (una corrida final repetida por 2 errores de `lint`), 14 (la página fuera de rango en `DataTable`, genérico), 15 (la validación usó un `npm run dev` que ya estaba en `:5173`; no lo cerró Claude Code) y 16 (dos pedidos iguales al entrar: probablemente el doble efecto del `StrictMode` de React en desarrollo; verificarlo con `npm run build` y `npm run preview` queda opcional, PENDIENTE DE VERIFICACIÓN) | Usuario: aceptados |
+| Validación | El usuario la validó en el navegador el 2026-11-13: "el listado y el detalle se ven bien y es rápido". Desde `frontend/`, sobre el código de `104aee1`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 357 tests en 25 archivos; `npm run test:e2e`, 13 de 13. En Edge sin ventana contra `syncvet.test`: 31 de 31 de la implementación y 4 de 4 de las correcciones. La suite del backend no cambió (la entrega no toca su código) | Usuario |
+| `modulos.md` | Los cierres del frontend suman su avance a las observaciones del módulo del backend que usan (en la 1.1, la fila Clientes), sin cambiar su estado ni agregar filas | Usuario |
+| Siguiente | La entrega 1.2 del frontend (clientes: alta, edición y baja), APROBADA (R-064) | Diseño (R-064) |
+
+**Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.

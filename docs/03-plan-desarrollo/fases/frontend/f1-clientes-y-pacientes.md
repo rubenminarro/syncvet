@@ -103,7 +103,7 @@ interfaz.
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
 | front-01 | Soporte del backend: el dueño en `GET patients` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-01-dueno-pacientes`, desde `docs/front-f1-diseno` | COMPLETADO (R-065, [resultado](#entrega-front-01)) |
-| 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes` (desvío 1) | IMPLEMENTADA, sin cerrar ([pendiente](#pendiente-para-el-cierre-11)) |
+| 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes` (desvío 1) | COMPLETADO (R-066, [resultado](#entrega-11)) |
 | 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | APROBADA (R-064) |
 | 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 | `feature/front-1-3a-pacientes` | APROBADA (R-064) |
 | 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes-estado` | APROBADA (R-064) |
@@ -159,130 +159,7 @@ página; el ancho de tablet (768 px): la tabla con desplazamiento horizontal pro
 
 #### Pendiente para el cierre (1.1)
 
-Implementada el 2026-11-13 en `feature/front-1-1-clientes` (desde `6ee193a`), commit WIP `3ea03b9`; revisada y con los
-hallazgos 1 a 7 corregidos el mismo día (commit WIP siguiente, ver [Correcciones de la revisión](#correcciones-de-la-revisión-11)).
-Falta el cierre (`/cerrar-entrega`: el resultado, la línea de la corrida de `npm test` en "Resultado", el roadmap, `modulos.md`, el
-handoff y la cifra de tests de `frontend/CLAUDE.md` §1). Las cifras vigentes son las de las correcciones (357 tests en 25 archivos),
-no las de abajo.
-
-**Qué se hizo.** `/clientes` (`src/routes/_sesion/clientes/index.tsx`, `ClientListPage`): búsqueda con espera de 300 ms
-(`useDebouncedValue`, `src/lib/hooks/`) que cambia la URL con `replace` y vuelve a la página 1; el tipo y la página en la URL (con
-historial); `validateSearch` con Zod (`features/clients/search.ts`); 20 por página con `getPage`, `keepPreviousData` y el
-indicador chico en el campo; vacío con y sin búsqueda, cargando, error con "Probá de nuevo" y 403 con la página de sin permiso.
-`/clientes/$id` (`$id.tsx`, `ClientDetailPage`): el `loader` valida el id (entero positivo, sin llamar a la API si no lo es) y pide
-`GET clients/{id}`; un 404 es `notFound()`; los datos (persona o empresa) y los pacientes en tarjetas, con los fallecidos detrás de
-"Mostrar los fallecidos (N)". Permisos `clients.index` y `clients.show` en `PERMISSIONS`, en las rutas y en el menú ("Clientes",
-los tres roles). Componentes nuevos: `SearchField` y `SelectField`. Claves `['clients', 'list', filtros]` y
-`['clients', 'detail', id]` (de la clínica: sin `branchKey`).
-
-**Cifras.** `npm test`: 332 tests en 24 archivos, en verde (antes 269 en 21; los 3 archivos nuevos son `search.test.ts`,
-`ClientListPage.test.tsx` y `ClientDetailPage.test.tsx`; también cambiaron los menús esperados de `permissions.test.ts` y
-`permissions.test.tsx`). `typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 13 casos en verde (los 11 de antes
-y 2 nuevos en `e2e/clientes.spec.ts`; `permisos.spec.ts` suma "Clientes" a los menús). Sin paquetes nuevos.
-
-**Mutaciones** (las tres del diseño y dos más; cada una con los tests de `src/features/clients`): (1) sin `replace` al buscar,
-(2) sin la vuelta a la página 1, (3) sin la espera (0 ms): las tres hacen fallar "la búsqueda espera 300 ms…". (4) `validateSearch`
-sin las claves descartadas: sobrevivió al primer test (ver el desvío 4); con el test corregido, fallan los dos casos de la URL
-inválida. (5) El 404 de la API sin pasar a `notFound()`: falla el caso del 404.
-
-**Validación en el navegador** (2026-11-13): Edge sin ventana (`channel: 'msedge'`, el `@playwright/test` ya instalado) contra el
-backend real (`syncvet.test`, base `syncvet`) y un `npm run dev` levantado para la prueba (y detenido al final), con un script fuera
-del repositorio. 31 de 31 controles en verde:
-
-| # | Prueba | Resultado | Detalle |
-|---|---|---|---|
-| 1 | `admin-a` y `recepcion-a`: menú y listado | OK | Menú con "Clientes" ("Configuración" solo el administrador); "Mostrando 1 a 20 de 132" (la base de desarrollo tiene 132 clientes en la Clínica A, de las colecciones de Postman) |
-| 2 | Escribir rápido "Mishi" | OK | Un solo pedido con lo escrito (`search=Mishi&page=1&per_page=20`); encuentra a Laura Martínez por su mascota |
-| 3 | Recargar | OK | Conserva la búsqueda en el campo y el resultado |
-| 4 | Cambiar de página | OK | "Siguiente" a la página 2 (con otros clientes); recargar la conserva; "Atrás" vuelve a la 1 |
-| 5 | Detalle y fallecidos | OK | Firulais a la vista y "Mostrar los fallecidos (1)"; mostrar y ocultar funcionan. La demo no tiene fallecidos: Mishi se marcó como fallecido **en la respuesta** de `GET clients/{id}` (interceptada por el script), sin tocar la base |
-| 6 | "Atrás" desde el detalle | OK | Vuelve a `/clientes?buscar=Mishi`, con lo escrito en el campo |
-| 7 | Cliente inexistente | OK | `/clientes/999999`: "No encontramos este cliente", dentro del layout |
-| 8 | `vet-a` | OK | Tiene `clients.index` y `clients.show` (`clinic-roles.json`): menú "Inicio" y "Clientes"; el listado filtrado por empresa y el detalle de Granja San Jorge (RUC y razón social); `/configuracion` sigue sin permiso |
-| 9 | 768 px | OK | Listado y detalle sin desplazamiento horizontal de la página (la tabla, 750 px dentro de su caja) |
-| 10 | Consola | OK | Sin errores ni avisos de la aplicación; solo los dos registros de red del 404 esperado de la prueba 7 (una vez por usuario) |
-
-Capturas (fuera del repositorio, en la PC de la validación): `01-listado-admin.png`, `02-detalle-admin-fallecidos.png`,
-`03-listado-768.png` y `04-detalle-768.png`, en `%TEMP%\claude\…\scratchpad\capturas-1-1`. **Datos de la demo:** sin cambios
-(solo ingresos y salidas, que crean y cierran tokens).
-
-**Desvíos.**
-
-| # | Desvío | Motivo | Estado |
-|---|---|---|---|
-| 1 | Rama `feature/front-1-1-clientes`, no `feature/front-1-1-clientes-listado` como dice la tabla de entregas | Pedido del usuario | Informativo |
-| 2 | `SelectField` se adelanta de la 1.2 (el filtro de tipo), solo con la etiqueta y las opciones; la 1.2 le suma el error | Las páginas no repiten el marcado de Tabler (`frontend/CLAUDE.md` §5) | Para revisar |
-| 3 | El cliente inexistente o de otra clínica (y un id inválido) muestra "No encontramos este cliente" **dentro del layout** (`notFoundComponent` de la ruta, con "Volver a los clientes"), no la página de no encontrado de la raíz | La de la raíz es de página completa, sin la barra ni el menú; el texto no dice si el cliente es de otra clínica | Para revisar |
-| 4 | `validateSearch` devuelve siempre las tres claves (`undefined` si el valor se descarta) | Hallazgo: TanStack Router mezcla lo que devuelve sobre la búsqueda cruda de la URL; sin la clave, `?pagina=-4` llegaba a la API como `page=-4`. Con `buscar` en la URL no se veía (por eso la mutación 4 sobrevivió al primer test); el test prueba las dos URL | Para revisar |
-| 5 | ESLint: `only-throw-error` permite también `NotFoundError` de `@tanstack/router-core` (ya permitía `Redirect`) | `throw notFound()` en el `loader` del detalle | Para revisar |
-| 6 | El `loader` usa `queryClient.query({ ...opciones, staleTime: 'static' })`, no `ensureQueryData` | `ensureQueryData` está deprecado en TanStack Query 5.107 (lo marca ESLint); es el reemplazo que indica la biblioteca | Informativo |
-| 7 | El error del listado se muestra dentro de la tarjeta ("No se pudieron cargar los clientes", "Probá de nuevo"), y el 403, con la página de sin permiso en la tarjeta; el del detalle, con la página de error del router ("Reintentar") | El listado se pide en el componente (con `keepPreviousData`, para que la tabla no parpadee); el detalle, en el `loader` | Para revisar |
-| 8 | Detalle: "RUC" en lugar de "Documento" para una empresa; un dato vacío se muestra con "—"; cada paciente lleva su código; el nombre del paciente todavía no es un enlace (su detalle llega en la 1.3a) | Detalles de presentación no definidos en el diseño | Para revisar |
-| 9 | La primera corrida completa de `npm test` dio 3 fallas por tiempo: `/ingresar` y `/perfil` (5 s) y "lee la búsqueda…" del listado (el segundo de `findByText`), con la PC cargada justo después de `lint` y `build`. Después de corregir el lint, la segunda corrida completa quedó en verde, y 5 vueltas de esos archivos no fallaron | Carga de la PC; no se reproduce | Informativo |
-| 10 | La validación en el navegador simula el fallecido en la respuesta de la API (prueba 5) | La demo no tiene pacientes fallecidos y el pedido era no cambiar sus datos | Informativo |
-| 11 | El paso 0 del pedido: deuda 21 (backend, baja), `countQueries` copiado en tres tests, en `deuda-tecnica.md` y `backend/CLAUDE.md` §7 | Pedido del usuario | Informativo |
-
-Los desvíos 1 a 11, aceptados por el usuario en la revisión.
-
-#### Correcciones de la revisión (1.1)
-
-La revisión (2026-11-13, sobre `3ea03b9`, sin corregir) dio 8 hallazgos; el usuario pidió corregir del 1 al 7 ("este listado es el
-modelo de los próximos") y dejar el 8 como informativo. La convención que sale de acá quedó en `frontend/CLAUDE.md` §5
-("Listados" y "Tests").
-
-| # | Hallazgo | Corrección | Test |
-|---|---|---|---|
-| 1 | Alta. El campo de búsqueda perdía el espacio final: "Laura ", pausa, "M" daba "LauraM" (la URL llegaba sin el espacio y pisaba lo escrito) | `ClientListPage`: el campo toma lo de la URL solo si el cambio vino de afuera: no si coincide con lo escrito sin los espacios de los extremos (`normalizeSearchText(text)`, la regla del usuario) **ni si es lo que el campo mandó y todavía no llegó** (`debounced` distinto de `answered`; ver el desvío 12) | "un espacio al final no se pierde…" y "una tecla escrita mientras la URL cambia no se pierde" |
-| 2 | Media. `?pagina=99` de 7 decía "Todavía no hay clientes." | `DataTable` (genérico): con `current_page > last_page` y sin filas, "Esta página no existe." y el `firstPageLink` del listado; `/clientes` le pasa "Ir a la página 1" (un `<Link>` con la misma búsqueda, sin `pagina`) | "una página más allá de la última…" |
-| 3 | Media. El test de la espera pasaba con 50 ms | Relojes falsos después de cargar la página: cuatro teclas cada 100 ms, a los 299 ms ni URL ni pedido, a los 300 ms la URL (con `replace`) y un solo pedido. Los 300 ms van escritos en el test, no `SEARCH_DEBOUNCE_MS` (con la constante, una espera de 1000 ms también pasaba) | El mismo, reescrito |
-| 4 | Media. Tres tests frágiles por tiempo | `configure({ asyncUtilTimeout: 3000 })` en `src/test/setup.ts`; `testTimeout: 15_000` en el proyecto `dom` de `vite.config.ts`; las esperas reales de los tests de la búsqueda, cambiadas por relojes falsos donde se mide tiempo | La suite completa |
-| 5 | Baja. "Buscando…" sin test y sin anuncio para el lector de pantalla | `SearchField`: un `<span role="status" className="visually-hidden search-status">` siempre en el DOM, con "Buscando…" o vacío; el spinner, `aria-hidden` | "mientras llega otra búsqueda, el campo lo anuncia…" |
-| 6 | Baja. `?buscar=1e3` llegaba como 1000; `?buscar=12345678901234567890` perdía dígitos; `?buscar=null` se descartaba | `src/app/search-params.ts`: `parseSearch` y `stringifySearch` del router (`router.ts`); las claves de `TEXT_SEARCH_PARAMS` (`buscar`) se leen y se escriben como texto, sin comillas, y las demás siguen con el JSON del router | `search-params.test.ts` (nuevo, 18 casos) y dos casos del listado (`?buscar=1e3`; lo escrito que parece un número va sin comillas) |
-| 7 | Baja. `useDebouncedValue` con un objeto armado en cada render se re-renderizaba sin fin | El tipo admite solo primitivos (`DebounceablePrimitive`) | `typecheck` |
-| 8 | Informativo. Un rol con `clients.show` y sin `clients.index` llegaría a `/sin-permiso` desde "Clientes" o "Volver a los clientes" del detalle; ningún rol real está en ese caso | Sin cambios (decisión del usuario) | — |
-
-Además, el test pedido de **respuestas fuera de orden**: "una búsqueda vieja que responde tarde no pisa a la nueva" ("La" responde
-600 ms después de "Granja"; la tabla sigue con "Granja").
-
-**Mutaciones** (cada una con los tests de `src/features/clients`, revertida desde una copia del archivo):
-
-| # | Mutación | Resultado |
-|---|---|---|
-| 1 | `SEARCH_DEBOUNCE_MS = 50` | Falla "la búsqueda espera 300 ms…" (pedido por el usuario) |
-| 2 | `SEARCH_DEBOUNCE_MS = 1000` | Falla el mismo |
-| 3 | `busy={false}` | Falla "…anuncia ("Buscando…")…" |
-| 4 | Sin `firstPageLink` | Falla "una página más allá de la última…" |
-| 5 | El router sin `parseSearch` ni `stringifySearch` | Fallan los dos casos de `?buscar=1e3` y del número sin comillas |
-| 6 | `DataTable` con `>=` en lugar de `>` | Fallan los tres casos del listado vacío |
-| 7 | H1 solo con la regla de `normalizeSearchText` (sin lo que está en camino) | Falla "una tecla escrita mientras la URL cambia…" |
-| 8 | H1 sin ninguna de las dos (el código revisado) | Fallan los dos tests de H1 |
-
-**Cifras.** `npm test`: 357 tests en 25 archivos, en verde (antes 332 en 24; el archivo nuevo es `src/app/search-params.test.ts`).
-`typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 13 de 13 en verde (3,1 min). Una sola corrida de cada
-uno al final, salvo un `lint` que falló antes (ver el desvío 13) y obligó a repetir la corrida completa.
-
-**Validación en el navegador** (2026-11-13), solo de lo que cambió: Edge sin ventana (`channel: 'msedge'`) contra el backend real
-(`syncvet.test`, base `syncvet`), como `admin-a`, con un script fuera del repositorio. 4 de 4 en verde:
-
-| # | Prueba | Resultado | Detalle |
-|---|---|---|---|
-| 1 | Escribir "Laura ", pausa de 800 ms, "M" | OK | Después de la pausa, el campo "Laura " con la URL `?buscar=Laura`; al final, "Laura M" con `?buscar=Laura+M`. Un pedido por búsqueda (`search=Laura` y `search=Laura+M`) |
-| 2 | `/clientes?pagina=99` | OK | "Esta página no existe. Ir a la página 1", con el pie "Mostrando 0 a 0 de 132", "Página 99 de 7"; el enlace va a `/clientes` y muestra la página 1 |
-| 3 | `/clientes?buscar=1e3` | OK | El campo "1e3" y la API con `search=1e3` (no 1000) |
-| 4 | Consola | OK | Sin errores ni avisos |
-
-Capturas (fuera del repositorio, en la PC de la validación): `01-laura-m.png`, `02-pagina-99.png` y `03-buscar-1e3.png`, en
-`%TEMP%\claude\…\scratchpad\capturas-1-1-correcciones`. **Datos de la demo:** sin cambios (solo un ingreso).
-
-**Desvíos de las correcciones.**
-
-| # | Desvío | Motivo | Estado |
-|---|---|---|---|
-| 12 | H1 suma a la regla del usuario (la URL distinta de `normalizeSearchText(text)`) una segunda condición: lo que el campo mandó y todavía no llegó (`debounced !== answered`) | Con la regla sola, la tecla escrita mientras la URL cambia se perdía: la URL "Laura" llegaba con el campo en "LauraM" (distinto) y lo pisaba (mutación 7). Se calcula en el render, sin `setState` dentro del efecto (lo prohíbe la regla de React de ESLint) | Para revisar |
-| 13 | La primera corrida final tuvo 2 errores de `lint`: `DataTable` exportaba `isPageOutOfRange` junto al componente (Fast Refresh) y la primera versión de H1 guardaba lo enviado con `setState` dentro del efecto. Se corrigieron (la función quedó interna y H1 pasó a la versión del desvío 12) y se repitió la corrida completa | La regla de "una sola vez" se cumplió sobre el código final | Informativo |
-| 14 | La página fuera de rango se resolvió en `DataTable` (genérico, con la prop `firstPageLink`), no solo en `/clientes` | Los próximos listados la heredan; el enlace lo arma cada página porque conoce su ruta y su búsqueda | Para revisar |
-| 15 | La validación en el navegador usó un `npm run dev` que ya estaba en `:5173` (PID 34856, iniciado a las 10:02, desde `frontend/`, con `--strictPort`): el que levantó Claude Code no pudo tomar el puerto. Sirve el árbol de trabajo actual (HMR), así que la prueba vale para el código corregido. **No se detuvo** (no lo levantó esta sesión): puede ser el de la validación anterior, que el pendiente daba por detenido | Regla de procesos del `CLAUDE.md` de la raíz | Para revisar: cerrarlo a mano si no es tuyo |
-| 16 | En la prueba 3 hubo dos pedidos iguales al entrar (`?search=1e3…` dos veces); al escribir, uno por búsqueda | Probablemente el `StrictMode` de desarrollo (el primero, cancelado); no se investigó | PENDIENTE DE VERIFICACIÓN |
+Vacío: la entrega se cerró (R-066) y todo lo que había acá pasó a su [resultado](#entrega-11).
 
 ### 1.2 Clientes: alta, edición y baja
 
@@ -541,3 +418,137 @@ otras entregas). `composer test:fast` sobre el código del WIP: 1451 casos en ve
 como validación de la entrega, con los desvíos 1 y 2 aceptados (R-065). La suite del frontend no cambió: `npm test`, 269 tests en
 21 archivos, en verde (sin código del frontend en la entrega).
 
+### Entrega 1.1
+
+Estado: **COMPLETADO** el 2026-11-13 (R-066), en `feature/front-1-1-clientes` (desde `feature/front-01-dueno-pacientes` en
+`6ee193a`), sin integrar a `main`: se integra al cerrar la F1.
+
+Implementada el 2026-11-13 (commit WIP `3ea03b9`), revisada como quien no la escribió (8 hallazgos, sin corregir en la revisión) y
+con los hallazgos 1 a 7 corregidos el mismo día (commit WIP `104aee1`; el 8 quedó como informativo, decisión del usuario). Las
+cifras vigentes son las de las [correcciones](#correcciones-de-la-revisión-11); las de "Cifras", justo abajo, son las de la
+implementación.
+
+**Qué se hizo.** `/clientes` (`src/routes/_sesion/clientes/index.tsx`, `ClientListPage`): búsqueda con espera de 300 ms
+(`useDebouncedValue`, `src/lib/hooks/`) que cambia la URL con `replace` y vuelve a la página 1; el tipo y la página en la URL (con
+historial); `validateSearch` con Zod (`features/clients/search.ts`); 20 por página con `getPage`, `keepPreviousData` y el
+indicador chico en el campo; vacío con y sin búsqueda, cargando, error con "Probá de nuevo" y 403 con la página de sin permiso.
+`/clientes/$id` (`$id.tsx`, `ClientDetailPage`): el `loader` valida el id (entero positivo, sin llamar a la API si no lo es) y pide
+`GET clients/{id}`; un 404 es `notFound()`; los datos (persona o empresa) y los pacientes en tarjetas, con los fallecidos detrás de
+"Mostrar los fallecidos (N)". Permisos `clients.index` y `clients.show` en `PERMISSIONS`, en las rutas y en el menú ("Clientes",
+los tres roles). Componentes nuevos: `SearchField` y `SelectField`. Claves `['clients', 'list', filtros]` y
+`['clients', 'detail', id]` (de la clínica: sin `branchKey`).
+
+**Cifras.** `npm test`: 332 tests en 24 archivos, en verde (antes 269 en 21; los 3 archivos nuevos son `search.test.ts`,
+`ClientListPage.test.tsx` y `ClientDetailPage.test.tsx`; también cambiaron los menús esperados de `permissions.test.ts` y
+`permissions.test.tsx`). `typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 13 casos en verde (los 11 de antes
+y 2 nuevos en `e2e/clientes.spec.ts`; `permisos.spec.ts` suma "Clientes" a los menús). Sin paquetes nuevos.
+
+**Mutaciones** (las tres del diseño y dos más; cada una con los tests de `src/features/clients`): (1) sin `replace` al buscar,
+(2) sin la vuelta a la página 1, (3) sin la espera (0 ms): las tres hacen fallar "la búsqueda espera 300 ms…". (4) `validateSearch`
+sin las claves descartadas: sobrevivió al primer test (ver el desvío 4); con el test corregido, fallan los dos casos de la URL
+inválida. (5) El 404 de la API sin pasar a `notFound()`: falla el caso del 404.
+
+**Validación en el navegador** (2026-11-13): Edge sin ventana (`channel: 'msedge'`, el `@playwright/test` ya instalado) contra el
+backend real (`syncvet.test`, base `syncvet`) y un `npm run dev` levantado para la prueba (y detenido al final), con un script fuera
+del repositorio. 31 de 31 controles en verde:
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | `admin-a` y `recepcion-a`: menú y listado | OK | Menú con "Clientes" ("Configuración" solo el administrador); "Mostrando 1 a 20 de 132" (la base de desarrollo tiene 132 clientes en la Clínica A, de las colecciones de Postman) |
+| 2 | Escribir rápido "Mishi" | OK | Un solo pedido con lo escrito (`search=Mishi&page=1&per_page=20`); encuentra a Laura Martínez por su mascota |
+| 3 | Recargar | OK | Conserva la búsqueda en el campo y el resultado |
+| 4 | Cambiar de página | OK | "Siguiente" a la página 2 (con otros clientes); recargar la conserva; "Atrás" vuelve a la 1 |
+| 5 | Detalle y fallecidos | OK | Firulais a la vista y "Mostrar los fallecidos (1)"; mostrar y ocultar funcionan. La demo no tiene fallecidos: Mishi se marcó como fallecido **en la respuesta** de `GET clients/{id}` (interceptada por el script), sin tocar la base |
+| 6 | "Atrás" desde el detalle | OK | Vuelve a `/clientes?buscar=Mishi`, con lo escrito en el campo |
+| 7 | Cliente inexistente | OK | `/clientes/999999`: "No encontramos este cliente", dentro del layout |
+| 8 | `vet-a` | OK | Tiene `clients.index` y `clients.show` (`clinic-roles.json`): menú "Inicio" y "Clientes"; el listado filtrado por empresa y el detalle de Granja San Jorge (RUC y razón social); `/configuracion` sigue sin permiso |
+| 9 | 768 px | OK | Listado y detalle sin desplazamiento horizontal de la página (la tabla, 750 px dentro de su caja) |
+| 10 | Consola | OK | Sin errores ni avisos de la aplicación; solo los dos registros de red del 404 esperado de la prueba 7 (una vez por usuario) |
+
+Capturas (fuera del repositorio, en la PC de la validación): `01-listado-admin.png`, `02-detalle-admin-fallecidos.png`,
+`03-listado-768.png` y `04-detalle-768.png`, en `%TEMP%\claude\…\scratchpad\capturas-1-1`. **Datos de la demo:** sin cambios
+(solo ingresos y salidas, que crean y cierran tokens).
+
+**Desvíos.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 1 | Rama `feature/front-1-1-clientes`, no `feature/front-1-1-clientes-listado` como dice la tabla de entregas | Pedido del usuario | Informativo |
+| 2 | `SelectField` se adelanta de la 1.2 (el filtro de tipo), solo con la etiqueta y las opciones; la 1.2 le suma el error | Las páginas no repiten el marcado de Tabler (`frontend/CLAUDE.md` §5) | Aceptado (usuario, R-066) |
+| 3 | El cliente inexistente o de otra clínica (y un id inválido) muestra "No encontramos este cliente" **dentro del layout** (`notFoundComponent` de la ruta, con "Volver a los clientes"), no la página de no encontrado de la raíz | La de la raíz es de página completa, sin la barra ni el menú; el texto no dice si el cliente es de otra clínica | Aceptado (usuario, R-066) |
+| 4 | `validateSearch` devuelve siempre las tres claves (`undefined` si el valor se descarta) | Hallazgo: TanStack Router mezcla lo que devuelve sobre la búsqueda cruda de la URL; sin la clave, `?pagina=-4` llegaba a la API como `page=-4`. Con `buscar` en la URL no se veía (por eso la mutación 4 sobrevivió al primer test); el test prueba las dos URL | Aceptado (usuario, R-066) |
+| 5 | ESLint: `only-throw-error` permite también `NotFoundError` de `@tanstack/router-core` (ya permitía `Redirect`) | `throw notFound()` en el `loader` del detalle | Aceptado (usuario, R-066) |
+| 6 | El `loader` usa `queryClient.query({ ...opciones, staleTime: 'static' })`, no `ensureQueryData` | `ensureQueryData` está deprecado en TanStack Query 5.107 (lo marca ESLint); es el reemplazo que indica la biblioteca | Informativo |
+| 7 | El error del listado se muestra dentro de la tarjeta ("No se pudieron cargar los clientes", "Probá de nuevo"), y el 403, con la página de sin permiso en la tarjeta; el del detalle, con la página de error del router ("Reintentar") | El listado se pide en el componente (con `keepPreviousData`, para que la tabla no parpadee); el detalle, en el `loader` | Aceptado (usuario, R-066) |
+| 8 | Detalle: "RUC" en lugar de "Documento" para una empresa; un dato vacío se muestra con "—"; cada paciente lleva su código; el nombre del paciente todavía no es un enlace (su detalle llega en la 1.3a) | Detalles de presentación no definidos en el diseño | Aceptado (usuario, R-066) |
+| 9 | La primera corrida completa de `npm test` dio 3 fallas por tiempo: `/ingresar` y `/perfil` (5 s) y "lee la búsqueda…" del listado (el segundo de `findByText`), con la PC cargada justo después de `lint` y `build`. Después de corregir el lint, la segunda corrida completa quedó en verde, y 5 vueltas de esos archivos no fallaron | Carga de la PC; no se reproduce | Informativo |
+| 10 | La validación en el navegador simula el fallecido en la respuesta de la API (prueba 5) | La demo no tiene pacientes fallecidos y el pedido era no cambiar sus datos | Informativo |
+| 11 | El paso 0 del pedido: deuda 21 (backend, baja), `countQueries` copiado en tres tests, en `deuda-tecnica.md` y `backend/CLAUDE.md` §7 | Pedido del usuario | Informativo |
+
+Los desvíos 1 a 11, aceptados por el usuario en la revisión.
+
+#### Correcciones de la revisión (1.1)
+
+La revisión (2026-11-13, sobre `3ea03b9`, sin corregir) dio 8 hallazgos; el usuario pidió corregir del 1 al 7 ("este listado es el
+modelo de los próximos") y dejar el 8 como informativo. La convención que sale de acá quedó en `frontend/CLAUDE.md` §5
+("Listados" y "Tests").
+
+| # | Hallazgo | Corrección | Test |
+|---|---|---|---|
+| 1 | Alta. El campo de búsqueda perdía el espacio final: "Laura ", pausa, "M" daba "LauraM" (la URL llegaba sin el espacio y pisaba lo escrito) | `ClientListPage`: el campo toma lo de la URL solo si el cambio vino de afuera: no si coincide con lo escrito sin los espacios de los extremos (`normalizeSearchText(text)`, la regla del usuario) **ni si es lo que el campo mandó y todavía no llegó** (`debounced` distinto de `answered`; ver el desvío 12) | "un espacio al final no se pierde…" y "una tecla escrita mientras la URL cambia no se pierde" |
+| 2 | Media. `?pagina=99` de 7 decía "Todavía no hay clientes." | `DataTable` (genérico): con `current_page > last_page` y sin filas, "Esta página no existe." y el `firstPageLink` del listado; `/clientes` le pasa "Ir a la página 1" (un `<Link>` con la misma búsqueda, sin `pagina`) | "una página más allá de la última…" |
+| 3 | Media. El test de la espera pasaba con 50 ms | Relojes falsos después de cargar la página: cuatro teclas cada 100 ms, a los 299 ms ni URL ni pedido, a los 300 ms la URL (con `replace`) y un solo pedido. Los 300 ms van escritos en el test, no `SEARCH_DEBOUNCE_MS` (con la constante, una espera de 1000 ms también pasaba) | El mismo, reescrito |
+| 4 | Media. Tres tests frágiles por tiempo | `configure({ asyncUtilTimeout: 3000 })` en `src/test/setup.ts`; `testTimeout: 15_000` en el proyecto `dom` de `vite.config.ts`; las esperas reales de los tests de la búsqueda, cambiadas por relojes falsos donde se mide tiempo | La suite completa |
+| 5 | Baja. "Buscando…" sin test y sin anuncio para el lector de pantalla | `SearchField`: un `<span role="status" className="visually-hidden search-status">` siempre en el DOM, con "Buscando…" o vacío; el spinner, `aria-hidden` | "mientras llega otra búsqueda, el campo lo anuncia…" |
+| 6 | Baja. `?buscar=1e3` llegaba como 1000; `?buscar=12345678901234567890` perdía dígitos; `?buscar=null` se descartaba | `src/app/search-params.ts`: `parseSearch` y `stringifySearch` del router (`router.ts`); las claves de `TEXT_SEARCH_PARAMS` (`buscar`) se leen y se escriben como texto, sin comillas, y las demás siguen con el JSON del router | `search-params.test.ts` (nuevo, 18 casos) y dos casos del listado (`?buscar=1e3`; lo escrito que parece un número va sin comillas) |
+| 7 | Baja. `useDebouncedValue` con un objeto armado en cada render se re-renderizaba sin fin | El tipo admite solo primitivos (`DebounceablePrimitive`) | `typecheck` |
+| 8 | Informativo. Un rol con `clients.show` y sin `clients.index` llegaría a `/sin-permiso` desde "Clientes" o "Volver a los clientes" del detalle; ningún rol real está en ese caso | Sin cambios (decisión del usuario) | — |
+
+Además, el test pedido de **respuestas fuera de orden**: "una búsqueda vieja que responde tarde no pisa a la nueva" ("La" responde
+600 ms después de "Granja"; la tabla sigue con "Granja").
+
+**Mutaciones** (cada una con los tests de `src/features/clients`, revertida desde una copia del archivo):
+
+| # | Mutación | Resultado |
+|---|---|---|
+| 1 | `SEARCH_DEBOUNCE_MS = 50` | Falla "la búsqueda espera 300 ms…" (pedido por el usuario) |
+| 2 | `SEARCH_DEBOUNCE_MS = 1000` | Falla el mismo |
+| 3 | `busy={false}` | Falla "…anuncia ("Buscando…")…" |
+| 4 | Sin `firstPageLink` | Falla "una página más allá de la última…" |
+| 5 | El router sin `parseSearch` ni `stringifySearch` | Fallan los dos casos de `?buscar=1e3` y del número sin comillas |
+| 6 | `DataTable` con `>=` en lugar de `>` | Fallan los tres casos del listado vacío |
+| 7 | H1 solo con la regla de `normalizeSearchText` (sin lo que está en camino) | Falla "una tecla escrita mientras la URL cambia…" |
+| 8 | H1 sin ninguna de las dos (el código revisado) | Fallan los dos tests de H1 |
+
+**Cifras.** `npm test`: 357 tests en 25 archivos, en verde (antes 332 en 24; el archivo nuevo es `src/app/search-params.test.ts`).
+`typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 13 de 13 en verde (3,1 min). Una sola corrida de cada
+uno al final, salvo un `lint` que falló antes (ver el desvío 13) y obligó a repetir la corrida completa.
+
+**Validación en el navegador** (2026-11-13), solo de lo que cambió: Edge sin ventana (`channel: 'msedge'`) contra el backend real
+(`syncvet.test`, base `syncvet`), como `admin-a`, con un script fuera del repositorio. 4 de 4 en verde:
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | Escribir "Laura ", pausa de 800 ms, "M" | OK | Después de la pausa, el campo "Laura " con la URL `?buscar=Laura`; al final, "Laura M" con `?buscar=Laura+M`. Un pedido por búsqueda (`search=Laura` y `search=Laura+M`) |
+| 2 | `/clientes?pagina=99` | OK | "Esta página no existe. Ir a la página 1", con el pie "Mostrando 0 a 0 de 132", "Página 99 de 7"; el enlace va a `/clientes` y muestra la página 1 |
+| 3 | `/clientes?buscar=1e3` | OK | El campo "1e3" y la API con `search=1e3` (no 1000) |
+| 4 | Consola | OK | Sin errores ni avisos |
+
+Capturas (fuera del repositorio, en la PC de la validación): `01-laura-m.png`, `02-pagina-99.png` y `03-buscar-1e3.png`, en
+`%TEMP%\claude\…\scratchpad\capturas-1-1-correcciones`. **Datos de la demo:** sin cambios (solo un ingreso).
+
+**Desvíos de las correcciones.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 12 | H1 suma a la regla del usuario (la URL distinta de `normalizeSearchText(text)`) una segunda condición: lo que el campo mandó y todavía no llegó (`debounced !== answered`) | Con la regla sola, la tecla escrita mientras la URL cambia se perdía: la URL "Laura" llegaba con el campo en "LauraM" (distinto) y lo pisaba (mutación 7). Se calcula en el render, sin `setState` dentro del efecto (lo prohíbe la regla de React de ESLint) | Aceptado (usuario, R-066) |
+| 13 | La primera corrida final tuvo 2 errores de `lint`: `DataTable` exportaba `isPageOutOfRange` junto al componente (Fast Refresh) y la primera versión de H1 guardaba lo enviado con `setState` dentro del efecto. Se corrigieron (la función quedó interna y H1 pasó a la versión del desvío 12) y se repitió la corrida completa | La regla de "una sola vez" se cumplió sobre el código final | Informativo |
+| 14 | La página fuera de rango se resolvió en `DataTable` (genérico, con la prop `firstPageLink`), no solo en `/clientes` | Los próximos listados la heredan; el enlace lo arma cada página porque conoce su ruta y su búsqueda | Aceptado (usuario, R-066) |
+| 15 | La validación en el navegador usó un `npm run dev` que ya estaba en `:5173` (PID 34856, iniciado a las 10:02, desde `frontend/`, con `--strictPort`): el que levantó Claude Code no pudo tomar el puerto. Sirve el árbol de trabajo actual (HMR), así que la prueba vale para el código corregido. **No se detuvo** (no lo levantó esta sesión): puede ser el de la validación anterior, que el pendiente daba por detenido | Regla de procesos del `CLAUDE.md` de la raíz | Aceptado (usuario, R-066); el proceso no lo cerró Claude Code |
+| 16 | En la prueba 3 hubo dos pedidos iguales al entrar (`?search=1e3…` dos veces); al escribir, uno por búsqueda | Probablemente el doble efecto del `StrictMode` de React en desarrollo (monta, desmonta y vuelve a montar: el primer pedido se cancela y sale otro); no se investigó. Verificarlo con `npm run build` y `npm run preview` (sin `StrictMode` de desarrollo) queda opcional (usuario, R-066) | PENDIENTE DE VERIFICACIÓN (opcional) |
+
+**Validación.** El usuario la validó en el navegador el 2026-11-13: "el listado y el detalle se ven bien y es rápido". Además, la de
+Edge sin ventana de la implementación (31 de 31) y la de las correcciones (4 de 4), aceptadas por el usuario como validación de la entrega, con los desvíos 1 a 16 aceptados (R-066); el 16 sigue PENDIENTE DE VERIFICACIÓN. La suite del
+backend no cambió: la entrega no toca su código (solo una línea de `backend/CLAUDE.md` §7, la deuda 21).
+
+Corrida de `npm test` del frontend (2026-11-13): 357 tests en 25 archivos, en verde.

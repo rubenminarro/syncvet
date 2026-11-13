@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064) y front-01 cerrada (R-065). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | 1.1 (clientes: listado y detalle), implementada en `feature/front-1-1-clientes` (commits WIP), revisada y con los hallazgos 1 a 7 corregidos, sin cerrar: [pendiente para el cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#pendiente-para-el-cierre-11) |
-| Siguiente | La F1 (clientes y pacientes), con el diseño aprobado (R-064) en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md): front-01 (backend, el dueño en `GET patients`) cerrada (R-065); la 1.1 implementada: siguen su revisión y su cierre, y después la 1.2 (clientes: alta, edición y baja) |
-| Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del cierre de la F0, el 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
+| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065) y la 1.1 cerrada (R-066). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
+| Siguiente | La 1.2 de la F1 (clientes: alta, edición y baja), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#12-clientes-alta-edición-y-baja); los listados siguen la convención de la 1.1 (§5) |
+| Tests | Vitest: 357 tests en 25 archivos, en verde (corrida del cierre de la 1.1, el 2026-11-13, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 13 casos contra `syncvet_e2e`, en verde |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
