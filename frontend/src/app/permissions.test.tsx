@@ -21,9 +21,9 @@ const menuLabels = () =>
 
 describe('permisos con los roles reales del seeder', () => {
   it.each([
-    ['administrador', ['Inicio', 'Configuración']],
-    ['recepcionista', ['Inicio']],
-    ['veterinario', ['Inicio']],
+    ['administrador', ['Inicio', 'Clientes', 'Configuración']],
+    ['recepcionista', ['Inicio', 'Clientes']],
+    ['veterinario', ['Inicio', 'Clientes']],
   ] as const)('el menú de %s: %j', async (role, expected) => {
     server.use(meHandler(meFor(role)));
     renderApp('/', { session: sessionFor() });

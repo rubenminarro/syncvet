@@ -5,6 +5,10 @@
 
 /** Los permisos que usa el frontend, con el nombre de la API. Se suman al llegar cada módulo. */
 export const PERMISSIONS = {
+  /** /clientes (F1, entrega 1.1): los tres roles. */
+  clientsIndex: 'clients.index',
+  /** /clientes/$id (F1, entrega 1.1): los tres roles. */
+  clientsShow: 'clients.show',
   /** /configuracion (provisoria en la F0; solo el administrador). */
   settingsUpdate: 'system-settings.update',
 } as const;

@@ -103,7 +103,7 @@ interfaz.
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
 | front-01 | Soporte del backend: el dueño en `GET patients` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-01-dueno-pacientes`, desde `docs/front-f1-diseno` | COMPLETADO (R-065, [resultado](#entrega-front-01)) |
-| 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes-listado` | APROBADA (R-064) |
+| 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes` (desvío 1) | IMPLEMENTADA, sin cerrar ([pendiente](#pendiente-para-el-cierre-11)) |
 | 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | APROBADA (R-064) |
 | 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 | `feature/front-1-3a-pacientes` | APROBADA (R-064) |
 | 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes-estado` | APROBADA (R-064) |
@@ -156,6 +156,69 @@ el mismo resultado.
 
 **En el navegador.** Escribir rápido y ver un solo pedido en la pestaña Red; "Atrás" desde el detalle vuelve a la misma búsqueda y
 página; el ancho de tablet (768 px): la tabla con desplazamiento horizontal propio, sin romper la página; la consola sin errores.
+
+#### Pendiente para el cierre (1.1)
+
+Implementada el 2026-11-13 en `feature/front-1-1-clientes` (desde `6ee193a`), commit WIP. Falta la revisión y el cierre
+(`/cerrar-entrega`: el resultado, la línea de la corrida de `npm test` en "Resultado", el roadmap, `modulos.md`, el handoff y la
+cifra de tests de `frontend/CLAUDE.md` §1).
+
+**Qué se hizo.** `/clientes` (`src/routes/_sesion/clientes/index.tsx`, `ClientListPage`): búsqueda con espera de 300 ms
+(`useDebouncedValue`, `src/lib/hooks/`) que cambia la URL con `replace` y vuelve a la página 1; el tipo y la página en la URL (con
+historial); `validateSearch` con Zod (`features/clients/search.ts`); 20 por página con `getPage`, `keepPreviousData` y el
+indicador chico en el campo; vacío con y sin búsqueda, cargando, error con "Probá de nuevo" y 403 con la página de sin permiso.
+`/clientes/$id` (`$id.tsx`, `ClientDetailPage`): el `loader` valida el id (entero positivo, sin llamar a la API si no lo es) y pide
+`GET clients/{id}`; un 404 es `notFound()`; los datos (persona o empresa) y los pacientes en tarjetas, con los fallecidos detrás de
+"Mostrar los fallecidos (N)". Permisos `clients.index` y `clients.show` en `PERMISSIONS`, en las rutas y en el menú ("Clientes",
+los tres roles). Componentes nuevos: `SearchField` y `SelectField`. Claves `['clients', 'list', filtros]` y
+`['clients', 'detail', id]` (de la clínica: sin `branchKey`).
+
+**Cifras.** `npm test`: 332 tests en 24 archivos, en verde (antes 269 en 21; los 3 archivos nuevos son `search.test.ts`,
+`ClientListPage.test.tsx` y `ClientDetailPage.test.tsx`; también cambiaron los menús esperados de `permissions.test.ts` y
+`permissions.test.tsx`). `typecheck`, `lint` y `build`, sin errores ni avisos. `npm run test:e2e`: 13 casos en verde (los 11 de antes
+y 2 nuevos en `e2e/clientes.spec.ts`; `permisos.spec.ts` suma "Clientes" a los menús). Sin paquetes nuevos.
+
+**Mutaciones** (las tres del diseño y dos más; cada una con los tests de `src/features/clients`): (1) sin `replace` al buscar,
+(2) sin la vuelta a la página 1, (3) sin la espera (0 ms): las tres hacen fallar "la búsqueda espera 300 ms…". (4) `validateSearch`
+sin las claves descartadas: sobrevivió al primer test (ver el desvío 4); con el test corregido, fallan los dos casos de la URL
+inválida. (5) El 404 de la API sin pasar a `notFound()`: falla el caso del 404.
+
+**Validación en el navegador** (2026-11-13): Edge sin ventana (`channel: 'msedge'`, el `@playwright/test` ya instalado) contra el
+backend real (`syncvet.test`, base `syncvet`) y un `npm run dev` levantado para la prueba (y detenido al final), con un script fuera
+del repositorio. 31 de 31 controles en verde:
+
+| # | Prueba | Resultado | Detalle |
+|---|---|---|---|
+| 1 | `admin-a` y `recepcion-a`: menú y listado | OK | Menú con "Clientes" ("Configuración" solo el administrador); "Mostrando 1 a 20 de 132" (la base de desarrollo tiene 132 clientes en la Clínica A, de las colecciones de Postman) |
+| 2 | Escribir rápido "Mishi" | OK | Un solo pedido con lo escrito (`search=Mishi&page=1&per_page=20`); encuentra a Laura Martínez por su mascota |
+| 3 | Recargar | OK | Conserva la búsqueda en el campo y el resultado |
+| 4 | Cambiar de página | OK | "Siguiente" a la página 2 (con otros clientes); recargar la conserva; "Atrás" vuelve a la 1 |
+| 5 | Detalle y fallecidos | OK | Firulais a la vista y "Mostrar los fallecidos (1)"; mostrar y ocultar funcionan. La demo no tiene fallecidos: Mishi se marcó como fallecido **en la respuesta** de `GET clients/{id}` (interceptada por el script), sin tocar la base |
+| 6 | "Atrás" desde el detalle | OK | Vuelve a `/clientes?buscar=Mishi`, con lo escrito en el campo |
+| 7 | Cliente inexistente | OK | `/clientes/999999`: "No encontramos este cliente", dentro del layout |
+| 8 | `vet-a` | OK | Tiene `clients.index` y `clients.show` (`clinic-roles.json`): menú "Inicio" y "Clientes"; el listado filtrado por empresa y el detalle de Granja San Jorge (RUC y razón social); `/configuracion` sigue sin permiso |
+| 9 | 768 px | OK | Listado y detalle sin desplazamiento horizontal de la página (la tabla, 750 px dentro de su caja) |
+| 10 | Consola | OK | Sin errores ni avisos de la aplicación; solo los dos registros de red del 404 esperado de la prueba 7 (una vez por usuario) |
+
+Capturas (fuera del repositorio, en la PC de la validación): `01-listado-admin.png`, `02-detalle-admin-fallecidos.png`,
+`03-listado-768.png` y `04-detalle-768.png`, en `%TEMP%\claude\…\scratchpad\capturas-1-1`. **Datos de la demo:** sin cambios
+(solo ingresos y salidas, que crean y cierran tokens).
+
+**Desvíos.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 1 | Rama `feature/front-1-1-clientes`, no `feature/front-1-1-clientes-listado` como dice la tabla de entregas | Pedido del usuario | Informativo |
+| 2 | `SelectField` se adelanta de la 1.2 (el filtro de tipo), solo con la etiqueta y las opciones; la 1.2 le suma el error | Las páginas no repiten el marcado de Tabler (`frontend/CLAUDE.md` §5) | Para revisar |
+| 3 | El cliente inexistente o de otra clínica (y un id inválido) muestra "No encontramos este cliente" **dentro del layout** (`notFoundComponent` de la ruta, con "Volver a los clientes"), no la página de no encontrado de la raíz | La de la raíz es de página completa, sin la barra ni el menú; el texto no dice si el cliente es de otra clínica | Para revisar |
+| 4 | `validateSearch` devuelve siempre las tres claves (`undefined` si el valor se descarta) | Hallazgo: TanStack Router mezcla lo que devuelve sobre la búsqueda cruda de la URL; sin la clave, `?pagina=-4` llegaba a la API como `page=-4`. Con `buscar` en la URL no se veía (por eso la mutación 4 sobrevivió al primer test); el test prueba las dos URL | Para revisar |
+| 5 | ESLint: `only-throw-error` permite también `NotFoundError` de `@tanstack/router-core` (ya permitía `Redirect`) | `throw notFound()` en el `loader` del detalle | Para revisar |
+| 6 | El `loader` usa `queryClient.query({ ...opciones, staleTime: 'static' })`, no `ensureQueryData` | `ensureQueryData` está deprecado en TanStack Query 5.107 (lo marca ESLint); es el reemplazo que indica la biblioteca | Informativo |
+| 7 | El error del listado se muestra dentro de la tarjeta ("No se pudieron cargar los clientes", "Probá de nuevo"), y el 403, con la página de sin permiso en la tarjeta; el del detalle, con la página de error del router ("Reintentar") | El listado se pide en el componente (con `keepPreviousData`, para que la tabla no parpadee); el detalle, en el `loader` | Para revisar |
+| 8 | Detalle: "RUC" en lugar de "Documento" para una empresa; un dato vacío se muestra con "—"; cada paciente lleva su código; el nombre del paciente todavía no es un enlace (su detalle llega en la 1.3a) | Detalles de presentación no definidos en el diseño | Para revisar |
+| 9 | La primera corrida completa de `npm test` dio 3 fallas por tiempo: `/ingresar` y `/perfil` (5 s) y "lee la búsqueda…" del listado (el segundo de `findByText`), con la PC cargada justo después de `lint` y `build`. Después de corregir el lint, la segunda corrida completa quedó en verde, y 5 vueltas de esos archivos no fallaron | Carga de la PC; no se reproduce | Informativo |
+| 10 | La validación en el navegador simula el fallecido en la respuesta de la API (prueba 5) | La demo no tiene pacientes fallecidos y el pedido era no cambiar sus datos | Informativo |
+| 11 | El paso 0 del pedido: deuda 21 (backend, baja), `countQueries` copiado en tres tests, en `deuda-tecnica.md` y `backend/CLAUDE.md` §7 | Pedido del usuario | Informativo |
 
 ### 1.2 Clientes: alta, edición y baja
 

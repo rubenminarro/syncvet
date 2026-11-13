@@ -5,6 +5,8 @@ export { DataTable, PaginationBar, type Column } from './DataTable';
 export { ErrorPage } from './ErrorPage';
 export { Loading } from './Loading';
 export { PasswordField } from './PasswordField';
+export { SearchField } from './SearchField';
+export { SelectField, type SelectOption } from './SelectField';
 export { TextField } from './TextField';
 export { ToastProvider } from './Toasts';
 export { useToast, type ToastTone } from './toast-context';

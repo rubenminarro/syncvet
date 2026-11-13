@@ -9,8 +9,8 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064) y front-01 cerrada (R-065). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | Ninguna en curso |
-| Siguiente | La F1 (clientes y pacientes), con el diseño aprobado (R-064) en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md): front-01 (backend, el dueño en `GET patients`) cerrada (R-065); sigue la entrega 1.1 (clientes: listado y detalle), en `feature/front-1-1-clientes` |
+| Entrega | 1.1 (clientes: listado y detalle), implementada en `feature/front-1-1-clientes` (commit WIP), sin cerrar: [pendiente para el cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#pendiente-para-el-cierre-11) |
+| Siguiente | La F1 (clientes y pacientes), con el diseño aprobado (R-064) en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md): front-01 (backend, el dueño en `GET patients`) cerrada (R-065); la 1.1 implementada: siguen su revisión y su cierre, y después la 1.2 (clientes: alta, edición y baja) |
 | Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del cierre de la F0, el 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
@@ -68,13 +68,14 @@ frontend/
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, Alert, Card, DataTable, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (en la F0, auth)
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, SearchField, SelectField, Alert, Card, DataTable, ErrorPage, Loading, avisos
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
 Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/`, `/perfil`,
-`/configuracion`, provisoria y solo para el administrador, y `/sin-permiso`; exige la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
+`/configuracion`, provisoria y solo para el administrador, `/clientes` y `/clientes/$id`, desde la 1.1, y `/sin-permiso`; exige
+la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
 
 ## 5. Convenciones
@@ -97,6 +98,14 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   `branchKey(idDeLaSucursal, …)` (`['branch', 10, 'appointments', 'queue', { date }]`), así los datos de dos sucursales no se
   mezclan y el cambio de sucursal invalida solo esas (`invalidateBranchQueries`); las demás (catálogos, clientes, pacientes: son
   de la clínica) empiezan con su módulo (`['clients', …]`) y no se tocan al cambiar de sucursal.
+* **Listados: búsqueda, filtros y página en la URL** (desde la 1.1, `/clientes?buscar=&tipo=&pagina=`): la ruta los valida en
+  `validateSearch` con Zod (`features/clients/search.ts`); un valor inválido vuelve al valor por defecto, y los valores por defecto
+  no van en la URL. `validateSearch` devuelve **siempre todas sus claves** (`undefined` si el valor se descarta): el router mezcla
+  lo que devuelve sobre la búsqueda cruda, así que una clave que falta deja pasar el valor de la URL. El campo de búsqueda es local
+  y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`, `src/lib/hooks/`), con `replace: true` y de vuelta en la
+  página 1; el filtro y la página cambian la URL con historial ("Atrás" vuelve). La consulta usa `placeholderData:
+  keepPreviousData` y 20 por página, fijo. Un detalle valida su id en el `loader` (sin llamar a la API si no es un entero positivo)
+  y convierte el 404 de la API en `notFound()`, con el `notFoundComponent` de la ruta, dentro del layout.
 * **Contraseñas fuera de la caché de mutaciones** (0.2b): una mutación que manda una contraseña (`/ingresar`, `/perfil`) va con
   `gcTime: 0` y `mutation.reset()` en `onSettled`, para que sus variables no queden en la caché de Query.
 * **Tipos escritos a mano** en el `types.ts` del módulo, con los nombres de la API (`snake_case`, también `meta.pagination`:

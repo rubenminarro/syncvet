@@ -1,17 +1,18 @@
-import { IconHome, IconSettings, type Icon } from '@tabler/icons-react';
+import { IconHome, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
 import { PERMISSIONS } from '../lib/auth/permissions';
 
 export interface MenuItem {
-  to: '/' | '/configuracion';
+  to: '/' | '/clientes' | '/configuracion';
   label: string;
   icon: Icon;
   /** Sin permiso: lo ve todo usuario con sesión. */
   permission?: string;
 }
 
-/** El menú: solo los módulos ya hechos (en la F0, Inicio y la Configuración provisoria, decisión del usuario en la 0.2b). */
+/** El menú: solo los módulos ya hechos (Inicio; Clientes, desde la 1.1; la Configuración provisoria de la 0.2b). */
 export const MENU: readonly MenuItem[] = [
   { to: '/', label: 'Inicio', icon: IconHome },
+  { to: '/clientes', label: 'Clientes', icon: IconUsers, permission: PERMISSIONS.clientsIndex },
   {
     to: '/configuracion',
     label: 'Configuración',
