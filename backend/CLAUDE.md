@@ -42,9 +42,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   semanal y bloqueos (R-050), 3.2a, turnos únicos (R-051), 3.2b, estados del turno (R-053), 3.3, turnos recurrentes (R-054), y 3.4,
   disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Después, la entrega de soporte del
   frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) e integrada a
-  `main` con la F0 del frontend (R-063). Sigue el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy:
-  78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F0 del frontend, 1445 casos (14183 aserciones en SQLite y 14257
-  en MySQL).
+  `main` con la F0 del frontend (R-063). La entrega de soporte front-01 (el dueño en `GET patients`, pedida por la F1 del
+  frontend) está cerrada (R-065), en `feature/front-01-dueno-pacientes`, sin integrar a `main` (se integra al cerrar la F1). Sigue
+  el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la
+  suite del cierre de front-01, 1451 casos (14225 aserciones en SQLite y 14299 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -438,6 +439,11 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   de la transacción de la baja, con la fila del paciente bloqueada (§3).
 * `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
   `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).
+* El listado `GET patients` trae el dueño de cada paciente, `client` con `id` y `display_name` (entrega front-01, R-065), cargado
+  con el `with` del listado, sin N+1. `PatientResource` lo saca solo si la relación está cargada (`whenLoaded`): el listado de un
+  cliente (`clients/{client}/patients`) y los pacientes del detalle del cliente no lo traen. El detalle del paciente
+  (`ShowPatientResource`) lo reemplaza por el suyo, con `phone`, `email` y `deleted`, en el mismo lugar de las claves. Un dueño
+  eliminado se muestra igual (la relación es `withTrashed`).
 * **Foto** (`patients/{patient}/photo`: subir con `POST`, ver con `GET`, borrar con `DELETE`; permisos `patients.upload-photo`,
   `patients.show-photo` y `patients.delete-photo`). La suben y la borran el recepcionista y el veterinario; la ven los tres roles.
   JPG, PNG o WEBP de hasta 5 MB, por el contenido del archivo, no por la extensión (`UploadPatientPhotoRequest`); otro tipo →

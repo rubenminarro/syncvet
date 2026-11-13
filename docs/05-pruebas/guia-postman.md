@@ -100,7 +100,7 @@ colecciones (R-021).
 | Colección | Entrega | Qué valida |
 |---|---|---|
 | [`postman/syncvet-fase-01-clientes.postman_collection.json`](postman/syncvet-fase-01-clientes.postman_collection.json) | 1.2 (R-018); repetible desde la 1.3 (R-020) | Alta de persona y de empresa, RUC con el dígito verificador equivocado, documento repetido como cédula, con un cero o como RUC, edición, cambio de tipo, email en minúsculas, búsqueda por mascota, aislamiento entre clínicas, filtros mal formados, baja con pacientes (409) y sin ellos, y el documento liberado |
-| [`postman/syncvet-fase-01-pacientes.postman_collection.json`](postman/syncvet-fase-01-pacientes.postman_collection.json) | 1.3 (R-020) | Alta bajo un cliente (el dueño sale de la URL, sin `custom_fields`), `code` prohibido, raza de otra especie, microchip repetido, peso, dueño en la edición, cambio de dueño (también de un fallecido y el 403 del veterinario), búsquedas, listado del cliente, fallecimiento en UTC, edición de un fallecido, listados sin y con fallecidos, baja y microchip liberado |
+| [`postman/syncvet-fase-01-pacientes.postman_collection.json`](postman/syncvet-fase-01-pacientes.postman_collection.json) | 1.3 (R-020) | Alta bajo un cliente (el dueño sale de la URL, sin `custom_fields`), `code` prohibido, raza de otra especie, microchip repetido, peso, dueño en la edición, cambio de dueño (también de un fallecido y el 403 del veterinario), búsquedas (con el dueño en el listado, front-01), listado del cliente (sin el dueño), fallecimiento en UTC, edición de un fallecido, listados sin y con fallecidos, baja y microchip liberado |
 | [`postman/syncvet-fase-01-especies.postman_collection.json`](postman/syncvet-fase-01-especies.postman_collection.json) | 1.4 (R-023 y R-024) | Listado con y sin inactivas (forma de la respuesta e `is_global`), alta de especie propia, nombre repetido en mayúsculas y sin acento o de una global, nombre sin letras (422), alta inactiva, cambio de nombre, global no editable (403, también con un cuerpo inválido), razas propias en una especie propia y en una global (los espacios internos repetidos se juntan), nombre repetido dentro de la especie (también una global con dos espacios), raza de otra especie en la URL (404), `species_id` prohibido, el recepcionista lista pero no escribe, especie y raza en uso por un paciente (se inactivan, el paciente las sigue mostrando, un alta nueva no las acepta, la baja da 409), baja de una global (403), baja de una raza y de una especie sin uso con su raza, y el nombre liberado |
 | [`postman/syncvet-fase-01-foto.postman_collection.json`](postman/syncvet-fase-01-foto.postman_collection.json) | 1.5 (R-026) | Paciente sin foto (`has_photo` falso, ver la foto da 404), un texto con extensión `.jpg` (422), subida de un PNG, descarga por los tres roles con `Content-Type`, `nosniff`, `no-store` y el nombre con el código, reemplazo por el veterinario, `has_photo` en el detalle, borrado (y 404 al repetirlo), paciente de otra clínica (404 al ver y al subir), y un fallecido que sube y borra la foto |
 
@@ -591,3 +591,17 @@ con los valores de la corrida anterior (como el Collection Runner): sin fallas.
 > la colección de sucursales respondió 422: el Runner tenía importada la versión anterior de la colección, que leía `lastPage`
 > ([detalle](../03-plan-desarrollo/fases/backend/front-00-soporte-del-frontend.md#la-colección-de-sucursales)). Después de cambiar una
 > colección, volver a importarla en Postman.
+
+## Entrega de soporte del frontend (front-01)
+
+Entrega del backend pedida por la F1 del frontend (R-064), cerrada en R-065
+([resultado](../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-front-01)). No suma pedidos: suma dos
+aserciones a la colección de pacientes (61 → 63).
+
+| Cambio | Dónde se prueba |
+|---|---|
+| `GET patients` trae el dueño de cada paciente, `client` con `id` y `display_name`; el listado de un cliente (`clients/{client}/patients`) no lo trae | Pacientes, pedidos 17 (el dueño en el listado) y 18 (el listado del cliente sin el dueño); el resto, en `tests/Feature/Patients/PatientListOwnerTest.php` (sin N+1, el dueño eliminado y las claves del detalle) |
+
+**Con Newman.** Todas las colecciones de `docs/05-pruebas/postman`, desde la raíz y con el servidor en el puerto 8001. Corrida del
+2026-11-12 contra la base de desarrollo, sin fallas: 483 pedidos y 1074 aserciones; pacientes, 30 pedidos y 63 aserciones; las demás,
+con las cifras de la corrida de front-00.

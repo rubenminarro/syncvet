@@ -6,7 +6,7 @@ entregas. Las decisiones del análisis (Node 26, la sesión, los tipos, las ruta
 | Fase | Contenido | Estado |
 |---|---|---|
 | [F0](f0-base.md) | Base: esqueleto (0.1) y sesión (0.2a, sesión; 0.2b, permisos). Antes de la 0.2, la [entrega de soporte del backend](../backend/front-00-soporte-del-frontend.md) (B1 a B3) | COMPLETADO (R-063): la 0.1, la 0.2a y la 0.2b (R-060 a R-062); integrada a `main` ([cierre](f0-base.md#cierre-de-la-f0)) |
-| [F1](f1-clientes-y-pacientes.md) | Clientes y pacientes, sobre la API de la FASE 1 del backend | EN CURSO: diseño aprobado (R-064), en `docs/front-f1-diseno`; sigue front-01 (backend) |
+| [F1](f1-clientes-y-pacientes.md) | Clientes y pacientes, sobre la API de la FASE 1 del backend | EN CURSO: diseño aprobado (R-064); front-01 (backend: el dueño en `GET patients`) COMPLETADO (R-065), en `feature/front-01-dueno-pacientes`; sigue la 1.1 |
 | F2 | Datos maestros, sobre la API de la FASE 2 | PENDIENTE |
 | F3 | Agenda y turnos, sobre la API de la FASE 3 | PENDIENTE |
 

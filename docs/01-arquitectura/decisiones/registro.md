@@ -1427,3 +1427,20 @@ respondidas con la recomendación.
 | Rama de front-01 | `feature/front-01-dueno-pacientes` (el nombre que dio el usuario; el diseño decía `feature/front-01-duenio-en-pacientes`) | Usuario |
 
 **Qué no cambió.** Código, tests, rutas, permisos y colecciones: la aprobación solo documenta.
+
+# R-065 Cierre de la entrega front-01 del backend (el dueño en el listado de pacientes) (2026-11-12)
+
+Entrega de soporte del backend pedida por la F1 del frontend (R-064), en `feature/front-01-dueno-pacientes` (desde
+`docs/front-f1-diseno`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-front-01).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `GET patients` trae `client` con `id` y `display_name`, con `whenLoaded` en `PatientResource` y el `with('client')` que el listado ya tenía; sin rutas, permisos ni migraciones (78, 135, 36); sin cambios en `error_code` ni códigos HTTP | Diseño (R-064) |
+| Desvío 1 | `client` va última en `PatientResource`, para que el detalle del paciente (`ShowPatientResource`, que la reemplaza) conserve el orden de sus claves | Usuario: aceptado |
+| Desvío 2 | El listado no trae `deleted` del dueño (solo `id` y `display_name`); un dueño eliminado se muestra igual (`withTrashed`) | Usuario: aceptado |
+| Desvíos informativos | 3 a 7 de la entrega: el detalle ya traía el dueño; el caso de N+1 con 1 y 6 pacientes y un pedido previo; `client` en `null` por defensa; dos aserciones en pedidos existentes de Postman; el intento de cerrar todos los `php.exe` | Registrados |
+| Regla de procesos | Claude Code solo detiene los procesos que él mismo levantó, por su PID o su tarea; nunca por nombre (`php.exe`, `nginx`, `node`) ni los de Laragon o del usuario ([`CLAUDE.md`](../../../CLAUDE.md) de la raíz, §2, Procesos) | Usuario |
+| Revisión | Sin hallazgos que corregir, en una sesión aparte sobre el WIP `3e3e386`; una observación sin cambio (`countQueries` repetido en tres tests) | Revisión |
+| Validación | Desde `backend/`, en serie sobre `3e3e386`: SQLite, 1451 casos y 14225 aserciones (14 omitidos, solo de MySQL); MySQL, 1451 casos y 14299 aserciones, sin omitidos. Newman, las 14 colecciones desde la raíz (puerto 8001): 483 pedidos y 1074 aserciones, sin fallas (pacientes, 61 → 63). La suite del frontend no cambió (`npm test`, 269 tests en 21 archivos del frontend) | Usuario |
+| Siguiente | La entrega 1.1 del frontend (clientes: listado y detalle), en `feature/front-1-1-clientes`, creada desde `feature/front-01-dueno-pacientes` | Usuario |

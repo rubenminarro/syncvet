@@ -80,6 +80,12 @@ Los desvíos, decisiones pendientes y notas para el cierre se escriben en el rep
 entrega en el documento de la fase) y se suben con el commit WIP, nunca solo en la memoria de Claude Code: el usuario trabaja en más
 de una PC.
 
+### Procesos
+
+* Claude Code solo detiene los procesos que él mismo levantó (un servidor para Newman, Vite, Playwright…), por su PID o por la
+  tarea en segundo plano que los lanzó. Nunca cierra procesos por nombre (`php.exe`, `nginx`, `node`…) ni los de Laragon o del
+  usuario.
+
 ### Git
 
 * Nunca trabajar ni commitear en `main`. Una rama por tarea: `feature/…`, `fix/…`, `docs/…`, `test/…`, `chore/…`.
@@ -92,6 +98,6 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 completada (R-063) e integrada a `main`, con la entrega de soporte del backend (front-00); sigue el análisis y
-  el diseño de la F1 (clientes y pacientes); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0 completada (R-063) e integrada a `main`, con la entrega de soporte del backend (front-00). F1 (clientes y
+  pacientes) en curso: diseño aprobado (R-064) y la entrega de soporte del backend front-01 cerrada (R-065); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

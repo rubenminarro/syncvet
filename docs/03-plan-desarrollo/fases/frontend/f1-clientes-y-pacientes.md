@@ -102,7 +102,7 @@ interfaz.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| front-01 | Soporte del backend: el dueño en `GET patients` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-01-dueno-pacientes`, desde `docs/front-f1-diseno` | EN CURSO: implementada, a la espera de la revisión ([pendiente](#pendiente-para-el-cierre-front-01)) |
+| front-01 | Soporte del backend: el dueño en `GET patients` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-01-dueno-pacientes`, desde `docs/front-f1-diseno` | COMPLETADO (R-065, [resultado](#entrega-front-01)) |
 | 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes-listado` | APROBADA (R-064) |
 | 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | APROBADA (R-064) |
 | 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 | `feature/front-1-3a-pacientes` | APROBADA (R-064) |
@@ -127,33 +127,7 @@ Postman: una aserción en la colección de pacientes. `backend/CLAUDE.md` §6.2 
 
 #### Pendiente para el cierre (front-01)
 
-Implementada el 2026-11-12 en `feature/front-01-dueno-pacientes` (commit WIP). Cambio: `app/Http/Resources/PatientResource.php`
-suma `client` con `whenLoaded`; test nuevo `tests/Feature/Patients/PatientListOwnerTest.php` (6 casos). Sin rutas, permisos ni
-migraciones nuevas (78, 135, 36), y sin cambios en `error_code` ni códigos HTTP.
-
-**Corridas.** `composer test:fast`: 1451 casos en verde (14 omitidos, solo de MySQL). En serie, desde `backend/`: SQLite, 1451 casos
-y 14225 aserciones (14 omitidos, solo de MySQL); MySQL, 1451 casos y 14299 aserciones, sin omitidos. Los casos que ya estaban
-siguen en verde sin tocarlos: ninguna otra respuesta cambió. Newman, las 14 colecciones desde la raíz con el servidor en el puerto
-8001: 483 pedidos y 1074 aserciones, sin fallas (las 2 de más son las de pacientes, 61 → 63).
-
-**Mutaciones.** (1) `client` siempre, sin `whenLoaded`: falla el caso del listado del cliente y del detalle del cliente. (2) El
-dueño cargado perezoso, sin `client` en el `with` del listado: falla el caso de N+1 (10 consultas frente a 5). (3) Sin `client` en
-el `with` y con `whenLoaded`: fallan los casos del listado (la clave no sale).
-
-**Desvíos.**
-
-| # | Desvío | Motivo | Estado |
-|---|---|---|---|
-| 1 | `client` va última en `PatientResource` | `ShowPatientResource` la reemplaza por la suya (con `phone`, `email` y `deleted`); en PHP la clave conserva el lugar de su primera aparición, así que, al final, el detalle mantiene exactamente el orden de sus claves. Dos casos fijan las claves del listado y del detalle | Para aceptar |
-| 2 | El listado no trae `deleted` del dueño (solo `id` y `display_name`, lo pedido) | Un paciente vivo no puede tener el dueño eliminado (`CLIENT_IN_USE`); si pasara (datos viejos), la relación ya es `withTrashed` y se muestra el nombre igual (caso con la baja hecha fuera del Service) | Para aceptar |
-| 3 | El detalle del paciente ya traía el dueño (`id`, `display_name`, `phone`, `email`, `deleted`), también eliminado | Verificado con un caso; no se tocó | Informativo |
-| 4 | El caso de N+1 compara 1 paciente con 6 (el diseño decía 1 y 5) y hace un pedido previo sin contar | El primer pedido también carga la caché de permisos de Spatie (5 consultas más) | Informativo |
-| 5 | `client` es `null` si la relación no trae nada | Defensa: `patients.client_id` no admite nulos, no debería pasar | Informativo |
-| 6 | Postman: dos aserciones en pedidos existentes de la colección de pacientes (17, el dueño en el listado; 18, el listado del cliente sin el dueño), no un pedido nuevo | Los pedidos ya existían | Informativo |
-| 7 | Para detener el servidor de Newman, Claude Code intentó cerrar todos los `php.exe` de la PC; el modo automático lo bloqueó y se detuvo solo su tarea | El comando era demasiado amplio | Informativo |
-
-**Para el cierre.** La revisión de la entrega; `backend/CLAUDE.md` §6.2 (el dueño en el listado) y la
-[guía de Postman](../../../05-pruebas/guia-postman.md) (63 aserciones en pacientes); el roadmap y el handoff.
+Vacío: la entrega se cerró (R-065) y todo lo que había acá pasó a su [resultado](#entrega-front-01).
 
 ### 1.1 Clientes: listado y detalle
 
@@ -400,4 +374,43 @@ Respondidas por el usuario el 2026-11-12 (R-064): todas con la recomendación.
 
 ## Resultado
 
-Sin entregas todavía.
+### Entrega front-01
+
+Estado: **COMPLETADO** el 2026-11-12 (R-065), en `feature/front-01-dueno-pacientes` (desde `docs/front-f1-diseno`), sin
+integrar a `main`: se integra al cerrar la F1.
+
+Implementada el 2026-11-12 en `feature/front-01-dueno-pacientes` (commit WIP `3e3e386`). Cambio: `app/Http/Resources/PatientResource.php`
+suma `client` con `whenLoaded`; test nuevo `tests/Feature/Patients/PatientListOwnerTest.php` (6 casos). Sin rutas, permisos ni
+migraciones nuevas (78, 135, 36), y sin cambios en `error_code` ni códigos HTTP.
+
+**Corridas.** `composer test:fast`: 1451 casos en verde (14 omitidos, solo de MySQL). En serie, desde `backend/`: SQLite, 1451 casos
+y 14225 aserciones (14 omitidos, solo de MySQL); MySQL, 1451 casos y 14299 aserciones, sin omitidos. Los casos que ya estaban
+siguen en verde sin tocarlos: ninguna otra respuesta cambió. Newman, las 14 colecciones desde la raíz con el servidor en el puerto
+8001: 483 pedidos y 1074 aserciones, sin fallas (las 2 de más son las de pacientes, 61 → 63).
+
+**Mutaciones.** (1) `client` siempre, sin `whenLoaded`: falla el caso del listado del cliente y del detalle del cliente. (2) El
+dueño cargado perezoso, sin `client` en el `with` del listado: falla el caso de N+1 (10 consultas frente a 5). (3) Sin `client` en
+el `with` y con `whenLoaded`: fallan los casos del listado (la clave no sale).
+
+**Desvíos.**
+
+| # | Desvío | Motivo | Estado |
+|---|---|---|---|
+| 1 | `client` va última en `PatientResource` | `ShowPatientResource` la reemplaza por la suya (con `phone`, `email` y `deleted`); en PHP la clave conserva el lugar de su primera aparición, así que, al final, el detalle mantiene exactamente el orden de sus claves. Dos casos fijan las claves del listado y del detalle | Aceptado (usuario, R-065) |
+| 2 | El listado no trae `deleted` del dueño (solo `id` y `display_name`, lo pedido) | Un paciente vivo no puede tener el dueño eliminado (`CLIENT_IN_USE`); si pasara (datos viejos), la relación ya es `withTrashed` y se muestra el nombre igual (caso con la baja hecha fuera del Service) | Aceptado (usuario, R-065) |
+| 3 | El detalle del paciente ya traía el dueño (`id`, `display_name`, `phone`, `email`, `deleted`), también eliminado | Verificado con un caso; no se tocó | Informativo |
+| 4 | El caso de N+1 compara 1 paciente con 6 (el diseño decía 1 y 5) y hace un pedido previo sin contar | El primer pedido también carga la caché de permisos de Spatie (5 consultas más) | Informativo |
+| 5 | `client` es `null` si la relación no trae nada | Defensa: `patients.client_id` no admite nulos, no debería pasar | Informativo |
+| 6 | Postman: dos aserciones en pedidos existentes de la colección de pacientes (17, el dueño en el listado; 18, el listado del cliente sin el dueño), no un pedido nuevo | Los pedidos ya existían | Informativo |
+| 7 | Para detener el servidor de Newman, Claude Code intentó cerrar todos los `php.exe` de la PC; el modo automático lo bloqueó y se detuvo solo su tarea | El comando era demasiado amplio | Informativo: regla nueva en el [`CLAUDE.md`](../../../../CLAUDE.md) de la raíz, §2, Procesos (R-065) |
+
+**Revisión** (2026-11-12, en una sesión que la revisó como quien no la escribió, sobre el WIP `3e3e386`): sin hallazgos que
+corregir. `client` sale solo donde la relación se carga con `with` (el listado); `AppointmentResource` ya usa la misma forma
+`{ id, display_name }` para el dueño de un turno; sin N+1; las demás respuestas, iguales (las claves del detalle, fijadas por un
+caso). Observación sin cambio: `countQueries` es la tercera copia privada del mismo ayudante en los tests (unificarla toca tests de
+otras entregas). `composer test:fast` sobre el código del WIP: 1451 casos en verde (14 omitidos, solo de MySQL).
+
+**Validación.** Las suites en serie de SQLite y de MySQL y Newman de las 14 colecciones (cifras arriba), aceptadas por el usuario
+como validación de la entrega, con los desvíos 1 y 2 aceptados (R-065). La suite del frontend no cambió: `npm test`, 269 tests en
+21 archivos, en verde (sin código del frontend en la entrega).
+
