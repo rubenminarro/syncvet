@@ -1197,7 +1197,8 @@
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
                             "pm.test('Encuentra a Bolita por Pedro', () => pm.expect(json.meta.pagination.total).to.eql(1));",
-                            "pm.test('Es Bolita', () => pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('bolita_id'))));"
+                            "pm.test('Es Bolita', () => pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('bolita_id'))));",
+                            "pm.test('Trae al dueño: id y display_name (front-01)', () => pm.expect(json.data[0].client).to.eql({ id: Number(pm.collectionVariables.get('pedro_id')), display_name: 'Pedro Acosta' }));"
                         ]
                     }
                 }
@@ -1250,7 +1251,8 @@
                             "pm.test('Solo Bolita', () => {",
                             "    pm.expect(json.data).to.have.lengthOf(1);",
                             "    pm.expect(json.data[0].name).to.eql('Bolita');",
-                            "});"
+                            "});",
+                            "pm.test('El listado del cliente no trae al dueño (front-01)', () => pm.expect(json.data[0]).to.not.have.property('client'));"
                         ]
                     }
                 }
