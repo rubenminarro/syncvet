@@ -198,8 +198,18 @@ export function PatientEditPage({ id }: { id: number }) {
   const [alert, setAlert] = useState<string | null>(null);
   const single = useSingleSubmit();
 
+  const deceased = patient.deceased_at !== null;
+
   const mutation = useMutation({
-    mutationFn: (values: PatientFormValues) => updatePatient(id, patientFormToPayload(values)),
+    // Un fallecido (1.3b): los campos bloqueados se mandan con el valor guardado (la API los compara y acepta), solo las
+    // notas con lo escrito.
+    mutationFn: (values: PatientFormValues) =>
+      updatePatient(
+        id,
+        patientFormToPayload(
+          deceased ? { ...patientToForm(patient), notes: values.notes } : values,
+        ),
+      ),
     onMutate: () => {
       setAlert(null);
     },
@@ -246,6 +256,7 @@ export function PatientEditPage({ id }: { id: number }) {
         defaultValues={patientToForm(patient)}
         species={species}
         current={{ species: patient.species, breed: patient.breed }}
+        locked={deceased}
         alert={alert}
         saving={mutation.isPending}
         onSubmit={(values, form) => {

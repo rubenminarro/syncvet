@@ -38,6 +38,11 @@ interface PatientFormProps {
   onSubmit: (values: PatientFormValues, form: UseFormReturn<PatientFormValues>) => void;
   /** El enlace "Cancelar": vuelve sin preguntar (pregunta 11 del diseño). */
   cancel: ReactNode;
+  /**
+   * Un paciente fallecido (1.3b): solo las notas quedan editables (PATIENT_DECEASED); los demás campos, deshabilitados. Quien
+   * manda el formulario los toma del paciente guardado, no de los campos.
+   */
+  locked?: boolean;
 }
 
 /**
@@ -55,6 +60,7 @@ export function PatientForm({
   saving,
   onSubmit,
   cancel,
+  locked = false,
 }: PatientFormProps) {
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientFormSchema),
@@ -96,6 +102,12 @@ export function PatientForm({
   return (
     <Card title={title}>
       {alert !== null ? <Alert title={alert} /> : null}
+      {locked ? (
+        <Alert
+          tone="info"
+          title="El paciente figura como fallecido: solo se pueden editar las notas. La fecha de fallecimiento se corrige desde el detalle."
+        />
+      ) : null}
       <form className="patient-form" onSubmit={submit} noValidate>
         <div className="row">
           <div className="col-md-6">
@@ -104,6 +116,7 @@ export function PatientForm({
               required
               autoComplete="off"
               error={errors.name?.message}
+              disabled={locked}
               {...register('name')}
             />
           </div>
@@ -114,6 +127,7 @@ export function PatientForm({
               autoComplete="off"
               hint="Solo letras y números, sin espacios."
               error={errors.microchip?.message}
+              disabled={locked}
               {...register('microchip')}
             />
           </div>
@@ -124,6 +138,7 @@ export function PatientForm({
               required
               options={speciesOptions(species, current)}
               error={errors.species_id?.message}
+              disabled={locked}
               {...register('species_id', {
                 // Otra especie: la raza elegida ya no corresponde.
                 onChange: () => {
@@ -138,6 +153,7 @@ export function PatientForm({
               label="Raza"
               options={breedOptions(species, speciesId, current)}
               error={errors.breed_id?.message}
+              disabled={locked}
               {...register('breed_id')}
             />
           </div>
@@ -146,6 +162,7 @@ export function PatientForm({
               label="Sexo"
               options={SEX_OPTIONS}
               error={errors.sex?.message}
+              disabled={locked}
               {...register('sex')}
             />
           </div>
@@ -153,6 +170,7 @@ export function PatientForm({
             <CheckboxField
               label="Castrado"
               error={errors.is_neutered?.message}
+              disabled={locked}
               {...register('is_neutered')}
             />
           </div>
@@ -161,11 +179,13 @@ export function PatientForm({
               label="Fecha de nacimiento"
               max={todayInAppZone()}
               error={errors.birth_date?.message}
+              disabled={locked}
               {...register('birth_date')}
             />
             <CheckboxField
               label="Es aproximada"
               error={errors.birth_date_estimated?.message}
+              disabled={locked}
               {...register('birth_date_estimated')}
             />
           </div>
@@ -176,6 +196,7 @@ export function PatientForm({
               autoComplete="off"
               hint="Con coma decimal: 12,5."
               error={errors.weight_kg?.message}
+              disabled={locked}
               {...register('weight_kg')}
             />
           </div>
@@ -184,6 +205,7 @@ export function PatientForm({
               label="Color"
               autoComplete="off"
               error={errors.color?.message}
+              disabled={locked}
               {...register('color')}
             />
           </div>
@@ -192,6 +214,7 @@ export function PatientForm({
               label="Alergias"
               rows={2}
               error={errors.allergies?.message}
+              disabled={locked}
               {...register('allergies')}
             />
           </div>

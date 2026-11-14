@@ -73,6 +73,39 @@ export function updatePatient(id: number, payload: PatientPayload) {
 }
 
 /**
+ * PATCH patients/{id} solo con `deceased_at` (1.3b): registrar o corregir el fallecimiento (la hora de pared de Asunción con
+ * su desplazamiento, `toApiDateTime`) o anularlo (null). Los demás campos no se mandan: la API los deja como están.
+ */
+export function setPatientDeceased(id: number, deceasedAt: string | null) {
+  return api.patch<PatientDetail>(`patients/${id}`, { deceased_at: deceasedAt });
+}
+
+/** POST patients/{id}/change-owner (200, ShowPatientResource con el dueño nuevo). */
+export function changePatientOwner(id: number, clientId: number) {
+  return api.post<PatientDetail>(`patients/${id}/change-owner`, { client_id: clientId });
+}
+
+/** DELETE patients/{id} (200, sin datos). */
+export function deletePatient(id: number) {
+  return api.delete<null>(`patients/${id}`);
+}
+
+/**
+ * Después de la baja (o de un 404 en una acción: el paciente ya no está), antes de salir del detalle: los listados de
+ * pacientes se vacían (no se ve un momento el paciente borrado) y las consultas de clientes quedan viejas (el detalle del
+ * dueño lo listaba). Devuelve lo que se hace después de salir: sacar el detalle de la caché.
+ */
+export function afterPatientGone(queryClient: QueryClient, id: number): () => void {
+  void queryClient.resetQueries({ queryKey: patientKeys.lists });
+  void queryClient.invalidateQueries({ queryKey: patientKeys.all, refetchType: 'none' });
+  void queryClient.invalidateQueries({ queryKey: clientKeys.all, refetchType: 'none' });
+
+  return () => {
+    queryClient.removeQueries({ queryKey: patientKeys.detail(id), exact: true });
+  };
+}
+
+/**
  * Después del alta o la edición (diseño de la F1, "Invalidaciones"): las consultas de pacientes quedan viejas (los listados
  * buscan por los datos cambiados) y también las de clientes (el detalle del cliente lista sus pacientes y la búsqueda de
  * clientes encuentra por mascota). Se invalidan sin volver a pedir enseguida (refetchType 'none'): se piden al mostrarse. El

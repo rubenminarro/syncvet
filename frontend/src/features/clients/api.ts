@@ -14,7 +14,27 @@ export const clientKeys = {
   lists: ['clients', 'list'] as const,
   list: (filters: ClientListFilters) => ['clients', 'list', filters] as const,
   detail: (id: number) => ['clients', 'detail', id] as const,
+  /** La búsqueda del selector del dueño nuevo (1.3b). */
+  options: (search: string) => ['clients', 'options', search] as const,
 };
+
+/** Clientes que ofrece el buscador del dueño nuevo (diseño de la 1.3b: GET clients?search=…&per_page=10). */
+export const CLIENT_OPTIONS_PER_PAGE = 10;
+
+/** GET clients con lo escrito en el buscador del dueño nuevo: los 10 primeros (mientras llega otra búsqueda, la anterior). */
+export function clientOptionsQueryOptions(search: string) {
+  return queryOptions({
+    queryKey: clientKeys.options(search),
+    queryFn: async ({ signal }) =>
+      (
+        await getPage<Client>('clients', {
+          signal,
+          query: { search, per_page: CLIENT_OPTIONS_PER_PAGE },
+        })
+      ).items,
+    placeholderData: keepPreviousData,
+  });
+}
 
 /** GET clients: 20 por página; mientras llega otra página o búsqueda, la tabla sigue con la anterior. */
 export function clientListQueryOptions(filters: ClientListFilters) {

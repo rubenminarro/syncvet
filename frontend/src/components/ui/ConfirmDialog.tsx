@@ -18,6 +18,12 @@ interface ConfirmDialogProps {
   error?: string | null;
   /** false: la acción no se puede hacer (un `*_IN_USE`): solo queda "Cerrar". */
   canConfirm?: boolean;
+  /** El botón de la acción inactivo (todavía falta elegir algo, como el dueño nuevo). */
+  confirmDisabled?: boolean;
+  /** danger (por defecto): borrar o anular, en rojo; primary: una acción que no borra (registrar, cambiar de dueño). */
+  tone?: 'danger' | 'primary';
+  /** sm (por defecto): una pregunta; md: con campos o una lista (el fallecimiento, el dueño nuevo). */
+  size?: 'sm' | 'md';
 }
 
 // Una lista sin espacios: el test de voseo no la toma por un texto de la interfaz. Los botones inactivos del diálogo usan
@@ -48,6 +54,9 @@ export function ConfirmDialog({
   busy = false,
   error = null,
   canConfirm = true,
+  confirmDisabled = false,
+  tone = 'danger',
+  size = 'sm',
 }: ConfirmDialogProps) {
   const titleId = useId();
   const bodyId = useId();
@@ -169,12 +178,12 @@ export function ConfirmDialog({
         }}
       >
         <div
-          className="modal-dialog modal-sm modal-dialog-centered"
+          className={`modal-dialog${size === 'sm' ? ' modal-sm' : ''} modal-dialog-centered`}
           role="document"
           ref={dialogRef}
         >
           <div className="modal-content">
-            <div className="modal-status bg-danger" />
+            <div className={`modal-status bg-${tone}`} />
             <div className="modal-body">
               <h3 className="modal-title mb-2" id={titleId}>
                 {title}
@@ -200,7 +209,13 @@ export function ConfirmDialog({
                 {canConfirm ? 'Cancelar' : 'Cerrar'}
               </Button>
               {canConfirm ? (
-                <Button variant="danger" loading={busy} focusableWhenInactive onClick={onConfirm}>
+                <Button
+                  variant={tone}
+                  loading={busy}
+                  disabled={confirmDisabled}
+                  focusableWhenInactive
+                  onClick={onConfirm}
+                >
                   {confirmLabel}
                 </Button>
               ) : null}

@@ -688,3 +688,65 @@ describe('/pacientes/$id/editar: edición', () => {
     });
   });
 });
+
+describe('/pacientes/$id/editar: un fallecido (1.3b)', () => {
+  const DECEASED = patientDetail({
+    weight_kg: '12.50',
+    is_deceased: true,
+    deceased_at: '2026-11-12T13:30:00.000000Z',
+  });
+
+  it('solo las notas quedan editables; los demás campos se mandan con el valor guardado (H5: el peso como vino)', async () => {
+    const { update } = await openEdit({ data: DECEASED });
+
+    expect(
+      screen.getByText('El paciente figura como fallecido', { exact: false }),
+    ).toBeInTheDocument();
+    for (const label of ['Nombre', 'Microchip', 'Fecha de nacimiento', 'Peso (kg)', 'Color']) {
+      expect(field(label)).toBeDisabled();
+    }
+    expect(select('Especie')).toBeDisabled();
+    expect(select('Raza')).toBeDisabled();
+    expect(field('Macho')).toBeDisabled();
+    expect(field('Alergias')).toBeDisabled();
+    expect(field('Notas')).toBeEnabled();
+
+    // Aunque un campo bloqueado cambie (por fuera de la interfaz), se manda lo guardado.
+    type('Nombre', 'Otro nombre');
+    type('Notas', 'Cremado el 13/11.');
+    submit();
+
+    await waitFor(() => {
+      expect(update.bodies).toEqual([
+        {
+          name: 'Firulais',
+          species_id: 1,
+          breed_id: 2,
+          sex: 'male',
+          is_neutered: false,
+          birth_date: '2022-03-10',
+          birth_date_estimated: false,
+          color: 'Marrón',
+          weight_kg: '12.50',
+          microchip: '985112003456789',
+          allergies: null,
+          notes: 'Cremado el 13/11.',
+        },
+      ]);
+    });
+  });
+
+  it('PATIENT_DECEASED de la API: la alerta arriba con su mensaje', async () => {
+    const message =
+      'El paciente figura como fallecido: solo se pueden editar la fecha de fallecimiento y las notas.';
+    await openEdit({
+      data: DECEASED,
+      update: updateHandler(() => failure(422, 'PATIENT_DECEASED', message)),
+    });
+
+    type('Notas', 'Algo.');
+    submit();
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+});

@@ -23,6 +23,10 @@ export const PERMISSIONS = {
   patientsStore: 'patients.store',
   /** /pacientes/$id/editar (F1, entrega 1.3a): los tres roles. */
   patientsUpdate: 'patients.update',
+  /** El cambio de dueño desde el detalle (F1, entrega 1.3b): administrador y recepcionista (el veterinario no). */
+  patientsChangeOwner: 'patients.change-owner',
+  /** La baja desde el detalle (F1, entrega 1.3b): solo el administrador. */
+  patientsDestroy: 'patients.destroy',
   /** /configuracion (provisoria en la F0; solo el administrador). */
   settingsUpdate: 'system-settings.update',
 } as const;

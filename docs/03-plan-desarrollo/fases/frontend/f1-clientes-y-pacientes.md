@@ -298,6 +298,58 @@ fallecido con los campos habilitados; el dueño actual ofrecido en el buscador.
 **En el navegador.** El ida y vuelta de la hora en la pestaña Red (lo mandado y lo devuelto); el diálogo de baja que lleva al de
 fallecimiento.
 
+#### Pendiente para el cierre (1.3b)
+
+Implementación del 2026-11-14 en `feature/front-1-3b-pacientes` (commit WIP), sin revisión todavía.
+
+**Qué se hizo.** En `/pacientes/$id`: "Registrar el fallecimiento" (`patients.update`, diálogo con `DateField` y `TimeField`, por
+defecto ahora en Asunción), el aviso "Falleció el dd/MM/aaaa HH:mm" con "Corregir la fecha" y "Anular el fallecimiento" (con
+confirmación), "Cambiar de dueño" (`patients.change-owner`, buscador `['clients', 'options', search]` con 300 ms de espera, sin el
+dueño actual) y "Eliminar" (`patients.destroy`, `ConfirmDialog`, `PATIENT_IN_USE` en el diálogo). La edición de un fallecido deja
+solo las notas. La lógica de la fecha y la hora está en `features/patients/deceased.ts` (con sus tests); los diálogos, en
+`PatientActions.tsx`. La marca "Fallecido" del listado y del detalle del cliente ya estaba (1.1 y 1.3a).
+
+**Desvío 8 de la 0.1: VERIFICADO** (anotado en el [resultado de la 0.1](f0-base.md#entrega-01)): `deceased_at` se manda con
+`toApiDateTime` (`2026-11-10T10:30:00.000-03:00`), la API devuelve `2026-11-10T13:30:00.000000Z` y al recargar se ve 10:30, en
+Playwright (`syncvet_e2e`) y en Edge sin ventana (`syncvet.test`).
+
+**Cifras.** Corrida completa del frontend (2026-11-14): `typecheck` y `build` sin errores; Vitest, 689 tests en 37 archivos, en
+verde (antes 645 en 35: 44 nuevos, en `deceased.test.ts`, `PatientActions.test.tsx` y la edición de un fallecido en
+`PatientFormPages.test.tsx`); `lint` dio 4 errores de estilo en `PatientActions.test.tsx` (`as` para quitar `null`), corregidos con
+un ayudante `required()`; después, `lint` y `typecheck` sin errores y ese archivo, 29 de 29 (sin repetir la suite: no cambió
+código de la aplicación).
+
+**Desvíos.**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Registrar, corregir y anular el fallecimiento mandan `PATCH patients/{id}` **solo con `deceased_at`**, no el formulario completo | La API lo admite (`sometimes`) y deja lo demás como está; reenviar el formulario no agrega nada y expone a `PATIENT_DECEASED` o a una especie inactivada. H5 (el formulario completo de un fallecido) se prueba en la edición de las notas |
+| 2 | La fecha de fallecimiento no está en el formulario de edición: se corrige desde el detalle ("Corregir la fecha", el mismo diálogo con la guardada). La edición de un fallecido deja editables solo las notas, con un aviso, y manda los demás campos con el valor guardado (no con lo que tengan los campos) | Un solo lugar para la fecha y la hora (con su validación y su `-03:00`); el diseño decía "editables solo la fecha de fallecimiento y las notas" |
+| 3 | `ConfirmDialog` suma `tone` (`primary` para lo que no borra), `size` (`md`, con campos o una lista) y `confirmDisabled`; los diálogos del fallecimiento y del cambio de dueño son `ConfirmDialog` con campos. `TimeField` nuevo (`<input type="time">`) | Reutilizar el foco, el teclado y el error de negocio del diálogo de la 1.2 en lugar de un segundo diálogo |
+| 4 | El buscador del dueño nuevo usa `useDebouncedValue` y `normalizeSearchText`, no `useSearchText`; sin texto no pide nada (muestra una ayuda) | `useSearchText` sincroniza con la URL y el diálogo no tiene URL |
+| 5 | Con `PATIENT_IN_USE`, el botón de la acción del diálogo pasa a "Registrar el fallecimiento" (azul), en lugar de sumar un tercer botón; con un fallecido (o sin `patients.update`), solo "Cerrar" | `ConfirmDialog` tiene dos botones; el resultado es el que pide el diseño |
+| 6 | La baja con el 200 va al detalle del dueño; si el dueño está eliminado o el usuario no tiene `clients.show`, al listado de pacientes | El detalle de un cliente eliminado da 404 |
+| 7 | La hora tiene un mensaje del navegador, "La hora de fallecimiento no es válida."; la fecha usa los de `PatientMessages` | La API recibe un solo campo (`deceased_at`) |
+| 8 | Playwright y el navegador hicieron la baja de un paciente recién creado; la baja rechazada (`PATIENT_IN_USE`) y el diálogo que lleva al del fallecimiento quedaron solo en Vitest | Lo pidió el usuario para esta entrega; probarlo contra la API necesita un paciente con turnos, y uno de la demo se borraría si no los tiene |
+| 9 | El caso de Playwright lleva `test.setTimeout(180_000)` (dura 1,3 min). Las dos primeras corridas fallaron por el caso: hizo clic en "Eliminar" del **cliente** antes de que se dibujara el detalle del paciente (abrió el diálogo del cliente, sin confirmarlo; la base es `syncvet_e2e`). Ahora espera el título y usa `.patient-delete` | Sin cambios en la aplicación |
+| 10 | La mutación "sin el `ref` del doble envío" sobrevivió al primer test (el doble clic lo frena el botón en espera); se sumó el caso de dos envíos del formulario (Enter) y quedó detectada | El `ref` protege el envío del formulario, no el botón |
+| 11 | El selector de hora nativo de Edge muestra "10:30 a. m." (12 horas, por el idioma `es-PY` del navegador); el valor del campo es `10:30` | Informativo |
+
+**Mutaciones** (4 de 4 detectadas): `deceased_at` con `toISOString()` de un `Date` local; la edición del fallecido con los campos
+habilitados; el dueño actual ofrecido en el buscador; sin el `ref` del doble envío (después del caso del desvío 10).
+
+**Playwright** (solo el caso nuevo, `e2e/pacientes-estado.spec.ts`): 1 de 1 en verde, en 1,3 min; `:8010` y `:5174` libres después.
+
+**Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` con un Vite propio en `:5181` (detenido por su
+PID, 22936), script fuera del repositorio: **10 de 10** en verde (fallecimiento con `-03:00` y 13:30 UTC; la misma hora al recargar;
+"Fallecido" en el listado y en el detalle del cliente; la anulación; el cambio de dueño sin ofrecer el actual; el paciente en Carlos
+Duarte y ya no en Laura Martínez; la baja con el foco en "Cancelar" y 404 después; `vet-a` sin cambio de dueño ni baja;
+`recepcion-a` sin baja; la demo como estaba y la consola sin errores). Capturas en
+`%TEMP%\claude\59ee5951b6d279f6\13637d68-e237-4b94-bd93-defc8f6e2c69\scratchpad\capturas-1-3b`: `01-dialogo-fallecimiento.png`,
+`02-detalle-fallecido.png`, `03-dialogo-anular.png`, `04-dialogo-cambio-de-dueno.png` y `05-dialogo-baja.png`. **Datos de la demo:**
+el paciente "Valida Brisa" se creó en Laura Martínez por la API, pasó a Carlos Duarte y se borró desde la interfaz (después, 404);
+los pacientes de los dos clientes, como antes.
+
 ### 1.4 Foto del paciente
 
 **Cliente de la API (H2).** `api.getBlob(path, options)` en `src/lib/api/client.ts`: el mismo armado del pedido (token, `Accept`);

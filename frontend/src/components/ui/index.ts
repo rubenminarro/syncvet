@@ -13,5 +13,6 @@ export { SearchField } from './SearchField';
 export { SelectField, type SelectOption } from './SelectField';
 export { TextareaField } from './TextareaField';
 export { TextField } from './TextField';
+export { TimeField } from './TimeField';
 export { ToastProvider } from './Toasts';
 export { useToast, type ToastTone } from './toast-context';

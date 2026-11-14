@@ -1,13 +1,26 @@
-import { IconAlertTriangle, IconEdit } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconCross,
+  IconEdit,
+  IconTrash,
+  IconUserShare,
+} from '@tabler/icons-react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Fragment } from 'react';
-import { Card, ErrorPage } from '../../components/ui';
+import { Fragment, useState } from 'react';
+import { Button, Card, ErrorPage } from '../../components/ui';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatDateOnly, formatDateTime } from '../../lib/format/dates';
 import { useCan } from '../auth/permissions';
 import { patientDetailQueryOptions } from './api';
 import { formatWeight } from './form';
+import {
+  AnnulDeceasedDialog,
+  ChangeOwnerDialog,
+  DeceasedDialog,
+  DeletePatientDialog,
+  type PatientDialog,
+} from './PatientActions';
 import { usePatientListSearch, withPatientList } from './navigation';
 import type { PatientDetail } from './types';
 
@@ -16,11 +29,19 @@ function orDash(value: string | null | undefined): string {
   return value === null || value === undefined || value === '' ? '—' : value;
 }
 
-/** /pacientes/$id: los datos del paciente y su dueño (el estado y la foto llegan en la 1.3b y la 1.4). */
+/**
+ * /pacientes/$id: los datos del paciente y su dueño; el fallecimiento (registrarlo, corregirlo, anularlo), el cambio de
+ * dueño y la baja (1.3b), cada uno con su permiso. La foto llega en la 1.4.
+ */
 export function PatientDetailPage({ id }: { id: number }) {
   const { data: patient } = useSuspenseQuery(patientDetailQueryOptions(id));
   const can = useCan();
   const listSearch = usePatientListSearch();
+  const [dialog, setDialog] = useState<PatientDialog | null>(null);
+  const close = () => {
+    setDialog(null);
+  };
+  const canUpdate = can(PERMISSIONS.patientsUpdate);
 
   return (
     <>
@@ -51,9 +72,76 @@ export function PatientDetailPage({ id }: { id: number }) {
                 Editar
               </Link>
             ) : null}
+            {canUpdate && !patient.is_deceased ? (
+              <Button
+                variant="secondary"
+                className="patient-register-deceased"
+                icon={<IconCross size={18} className="me-2" aria-hidden="true" />}
+                onClick={() => {
+                  setDialog('deceased');
+                }}
+              >
+                Registrar el fallecimiento
+              </Button>
+            ) : null}
+            {can(PERMISSIONS.patientsChangeOwner) ? (
+              <Button
+                variant="secondary"
+                className="patient-change-owner"
+                icon={<IconUserShare size={18} className="me-2" aria-hidden="true" />}
+                onClick={() => {
+                  setDialog('owner');
+                }}
+              >
+                Cambiar de dueño
+              </Button>
+            ) : null}
+            {can(PERMISSIONS.patientsDestroy) ? (
+              <Button
+                variant="danger"
+                className="patient-delete"
+                icon={<IconTrash size={18} className="me-2" aria-hidden="true" />}
+                onClick={() => {
+                  setDialog('delete');
+                }}
+              >
+                Eliminar
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
+      {patient.deceased_at !== null ? (
+        <div className="alert alert-secondary patient-deceased-at" role="note">
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            <div className="me-auto">
+              Falleció el <strong>{formatDateTime(patient.deceased_at)}</strong>
+            </div>
+            {canUpdate ? (
+              <>
+                <Button
+                  variant="link"
+                  className="patient-correct-deceased"
+                  onClick={() => {
+                    setDialog('deceased');
+                  }}
+                >
+                  Corregir la fecha
+                </Button>
+                <Button
+                  variant="link"
+                  className="patient-annul-deceased"
+                  onClick={() => {
+                    setDialog('annul');
+                  }}
+                >
+                  Anular el fallecimiento
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {patient.allergies !== null && patient.allergies !== '' ? (
         <div className="alert alert-warning patient-allergies" role="note">
           <div className="d-flex gap-2">
@@ -73,6 +161,18 @@ export function PatientDetailPage({ id }: { id: number }) {
           <PatientOwner patient={patient} />
         </div>
       </div>
+      {dialog === 'deceased' ? <DeceasedDialog patient={patient} onClose={close} /> : null}
+      {dialog === 'annul' ? <AnnulDeceasedDialog patient={patient} onClose={close} /> : null}
+      {dialog === 'owner' ? <ChangeOwnerDialog patient={patient} onClose={close} /> : null}
+      {dialog === 'delete' ? (
+        <DeletePatientDialog
+          patient={patient}
+          onClose={close}
+          onRegisterDeceased={() => {
+            setDialog('deceased');
+          }}
+        />
+      ) : null}
     </>
   );
 }
