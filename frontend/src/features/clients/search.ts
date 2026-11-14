@@ -1,8 +1,8 @@
 import { z } from 'zod';
+import { normalizeSearchText, parseRouteId } from '../../lib/search-text';
 import type { ClientKind, ClientListFilters } from './types';
 
-/** El largo máximo de `search` en la API (ListFilters). */
-export const SEARCH_MAX_LENGTH = 100;
+export { normalizeSearchText, SEARCH_MAX_LENGTH } from '../../lib/search-text';
 
 /** El tipo en la URL, en castellano, y su valor en la API. */
 const KIND_BY_PARAM = { persona: 'person', empresa: 'company' } as const satisfies Record<
@@ -17,11 +17,6 @@ export interface ClientListSearch {
   buscar?: string | undefined;
   tipo?: KindParam | undefined;
   pagina?: number | undefined;
-}
-
-/** Lo escrito en la búsqueda, como se manda: sin los espacios de los extremos y hasta 100 caracteres. */
-export function normalizeSearchText(text: string): string {
-  return text.trim().slice(0, SEARCH_MAX_LENGTH).trim();
 }
 
 // Un esquema por parámetro, cada uno con safeParse: uno inválido se descarta sin tocar los demás. El router ya convierte
@@ -67,11 +62,5 @@ export function toListFilters(search: ClientListSearch): ClientListFilters {
 
 /** El id de /clientes/$id: solo un entero positivo (sin ceros adelante); si no, null (la página de no encontrado). */
 export function parseClientId(param: string): number | null {
-  if (!/^[1-9]\d{0,15}$/.test(param)) {
-    return null;
-  }
-
-  const id = Number(param);
-
-  return Number.isSafeInteger(id) ? id : null;
+  return parseRouteId(param);
 }

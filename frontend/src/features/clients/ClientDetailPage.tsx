@@ -1,4 +1,4 @@
-import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Fragment, useState } from 'react';
@@ -50,7 +50,7 @@ export function ClientDetailPage({ id }: { id: number }) {
           <ClientData client={client} />
         </div>
         <div className="col-lg-7">
-          <ClientPatients patients={client.patients} />
+          <ClientPatients clientId={client.id} patients={client.patients} />
         </div>
       </div>
     </>
@@ -189,7 +189,8 @@ function ClientData({ client }: { client: ClientDetail }) {
   );
 }
 
-function ClientPatients({ patients }: { patients: ClientPatient[] }) {
+function ClientPatients({ clientId, patients }: { clientId: number; patients: ClientPatient[] }) {
+  const can = useCan();
   const [showDeceased, setShowDeceased] = useState(false);
   const deceased = patients.filter((patient) => patient.is_deceased).length;
   const visible = showDeceased ? patients : patients.filter((patient) => !patient.is_deceased);
@@ -206,18 +207,30 @@ function ClientPatients({ patients }: { patients: ClientPatient[] }) {
     <Card
       title="Pacientes"
       actions={
-        deceased > 0 ? (
-          <Button
-            variant="link"
-            className="toggle-deceased"
-            aria-pressed={showDeceased}
-            onClick={() => {
-              setShowDeceased((current) => !current);
-            }}
-          >
-            {showDeceased ? 'Ocultar los fallecidos' : `Mostrar los fallecidos (${deceased})`}
-          </Button>
-        ) : null
+        <div className="d-flex gap-2 align-items-center">
+          {deceased > 0 ? (
+            <Button
+              variant="link"
+              className="toggle-deceased"
+              aria-pressed={showDeceased}
+              onClick={() => {
+                setShowDeceased((current) => !current);
+              }}
+            >
+              {showDeceased ? 'Ocultar los fallecidos' : `Mostrar los fallecidos (${deceased})`}
+            </Button>
+          ) : null}
+          {can(PERMISSIONS.patientsStore) ? (
+            <Link
+              to="/clientes/$id/pacientes/nuevo"
+              params={{ id: String(clientId) }}
+              className="btn btn-sm btn-primary patient-new"
+            >
+              <IconPlus size={16} className="me-1" aria-hidden="true" />
+              Nuevo paciente
+            </Link>
+          ) : null}
+        </div>
       }
     >
       {empty !== null ? (
@@ -226,7 +239,7 @@ function ClientPatients({ patients }: { patients: ClientPatient[] }) {
         <div className="row row-cards">
           {visible.map((patient) => (
             <div key={patient.id} className="col-sm-6">
-              <PatientCard patient={patient} />
+              <PatientCard patient={patient} link={can(PERMISSIONS.patientsShow)} />
             </div>
           ))}
         </div>
@@ -235,7 +248,7 @@ function ClientPatients({ patients }: { patients: ClientPatient[] }) {
   );
 }
 
-function PatientCard({ patient }: { patient: ClientPatient }) {
+function PatientCard({ patient, link }: { patient: ClientPatient; link: boolean }) {
   const details = [
     patient.species?.name,
     patient.breed?.name,
@@ -247,7 +260,17 @@ function PatientCard({ patient }: { patient: ClientPatient }) {
     <div className={`card card-sm patient-card${patient.is_deceased ? ' bg-light' : ''}`}>
       <div className="card-body">
         <div className="d-flex align-items-center gap-2">
-          <span className="fw-bold patient-name">{patient.name}</span>
+          {link ? (
+            <Link
+              to="/pacientes/$id"
+              params={{ id: String(patient.id) }}
+              className="fw-bold patient-name"
+            >
+              {patient.name}
+            </Link>
+          ) : (
+            <span className="fw-bold patient-name">{patient.name}</span>
+          )}
           {patient.is_deceased ? (
             <span className="badge bg-secondary-lt patient-deceased">Fallecido</span>
           ) : null}

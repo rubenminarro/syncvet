@@ -3,6 +3,7 @@ export { Button } from './Button';
 export { Card } from './Card';
 export { CheckboxField } from './CheckboxField';
 export { ConfirmDialog } from './ConfirmDialog';
+export { DateField } from './DateField';
 export { DataTable, PaginationBar, type Column } from './DataTable';
 export { ErrorPage } from './ErrorPage';
 export { Loading } from './Loading';

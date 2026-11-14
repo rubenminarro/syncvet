@@ -19,7 +19,11 @@ import { Route as SesionSinPermisoRouteImport } from './routes/_sesion/sin-permi
 import { Route as SesionClientesIndexRouteImport } from './routes/_sesion/clientes/index'
 import { Route as SesionClientesIdRouteImport } from './routes/_sesion/clientes/$id'
 import { Route as SesionClientesNuevoRouteImport } from './routes/_sesion/clientes/nuevo'
+import { Route as SesionPacientesIndexRouteImport } from './routes/_sesion/pacientes/index'
+import { Route as SesionPacientesIdRouteImport } from './routes/_sesion/pacientes/$id'
 import { Route as SesionClientesIdEditarRouteImport } from './routes/_sesion/clientes/$id_.editar'
+import { Route as SesionPacientesIdEditarRouteImport } from './routes/_sesion/pacientes/$id_.editar'
+import { Route as SesionClientesIdPacientesNuevoRouteImport } from './routes/_sesion/clientes/$id_.pacientes.nuevo'
 
 const PublicoRoute = PublicoRouteImport.update({
   id: '/_publico',
@@ -69,11 +73,32 @@ const SesionClientesNuevoRoute = SesionClientesNuevoRouteImport.update({
   path: '/clientes/nuevo',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionPacientesIndexRoute = SesionPacientesIndexRouteImport.update({
+  id: '/pacientes/',
+  path: '/pacientes/',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionPacientesIdRoute = SesionPacientesIdRouteImport.update({
+  id: '/pacientes/$id',
+  path: '/pacientes/$id',
+  getParentRoute: () => SesionRoute,
+} as any)
 const SesionClientesIdEditarRoute = SesionClientesIdEditarRouteImport.update({
   id: '/clientes/$id_/editar',
   path: '/clientes/$id/editar',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionPacientesIdEditarRoute = SesionPacientesIdEditarRouteImport.update({
+  id: '/pacientes/$id_/editar',
+  path: '/pacientes/$id/editar',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionClientesIdPacientesNuevoRoute =
+  SesionClientesIdPacientesNuevoRouteImport.update({
+    id: '/clientes/$id_/pacientes/nuevo',
+    path: '/clientes/$id/pacientes/nuevo',
+    getParentRoute: () => SesionRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SesionIndexRoute
@@ -83,8 +108,12 @@ export interface FileRoutesByFullPath {
   '/sin-permiso': typeof SesionSinPermisoRoute
   '/clientes/$id': typeof SesionClientesIdRoute
   '/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/pacientes/$id': typeof SesionPacientesIdRoute
   '/clientes/': typeof SesionClientesIndexRoute
+  '/pacientes/': typeof SesionPacientesIndexRoute
   '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
+  '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
+  '/clientes/$id/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof SesionIndexRoute
@@ -94,8 +123,12 @@ export interface FileRoutesByTo {
   '/sin-permiso': typeof SesionSinPermisoRoute
   '/clientes/$id': typeof SesionClientesIdRoute
   '/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/pacientes/$id': typeof SesionPacientesIdRoute
   '/clientes': typeof SesionClientesIndexRoute
+  '/pacientes': typeof SesionPacientesIndexRoute
   '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
+  '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
+  '/clientes/$id/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -108,8 +141,12 @@ export interface FileRoutesById {
   '/_sesion/': typeof SesionIndexRoute
   '/_sesion/clientes/$id': typeof SesionClientesIdRoute
   '/_sesion/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/_sesion/pacientes/$id': typeof SesionPacientesIdRoute
   '/_sesion/clientes/': typeof SesionClientesIndexRoute
+  '/_sesion/pacientes/': typeof SesionPacientesIndexRoute
   '/_sesion/clientes/$id_/editar': typeof SesionClientesIdEditarRoute
+  '/_sesion/pacientes/$id_/editar': typeof SesionPacientesIdEditarRoute
+  '/_sesion/clientes/$id_/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,8 +158,12 @@ export interface FileRouteTypes {
     | '/sin-permiso'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/pacientes/$id'
     | '/clientes/'
+    | '/pacientes/'
     | '/clientes/$id/editar'
+    | '/pacientes/$id/editar'
+    | '/clientes/$id/pacientes/nuevo'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -132,8 +173,12 @@ export interface FileRouteTypes {
     | '/sin-permiso'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/pacientes/$id'
     | '/clientes'
+    | '/pacientes'
     | '/clientes/$id/editar'
+    | '/pacientes/$id/editar'
+    | '/clientes/$id/pacientes/nuevo'
   id:
     | '__root__'
     | '/_publico'
@@ -145,8 +190,12 @@ export interface FileRouteTypes {
     | '/_sesion/'
     | '/_sesion/clientes/$id'
     | '/_sesion/clientes/nuevo'
+    | '/_sesion/pacientes/$id'
     | '/_sesion/clientes/'
+    | '/_sesion/pacientes/'
     | '/_sesion/clientes/$id_/editar'
+    | '/_sesion/pacientes/$id_/editar'
+    | '/_sesion/clientes/$id_/pacientes/nuevo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -226,11 +275,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SesionClientesNuevoRouteImport
       parentRoute: typeof SesionRoute
     }
+    '/_sesion/pacientes/': {
+      id: '/_sesion/pacientes/'
+      path: '/pacientes'
+      fullPath: '/pacientes/'
+      preLoaderRoute: typeof SesionPacientesIndexRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/pacientes/$id': {
+      id: '/_sesion/pacientes/$id'
+      path: '/pacientes/$id'
+      fullPath: '/pacientes/$id'
+      preLoaderRoute: typeof SesionPacientesIdRouteImport
+      parentRoute: typeof SesionRoute
+    }
     '/_sesion/clientes/$id_/editar': {
       id: '/_sesion/clientes/$id_/editar'
       path: '/clientes/$id/editar'
       fullPath: '/clientes/$id/editar'
       preLoaderRoute: typeof SesionClientesIdEditarRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/pacientes/$id_/editar': {
+      id: '/_sesion/pacientes/$id_/editar'
+      path: '/pacientes/$id/editar'
+      fullPath: '/pacientes/$id/editar'
+      preLoaderRoute: typeof SesionPacientesIdEditarRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/clientes/$id_/pacientes/nuevo': {
+      id: '/_sesion/clientes/$id_/pacientes/nuevo'
+      path: '/clientes/$id/pacientes/nuevo'
+      fullPath: '/clientes/$id/pacientes/nuevo'
+      preLoaderRoute: typeof SesionClientesIdPacientesNuevoRouteImport
       parentRoute: typeof SesionRoute
     }
   }
@@ -254,8 +331,12 @@ interface SesionRouteChildren {
   SesionIndexRoute: typeof SesionIndexRoute
   SesionClientesIdRoute: typeof SesionClientesIdRoute
   SesionClientesNuevoRoute: typeof SesionClientesNuevoRoute
+  SesionPacientesIdRoute: typeof SesionPacientesIdRoute
   SesionClientesIndexRoute: typeof SesionClientesIndexRoute
+  SesionPacientesIndexRoute: typeof SesionPacientesIndexRoute
   SesionClientesIdEditarRoute: typeof SesionClientesIdEditarRoute
+  SesionPacientesIdEditarRoute: typeof SesionPacientesIdEditarRoute
+  SesionClientesIdPacientesNuevoRoute: typeof SesionClientesIdPacientesNuevoRoute
 }
 
 const SesionRouteChildren: SesionRouteChildren = {
@@ -265,8 +346,12 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionIndexRoute: SesionIndexRoute,
   SesionClientesIdRoute: SesionClientesIdRoute,
   SesionClientesNuevoRoute: SesionClientesNuevoRoute,
+  SesionPacientesIdRoute: SesionPacientesIdRoute,
   SesionClientesIndexRoute: SesionClientesIndexRoute,
+  SesionPacientesIndexRoute: SesionPacientesIndexRoute,
   SesionClientesIdEditarRoute: SesionClientesIdEditarRoute,
+  SesionPacientesIdEditarRoute: SesionPacientesIdEditarRoute,
+  SesionClientesIdPacientesNuevoRoute: SesionClientesIdPacientesNuevoRoute,
 }
 
 const SesionRouteWithChildren =

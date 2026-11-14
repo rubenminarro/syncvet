@@ -2,9 +2,13 @@ import { expect, test } from '@playwright/test';
 import { login, submitLogin, USERS } from './support/session';
 
 const ROLES = [
-  { role: 'administrador', user: USERS.admin, menu: ['Inicio', 'Clientes', 'Configuración'] },
-  { role: 'recepcionista', user: USERS.recepcion, menu: ['Inicio', 'Clientes'] },
-  { role: 'veterinario', user: USERS.vet, menu: ['Inicio', 'Clientes'] },
+  {
+    role: 'administrador',
+    user: USERS.admin,
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Configuración'],
+  },
+  { role: 'recepcionista', user: USERS.recepcion, menu: ['Inicio', 'Clientes', 'Pacientes'] },
+  { role: 'veterinario', user: USERS.vet, menu: ['Inicio', 'Clientes', 'Pacientes'] },
 ] as const;
 
 for (const { role, user, menu } of ROLES) {

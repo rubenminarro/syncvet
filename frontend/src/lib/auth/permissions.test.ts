@@ -35,9 +35,9 @@ describe('visibleMenu', () => {
     visibleMenu(MENU, (permission) => can(meOf(role), permission)).map((item) => item.label);
 
   it.each([
-    ['administrador', ['Inicio', 'Clientes', 'Configuración']],
-    ['recepcionista', ['Inicio', 'Clientes']],
-    ['veterinario', ['Inicio', 'Clientes']],
+    ['administrador', ['Inicio', 'Clientes', 'Pacientes', 'Configuración']],
+    ['recepcionista', ['Inicio', 'Clientes', 'Pacientes']],
+    ['veterinario', ['Inicio', 'Clientes', 'Pacientes']],
   ] as const)('%s ve %j', (role, expected) => {
     expect(labels(role)).toEqual(expected);
   });
@@ -49,6 +49,19 @@ describe('el menú sin clients.index', () => {
 
     expect(visibleMenu(MENU, allowed).map((item) => item.label)).toEqual([
       'Inicio',
+      'Pacientes',
+      'Configuración',
+    ]);
+  });
+});
+
+describe('el menú sin patients.index', () => {
+  it('no muestra "Pacientes"', () => {
+    const allowed = (permission: string) => permission !== 'patients.index';
+
+    expect(visibleMenu(MENU, allowed).map((item) => item.label)).toEqual([
+      'Inicio',
+      'Clientes',
       'Configuración',
     ]);
   });

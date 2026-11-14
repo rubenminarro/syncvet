@@ -15,6 +15,14 @@ export const PERMISSIONS = {
   clientsUpdate: 'clients.update',
   /** La baja desde el detalle (F1, entrega 1.2): solo el administrador. */
   clientsDestroy: 'clients.destroy',
+  /** /pacientes (F1, entrega 1.3a): los tres roles. */
+  patientsIndex: 'patients.index',
+  /** /pacientes/$id (F1, entrega 1.3a): los tres roles. */
+  patientsShow: 'patients.show',
+  /** /clientes/$id/pacientes/nuevo (F1, entrega 1.3a): los tres roles. */
+  patientsStore: 'patients.store',
+  /** /pacientes/$id/editar (F1, entrega 1.3a): los tres roles. */
+  patientsUpdate: 'patients.update',
   /** /configuracion (provisoria en la F0; solo el administrador). */
   settingsUpdate: 'system-settings.update',
 } as const;

@@ -1,7 +1,6 @@
 import { IconPlus } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useEffectEvent, useState } from 'react';
 import { ForbiddenPage } from '../../app/ForbiddenPage';
 import {
   Button,
@@ -15,21 +14,14 @@ import {
 } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import { PERMISSIONS } from '../../lib/auth/permissions';
-import { useDebouncedValue } from '../../lib/hooks/use-debounced-value';
+import { useSearchText } from '../../lib/hooks/use-search-text';
 import { useCan } from '../auth/permissions';
 import { clientListQueryOptions } from './api';
 import { withClientList } from './navigation';
-import {
-  normalizeSearchText,
-  SEARCH_MAX_LENGTH,
-  toListFilters,
-  type ClientListSearch,
-  type KindParam,
-} from './search';
+import { SEARCH_MAX_LENGTH, toListFilters, type ClientListSearch, type KindParam } from './search';
 import type { Client } from './types';
 
-/** La espera al escribir antes de buscar (diseño de la F1, "Espera al escribir"). */
-export const SEARCH_DEBOUNCE_MS = 300;
+export { SEARCH_DEBOUNCE_MS } from '../../lib/hooks/use-search-text';
 
 const KIND_OPTIONS = [
   { value: '', label: 'Todos' },
@@ -50,36 +42,7 @@ export function ClientListPage() {
   const can = useCan();
 
   // El campo es local; la URL cambia 300 ms después de la última tecla, sin llenar el historial y de vuelta en la página 1.
-  const [text, setText] = useState(search.buscar ?? '');
-  const [urlText, setUrlText] = useState(search.buscar);
-  const debounced = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
-  // El último valor con espera que ya tuvo su cambio de URL (o el del principio): si `debounced` es otro, el campo mandó
-  // algo a la URL que todavía no llegó.
-  const [answered, setAnswered] = useState(debounced);
-
-  // La URL cambió. Si el cambio vino del campo (lo que mandó y estaba en camino, o lo mismo que muestra sin los espacios de
-  // los extremos), el campo queda como está: no se pierde el espacio de "Laura " ni la tecla escrita mientras la URL
-  // cambiaba. Si vino de afuera ("Atrás", un enlace), el campo muestra lo de la URL.
-  if (search.buscar !== urlText) {
-    const url = search.buscar ?? '';
-    const fromField =
-      (debounced !== answered && normalizeSearchText(debounced) === url) ||
-      normalizeSearchText(text) === url;
-    setUrlText(search.buscar);
-    setAnswered(debounced);
-
-    if (!fromField) {
-      setText(url);
-    }
-  }
-
-  const applySearch = useEffectEvent((value: string) => {
-    const next = normalizeSearchText(value);
-
-    if (next === (search.buscar ?? '')) {
-      return;
-    }
-
+  const [text, setText] = useSearchText(search.buscar, (next) => {
     void navigate({
       search: (previous: ClientListSearch) => ({
         ...previous,
@@ -89,10 +52,6 @@ export function ClientListPage() {
       replace: true,
     });
   });
-
-  useEffect(() => {
-    applySearch(debounced);
-  }, [debounced]);
 
   const showLink = can(PERMISSIONS.clientsShow);
   const columns: Column<Client>[] = [

@@ -260,6 +260,53 @@ mandado tal cual.
 **En el navegador.** El selector de raza con una especie sin razas; la fecha de nacimiento en el selector nativo del navegador; el
 ancho de tablet.
 
+#### Pendiente para el cierre (1.3a)
+
+Estado al 2026-11-14 (commit WIP): implementación hecha, con sus tests y la validación en el navegador; falta la revisión y el cierre
+(`/cerrar-entrega`: el resultado, `frontend/CLAUDE.md`, el roadmap, `modulos.md` y el handoff).
+
+**Hecho.**
+
+* **Backend, deuda 22** (commit aparte `f12f3c7`): `PatientService::respectingMicrochipIndex` traduce la violación del índice del
+  microchip (`patients_clinic_id_microchip_unique` en MySQL, `patients.microchip` en SQLite) al 422 de la regla `unique` en
+  `microchip`, en el alta y en la edición. `PatientUniqueIndexTest` (4 casos, SQLite y MySQL) y `PatientConcurrencyTest` (dos altas
+  simultáneas con dos procesos, MySQL: 201 y 422). Mutaciones: 4 de 4 detectadas (toda violación tomada como del microchip; la
+  columna sola en vez de `patients.microchip`; el alta y la edición sin la traducción). `composer test:fast`: 1463 tests en verde;
+  `composer test` (SQLite en serie): 1463 tests, 1447 en verde y 16 saltados (solo MySQL), 14274 aserciones; `composer test:mysql`:
+  1463 de 1463, 14360 aserciones. Newman de `syncvet-fase-01-pacientes` contra un servidor propio en `:8001` (detenido por su
+  PID): 30 pedidos, 63 de 63 aserciones. La deuda 22 pasó a "Resueltas" y `backend/CLAUDE.md` §3, §6.2 y §7 se actualizaron.
+* **Frontend**: `/pacientes` (tabla de 20, búsqueda, especie y "Incluir los fallecidos" en la URL, con el dueño enlazado),
+  `/pacientes/$id` (datos, alergias resaltadas, el dueño o "Cliente eliminado"), `/clientes/$id/pacientes/nuevo` y
+  `/pacientes/$id/editar` (`PatientForm`), el nombre del paciente como enlace y "Nuevo paciente" en el detalle del cliente, el menú
+  "Pacientes" y los permisos `patients.index`, `.show`, `.store` y `.update`. Vitest: 632 tests en 35 archivos, en verde (antes 502
+  en 29); `typecheck`, `lint` y `build` sin errores ni avisos. Mutaciones: 5 de 5 detectadas (la raza sin vaciar al cambiar de
+  especie, "hoy" de la PC en vez del de Asunción, el peso con coma mandado tal cual, sin el bloqueo del doble envío, sin invalidar
+  `['clients']`). Playwright: el caso nuevo `e2e/pacientes.spec.ts` (alta desde Laura Martínez, edición, microchip repetido → 422 y
+  búsqueda por el dueño en `/pacientes`, borrando por la API lo que crea) y `e2e/permisos.spec.ts` con "Pacientes" en el menú.
+* **Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` (base `syncvet`) y un Vite propio en `:5181`
+  (detenido por su PID), con un script fuera del repositorio, como `admin-a`, `recepcion-a` y `vet-a`: 26 de 26 en verde (segunda
+  corrida, ver el desvío 9). Capturas en `%TEMP%\claude\…\scratchpad\capturas-1-3a`: `01-listado.png`, `02-formulario-alta.png`,
+  `03-detalle.png`, `04-listado-768.png`, `05-detalle-768.png` y `06-formulario-768.png`. **Datos de la demo:** los pacientes 29 y
+  30 ("Valida Uno", uno por corrida) se crearon y se borraron por la API (`DELETE`, 200; después, 404).
+
+**Desvíos.**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | La sincronización del campo de búsqueda con la URL de `ClientListPage` pasó a un hook común, `useSearchText` (`src/lib/hooks/use-search-text.ts`, con `SEARCH_DEBOUNCE_MS`), y `normalizeSearchText`, `SEARCH_MAX_LENGTH` y la validación del id (`parseRouteId`) a `src/lib/search-text.ts`; `clients/search.ts` los reexporta | Pacientes necesita la misma lógica (el espacio final, la tecla durante la navegación, "Atrás"): copiarla duplicaba la parte más delicada de la 1.1. Sin cambio de comportamiento: los 57 tests del listado y la búsqueda de clientes, en verde sin tocarlos |
+| 2 | `SelectField` suma `error`, `hint`, `ref` (para `register`) y la marca de obligatorio; `DateField` es un `TextField` con `type="date"` | El formulario del paciente es el primero con selectores (el desvío 5 de la 1.2 lo dejó para cuando hiciera falta) |
+| 3 | La especie o la raza inactiva del paciente se muestra con "(inactivada)", no "(inactiva)" como dice el diseño | `voseo.test.ts` toma "inactiva" como el imperativo de tú de "inactivar" |
+| 4 | Al editar un paciente con una especie inactiva se ofrece solo su raza actual (con "(inactivada)"), no las demás razas activas de esa especie | `GET species` sin `include_inactive` no trae la especie inactiva ni sus razas (la clave del diseño es `['species', { include_inactive: false }]`). Para ofrecerlas habría que pedir `include_inactive=1` en la edición: **decisión para la revisión** |
+| 5 | El alta guarda y va al detalle del **paciente** nuevo (no al del cliente); el detalle del cliente muestra el paciente porque el alta invalida `['clients']` | "Guardar y volver: al detalle", como el alta de clientes; el caso de Playwright entra al cliente desde el enlace del dueño y ve la tarjeta |
+| 6 | El formulario llama "Sin dato" al sexo `unknown` (el diseño); el listado y el detalle muestran la etiqueta de la API, "Sin determinar" | El formulario usa sus propias etiquetas; las vistas muestran el `label` de la API sin reescribirlo. **Para la revisión:** unificar (el formulario con "Sin determinar") |
+| 7 | `/pacientes` no tiene "Nuevo paciente": el alta es solo desde el cliente (con un texto que lo dice debajo del título) | Pregunta 7 del diseño: el dueño sale de la URL |
+| 8 | El backend: en `PatientUniqueIndexTest` el duplicado que arma el oyente entra en la transacción del alta y se revierte con ella (se verifica que no quede ningún paciente, no "solo el primero" como en clientes); "otra violación sigue su camino" se prueba en el servicio (una edición que repite el código), porque por la API ninguna otra violación llega a esa regla | Sin ese test, la mutación "toda violación es del microchip" sobrevivía |
+| 9 | La primera corrida de la validación en el navegador dio 21 de 26: las 5 fallas eran del script (leía la tabla antes de que llegara la respuesta nueva, que `keepPreviousData` reemplaza después; la tarjeta del dueño se actualiza en segundo plano; comparaba contra "Mestizo", que también es una raza de Felino). Con esperas, 26 de 26 | Sin cambios en la aplicación |
+| 10 | El selector nativo de la fecha no se vio con ventana (Edge sin ventana): se comprobó `type="date"`, el `max` con el día de Asunción y el rechazo de mañana sin `POST` | El diseño pedía mirar el selector nativo: queda para la revisión con ventana |
+| 11 | La primera corrida completa de Playwright dio 14 de 18: los 3 de `permisos.spec.ts` (el menú esperado sin "Pacientes", corregido) y "alta de una empresa" de `clientes-abm.spec.ts`, cortado por el límite de 60 s esperando el campo Email con la PC cargada (8,5 min la corrida). Los dos archivos, solos: 10 de 10 | Resuelto: la corrida completa final, en verde (abajo) |
+
+**Corrida completa final de Playwright** (2026-11-14): 18 de 18 en verde, en 4,4 min; los puertos `:8010` y `:5174` quedaron libres.
+
 ### 1.3b Pacientes: fallecimiento, cambio de dueño y baja
 
 **Fallecimiento.** En el detalle, "Registrar el fallecimiento" (`patients.update`) abre un diálogo con fecha (`DateField`) y hora
