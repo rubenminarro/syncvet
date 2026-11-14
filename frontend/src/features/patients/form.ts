@@ -45,7 +45,7 @@ export const EMPTY_PATIENT_FORM: PatientFormValues = {
   name: '',
   species_id: '',
   breed_id: '',
-  // "Sin dato" por defecto (diseño de la 1.3a).
+  // "Sin determinar" por defecto (diseño de la 1.3a).
   sex: 'unknown',
   is_neutered: false,
   birth_date: '',

@@ -182,6 +182,15 @@ describe('clientFormErrors: los límites de cada campo', () => {
     expect(errorsFor({ [field]: atLimit }, base)[field]).toBeUndefined();
     expect(errorsFor({ [field]: past }, base)[field]).toBe(message);
   });
+
+  it('las notas cuentan caracteres, como mb_strlen: 1000 letras fuera del plano básico (2 unidades UTF-16 cada una) pasan', () => {
+    // "𠀀" (U+20000) es una letra (\p{L}): las notas la admiten. Un emoji no es letra ni número y la regla de las notas lo
+    // rechaza (el mensaje de los caracteres, no el del largo).
+    expect('𠀀').toHaveLength(2);
+    expect(errorsFor({ notes: '𠀀'.repeat(1000) }, person).notes).toBeUndefined();
+    expect(errorsFor({ notes: '𠀀'.repeat(1001) }, person).notes).toBe(M.notes.max);
+    expect(errorsFor({ notes: '🐶'.repeat(10) }, person).notes).toBe(M.notes.regex);
+  });
 });
 
 describe('clientFormToPayload: el cuerpo que se manda', () => {

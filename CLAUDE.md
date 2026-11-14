@@ -58,9 +58,27 @@ inglés.
 En fases nuevas: primero diseño funcional y de datos (con las preguntas de negocio, en `docs/03-plan-desarrollo/fases/`), después
 código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se declara cerrada sin evidencia (código + tests).
 
+### Presupuesto por entrega
+
+**Manda sobre las demás reglas de velocidad y de ritmo** (las de este archivo, `backend/CLAUDE.md` y `frontend/CLAUDE.md`): si
+alguna pide más corridas, vale esta.
+
+* **Durante la entrega**, solo los tests de lo tocado: `npx vitest related <archivos> --run` en el frontend;
+  `php artisan test --filter <test>` (sin Xdebug) en el backend.
+* **Al final**, una sola corrida completa del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y `build`; en el backend,
+  `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
+  entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.
+* **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
+* **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
+* **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla.
+* **Mutaciones**: 3 o 4, de las reglas más importantes.
+* **Revisión**: lee el diff y corre solo `composer test:fast` o `npm test`; no repite suites, Playwright ni el navegador.
+* **Esperas**: mientras corre algo largo, no se consulta en bucle; se espera el aviso de fin.
+
 ### Ritmo de las entregas
 
-* En la implementación, mutaciones solo de las protecciones críticas de la entrega (alrededor de 5); la revisión hace las suyas.
+* En la implementación, mutaciones solo de las protecciones críticas de la entrega (3 o 4, el presupuesto); la revisión hace las
+  suyas.
 * En cada mutación se corren solo los tests relacionados; la suite completa, al final.
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 * Lo propio de cada proyecto (bases de datos, velocidad de la suite, auditoría de dependencias) está en su `CLAUDE.md`.
@@ -69,6 +87,8 @@ código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se
 
 * En cada cierre de fase se corren con Newman **todas** las colecciones de `docs/05-pruebas/postman`, no solo las de la fase (R-057),
   desde la raíz y con el servidor levantado desde `backend/`. Una falla se corrige o se registra como deuda antes de cerrar.
+* También al cerrar la fase (y no en cada entrega; ver [Presupuesto por entrega](#presupuesto-por-entrega)): la suite del backend
+  completa en MySQL y en serie, y Playwright completo.
 
 ### Documentación por cambio
 

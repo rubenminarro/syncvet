@@ -227,7 +227,7 @@ final, la suite en serie en SQLite y MySQL y Newman de la colección de paciente
 | `/pacientes/$id/editar` | `patients.update` | El mismo formulario |
 
 **Formulario.** Nombre; especie y raza (`SelectField`: la raza se filtra por la especie y se vacía al cambiar de especie; "Sin
-raza" es `null`); sexo (Macho, Hembra, Sin dato; por defecto "Sin dato"); castrado; fecha de nacimiento (`DateField`, `Y-m-d`) y
+raza" es `null`); sexo (Macho, Hembra, Sin determinar, el texto de la API; por defecto "Sin determinar"); castrado; fecha de nacimiento (`DateField`, `Y-m-d`) y
 "Es aproximada"; color; peso (kg); microchip; alergias; notas. Al editar, si la especie o la raza del paciente están inactivas, se
 suman a las opciones con "(inactiva)" (la API las acepta solo si no cambian).
 
@@ -262,7 +262,8 @@ ancho de tablet.
 
 #### Pendiente para el cierre (1.3a)
 
-Estado al 2026-11-14 (commit WIP): implementación hecha, con sus tests y la validación en el navegador; falta la revisión y el cierre
+Estado al 2026-11-14 (commits WIP): implementación, revisión y correcciones de la revisión hechas, con sus tests y la validación en el
+navegador; **el usuario probó la 1.3a en el navegador y salió todo bien**. Falta el cierre
 (`/cerrar-entrega`: el resultado, `frontend/CLAUDE.md`, el roadmap, `modulos.md` y el handoff).
 
 **Hecho.**
@@ -296,9 +297,9 @@ Estado al 2026-11-14 (commit WIP): implementación hecha, con sus tests y la val
 | 1 | La sincronización del campo de búsqueda con la URL de `ClientListPage` pasó a un hook común, `useSearchText` (`src/lib/hooks/use-search-text.ts`, con `SEARCH_DEBOUNCE_MS`), y `normalizeSearchText`, `SEARCH_MAX_LENGTH` y la validación del id (`parseRouteId`) a `src/lib/search-text.ts`; `clients/search.ts` los reexporta | Pacientes necesita la misma lógica (el espacio final, la tecla durante la navegación, "Atrás"): copiarla duplicaba la parte más delicada de la 1.1. Sin cambio de comportamiento: los 57 tests del listado y la búsqueda de clientes, en verde sin tocarlos |
 | 2 | `SelectField` suma `error`, `hint`, `ref` (para `register`) y la marca de obligatorio; `DateField` es un `TextField` con `type="date"` | El formulario del paciente es el primero con selectores (el desvío 5 de la 1.2 lo dejó para cuando hiciera falta) |
 | 3 | La especie o la raza inactiva del paciente se muestra con "(inactivada)", no "(inactiva)" como dice el diseño | `voseo.test.ts` toma "inactiva" como el imperativo de tú de "inactivar" |
-| 4 | Al editar un paciente con una especie inactiva se ofrece solo su raza actual (con "(inactivada)"), no las demás razas activas de esa especie | `GET species` sin `include_inactive` no trae la especie inactiva ni sus razas (la clave del diseño es `['species', { include_inactive: false }]`). Para ofrecerlas habría que pedir `include_inactive=1` en la edición: **decisión para la revisión** |
+| 4 | Al editar un paciente con una especie inactiva se ofrece solo su raza actual (con "(inactivada)"), no las demás razas activas de esa especie | `GET species` sin `include_inactive` no trae la especie inactiva ni sus razas (la clave del diseño es `['species', { include_inactive: false }]`). Para ofrecerlas habría que pedir `include_inactive=1` en la edición: **decisión del usuario en la revisión: queda así para el MVP** |
 | 5 | El alta guarda y va al detalle del **paciente** nuevo (no al del cliente); el detalle del cliente muestra el paciente porque el alta invalida `['clients']` | "Guardar y volver: al detalle", como el alta de clientes; el caso de Playwright entra al cliente desde el enlace del dueño y ve la tarjeta |
-| 6 | El formulario llama "Sin dato" al sexo `unknown` (el diseño); el listado y el detalle muestran la etiqueta de la API, "Sin determinar" | El formulario usa sus propias etiquetas; las vistas muestran el `label` de la API sin reescribirlo. **Para la revisión:** unificar (el formulario con "Sin determinar") |
+| 6 | El formulario llama "Sin dato" al sexo `unknown` (el diseño); el listado y el detalle muestran la etiqueta de la API, "Sin determinar" | El formulario usa sus propias etiquetas; las vistas muestran el `label` de la API sin reescribirlo. Resuelto en las correcciones de la revisión: el formulario dice "Sin determinar", como la API (y el diseño) |
 | 7 | `/pacientes` no tiene "Nuevo paciente": el alta es solo desde el cliente (con un texto que lo dice debajo del título) | Pregunta 7 del diseño: el dueño sale de la URL |
 | 8 | El backend: en `PatientUniqueIndexTest` el duplicado que arma el oyente entra en la transacción del alta y se revierte con ella (se verifica que no quede ningún paciente, no "solo el primero" como en clientes); "otra violación sigue su camino" se prueba en el servicio (una edición que repite el código), porque por la API ninguna otra violación llega a esa regla | Sin ese test, la mutación "toda violación es del microchip" sobrevivía |
 | 9 | La primera corrida de la validación en el navegador dio 21 de 26: las 5 fallas eran del script (leía la tabla antes de que llegara la respuesta nueva, que `keepPreviousData` reemplaza después; la tarjeta del dueño se actualiza en segundo plano; comparaba contra "Mestizo", que también es una raza de Felino). Con esperas, 26 de 26 | Sin cambios en la aplicación |
@@ -306,6 +307,30 @@ Estado al 2026-11-14 (commit WIP): implementación hecha, con sus tests y la val
 | 11 | La primera corrida completa de Playwright dio 14 de 18: los 3 de `permisos.spec.ts` (el menú esperado sin "Pacientes", corregido) y "alta de una empresa" de `clientes-abm.spec.ts`, cortado por el límite de 60 s esperando el campo Email con la PC cargada (8,5 min la corrida). Los dos archivos, solos: 10 de 10 | Resuelto: la corrida completa final, en verde (abajo) |
 
 **Corrida completa final de Playwright** (2026-11-14): 18 de 18 en verde, en 4,4 min; los puertos `:8010` y `:5174` quedaron libres.
+
+Los 11 desvíos, aceptados por el usuario en la revisión (el 4 queda así para el MVP; el 6, unificado en "Sin determinar").
+
+**Revisión** (2026-11-14, con el [presupuesto por entrega](../../../../CLAUDE.md#presupuesto-por-entrega): lectura del diff, 4 mutaciones y
+solo `npm test`, 632 en verde). Backend sin hallazgos. Hallazgos del frontend, de más grave a menos grave:
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | El sexo `unknown`: "Sin dato" en el formulario y "Sin determinar" en el listado y el detalle (desvío 6; decisión del usuario: unificar) | `PatientForm`, `form.ts`, el test y el diseño dicen "Sin determinar", el texto de `PatientSex::label()` |
+| 2 | Una fecha de nacimiento a medio escribir: el `<input type="date">` da `''` (`validity.badInput`) y se mandaba `null`; en la edición borraba la fecha guardada sin aviso | Al enviar se lee `validity.badInput` del campo: el error "La fecha de nacimiento debe tener el formato AAAA-MM-DD." con el foco y no se manda (también con otros errores en el formulario). Tests en el alta y en la edición (jsdom no simula `badInput`: se pone en el campo) |
+| 3 | Sin test de que el detalle muestre lo recién guardado (mutación M1, sin `setQueryData`, sobrevivía) | El test de la edición mira el detalle después de guardar, con `GET` devolviendo lo de antes |
+| 4 | Sin test de que "Incluir los fallecidos" vuelva a la página 1 (M2 sobrevivía) | Caso desde `?pagina=2` |
+| 5 | Sin test del 409 `CONFLICT` en la edición (M3 sobrevivía) | Caso con el aviso y el paciente pedido otra vez |
+| 6 | `?especie=` de una especie que no está en el selector (inexistente o inactivada) mostraba "Todas las especies" con el filtro aplicado; y el `maxLength` del navegador cuenta unidades UTF-16 (un emoji es 2) y la API, caracteres (`mb_strlen`) | La especie se muestra elegida como "Especie no disponible" (no se descarta: una inactivada todavía tiene pacientes y la API los filtra bien). Sin `maxLength` nativo en el nombre, el color, las alergias y las notas del paciente y en las notas del cliente (1.2): el largo lo controla Zod con el mensaje de la API. Tests: 1000 emojis en las alergias se mandan (1001, el error); en las notas del cliente, 1000 letras `𠀀` (U+20000; un emoji no pasa la regla de caracteres de las notas) |
+
+**Correcciones de la revisión** (2026-11-14): mutaciones M1, M2 y M3, ahora detectadas; también la fecha a medio escribir ignorada
+y sin "Especie no disponible" (5 de 5). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores ni avisos; Vitest,
+642 tests en 35 archivos, en verde. Playwright, solo `e2e/pacientes.spec.ts`: 1 de 1. Edge sin ventana contra `syncvet.test` (Vite
+propio en `:5181`, detenido por su PID), 5 de 5 sin escrituras en la base: "Sin determinar" en el formulario; el alta con solo el
+día escrito en el selector nativo (`badInput`), el error y ningún `POST`; la edición de un paciente con fecha (borrado el día),
+el error, ningún `PATCH` y la fecha guardada sin cambios; "Sin determinar" en el listado y el detalle (PAC-000005); y
+`?especie=999999` con "Especie no disponible" y la consola sin errores. Capturas en
+`%TEMP%\claude\…\scratchpad\capturas-1-3a-correcciones`: `01-alta-fecha-a-medio-escribir.png` y
+`02-listado-especie-no-disponible.png`. **Datos de la demo:** sin cambios.
 
 ### 1.3b Pacientes: fallecimiento, cambio de dueño y baja
 

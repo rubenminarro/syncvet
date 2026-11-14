@@ -97,13 +97,15 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 
 ### Ritmo de las entregas (backend)
 
-* MySQL (`syncvet_test_mysql`) una vez por entrega, antes del cierre, salvo que la entrega toque migraciones, concurrencia,
-  búsquedas de texto o autenticación: entonces también durante el trabajo.
+* Manda el [Presupuesto por entrega](../CLAUDE.md#presupuesto-por-entrega) del `CLAUDE.md` de la raíz.
+* MySQL (`syncvet_test_mysql`): en una entrega, solo si toca migraciones, concurrencia o búsqueda de texto, y solo los tests
+  afectados (`--filter`, con `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql`). La suite completa en MySQL (`composer
+  test:mysql`, de 5 a 6 min y medio), al cerrar la fase.
 * Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
-  de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, `composer test:fast` (SQLite en
-  paralelo, alrededor de 1 min 20 s), y los tests sueltos, con `XDEBUG_MODE=off php vendor/bin/phpunit <archivo>`. Para el cierre,
-  `composer test` (SQLite en serie, alrededor de 3 min 20 s) y `composer test:mysql` (de 5 a 6 min y medio): las cifras de
-  aserciones del registro salen de la suite en serie.
+  de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, solo los tests de lo tocado
+  (`XDEBUG_MODE=off php artisan test --filter <test>`). Al final de la entrega, una sola corrida completa: `composer test` (SQLite
+  en serie, alrededor de 3 min 20 s), de donde salen las cifras de aserciones del registro. La revisión corre solo
+  `composer test:fast` (SQLite en paralelo, alrededor de 1 min 20 s).
 * En cada cierre de fase, `composer audit` tiene que quedar sin avisos. Un aviso se corrige con
   `composer update <paquete> --with-dependencies` dentro de las restricciones de `composer.json`. Si la corrección pide cambiar una
   restricción o subir de versión mayor, se consulta al usuario. Lo actualizado queda en el registro de decisiones (R-046).
@@ -272,9 +274,9 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 
 * Zona horaria `America/Asuncion` (UTC-3 todo el año desde el 15/10/2024); la API envía las fechas con hora en UTC (`Z`). PHP con la
   base de zonas 2025a o posterior (§3, Fechas con hora).
-* Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) una vez por entrega, antes del
-  cierre, y también durante el trabajo si se tocan migraciones, búsquedas de texto, concurrencia o autenticación (§2, Ritmo de
-  las entregas): `composer test:mysql`. La de SQLite y la de MySQL, nunca a la vez: comparten los discos falsos de
+* Tests: en SQLite en cada entrega; en MySQL (`syncvet_test_mysql`), solo los tests afectados cuando la entrega toca migraciones,
+  concurrencia o búsqueda de texto, y la suite completa (`composer test:mysql`) al cerrar la fase (§2, Ritmo de las entregas, y
+  el Presupuesto por entrega del `CLAUDE.md` de la raíz). La de SQLite y la de MySQL, nunca a la vez: comparten los discos falsos de
   `Storage::fake` (`docs/04-desarrollo/testing.md`). Los procesos de una misma suite con `--parallel` sí se pueden correr juntos, porque
   cada uno tiene su base y sus discos. Sin red: `Http::preventStrayRequests()` y Have I Been Pwned simulado en `TestCase`, y
   `EMAIL_DNS_CHECK=false` (la rama con DNS, en `EmailDnsCheckTest`). Un test que compara una hora calculada congela el reloj

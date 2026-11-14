@@ -22,6 +22,9 @@ import { withPatientList } from './navigation';
 import { toPatientListFilters, type PatientListSearch } from './search';
 import type { Patient } from './types';
 
+/** La especie del filtro que no está entre las activas de GET species. */
+export const UNAVAILABLE_SPECIES = 'Especie no disponible';
+
 /**
  * /pacientes: la búsqueda, la especie, "Incluir los fallecidos" y la página van en la URL (la convención de listados de la
  * 1.1); recargar o volver atrás muestra lo mismo.
@@ -51,6 +54,17 @@ export function PatientListPage() {
     { value: '', label: 'Todas las especies' },
     ...(species.data ?? []).map((item) => ({ value: String(item.id), label: item.name })),
   ];
+
+  // La especie de la URL que no está entre las activas (inactivada o inexistente) se muestra elegida, con un nombre que lo
+  // dice: la API la filtra igual (una inactivada todavía tiene pacientes), y el selector no aparenta "Todas las especies".
+  // Mientras llega GET species, todavía no se sabe.
+  if (
+    search.especie !== undefined &&
+    !species.isPending &&
+    !speciesFilter.some((option) => option.value === String(search.especie))
+  ) {
+    speciesFilter.push({ value: String(search.especie), label: UNAVAILABLE_SPECIES });
+  }
 
   const showLink = can(PERMISSIONS.patientsShow);
   const showClientLink = can(PERMISSIONS.clientsShow);

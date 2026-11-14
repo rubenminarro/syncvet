@@ -236,8 +236,12 @@ repetidas):
   consultar paquete por paquete con `npm view`.
 * **`environment: node` para los tests sin DOM.** Preparar jsdom es la mayor parte del tiempo de la suite: los `.test.ts` corren
   en `node` (proyecto `node` de `vite.config.ts`) y solo los `.test.tsx`, o un `.test.ts` que lo pide, en jsdom.
+* **Manda el [Presupuesto por entrega](../CLAUDE.md#presupuesto-por-entrega)** del `CLAUDE.md` de la raíz (Playwright, Newman,
+  navegador, mutaciones y revisión).
 * **Durante el trabajo, `npx vitest related <archivos tocados> --run`**, o el archivo de test puntual. La suite completa,
   `typecheck`, `lint` y `build`, una sola vez al final de la entrega.
+* **Playwright**: en una entrega, solo los casos nuevos o tocados (`npx playwright test e2e/<archivo>.spec.ts`); `npm run test:e2e`
+  completo, al cerrar la fase. **Navegador** (Edge sin ventana): hasta 10 controles, con capturas solo si cambió una pantalla.
 * **Prettier solo sobre los archivos cambiados**: `npx prettier --write <archivos>` (por ejemplo, los de
   `git diff --name-only -- frontend`), no `npm run format` sobre todo el proyecto en cada vuelta.
 * **Una entrega, un tema.** El validador de la documentación, las skills y la documentación general (roadmap, handoff,

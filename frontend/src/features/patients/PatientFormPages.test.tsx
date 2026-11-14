@@ -38,6 +38,24 @@ const submit = () => {
   fireEvent.click(screen.getByText('Guardar', { selector: 'button' }));
 };
 
+/**
+ * Una fecha a medio escribir en el <input type="date">: el navegador da el valor '' con validity.badInput (jsdom no lo
+ * simula: se pone a mano en el campo).
+ */
+function typePartialDate(input: HTMLInputElement) {
+  Object.defineProperty(input, 'validity', {
+    configurable: true,
+    value: { badInput: true, valid: false },
+  });
+  fireEvent.change(input, { target: { value: '' } });
+}
+
+/** El campo vuelve a tener una fecha completa. */
+function typeFullDate(input: HTMLInputElement, value: string) {
+  Reflect.deleteProperty(input, 'validity');
+  fireEvent.change(input, { target: { value } });
+}
+
 const errorOf = (element: HTMLElement) =>
   document.getElementById(`${element.id}-error`)?.textContent ?? null;
 
@@ -117,7 +135,7 @@ describe('/clientes/$id/pacientes/nuevo: alta', () => {
   it('el cuerpo completo (peso con punto, fecha tal cual, opcionales en null) y al detalle del paciente nuevo', async () => {
     const { store, history } = await openCreate();
 
-    expect(field('Sin dato')).toBeChecked();
+    expect(field('Sin determinar')).toBeChecked();
     type('Nombre', '  Toby ');
     choose('Especie', '1');
     choose('Raza', '3');
@@ -224,6 +242,57 @@ describe('/clientes/$id/pacientes/nuevo: alta', () => {
     });
     expect(errorOf(field('Microchip'))).toBe(PATIENT_MESSAGES.microchip.regex);
     expect(store.bodies).toHaveLength(0);
+  });
+
+  it('una fecha a medio escribir (validity.badInput): el error de formato, con el foco, sin llamar a la API', async () => {
+    const { store } = await openCreate();
+
+    type('Nombre', 'Toby');
+    choose('Especie', '1');
+    typePartialDate(field('Fecha de nacimiento'));
+    submit();
+
+    await waitFor(() => {
+      expect(errorOf(field('Fecha de nacimiento'))).toBe(PATIENT_MESSAGES.birth_date.date_format);
+    });
+    expect(field('Fecha de nacimiento')).toHaveFocus();
+    expect(store.bodies).toHaveLength(0);
+
+    // Con otro error del formulario también se marca la fecha.
+    type('Nombre', '');
+    submit();
+    await waitFor(() => {
+      expect(errorOf(field('Nombre'))).toBe(PATIENT_MESSAGES.name.required);
+    });
+    expect(errorOf(field('Fecha de nacimiento'))).toBe(PATIENT_MESSAGES.birth_date.date_format);
+    expect(store.bodies).toHaveLength(0);
+
+    type('Nombre', 'Toby');
+    typeFullDate(field('Fecha de nacimiento'), '2021-06-15');
+    submit();
+    await screen.findByText('Toby', { selector: 'h2' });
+    expect(store.bodies[0]?.birth_date).toBe('2021-06-15');
+  });
+
+  it('los textos sin maxLength del navegador: 1000 emojis (2000 unidades UTF-16) en las alergias se mandan; 1001, el error', async () => {
+    const { store } = await openCreate();
+
+    for (const label of ['Nombre', 'Color', 'Alergias', 'Notas']) {
+      expect(field(label)).not.toHaveAttribute('maxlength');
+    }
+    type('Nombre', 'Toby');
+    choose('Especie', '1');
+    type('Alergias', '🐶'.repeat(1001));
+    submit();
+    await waitFor(() => {
+      expect(errorOf(field('Alergias'))).toBe(PATIENT_MESSAGES.allergies.max);
+    });
+    expect(store.bodies).toHaveLength(0);
+
+    type('Alergias', '🐶'.repeat(1000));
+    submit();
+    await screen.findByText('Toby', { selector: 'h2' });
+    expect(store.bodies[0]?.allergies).toBe('🐶'.repeat(1000));
   });
 
   it('la fecha de mañana en Asunción, con la PC en UTC (ya es mañana en UTC): rechazada sin llamar a la API', async () => {
@@ -453,6 +522,8 @@ describe('/pacientes/$id/editar: edición', () => {
     ]);
     expect(history.location.pathname).toBe('/pacientes/1');
     expect(screen.getByText('Paciente actualizado correctamente.')).toBeInTheDocument();
+    // El detalle muestra lo recién guardado (la respuesta del PATCH), aunque GET patients/{id} siga con lo de antes.
+    expect(document.querySelector('.patient-data')).toHaveTextContent('Control en diciembre.');
     expect(history.length).toBe(1);
   });
 
@@ -514,6 +585,51 @@ describe('/pacientes/$id/editar: edición', () => {
     expect(screen.getByText('Guardar', { selector: 'button' })).toBeDisabled();
     release();
     await screen.findByText('Firulais', { selector: 'h2' });
+  });
+
+  it('una fecha guardada que queda a medio escribir no se borra: el error de formato y ningún PATCH', async () => {
+    const { update } = await openEdit();
+
+    expect(field('Fecha de nacimiento').value).toBe('2022-03-10');
+    typePartialDate(field('Fecha de nacimiento'));
+    submit();
+
+    await waitFor(() => {
+      expect(errorOf(field('Fecha de nacimiento'))).toBe(PATIENT_MESSAGES.birth_date.date_format);
+    });
+    expect(update.bodies).toHaveLength(0);
+
+    typeFullDate(field('Fecha de nacimiento'), '2022-03-11');
+    submit();
+    await screen.findByText('Firulais', { selector: 'h2' });
+    expect(update.bodies[0]?.birth_date).toBe('2022-03-11');
+  });
+
+  it('un 409 CONFLICT al guardar: el aviso con el mensaje y se vuelve a pedir el paciente', async () => {
+    const message = 'El paciente cambió mientras se editaba.';
+    await openEdit({ update: updateHandler(() => failure(409, 'CONFLICT', message)) });
+    let reads = 0;
+    server.use(
+      http.get('/api/patients/:id', () => {
+        reads++;
+
+        return success(patientDetail({ weight_kg: '12.50' }));
+      }),
+    );
+
+    submit();
+
+    expect(
+      await screen.findByText(
+        `Alguien cambió estos datos mientras guardabas. Revisalos y probá de nuevo. ${message}`,
+        {
+          selector: '.alert-title',
+        },
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(reads).toBe(1);
+    });
   });
 
   it('PATIENT_DECEASED: la alerta arriba y el formulario como estaba', async () => {

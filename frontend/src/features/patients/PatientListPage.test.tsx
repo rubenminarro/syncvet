@@ -227,6 +227,54 @@ describe('/pacientes: listado', () => {
     });
   });
 
+  it('"Incluir los fallecidos" desde la página 2 vuelve a la página 1', async () => {
+    const { api, history } = await openList('/pacientes?pagina=2', {
+      api: patientsHandler(() => ({ items: [FIRULAIS, TOBY], total: 21, last: 2 })),
+    });
+
+    fireEvent.click(deceasedBox());
+
+    await waitFor(() => {
+      expect(history.location.search).toBe('?fallecidos=1');
+    });
+    await waitFor(() => {
+      expect(api.calls.at(-1)?.get('page')).toBe('1');
+    });
+  });
+
+  it.each([
+    ['inexistente', '/pacientes?especie=99', '99'],
+    ['inactivada (no viene en GET species)', '/pacientes?especie=9', '9'],
+  ])(
+    'una especie %s en la URL: elegida como "Especie no disponible", y la API la filtra igual',
+    async (_case, url, id) => {
+      const { api } = await openList(url);
+
+      await waitFor(() => {
+        expect(speciesSelect().value).toBe(id);
+      });
+      expect(speciesSelect().selectedOptions[0]?.text).toBe('Especie no disponible');
+      expect(api.calls.at(-1)?.get('species_id')).toBe(id);
+
+      // Elegir otra la saca de las opciones.
+      fireEvent.change(speciesSelect(), { target: { value: '4' } });
+      await waitFor(() => {
+        expect(Array.from(speciesSelect().options).map((option) => option.text)).not.toContain(
+          'Especie no disponible',
+        );
+      });
+    },
+  );
+
+  it('una especie activa en la URL no suma "Especie no disponible"', async () => {
+    await openList('/pacientes?especie=4');
+
+    await waitFor(() => {
+      expect(speciesSelect().value).toBe('4');
+    });
+    expect(speciesSelect().options).toHaveLength(SPECIES.length + 1);
+  });
+
   it('la paginación cambia la página de la URL', async () => {
     const { api, history } = await openList('/pacientes', {
       api: patientsHandler(() => ({ items: [FIRULAIS, TOBY], total: 41, last: 3 })),

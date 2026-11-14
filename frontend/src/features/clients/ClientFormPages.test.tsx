@@ -184,6 +184,19 @@ describe('/clientes/nuevo: alta', () => {
   });
 
   // Revisión de la 1.2: dos clics seguidos llegaban los dos a mutate antes de que el botón se deshabilitara (dos POST).
+  it('las notas sin maxLength del navegador: 1000 caracteres fuera del plano básico (2000 unidades UTF-16) se mandan', async () => {
+    const { store } = await openCreate();
+    const notes = '𠀀'.repeat(1000);
+
+    expect(field('Notas')).not.toHaveAttribute('maxlength');
+    fillPerson();
+    type('Notas', notes);
+    submit();
+
+    await screen.findByText('Juan Pérez', { selector: 'h2' });
+    expect(store.bodies[0]?.notes).toBe(notes);
+  });
+
   it('dos clics seguidos en Guardar: un solo POST', async () => {
     const { store } = await openCreate();
 

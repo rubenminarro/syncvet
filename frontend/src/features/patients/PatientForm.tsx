@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconDeviceFloppy } from '@tabler/icons-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, SyntheticEvent } from 'react';
 import { useForm, useWatch, type UseFormReturn } from 'react-hook-form';
 import {
   Alert,
@@ -14,14 +14,15 @@ import {
   TextField,
 } from '../../components/ui';
 import { todayInAppZone } from '../../lib/format/dates';
-import { patientFormSchema, type PatientFormValues } from './form';
+import { PATIENT_MESSAGES, patientFormSchema, type PatientFormValues } from './form';
 import { breedOptions, speciesOptions, type CurrentCatalog } from './species-options';
 import type { Species } from './types';
 
 const SEX_OPTIONS = [
   { value: 'male', label: 'Macho' },
   { value: 'female', label: 'Hembra' },
-  { value: 'unknown', label: 'Sin dato' },
+  // El mismo texto que la API (PatientSex::label()): el listado y el detalle muestran el de ella.
+  { value: 'unknown', label: 'Sin determinar' },
 ] as const;
 
 interface PatientFormProps {
@@ -40,7 +41,9 @@ interface PatientFormProps {
 }
 
 /**
- * El formulario de alta y edición de un paciente. La raza se filtra por la especie elegida y se vacía al cambiar de especie
+ * El formulario de alta y edición de un paciente. Los textos con letras (nombre, color, alergias, notas) no llevan `maxLength`:
+ * el navegador cuenta unidades UTF-16 (un emoji es 2) y la API, caracteres (`mb_strlen`); el largo lo controla
+ * patientFormErrors, con el mensaje de la API. La raza se filtra por la especie elegida y se vacía al cambiar de especie
  * ("Sin raza" es null). La fecha de nacimiento es el texto `yyyy-MM-dd` del selector nativo, sin hora.
  */
 export function PatientForm({
@@ -66,20 +69,39 @@ export function PatientForm({
   } = form;
   const speciesId = useWatch({ control, name: 'species_id' });
 
-  const submit = handleSubmit((values) => {
-    onSubmit(values, form);
-  });
+  // Una fecha a medio escribir: el <input type="date"> da '' (validity.badInput), que sería "sin fecha" y borraría la
+  // guardada sin aviso. Se muestra el error de formato de la API y no se manda (se lee del campo al enviar).
+  const submit = (event: SyntheticEvent<HTMLFormElement>) => {
+    const input = event.currentTarget.elements.namedItem('birth_date');
+    const badDate = input instanceof HTMLInputElement && input.validity.badInput;
+    const markBadDate = () => {
+      if (badDate) {
+        form.setError(
+          'birth_date',
+          { type: 'badInput', message: PATIENT_MESSAGES.birth_date.date_format },
+          { shouldFocus: true },
+        );
+      }
+    };
+
+    void handleSubmit((values) => {
+      markBadDate();
+
+      if (!badDate) {
+        onSubmit(values, form);
+      }
+    }, markBadDate)(event);
+  };
 
   return (
     <Card title={title}>
       {alert !== null ? <Alert title={alert} /> : null}
-      <form className="patient-form" onSubmit={(event) => void submit(event)} noValidate>
+      <form className="patient-form" onSubmit={submit} noValidate>
         <div className="row">
           <div className="col-md-6">
             <TextField
               label="Nombre"
               required
-              maxLength={100}
               autoComplete="off"
               error={errors.name?.message}
               {...register('name')}
@@ -160,7 +182,6 @@ export function PatientForm({
           <div className="col-md-6">
             <TextField
               label="Color"
-              maxLength={80}
               autoComplete="off"
               error={errors.color?.message}
               {...register('color')}
@@ -170,7 +191,6 @@ export function PatientForm({
             <TextareaField
               label="Alergias"
               rows={2}
-              maxLength={1000}
               error={errors.allergies?.message}
               {...register('allergies')}
             />
@@ -179,7 +199,6 @@ export function PatientForm({
             <TextareaField
               label="Notas"
               rows={3}
-              maxLength={1000}
               error={errors.notes?.message}
               {...register('notes')}
             />

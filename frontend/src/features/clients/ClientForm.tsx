@@ -163,10 +163,10 @@ export function ClientForm({
             />
           </div>
           <div className="col-12">
+            {/* Sin maxLength: el navegador cuenta unidades UTF-16 y la API, caracteres (mb_strlen); lo controla clientFormErrors. */}
             <TextareaField
               label="Notas"
               rows={3}
-              maxLength={1000}
               error={errors.notes?.message}
               {...register('notes')}
             />
