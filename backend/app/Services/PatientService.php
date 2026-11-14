@@ -10,6 +10,8 @@ use App\Models\Client;
 use App\Models\Patient;
 use App\Models\Species;
 use App\Support\DeletedSuffix;
+use Closure;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +22,16 @@ use Illuminate\Validation\ValidationException;
  */
 class PatientService
 {
+    /**
+     * El índice único del microchip: su nombre (MySQL) o tabla.columna (SQLite), nunca la
+     * columna sola (el mensaje trae el SQL, que nombra todas; backend/CLAUDE.md §3). El del
+     * código lo traduce DocumentSequenceService (409 DOCUMENT_CODE_CONFLICT).
+     */
+    private const MICROCHIP_INDEXES = [
+        'patients_clinic_id_microchip_unique',
+        'patients.microchip',
+    ];
+
     public function __construct(
         protected DocumentSequenceService $sequences
     ) {
@@ -27,7 +39,7 @@ class PatientService
 
     public function create(Client $client, array $data): Patient
     {
-        return DB::transaction(function () use ($client, $data) {
+        return $this->respectingMicrochipIndex(fn () => DB::transaction(function () use ($client, $data) {
             // Orden de bloqueo: especie → raza → serie (la serie, siempre última).
             $this->lockCatalog($data['species_id'], $data['breed_id'] ?? null);
 
@@ -35,7 +47,7 @@ class PatientService
                 DocumentSeries::PATIENT,
                 fn (string $code) => $client->patients()->create([...$data, 'code' => $code])
             );
-        });
+        }));
     }
 
     public function update(Patient $patient, array $data): Patient
@@ -44,7 +56,7 @@ class PatientService
 
         // deceased_at llega en UTC (o con su desplazamiento): el cast AppDateTime lo guarda
         // en la hora de Asunción (FASE 2, entrega 2.6; deuda 13).
-        return DB::transaction(function () use ($patient, $data) {
+        return $this->respectingMicrochipIndex(fn () => DB::transaction(function () use ($patient, $data) {
             $this->lockCatalog(
                 $data['species_id'] ?? $patient->species_id,
                 array_key_exists('breed_id', $data) ? $data['breed_id'] : $patient->breed_id
@@ -53,7 +65,44 @@ class PatientService
             $patient->update($data);
 
             return $patient;
-        });
+        }));
+    }
+
+    /**
+     * Dos altas o ediciones simultáneas con el mismo microchip pasan las dos la regla unique
+     * del Form Request (ninguna ve a la otra) y la segunda choca con el índice único: responde
+     * el mismo 422 que la regla, en microchip, nunca un 500 (deuda 22, como ClientService en
+     * la entrega 1.2 del frontend). Otra violación sigue su camino.
+     *
+     * @template T
+     *
+     * @param Closure(): T $write
+     * @return T
+     */
+    private function respectingMicrochipIndex(Closure $write): mixed
+    {
+        try {
+            return $write();
+        } catch (UniqueConstraintViolationException $e) {
+            if (! $this->isMicrochipViolation($e)) {
+                throw $e;
+            }
+
+            throw ValidationException::withMessages(['microchip' => PatientMessages::all()['microchip']['unique']]);
+        }
+    }
+
+    private function isMicrochipViolation(UniqueConstraintViolationException $e): bool
+    {
+        $message = $e->getMessage();
+
+        foreach (self::MICROCHIP_INDEXES as $index) {
+            if (str_contains($message, $index)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

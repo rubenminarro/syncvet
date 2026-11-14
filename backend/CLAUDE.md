@@ -122,8 +122,8 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   `services_clinic_id_name_unique`) o por `tabla.columna` (SQLite, `UNIQUE constraint failed: services.clinic_id, services.name`),
   nunca buscando el nombre de la columna en el mensaje: el mensaje trae el SQL, que nombra todas las columnas. Una violación que no
   es la esperada sigue su camino; la del código llega a `DocumentSequenceService` (409 `DOCUMENT_CODE_CONFLICT`). Ejemplos:
-  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039), y `ClientService::UNIQUE_INDEXES`
-  (R-067).
+  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039), `ClientService::UNIQUE_INDEXES`
+  (R-067) y `PatientService::MICROCHIP_INDEXES` (deuda 22, entrega 1.3a del frontend).
 * Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
   `error_code` en inglés. `VoseoTest` rechaza las palabras de tú y de usted, los imperativos de tú y de usted de sus verbos
   (un verbo nuevo en un mensaje se agrega a su lista) y los mensajes en inglés. Los mensajes de validación sin mensaje propio
@@ -445,7 +445,9 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   la hora de Asunción; si lo es, 422 en `deceased_at` (R-021).
 * No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento. El uso se revisa dentro
   de la transacción de la baja, con la fila del paciente bloqueada (§3).
-* `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
+* `microchip` único en la clínica, de hasta 30 caracteres. Dos altas o ediciones simultáneas con el mismo microchip: una entra y
+  la otra recibe el 422 de la regla `unique` en `microchip`, nunca 500 (la violación del índice se traduce en `PatientService`,
+  deuda 22). La baja agrega `//deleted_<id>_<timestamp>` entero:
   `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).
 * El listado `GET patients` trae el dueño de cada paciente, `client` con `id` y `display_name` (entrega front-01, R-065), cargado
   con el `with` del listado, sin N+1. `PatientResource` lo saca solo si la relación está cargada (`whenLoaded`): el listado de un
@@ -903,4 +905,3 @@ Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../doc
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
 | 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |
 | 21 | Tests: `countQueries` copiado en tres tests (turnos, agenda y pacientes); prioridad baja: unificarlo cuando se toquen esos tests |
-| 22 | Pacientes: el microchip repetido en dos pedidos simultáneos responde 500 (solo lo frena la regla `unique`); prioridad media: se corrige al empezar la 1.3a del frontend, en un commit aparte, traduciendo el choque con el índice a 422, como `ClientService` (R-067) |
