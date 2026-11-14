@@ -1,5 +1,10 @@
 # CLAUDE.md — SyncVet
 
+> **Nunca `cat > archivo` ni `cat >> archivo` sin entrada.** Sin un heredoc (`<<`) o una tubería, `cat` espera el teclado para
+> siempre y el resto del comando no corre (pasó en la 1.1 y en la 1.3b, con tareas colgadas durante horas). Los archivos se
+> escriben con el editor (Edit/Write) o, si son temporales, en el scratchpad. Lo hace cumplir el hook PreToolUse de
+> `.claude/settings.json` (`.claude/hooks/block-cat-stdin.js`), que rechaza el comando.
+
 Instrucciones permanentes comunes a todo el repositorio (monorepo: backend y frontend). Las reglas de cada proyecto están en su
 propio `CLAUDE.md`.
 
@@ -25,6 +30,7 @@ Si una regla contradice al código, **el código manda**: registrar la discrepan
 syncvet/
 ├── CLAUDE.md        Este archivo: proceso y reglas comunes
 ├── .claude/skills/  /retomar, /cerrar-entrega y /validar-docs, para todo el repositorio
+├── .claude/hooks/   El hook que rechaza `cat >` sin entrada (configurado en .claude/settings.json)
 ├── backend/         API Laravel, con su CLAUDE.md y su README.md (instalación)
 ├── frontend/        React 19 + TypeScript + Vite + Tabler, con su CLAUDE.md y su README.md (instalación)
 └── docs/            Documentación de todo el proyecto (índice en docs/README.md)
