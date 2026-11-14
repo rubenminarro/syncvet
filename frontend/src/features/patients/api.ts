@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions, type QueryClient } from '@tanstack/react-query';
-import { api, getPage } from '../../lib/api/client';
+import { api, getBlob, getPage } from '../../lib/api/client';
 import { clientKeys } from '../clients/api';
 import type { Patient, PatientDetail, PatientListFilters, PatientPayload, Species } from './types';
 
@@ -18,6 +18,7 @@ export const patientKeys = {
   lists: ['patients', 'list'] as const,
   list: (filters: PatientListFilters) => ['patients', 'list', filters] as const,
   detail: (id: number) => ['patients', 'detail', id] as const,
+  photo: (id: number) => ['patients', 'photo', id] as const,
 };
 
 export const speciesKeys = {
@@ -132,4 +133,59 @@ export function afterPatientSaved(queryClient: QueryClient, patient: PatientDeta
   void queryClient.invalidateQueries({ queryKey: patientKeys.all, refetchType: 'none' });
   void queryClient.invalidateQueries({ queryKey: clientKeys.all, refetchType: 'none' });
   queryClient.setQueryData<PatientDetail>(patientKeys.detail(patient.id), patient);
+}
+
+/**
+ * La foto del paciente es de esta pestaña (1.4): la API manda `no-store`, así que la caché de Query es la única. No se vuelve
+ * a pedir sola (staleTime Infinity: subirla o quitarla la cambia) y se descarta a los 5 minutos sin usarse.
+ */
+export const PHOTO_GC_TIME_MS = 5 * 60 * 1000;
+
+/** GET patients/{id}/photo: el archivo como Blob (getBlob); sin foto, 404 PATIENT_PHOTO_NOT_FOUND. */
+export function patientPhotoQueryOptions(id: number) {
+  return queryOptions({
+    queryKey: patientKeys.photo(id),
+    queryFn: ({ signal }) => getBlob(`patients/${id}/photo`, { signal }),
+    staleTime: Infinity,
+    gcTime: PHOTO_GC_TIME_MS,
+  });
+}
+
+/** POST patients/{id}/photo, multipart con el campo `photo` (200, ShowPatientResource con has_photo). */
+export function uploadPatientPhoto(id: number, file: File) {
+  const body = new FormData();
+  body.append('photo', file);
+
+  return api.post<PatientDetail>(`patients/${id}/photo`, body);
+}
+
+/** DELETE patients/{id}/photo (200, ShowPatientResource sin foto). */
+export function deletePatientPhoto(id: number) {
+  return api.delete<PatientDetail>(`patients/${id}/photo`);
+}
+
+/**
+ * La foto guardada se vacía sin volver a pedirla (Query.reset, no resetQueries ni removeQueries: los dos la vuelven a pedir
+ * mientras la consulta sigue habilitada, antes de que el detalle diga has_photo false).
+ */
+export function forgetPatientPhoto(queryClient: QueryClient, id: number) {
+  queryClient
+    .getQueryCache()
+    .find({ queryKey: patientKeys.photo(id), exact: true })
+    ?.reset();
+}
+
+/**
+ * Después de subir o quitar la foto: el detalle toma la respuesta (has_photo) y la foto guardada se vacía: con la foto nueva,
+ * resetQueries (se espera la descarga en lugar de mostrar un instante la vieja); sin foto, no se pide nada. Los listados no
+ * muestran la foto: no se tocan.
+ */
+export function afterPhotoChanged(queryClient: QueryClient, patient: PatientDetail) {
+  queryClient.setQueryData<PatientDetail>(patientKeys.detail(patient.id), patient);
+
+  if (patient.has_photo) {
+    void queryClient.resetQueries({ queryKey: patientKeys.photo(patient.id), exact: true });
+  } else {
+    forgetPatientPhoto(queryClient, patient.id);
+  }
 }

@@ -1,4 +1,5 @@
 export { Alert } from './Alert';
+export { BlobImage } from './BlobImage';
 export { Button } from './Button';
 export { Card } from './Card';
 export { CheckboxField } from './CheckboxField';
@@ -6,6 +7,7 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { DateField } from './DateField';
 export { DataTable, PaginationBar, type Column } from './DataTable';
 export { ErrorPage } from './ErrorPage';
+export { FileField } from './FileField';
 export { Loading } from './Loading';
 export { PasswordField } from './PasswordField';
 export { RadioGroup } from './RadioGroup';

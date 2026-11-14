@@ -26,6 +26,7 @@ import {
   type DeceasedFormValues,
 } from './deceased';
 import { usePatientListSearch } from './navigation';
+import { usePatientGone, useSingleAction } from './use-patient-action';
 import type { PatientDetail } from './types';
 
 /** Los diálogos del detalle del paciente (1.3b): uno abierto a la vez. */
@@ -33,40 +34,6 @@ export type PatientDialog = 'deceased' | 'annul' | 'owner' | 'delete';
 
 /** El paciente tiene consultas, aplicaciones o turnos (backend/CLAUDE.md §6.2): se ofrece registrar el fallecimiento. */
 const PATIENT_IN_USE = 'PATIENT_IN_USE';
-
-/** Un solo pedido a la vez: un doble clic llega antes de que el botón quede esperando (la regla de la 1.2). */
-function useSingleAction() {
-  const inFlight = useRef(false);
-
-  return {
-    tryStart: () => {
-      if (inFlight.current) {
-        return false;
-      }
-
-      inFlight.current = true;
-
-      return true;
-    },
-    release: () => {
-      inFlight.current = false;
-    },
-  };
-}
-
-/** El paciente ya no está (otra persona lo borró): aviso y al listado de pacientes, sin mostrarlo un momento. */
-function usePatientGone(patient: PatientDetail) {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const toast = useToast();
-  const listSearch = usePatientListSearch();
-
-  return (message: string) => {
-    toast.show(message);
-    const forgetDetail = afterPatientGone(queryClient, patient);
-    void navigate({ to: '/pacientes', search: listSearch, replace: true }).then(forgetDetail);
-  };
-}
 
 /**
  * Qué hace un diálogo con el error de su acción (frontend/CLAUDE.md §6): un 404, al listado; un 409 CONFLICT, el aviso y el

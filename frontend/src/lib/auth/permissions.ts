@@ -27,6 +27,12 @@ export const PERMISSIONS = {
   patientsChangeOwner: 'patients.change-owner',
   /** La baja desde el detalle (F1, entrega 1.3b): solo el administrador. */
   patientsDestroy: 'patients.destroy',
+  /** Ver la foto en el detalle (F1, entrega 1.4): los tres roles. */
+  patientsShowPhoto: 'patients.show-photo',
+  /** Subir o reemplazar la foto (F1, entrega 1.4): los tres roles. */
+  patientsUploadPhoto: 'patients.upload-photo',
+  /** Quitar la foto (F1, entrega 1.4): los tres roles. */
+  patientsDeletePhoto: 'patients.delete-photo',
   /** /configuracion (provisoria en la F0; solo el administrador). */
   settingsUpdate: 'system-settings.update',
 } as const;

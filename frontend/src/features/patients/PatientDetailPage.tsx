@@ -22,6 +22,7 @@ import {
   type PatientDialog,
 } from './PatientActions';
 import { usePatientListSearch, withPatientList } from './navigation';
+import { PatientPhoto } from './PatientPhoto';
 import type { PatientDetail } from './types';
 
 /** Un dato vacío se muestra con una raya: la fila sigue a la vista. */
@@ -31,7 +32,7 @@ function orDash(value: string | null | undefined): string {
 
 /**
  * /pacientes/$id: los datos del paciente y su dueño; el fallecimiento (registrarlo, corregirlo, anularlo), el cambio de
- * dueño y la baja (1.3b), cada uno con su permiso. La foto llega en la 1.4.
+ * dueño y la baja (1.3b) y la foto (1.4), cada uno con su permiso.
  */
 export function PatientDetailPage({ id }: { id: number }) {
   const { data: patient } = useSuspenseQuery(patientDetailQueryOptions(id));
@@ -157,7 +158,8 @@ export function PatientDetailPage({ id }: { id: number }) {
         <div className="col-lg-7">
           <PatientData patient={patient} />
         </div>
-        <div className="col-lg-5">
+        <div className="col-lg-5 d-flex flex-column gap-3">
+          <PatientPhoto patient={patient} />
           <PatientOwner patient={patient} />
         </div>
       </div>

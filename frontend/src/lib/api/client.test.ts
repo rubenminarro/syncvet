@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { failure, success } from '../../test/api';
 import { server } from '../../test/server';
-import { api, getPage, parseRetryAfter, setTokenProvider } from './client';
+import { api, getPage, parseRetryAfter, setSessionErrorHandler, setTokenProvider } from './client';
 import { ApiError } from './errors';
 
 async function caught(promise: Promise<unknown>): Promise<ApiError> {
@@ -21,6 +21,7 @@ async function caught(promise: Promise<unknown>): Promise<ApiError> {
 describe('client', () => {
   afterEach(() => {
     setTokenProvider(() => null);
+    setSessionErrorHandler(() => undefined);
   });
 
   it('manda Accept: application/json y el token, y devuelve la respuesta del contrato', async () => {
@@ -229,6 +230,91 @@ describe('client', () => {
     });
 
     expect(params?.toString()).toBe('page=1&active=false');
+  });
+
+  describe('getBlob (1.4)', () => {
+    const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+    it('con un 2xx devuelve el archivo como Blob, con el token y su tipo', async () => {
+      let headers: Headers | undefined;
+      server.use(
+        http.get('/api/patients/1/photo', ({ request }) => {
+          headers = request.headers;
+
+          return new HttpResponse(PNG, { headers: { 'Content-Type': 'image/png' } });
+        }),
+      );
+      setTokenProvider(() => '7|secreto');
+
+      const blob = await api.getBlob('patients/1/photo');
+
+      expect(blob.type).toBe('image/png');
+      expect(new Uint8Array(await blob.arrayBuffer())).toEqual(PNG);
+      expect(headers?.get('Authorization')).toBe('Bearer 7|secreto');
+      expect(headers?.get('Accept')).toBe('application/json');
+    });
+
+    it('un 404 JSON es el ApiError del contrato, no un archivo', async () => {
+      server.use(
+        http.get('/api/patients/1/photo', () =>
+          failure(404, 'PATIENT_PHOTO_NOT_FOUND', 'El paciente no tiene foto.'),
+        ),
+      );
+
+      const error = await caught(api.getBlob('patients/1/photo'));
+
+      expect(error).toMatchObject({
+        status: 404,
+        errorCode: 'PATIENT_PHOTO_NOT_FOUND',
+        message: 'El paciente no tiene foto.',
+      });
+    });
+
+    it('un 401 avisa a la sesión con el token del pedido', async () => {
+      const ended: [string, string][] = [];
+      server.use(
+        http.get('/api/patients/1/photo', () => failure(401, 'UNAUTHENTICATED', 'No autenticado.')),
+      );
+      setTokenProvider(() => '7|secreto');
+      setSessionErrorHandler((error, token) => {
+        ended.push([error.errorCode, token]);
+      });
+
+      const error = await caught(api.getBlob('patients/1/photo'));
+
+      expect(error.errorCode).toBe('UNAUTHENTICATED');
+      expect(ended).toEqual([['UNAUTHENTICATED', '7|secreto']]);
+    });
+
+    it('un 2xx en JSON no es un archivo: success false es su ApiError; lo demás, HTTP_ERROR', async () => {
+      server.use(
+        http.get('/api/patients/1/photo', () => failure(200, 'CLIENT_IN_USE', 'En uso.')),
+        http.get('/api/patients/2/photo', () => success({ id: 2 })),
+      );
+
+      expect(await caught(api.getBlob('patients/1/photo'))).toMatchObject({
+        errorCode: 'CLIENT_IN_USE',
+      });
+      expect(await caught(api.getBlob('patients/2/photo'))).toMatchObject({
+        status: 200,
+        errorCode: 'HTTP_ERROR',
+      });
+    });
+
+    it('sin respuesta del servidor es NETWORK_ERROR; una cancelación se propaga tal cual', async () => {
+      server.use(http.get('/api/patients/1/photo', () => HttpResponse.error()));
+
+      expect(await caught(api.getBlob('patients/1/photo'))).toMatchObject({
+        errorCode: 'NETWORK_ERROR',
+      });
+
+      const controller = new AbortController();
+      controller.abort();
+      const result = api.getBlob('patients/1/photo', { signal: controller.signal });
+
+      await expect(result).rejects.not.toBeInstanceOf(ApiError);
+      await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+    });
   });
 
   it('parseRetryAfter acepta segundos o una fecha HTTP', () => {

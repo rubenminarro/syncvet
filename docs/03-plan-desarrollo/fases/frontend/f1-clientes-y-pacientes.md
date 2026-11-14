@@ -337,6 +337,63 @@ y quitarla.
 **En el navegador.** Una foto vertical de un celular (la orientación ya la aplica la API); la pestaña Memoria o Red: ningún pedido
 de la foto al volver al detalle dentro de los 5 minutos; la consola sin errores.
 
+#### Pendiente para el cierre (1.4)
+
+Implementación en `feature/front-1-4-foto` (commit WIP). Lo que pasa al resultado al cerrar:
+
+* **Frontend**: `api.getBlob` (`src/lib/api/client.ts`, también exportada sola): el mismo armado del pedido que `apiRequest` (ahora
+  en `send` y `failed`, sin cambiar su comportamiento); con un 2xx que no es JSON devuelve el `Blob`; los errores JSON son el
+  `ApiError` de siempre (el 401 cierra la sesión); un 2xx en JSON es su `ApiError` (`success: false`) o `HTTP_ERROR`; la
+  cancelación se propaga tal cual. En `/pacientes/$id`, la tarjeta "Foto" (`features/patients/PatientPhoto.tsx`): la foto con
+  `['patients', 'photo', id]` (`staleTime: Infinity`, `gcTime` de 5 minutos), solo si `has_photo` y con `patients.show-photo`;
+  sin foto o con 404 `PATIENT_PHOTO_NOT_FOUND`, "Sin foto"; otro error, su mensaje en el lugar de la foto. Subir o reemplazar:
+  `FileField` (nuevo), la vista previa y "Subir la foto"; el navegador frena lo que no es JPG, PNG o WEBP y lo de más de 5 MB
+  (`features/patients/photo.ts`, con los mensajes de la API); 422 y 413 con `errors.photo`, al campo (con el foco, al terminar la
+  espera); 413 sin `errors`, alerta; 404 del paciente, aviso y al listado. "Quitar la foto" con `ConfirmDialog`; con
+  `PATIENT_PHOTO_NOT_FOUND`, aviso y el paciente pedido de nuevo. Doble envío: el botón en espera y la `ref` de `useSingleAction`.
+  `PERMISSIONS` suma `patientsShowPhoto`, `patientsUploadPhoto` y `patientsDeletePhoto` (los tres roles). El listado no descarga
+  fotos (test).
+* **Pruebas**: Vitest, `client.test.ts` (5 de `getBlob`), `photo.test.ts` (10) y `PatientPhoto.test.tsx` (28). Mutaciones: 4 de 4
+  detectadas (sin `revokeObjectURL`, 5 tests; sin el control de tamaño, 3; `getBlob` que toma un 404 como éxito, 4;
+  `invalidateQueries` en lugar de `resetQueries` al reemplazar, que mostraba la foto vieja mientras llegaba la nueva, 1).
+  Playwright: `e2e/pacientes-foto.spec.ts` (nuevo). Navegador: ver abajo.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | `POST` y `DELETE patients/{id}/photo` responden **200** con el `ShowPatientResource`, no 201 como decía el diseño. El detalle toma esa respuesta (`has_photo`) sin otro pedido | Es el contrato de la API (`PatientPhotoController`); la interfaz no depende del código |
+| 2 | La URL de objeto la maneja `BlobImage` (`src/components/ui`): la ref del `<img>` (con limpieza, React 19) crea la URL al montar y la libera al cambiar el `Blob` o al desmontar. No hay un hook con efecto y estado | `react-hooks/set-state-in-effect` rechaza el `setState` en el efecto; además, así el `<img>` nunca tiene la URL de un `Blob` ya liberado |
+| 3 | `useSingleAction` y `usePatientGone` pasan de `PatientActions.tsx` a `features/patients/use-patient-action.ts` | Los usa también la foto, y `react-refresh/only-export-components` no deja exportar hooks desde un archivo de componentes |
+| 4 | Al quitar la foto, la consulta se vacía con `Query.reset()` (`forgetPatientPhoto`), no con `resetQueries` ni `removeQueries`; al subir, `resetQueries` | Los dos la volvían a pedir (la consulta sigue habilitada hasta que el detalle dice `has_photo: false`): lo mostró el test del borrado, con dos descargas |
+| 5 | El lugar vacío lleva un ícono genérico (`IconPaw`) y "Sin foto", no el de la especie | Tabler no tiene un ícono por cada especie del catálogo (también las propias) |
+| 6 | El control del navegador mira el tipo **declarado**: un archivo sin tipo (sin extensión conocida) pasa y lo decide la API | La API mira el contenido; el navegador no rechaza nada que la API acepta (`frontend/CLAUDE.md` §5) |
+| 7 | Con un 422 o 413 de la API en `photo`, el archivo elegido se descarta (sin vista previa) y la foto guardada sigue a la vista | Mantener la vista previa de un archivo rechazado invitaría a mandarlo otra vez |
+| 8 | Sin `patients.show-photo` y con foto: "Tiene foto", sin descargarla; sin ninguno de los tres permisos, sin la tarjeta | Los tres roles los tienen todos; el caso solo se da con permisos a medida |
+| 9 | "Un rol sin permiso" en el navegador se simuló quitando los permisos de foto de `me` (`page.route`): ningún rol real los pierde (`clinic-roles.json`). Con `vet-a` se comprobó que un rol real sí ve el campo | No hay un rol real sin esos permisos; en Vitest se prueba con los permisos quitados de un rol real |
+| 10 | Los tests de la subida usan el `FormData` y el `File` de Node (`node:buffer`; el `FormData`, sacado de una `Response`), no los de jsdom | El `fetch` de Node no puede leer el `File` de jsdom: el pedido se cortaba (`AbortError`), un límite del entorno de test |
+| 11 | La foto vertical de un celular (de "En el navegador" del diseño) no se probó | No hay una en el repositorio; la orientación la aplica la API (R-027, con sus tests) |
+
+**Cifras** (2026-11-14). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 737 tests en
+39 archivos, en verde (antes 694 en 37: 43 nuevos). El primer `typecheck` dio un error de tipos en `PatientPhoto.test.tsx` (las
+partes del `File` de Node), corregido; después, `typecheck`, `lint`, `build` y ese archivo (28 de 28) sin errores. Playwright, solo
+el caso nuevo: 1 de 1 (34,5 s; 1,4 min con la preparación de `syncvet_e2e`), con `:8010` y `:5174` libres después.
+
+**Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` con un Vite propio en `:5181` (detenido por su
+PID, 1796), script fuera del repositorio: **10 de 10**. (1) Subir `foto-paciente.png` como `recepcion-a`: vista previa y POST 200,
+la foto dibujada; (2) al recargar, GET 200 `image/png` con `no-store, private`; (3) volver al detalle desde el listado: ningún
+pedido de la foto; (4) reemplazar por `logo-clinica.webp`: GET `image/webp` y la URL de objeto anterior ya liberada (un `fetch` a
+ella falla); (5) un texto renombrado a `.png`: pasa el navegador y la API responde 422 con "La foto debe ser una imagen JPG, PNG o
+WEBP." en el campo, el foco en él y la foto anterior a la vista; (6) uno de 6 MB: "La foto no debe pesar más de 5 MB." sin POST;
+(7) quitar con el diálogo: "Sin foto" y la API responde 404 `PATIENT_PHOTO_NOT_FOUND`; (8) `vet-a` ve el campo para subir; (9) sin
+los permisos de foto (simulado, desvío 9): sin la tarjeta y sin pedir la foto; (10) la demo como estaba. El control 9 se repitió
+solo: la primera vez contaba cualquier URL con `/photo` y tomaba el módulo `features/patients/photo.ts` que sirve Vite; con la URL
+de la API, 0 pedidos. La consola: sin errores propios de la aplicación; los dos que aparecieron los provocaron los controles (el
+`fetch` a la URL liberada del 4 y el 422 del 5, que el navegador anota como recurso fallido). Capturas en
+`%TEMP%\claude\…\scratchpad\capturas-1-4`: `01-vista-previa.png`, `02-detalle-con-foto.png`, `03-texto-rechazado-por-la-api.png`,
+`04-mas-de-5-mb.png`, `05-dialogo-quitar.png` y `06-sin-permisos-de-foto.png`. **Datos de la demo:** el paciente "Valida Foto" se
+creó en Laura Martínez por la API (dos veces: la corrida completa y la del control 9), con su foto subida y quitada, y se borró
+por la API (después, 404); los pacientes de Laura, como antes. La foto se quitó antes de cada baja (la baja deja el archivo en
+el disco), así que no quedó ningún archivo de la validación.
+
 ### 1.5 Especies y razas
 
 **Pantalla.** `/especies` (`species.index`): las especies con sus razas en una lista que se despliega (`GET species?include_inactive=1`
