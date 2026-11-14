@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useRef, useState } from 'react';
 import { ConfirmDialog, DateField, SearchField, TimeField, useToast } from '../../components/ui';
@@ -16,6 +16,7 @@ import {
   changePatientOwner,
   deletePatient,
   patientKeys,
+  resetClientDetails,
   setPatientDeceased,
 } from './api';
 import {
@@ -54,7 +55,7 @@ function useSingleAction() {
 }
 
 /** El paciente ya no está (otra persona lo borró): aviso y al listado de pacientes, sin mostrarlo un momento. */
-function usePatientGone(id: number) {
+function usePatientGone(patient: PatientDetail) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
@@ -62,7 +63,7 @@ function usePatientGone(id: number) {
 
   return (message: string) => {
     toast.show(message);
-    const forgetDetail = afterPatientGone(queryClient, id);
+    const forgetDetail = afterPatientGone(queryClient, patient);
     void navigate({ to: '/pacientes', search: listSearch, replace: true }).then(forgetDetail);
   };
 }
@@ -106,7 +107,7 @@ interface DialogProps {
 export function DeceasedDialog({ patient, onClose }: DialogProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const onGone = usePatientGone(patient.id);
+  const onGone = usePatientGone(patient);
   const single = useSingleAction();
   const correcting = patient.deceased_at !== null;
   const [values, setValues] = useState<DeceasedFormValues>(() =>
@@ -131,12 +132,12 @@ export function DeceasedDialog({ patient, onClose }: DialogProps) {
       onClose();
     },
     onError: (error) => {
-      // La fecha rechazada por la API (futura para su reloj, anterior al nacimiento) va al campo de la fecha.
+      // La fecha rechazada por la API (futura para su reloj, anterior al nacimiento) va al campo de la fecha; el foco lo
+      // lleva ConfirmDialog al terminar la espera (al primer campo con error).
       const fieldError = isApiError(error) ? error.fieldErrors().deceased_at?.join(' ') : undefined;
 
       if (fieldError !== undefined) {
         setErrors({ date: fieldError });
-        dateRef.current?.focus();
 
         return;
       }
@@ -235,7 +236,7 @@ export function DeceasedDialog({ patient, onClose }: DialogProps) {
 export function AnnulDeceasedDialog({ patient, onClose }: DialogProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const onGone = usePatientGone(patient.id);
+  const onGone = usePatientGone(patient);
   const single = useSingleAction();
   const [alert, setAlert] = useState<string | null>(null);
 
@@ -291,7 +292,7 @@ export function AnnulDeceasedDialog({ patient, onClose }: DialogProps) {
 export function ChangeOwnerDialog({ patient, onClose }: DialogProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const onGone = usePatientGone(patient.id);
+  const onGone = usePatientGone(patient);
   const single = useSingleAction();
   const groupName = useId();
   const [text, setText] = useState('');
@@ -300,11 +301,7 @@ export function ChangeOwnerDialog({ patient, onClose }: DialogProps) {
   const [alert, setAlert] = useState<string | null>(null);
   const currentOwnerId = patient.client?.id ?? null;
 
-  const options = useQuery({
-    ...clientOptionsQueryOptions(search),
-    enabled: search !== '',
-    placeholderData: keepPreviousData,
-  });
+  const options = useQuery({ ...clientOptionsQueryOptions(search), enabled: search !== '' });
   // El dueño actual no se ofrece (la API respondería PATIENT_SAME_OWNER).
   const clients =
     search === '' ? [] : (options.data ?? []).filter((client) => client.id !== currentOwnerId);
@@ -319,8 +316,10 @@ export function ChangeOwnerDialog({ patient, onClose }: DialogProps) {
       single.release();
     },
     onSuccess: (response) => {
-      // Los detalles de los dos clientes listan sus pacientes: afterPatientSaved invalida ['clients'] entero.
+      // Los detalles de los dos clientes listan sus pacientes: se vacían, para que ninguno se vea un momento con la lista
+      // vieja (el anterior con el paciente, el nuevo sin él).
       afterPatientSaved(queryClient, response.data);
+      resetClientDetails(queryClient, [currentOwnerId, response.data.client?.id ?? null]);
       toast.show(response.message, 'success');
       onClose();
     },
@@ -437,7 +436,7 @@ export function DeletePatientDialog({
   const toast = useToast();
   const can = useCan();
   const listSearch = usePatientListSearch();
-  const onGone = usePatientGone(patient.id);
+  const onGone = usePatientGone(patient);
   const single = useSingleAction();
   const [alert, setAlert] = useState<string | null>(null);
   const [inUse, setInUse] = useState(false);
@@ -455,7 +454,7 @@ export function DeletePatientDialog({
     },
     onSuccess: (response) => {
       toast.show(response.message, 'success');
-      const forgetDetail = afterPatientGone(queryClient, patient.id);
+      const forgetDetail = afterPatientGone(queryClient, patient);
       const leave = toOwner
         ? navigate({ to: '/clientes/$id', params: { id: String(owner.id) }, replace: true })
         : navigate({ to: '/pacientes', search: listSearch, replace: true });

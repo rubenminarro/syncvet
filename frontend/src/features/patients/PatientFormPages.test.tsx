@@ -736,6 +736,26 @@ describe('/pacientes/$id/editar: un fallecido (1.3b)', () => {
     });
   });
 
+  it('Zod valida solo las notas: un dato guardado que hoy no pasa (bloqueado) no impide guardarlas; las notas, sí', async () => {
+    const { update } = await openEdit({ data: { ...DECEASED, microchip: 'ABC-123' } });
+
+    type('Notas', 'x'.repeat(1001));
+    submit();
+    expect(
+      await screen.findByText('Las notas no deben tener más de 1000 caracteres.'),
+    ).toBeInTheDocument();
+    expect(update.bodies).toEqual([]);
+
+    type('Notas', 'Cremado el 13/11.');
+    submit();
+
+    await waitFor(() => {
+      expect(update.bodies).toEqual([
+        expect.objectContaining({ microchip: 'ABC-123', notes: 'Cremado el 13/11.' }),
+      ]);
+    });
+  });
+
   it('PATIENT_DECEASED de la API: la alerta arriba con su mensaje', async () => {
     const message =
       'El paciente figura como fallecido: solo se pueden editar la fecha de fallecimiento y las notas.';

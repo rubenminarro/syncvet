@@ -9,12 +9,17 @@ function Harness({
   busy = false,
   error = null,
   canConfirm = true,
+  confirmDisabled = false,
+  fieldInvalid,
 }: {
   onConfirm?: () => void;
   onClose?: () => void;
   busy?: boolean;
   error?: string | null;
   canConfirm?: boolean;
+  confirmDisabled?: boolean;
+  /** Con un valor, el diálogo lleva un campo; true: con error (aria-invalid, como TextField). */
+  fieldInvalid?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -40,8 +45,12 @@ function Harness({
         busy={busy}
         error={error}
         canConfirm={canConfirm}
+        confirmDisabled={confirmDisabled}
       >
         ¿Querés eliminar a Laura Martínez?
+        {fieldInvalid === undefined ? null : (
+          <input name="campo" aria-label="Campo" aria-invalid={fieldInvalid ? true : undefined} />
+        )}
       </ConfirmDialog>
     </>
   );
@@ -225,6 +234,38 @@ describe('ConfirmDialog', () => {
     expect(document.activeElement).toBe(button('Cancelar'));
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(dialog()).toBeNull();
+  });
+
+  it('al terminar la espera con un campo con error (un 422 de la API), el foco va al campo; sin error, a "Cancelar"', () => {
+    const { rerender } = render(<Harness fieldInvalid={false} />);
+    open();
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+    rerender(<Harness fieldInvalid={false} busy />);
+
+    rerender(<Harness fieldInvalid />);
+    expect(document.activeElement).toBe(element('input[name="campo"]'));
+
+    // Otra vez, ahora sin error en el campo (un 403): a "Cancelar".
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+    rerender(<Harness fieldInvalid={false} busy />);
+    rerender(<Harness fieldInvalid={false} error={FORBIDDEN} />);
+    expect(document.activeElement).toBe(button('Cancelar'));
+  });
+
+  it('confirmDisabled: el botón de la acción queda inactivo (aria-disabled) sin soltar el foco y no confirma', () => {
+    const onConfirm = vi.fn();
+    const { rerender } = render(<Harness onConfirm={onConfirm} confirmDisabled />);
+    open();
+
+    expect(button('Eliminar a Laura Martínez')).toHaveAttribute('aria-disabled', 'true');
+    expect(button('Eliminar a Laura Martínez')).not.toBeDisabled();
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    rerender(<Harness onConfirm={onConfirm} />);
+    expect(button('Eliminar a Laura Martínez')).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(button('Eliminar a Laura Martínez'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
   it('el fondo no se desplaza mientras está abierto; al cerrar, vuelve como estaba', () => {

@@ -395,7 +395,7 @@ describe('/clientes/$id: editar y eliminar', () => {
     expect(dialog()).toBeNull();
   });
 
-  it('un 403 FORBIDDEN: el mensaje dentro del diálogo, que sigue con la acción', async () => {
+  it('un 403 FORBIDDEN: el mensaje dentro del diálogo, que sigue con la acción, y el foco en "Cancelar"', async () => {
     const api = deleteHandler(() =>
       failure(403, 'FORBIDDEN', 'No tenés permiso para eliminar clientes.'),
     );
@@ -411,6 +411,8 @@ describe('/clientes/$id: editar y eliminar', () => {
 
     expect(await screen.findByText('No tenés permiso para eliminar clientes.')).toBeInTheDocument();
     expect(button('Eliminar a Laura Martínez')).toBeInTheDocument();
+    // Sin campos en el diálogo, el foco vuelve a "Cancelar" (la regla general de ConfirmDialog, revisión de la 1.3b).
+    expect(document.activeElement).toBe(button('Cancelar'));
   });
 
   it('un 404 (otra persona ya lo borró): aviso y al listado', async () => {

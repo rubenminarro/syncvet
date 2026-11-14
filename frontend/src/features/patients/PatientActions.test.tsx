@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { delay, http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { failure, success } from '../../test/api';
-import { COMPANY, detail, pagination, PERSON } from '../../test/clients';
+import { COMPANY, detail, pagination, PERSON, patient as clientPatient } from '../../test/clients';
 import { patientDetail } from '../../test/patients';
 import { meFor, ROLES, type Role } from '../../test/roles';
 import { server } from '../../test/server';
@@ -204,7 +204,7 @@ describe('Registrar el fallecimiento', () => {
     });
   });
 
-  it('el 422 de la API en deceased_at va al campo de la fecha', async () => {
+  it('el 422 de la API en deceased_at va al campo de la fecha, con el foco', async () => {
     const { calls } = await openDetail();
     server.use(
       patchHandler(calls, () =>
@@ -222,6 +222,10 @@ describe('Registrar el fallecimiento', () => {
       expect(errorOf(input('deceased_date'))).toBe(
         'La fecha de fallecimiento no puede ser futura.',
       );
+    });
+    // Al terminar la espera, ConfirmDialog lleva el foco al campo con error, no a "Cancelar" (revisión de la 1.3b).
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input('deceased_date'));
     });
     expect(dialog()).not.toBeNull();
   });
@@ -405,8 +409,39 @@ describe('Cambiar de dueño', () => {
     ).toBeInTheDocument();
     expect(bodies).toEqual([{ client_id: 2 }]);
     expect(dialog()).toBeNull();
-    expect(queryClient.getQueryState(['clients', 'detail', 1])?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(['clients', 'detail', 2])?.isInvalidated).toBe(true);
+    // Los detalles de los dos clientes se vacían: al entrar, se espera la lista nueva (ninguno muestra la vieja).
+    expect(queryClient.getQueryData(['clients', 'detail', 1])).toBeUndefined();
+    expect(queryClient.getQueryData(['clients', 'detail', 2])).toBeUndefined();
+  });
+
+  it('una respuesta vieja que llega tarde no pisa a la búsqueda nueva', async () => {
+    await openDetail(patientDetail(), 'recepcionista');
+    server.use(
+      http.get('/api/clients', async ({ request }) => {
+        const search = new URL(request.url).searchParams.get('search');
+
+        if (search === 'Gra') {
+          // La primera búsqueda contesta después que la segunda.
+          await delay(400);
+
+          return success([COMPANY], { meta: pagination({ total: 1, per_page: 10 }) });
+        }
+
+        return success([OTHER], { meta: pagination({ total: 1, per_page: 10 }) });
+      }),
+    );
+    fireEvent.click(button('Cambiar de dueño'));
+
+    fireEvent.change(ownerInput(), { target: { value: 'Gra' } });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    fireEvent.change(ownerInput(), { target: { value: 'Carlos' } });
+
+    await waitFor(() => {
+      expect(optionNames()).toEqual(['Carlos Gómez']);
+    });
+    // Después de que llega la respuesta vieja, sigue la de "Carlos".
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(optionNames()).toEqual(['Carlos Gómez']);
   });
 
   it.each([
@@ -479,6 +514,37 @@ describe('Eliminar el paciente', () => {
     });
     expect(methods).toEqual(['DELETE']);
     expect(await screen.findByText('Paciente eliminado correctamente.')).toBeInTheDocument();
+  });
+
+  it('con el detalle del dueño en la caché, al volver no se ve nunca el paciente borrado', async () => {
+    const { queryClient } = await openDetail();
+    queryClient.setQueryData(['clients', 'detail', 1], detail(PERSON, [clientPatient()]));
+    server.use(
+      deleteHandler([], () => success(null, { message: 'Paciente eliminado correctamente.' })),
+      http.get('/api/clients/:id', async () => {
+        await delay(100);
+
+        return success(detail(PERSON));
+      }),
+    );
+    // Cada vez que cambia la página, el paciente borrado no está en la tarjeta del dueño.
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('h2')?.textContent.includes('Laura Martínez')) {
+        seen.push(document.body.textContent);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    fireEvent.click(button('Eliminar'));
+    fireEvent.click(dialogButton('Eliminar a Firulais') as HTMLElement);
+
+    expect(
+      await screen.findByText('Este cliente todavía no tiene pacientes.', { exact: false }),
+    ).toBeInTheDocument();
+    observer.disconnect();
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.filter((text) => text.includes('Firulais'))).toEqual([]);
   });
 
   it('PATIENT_IN_USE: el mensaje y "Registrar el fallecimiento", que abre el otro diálogo', async () => {

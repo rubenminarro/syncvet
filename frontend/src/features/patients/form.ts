@@ -250,27 +250,39 @@ export function patientFormErrors(
   );
 }
 
+const patientFormShape = z.object({
+  name: z.string(),
+  species_id: z.string(),
+  breed_id: z.string(),
+  sex: z.enum(['male', 'female', 'unknown']),
+  is_neutered: z.boolean(),
+  birth_date: z.string(),
+  birth_date_estimated: z.boolean(),
+  color: z.string(),
+  weight_kg: z.string(),
+  microchip: z.string(),
+  allergies: z.string(),
+  notes: z.string(),
+});
+
 /** El esquema de React Hook Form: cada error de `patientFormErrors` en su campo, con el "hoy" de Asunción al validar. */
-export const patientFormSchema = z
-  .object({
-    name: z.string(),
-    species_id: z.string(),
-    breed_id: z.string(),
-    sex: z.enum(['male', 'female', 'unknown']),
-    is_neutered: z.boolean(),
-    birth_date: z.string(),
-    birth_date_estimated: z.boolean(),
-    color: z.string(),
-    weight_kg: z.string(),
-    microchip: z.string(),
-    allergies: z.string(),
-    notes: z.string(),
-  })
-  .superRefine((values, context) => {
-    for (const [field, message] of Object.entries(patientFormErrors(values))) {
-      context.addIssue({ code: 'custom', path: [field], message });
-    }
-  });
+export const patientFormSchema = patientFormShape.superRefine((values, context) => {
+  for (const [field, message] of Object.entries(patientFormErrors(values))) {
+    context.addIssue({ code: 'custom', path: [field], message });
+  }
+});
+
+/**
+ * La edición de un fallecido (1.3b): solo se validan las notas, lo único editable. Los demás campos están bloqueados y se
+ * mandan con el valor guardado, así que un error en ellos no se podría corregir (revisión de la 1.3b).
+ */
+export const deceasedPatientFormSchema = patientFormShape.superRefine((values, context) => {
+  const notes = patientFormErrors(values).notes;
+
+  if (notes !== undefined) {
+    context.addIssue({ code: 'custom', path: ['notes'], message: notes });
+  }
+});
 
 /** Un texto opcional: sin los espacios de los extremos, y null si queda vacío. */
 function optional(value: string): string | null {

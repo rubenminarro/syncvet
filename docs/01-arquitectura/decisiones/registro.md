@@ -1505,3 +1505,22 @@ en `d36c37b`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en
 
 **Qué no cambió.** Rutas, permisos, `error_code`, códigos HTTP de lo que ya respondía la API y colecciones. Lo único nuevo del backend
 es el 422 donde antes había un 500 (el choque con el índice único del microchip).
+
+# R-069 Cierre de la entrega 1.3b del frontend (pacientes: fallecimiento, cambio de dueño y baja) (2026-11-14)
+
+Cuarta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-3b-pacientes` (desde `feature/front-1-3a-pacientes`
+en `5f3aac7`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13b).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | En `/pacientes/$id`: registrar, corregir y anular el fallecimiento (`patients.update`; la fecha y la hora de pared de Asunción, mandadas con `toApiDateTime` y `-03:00`; no futuras ni anteriores al nacimiento), cambiar de dueño (`patients.change-owner`: administrador y recepcionista; buscador de clientes sin el dueño actual) y la baja (`patients.destroy`: solo el administrador; con `PATIENT_IN_USE`, "Registrar el fallecimiento"); la edición de un fallecido deja editables solo las notas. `ConfirmDialog` con `tone`, `size` y `confirmDisabled`; `TimeField` nuevo; sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvío 8 de la 0.1 | VERIFICADO: `deceased_at` con `-03:00` se guarda y se lee igual contra la API real (Playwright y Edge), anotado en el [resultado de la 0.1](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01) | Implementación |
+| Desvíos | Los 11, aceptados: entre ellos, registrar, corregir y anular mandan solo `deceased_at`; la fecha de fallecimiento se corrige desde el detalle (no en el formulario de edición); `ConfirmDialog` con campos para el fallecimiento y el cambio de dueño; y la hora en 12 horas del selector nativo de Edge, que depende del idioma de Windows | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `9bf37ba`: 5 hallazgos (el foco tras un 422 de la API en "Cancelar" en lugar del campo; el detalle del dueño con la lista vieja un momento después de la baja o del cambio de dueño; dos tests que faltaban, `confirmDisabled` y la respuesta fuera de orden del buscador; `keepPreviousData` repetido y Zod validando los campos bloqueados de un fallecido); 3 de 4 mutaciones detectadas | Revisión |
+| Correcciones | H1: `ConfirmDialog`, de forma general, lleva el foco al primer campo con error al terminar la espera (si no hay, a "Cancelar"), probado también en la baja de clientes de la 1.2. H2: la solución de la baja de clientes de la 1.2 (`resetQueries`) para el detalle del dueño en la baja y los de los dos clientes en el cambio de dueño: nunca muestran al paciente borrado o que se fue. H3 y H4: los dos tests. H5: `keepPreviousData` en un solo lugar y, en la edición de un fallecido, Zod valida solo las notas | Usuario |
+| Proceso: `cat` sin entrada | Una tarea en segundo plano quedó colgada casi 2 horas por un `cat > /tmp/x` que esperaba el teclado (ya había pasado en la 1.1); se detuvo por su PID y el commit ya tenía lo que quería hacer. Un hook PreToolUse versionado (`.claude/settings.json`, `.claude/hooks/block-cat-stdin.js`) rechaza todo `cat >` o `cat >>` sin heredoc, redirección o tubería, y la regla queda al principio del `CLAUDE.md` de la raíz; commit aparte `c8ca294` | Usuario |
+| Validación | El usuario dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 10 de 10 de la implementación y 5 de 5 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 694 tests en 37 archivos; `typecheck`, `lint` y `build` sin errores ni avisos; Playwright, el caso nuevo en la implementación y 5 de 5 de `pacientes-estado` y `clientes-abm` después de las correcciones | Usuario |
+| Siguiente | La entrega 1.4 del frontend (foto del paciente), APROBADA (R-064), en `feature/front-1-4-foto`, creada desde `feature/front-1-3b-pacientes` | Usuario |
+
+**Qué no cambió.** Backend, rutas, permisos de la API, `error_code`, códigos HTTP y colecciones.

@@ -106,8 +106,8 @@ interfaz.
 | 1.1 | Clientes: listado (búsqueda, tipo y paginación en la URL) y detalle (datos y pacientes) | No | `feature/front-1-1-clientes` (desvío 1) | COMPLETADO (R-066, [resultado](#entrega-11)) |
 | 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | COMPLETADO (R-067, [resultado](#entrega-12)) |
 | 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 | `feature/front-1-3a-pacientes` | COMPLETADO (R-068, [resultado](#entrega-13a)) |
-| 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes`, desde `feature/front-1-3a-pacientes` (nombre del usuario al cerrar la 1.3a; el diseño decía `feature/front-1-3b-pacientes-estado`) | APROBADA (R-064) |
-| 1.4 | Foto del paciente: ver (como `Blob`), subir y borrar | No | `feature/front-1-4-foto` | APROBADA (R-064) |
+| 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes`, desde `feature/front-1-3a-pacientes` (nombre del usuario al cerrar la 1.3a; el diseño decía `feature/front-1-3b-pacientes-estado`) | COMPLETADO (R-069, [resultado](#entrega-13b)) |
+| 1.4 | Foto del paciente: ver (como `Blob`), subir y borrar | No | `feature/front-1-4-foto`, desde `feature/front-1-3b-pacientes` | APROBADA (R-064) |
 | 1.5 | Especies y razas: listado, alta, edición, inactivación y baja | No | `feature/front-1-5-especies` | APROBADA (R-064) |
 
 Cada rama sale de la anterior, como en la F0, y todo se integra a `main` al cerrar la F1. La entrega de pacientes del pedido original
@@ -300,55 +300,7 @@ fallecimiento.
 
 #### Pendiente para el cierre (1.3b)
 
-Implementación del 2026-11-14 en `feature/front-1-3b-pacientes` (commit WIP), sin revisión todavía.
-
-**Qué se hizo.** En `/pacientes/$id`: "Registrar el fallecimiento" (`patients.update`, diálogo con `DateField` y `TimeField`, por
-defecto ahora en Asunción), el aviso "Falleció el dd/MM/aaaa HH:mm" con "Corregir la fecha" y "Anular el fallecimiento" (con
-confirmación), "Cambiar de dueño" (`patients.change-owner`, buscador `['clients', 'options', search]` con 300 ms de espera, sin el
-dueño actual) y "Eliminar" (`patients.destroy`, `ConfirmDialog`, `PATIENT_IN_USE` en el diálogo). La edición de un fallecido deja
-solo las notas. La lógica de la fecha y la hora está en `features/patients/deceased.ts` (con sus tests); los diálogos, en
-`PatientActions.tsx`. La marca "Fallecido" del listado y del detalle del cliente ya estaba (1.1 y 1.3a).
-
-**Desvío 8 de la 0.1: VERIFICADO** (anotado en el [resultado de la 0.1](f0-base.md#entrega-01)): `deceased_at` se manda con
-`toApiDateTime` (`2026-11-10T10:30:00.000-03:00`), la API devuelve `2026-11-10T13:30:00.000000Z` y al recargar se ve 10:30, en
-Playwright (`syncvet_e2e`) y en Edge sin ventana (`syncvet.test`).
-
-**Cifras.** Corrida completa del frontend (2026-11-14): `typecheck` y `build` sin errores; Vitest, 689 tests en 37 archivos, en
-verde (antes 645 en 35: 44 nuevos, en `deceased.test.ts`, `PatientActions.test.tsx` y la edición de un fallecido en
-`PatientFormPages.test.tsx`); `lint` dio 4 errores de estilo en `PatientActions.test.tsx` (`as` para quitar `null`), corregidos con
-un ayudante `required()`; después, `lint` y `typecheck` sin errores y ese archivo, 29 de 29 (sin repetir la suite: no cambió
-código de la aplicación).
-
-**Desvíos.**
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | Registrar, corregir y anular el fallecimiento mandan `PATCH patients/{id}` **solo con `deceased_at`**, no el formulario completo | La API lo admite (`sometimes`) y deja lo demás como está; reenviar el formulario no agrega nada y expone a `PATIENT_DECEASED` o a una especie inactivada. H5 (el formulario completo de un fallecido) se prueba en la edición de las notas |
-| 2 | La fecha de fallecimiento no está en el formulario de edición: se corrige desde el detalle ("Corregir la fecha", el mismo diálogo con la guardada). La edición de un fallecido deja editables solo las notas, con un aviso, y manda los demás campos con el valor guardado (no con lo que tengan los campos) | Un solo lugar para la fecha y la hora (con su validación y su `-03:00`); el diseño decía "editables solo la fecha de fallecimiento y las notas" |
-| 3 | `ConfirmDialog` suma `tone` (`primary` para lo que no borra), `size` (`md`, con campos o una lista) y `confirmDisabled`; los diálogos del fallecimiento y del cambio de dueño son `ConfirmDialog` con campos. `TimeField` nuevo (`<input type="time">`) | Reutilizar el foco, el teclado y el error de negocio del diálogo de la 1.2 en lugar de un segundo diálogo |
-| 4 | El buscador del dueño nuevo usa `useDebouncedValue` y `normalizeSearchText`, no `useSearchText`; sin texto no pide nada (muestra una ayuda) | `useSearchText` sincroniza con la URL y el diálogo no tiene URL |
-| 5 | Con `PATIENT_IN_USE`, el botón de la acción del diálogo pasa a "Registrar el fallecimiento" (azul), en lugar de sumar un tercer botón; con un fallecido (o sin `patients.update`), solo "Cerrar" | `ConfirmDialog` tiene dos botones; el resultado es el que pide el diseño |
-| 6 | La baja con el 200 va al detalle del dueño; si el dueño está eliminado o el usuario no tiene `clients.show`, al listado de pacientes | El detalle de un cliente eliminado da 404 |
-| 7 | La hora tiene un mensaje del navegador, "La hora de fallecimiento no es válida."; la fecha usa los de `PatientMessages` | La API recibe un solo campo (`deceased_at`) |
-| 8 | Playwright y el navegador hicieron la baja de un paciente recién creado; la baja rechazada (`PATIENT_IN_USE`) y el diálogo que lleva al del fallecimiento quedaron solo en Vitest | Lo pidió el usuario para esta entrega; probarlo contra la API necesita un paciente con turnos, y uno de la demo se borraría si no los tiene |
-| 9 | El caso de Playwright lleva `test.setTimeout(180_000)` (dura 1,3 min). Las dos primeras corridas fallaron por el caso: hizo clic en "Eliminar" del **cliente** antes de que se dibujara el detalle del paciente (abrió el diálogo del cliente, sin confirmarlo; la base es `syncvet_e2e`). Ahora espera el título y usa `.patient-delete` | Sin cambios en la aplicación |
-| 10 | La mutación "sin el `ref` del doble envío" sobrevivió al primer test (el doble clic lo frena el botón en espera); se sumó el caso de dos envíos del formulario (Enter) y quedó detectada | El `ref` protege el envío del formulario, no el botón |
-| 11 | El selector de hora nativo de Edge muestra "10:30 a. m." (12 horas, por el idioma `es-PY` del navegador); el valor del campo es `10:30` | Informativo |
-
-**Mutaciones** (4 de 4 detectadas): `deceased_at` con `toISOString()` de un `Date` local; la edición del fallecido con los campos
-habilitados; el dueño actual ofrecido en el buscador; sin el `ref` del doble envío (después del caso del desvío 10).
-
-**Playwright** (solo el caso nuevo, `e2e/pacientes-estado.spec.ts`): 1 de 1 en verde, en 1,3 min; `:8010` y `:5174` libres después.
-
-**Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` con un Vite propio en `:5181` (detenido por su
-PID, 22936), script fuera del repositorio: **10 de 10** en verde (fallecimiento con `-03:00` y 13:30 UTC; la misma hora al recargar;
-"Fallecido" en el listado y en el detalle del cliente; la anulación; el cambio de dueño sin ofrecer el actual; el paciente en Carlos
-Duarte y ya no en Laura Martínez; la baja con el foco en "Cancelar" y 404 después; `vet-a` sin cambio de dueño ni baja;
-`recepcion-a` sin baja; la demo como estaba y la consola sin errores). Capturas en
-`%TEMP%\claude\59ee5951b6d279f6\13637d68-e237-4b94-bd93-defc8f6e2c69\scratchpad\capturas-1-3b`: `01-dialogo-fallecimiento.png`,
-`02-detalle-fallecido.png`, `03-dialogo-anular.png`, `04-dialogo-cambio-de-dueno.png` y `05-dialogo-baja.png`. **Datos de la demo:**
-el paciente "Valida Brisa" se creó en Laura Martínez por la API, pasó a Carlos Duarte y se borró desde la interfaz (después, 404);
-los pacientes de los dos clientes, como antes.
+Vacío: la entrega se cerró (R-069) y todo lo que había acá pasó a su [resultado](#entrega-13b).
 
 ### 1.4 Foto del paciente
 
@@ -900,3 +852,95 @@ Corrida de `npm test` del frontend (2026-11-14): 642 tests en 35 archivos, en ve
 
 Después de esa corrida, el último cambio sumó 3 tests (645 en 35 archivos), verificados solo con `vitest related` (el presupuesto por
 entrega); la próxima corrida completa los cuenta.
+
+### Entrega 1.3b
+
+Estado: **COMPLETADO** el 2026-11-14 (R-069). Pacientes: fallecimiento (registrarlo, corregirlo y anularlo), cambio de dueño y baja,
+en `feature/front-1-3b-pacientes` (desde `feature/front-1-3a-pacientes` en `5f3aac7`), sin integrar a `main` (se integra al cerrar
+la F1). Commits: `9bf37ba` (WIP de la implementación), `c8ca294` (el hook que bloquea `cat` sin entrada, aparte) y el de este
+cierre (R-069: las correcciones de la revisión y la documentación).
+
+**Implementación.**
+
+* **Frontend**: en `/pacientes/$id`, "Registrar el fallecimiento" (`patients.update`; diálogo con `DateField` y `TimeField`, por
+  defecto ahora en Asunción), el aviso "Falleció el dd/MM/aaaa HH:mm" con "Corregir la fecha" y "Anular el fallecimiento" (con
+  confirmación), "Cambiar de dueño" (`patients.change-owner`: buscador `['clients', 'options', search]` con 300 ms de espera, sin el
+  dueño actual) y "Eliminar" (`patients.destroy`, `ConfirmDialog`, `PATIENT_IN_USE` en el diálogo con "Registrar el fallecimiento").
+  La edición de un fallecido deja editables solo las notas. La fecha y la hora, en `features/patients/deceased.ts` (con sus tests);
+  los diálogos, en `PatientActions.tsx`. `ConfirmDialog` suma `tone`, `size` y `confirmDisabled`; `TimeField` es nuevo;
+  `PERMISSIONS` suma `patientsChangeOwner` y `patientsDestroy`. La marca "Fallecido" del listado y del detalle del cliente ya
+  estaba (1.1 y 1.3a). Vitest: 689 tests en 37 archivos (antes 645 en 35); `typecheck`, `lint` y `build` sin errores. Mutaciones:
+  4 de 4 detectadas (`deceased_at` con `toISOString()` de un `Date` local; la edición del fallecido con los campos habilitados; el
+  dueño actual ofrecido en el buscador; sin la `ref` del doble envío, después del caso del desvío 10). Playwright: el caso nuevo
+  `e2e/pacientes-estado.spec.ts`, 1 de 1 en 1,3 min.
+* **Desvío 8 de la 0.1: VERIFICADO** (anotado en el [resultado de la 0.1](f0-base.md#entrega-01)): `deceased_at` se manda con
+  `toApiDateTime` (`2026-11-10T10:30:00.000-03:00`), la API devuelve `2026-11-10T13:30:00.000000Z` y al recargar se ve 10:30, en
+  Playwright (`syncvet_e2e`) y en Edge sin ventana (`syncvet.test`).
+* **Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` con un Vite propio en `:5181` (detenido por su
+  PID), script fuera del repositorio: **10 de 10** en verde (fallecimiento con `-03:00` y 13:30 UTC; la misma hora al recargar;
+  "Fallecido" en el listado y en el detalle del cliente; la anulación; el cambio de dueño sin ofrecer el actual; el paciente en
+  Carlos Duarte y ya no en Laura Martínez; la baja con el foco en "Cancelar" y 404 después; `vet-a` sin cambio de dueño ni baja;
+  `recepcion-a` sin baja; la demo como estaba y la consola sin errores). Capturas en
+  `%TEMP%\claude\…\scratchpad\capturas-1-3b`: `01-dialogo-fallecimiento.png`, `02-detalle-fallecido.png`, `03-dialogo-anular.png`,
+  `04-dialogo-cambio-de-dueno.png` y `05-dialogo-baja.png`. **Datos de la demo:** el paciente "Valida Brisa" se creó en Laura
+  Martínez por la API, pasó a Carlos Duarte y se borró desde la interfaz (después, 404); los pacientes de los dos clientes, como
+  antes.
+
+**Desvíos.**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Registrar, corregir y anular el fallecimiento mandan `PATCH patients/{id}` **solo con `deceased_at`**, no el formulario completo | La API lo admite (`sometimes`) y deja lo demás como está; reenviar el formulario no agrega nada y expone a `PATIENT_DECEASED` o a una especie inactivada. H5 (el formulario completo de un fallecido) se prueba en la edición de las notas |
+| 2 | La fecha de fallecimiento no está en el formulario de edición: se corrige desde el detalle ("Corregir la fecha", el mismo diálogo con la guardada). La edición de un fallecido deja editables solo las notas, con un aviso, y manda los demás campos con el valor guardado (no con lo que tengan los campos) | Un solo lugar para la fecha y la hora (con su validación y su `-03:00`); el diseño decía "editables solo la fecha de fallecimiento y las notas" |
+| 3 | `ConfirmDialog` suma `tone` (`primary` para lo que no borra), `size` (`md`, con campos o una lista) y `confirmDisabled`; los diálogos del fallecimiento y del cambio de dueño son `ConfirmDialog` con campos. `TimeField` nuevo (`<input type="time">`) | Reutilizar el foco, el teclado y el error de negocio del diálogo de la 1.2 en lugar de un segundo diálogo |
+| 4 | El buscador del dueño nuevo usa `useDebouncedValue` y `normalizeSearchText`, no `useSearchText`; sin texto no pide nada (muestra una ayuda) | `useSearchText` sincroniza con la URL y el diálogo no tiene URL |
+| 5 | Con `PATIENT_IN_USE`, el botón de la acción del diálogo pasa a "Registrar el fallecimiento" (azul), en lugar de sumar un tercer botón; con un fallecido (o sin `patients.update`), solo "Cerrar" | `ConfirmDialog` tiene dos botones; el resultado es el que pide el diseño |
+| 6 | La baja con el 200 va al detalle del dueño; si el dueño está eliminado o el usuario no tiene `clients.show`, al listado de pacientes | El detalle de un cliente eliminado da 404 |
+| 7 | La hora tiene un mensaje del navegador, "La hora de fallecimiento no es válida."; la fecha usa los de `PatientMessages` | La API recibe un solo campo (`deceased_at`) |
+| 8 | Playwright y el navegador hicieron la baja de un paciente recién creado; la baja rechazada (`PATIENT_IN_USE`) y el diálogo que lleva al del fallecimiento quedaron solo en Vitest | Lo pidió el usuario para esta entrega; probarlo contra la API necesita un paciente con turnos, y uno de la demo se borraría si no los tiene |
+| 9 | El caso de Playwright lleva `test.setTimeout(180_000)` (dura 1,3 min). Las dos primeras corridas fallaron por el caso: hizo clic en "Eliminar" del **cliente** antes de que se dibujara el detalle del paciente (abrió el diálogo del cliente, sin confirmarlo; la base es `syncvet_e2e`). Ahora espera el título y usa `.patient-delete` | Sin cambios en la aplicación |
+| 10 | La mutación "sin el `ref` del doble envío" sobrevivió al primer test (el doble clic lo frena el botón en espera); se sumó el caso de dos envíos del formulario (Enter) y quedó detectada | El `ref` protege el envío del formulario, no el botón |
+| 11 | El selector de hora nativo de Edge muestra "10:30 a. m." (12 horas, por el idioma `es-PY` del navegador); el valor del campo es `10:30` | Informativo |
+
+Los 11 desvíos, aceptados por el usuario en la revisión (también el 11, la hora en 12 horas del selector de Edge, que depende del
+idioma de Windows).
+
+**Revisión** (2026-11-14, con el [presupuesto por entrega](../../../../CLAUDE.md#presupuesto-por-entrega): lectura del diff, 4 mutaciones y
+solo `npm test`, 689 en verde). Mutaciones: 3 de 4 detectadas (el mismo día del nacimiento rechazado, el valor por defecto con la
+zona de la PC, `PATIENT_IN_USE` de un fallecido que ofrecía registrarlo); sobrevivió "sin el foco en la fecha tras el 422", porque
+el foco nunca quedaba ahí (hallazgo 1). Hallazgos, de más grave a menos grave, y lo que decidió el usuario:
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| H1 | Después de un 422 de la API en `deceased_at`, el error se veía en la fecha pero el foco terminaba en "Cancelar": `ConfirmDialog` lo llevaba ahí al terminar la espera, después de que el diálogo lo pusiera en el campo (confirmado con un test temporal) | `ConfirmDialog`, de forma general: al terminar la espera, el foco va al primer campo con error del diálogo (`aria-invalid="true"`) y, si no hay, a "Cancelar"; sin la acción (`*_IN_USE`), a "Cerrar". El diálogo del fallecimiento ya no mueve el foco por su cuenta tras el 422. Tests: en `ConfirmDialog.test.tsx` (con campo con error y sin él), en el 422 del fallecimiento y en la baja de clientes de la 1.2 (el 403 deja el foco en "Cancelar") |
+| H2 | Después de la baja o del cambio de dueño, el detalle del dueño en la caché (el loader lo usa tal cual) mostraba un momento la lista vieja de pacientes, con el borrado o el que se fue | La solución de la baja de clientes de la 1.2: `resetClientDetails` (`features/patients/api.ts`) vacía con `resetQueries` el detalle del dueño en la baja (y en el 404 de una acción) y los de los dos clientes en el cambio de dueño; al entrar, se espera la lista nueva. Tests: la baja con el detalle del dueño en la caché nunca muestra al paciente; el cambio de dueño deja vacíos los dos detalles |
+| H3 | `confirmDisabled` sin un test que lo distinga: `onConfirm` ya controla que haya un cliente elegido | Test en `ConfirmDialog.test.tsx`: `aria-disabled`, sin soltar el foco y sin confirmar; al habilitarse, confirma |
+| H4 | El buscador del dueño nuevo sin el test de la respuesta fuera de orden (`frontend/CLAUDE.md` §5) | Test: la primera búsqueda contesta después que la segunda y la lista sigue con la segunda |
+| H5 | `keepPreviousData` repetido (`clientOptionsQueryOptions` y el `useQuery` del diálogo); en la edición de un fallecido, Zod validaba también los campos bloqueados: un dato guardado que hoy no pasara mostraba un error en un campo deshabilitado y no dejaba guardar las notas | `keepPreviousData` solo en `clientOptionsQueryOptions`. `deceasedPatientFormSchema` (`form.ts`) valida solo las notas; `PatientForm` lo usa con `locked`. Test: un fallecido con un microchip guardado que hoy no pasa guarda las notas, y más de 1000 caracteres en las notas siguen rechazados |
+
+**Correcciones de la revisión** (2026-11-14). Mutaciones: 3 de 3 detectadas (el foco siempre a "Cancelar"; la baja sin vaciar el
+detalle del dueño; Zod validando todo en un fallecido). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores
+ni avisos; Vitest, 694 tests en 37 archivos, en verde (5 nuevos). `lint` dio un error en el test nuevo de la baja (un `?.`
+innecesario), corregido; después, `lint` y `typecheck` sin errores y ese archivo, 31 de 31. Playwright, solo
+`e2e/pacientes-estado.spec.ts` y `e2e/clientes-abm.spec.ts` (por el cambio de `ConfirmDialog`): 5 de 5, en 3,8 min; `:8010` y
+`:5174` libres después. Edge sin ventana contra `syncvet.test` (Vite propio en `:5181`, detenido por su PID, 21748), **5 de 5**:
+el foco en la fecha tras un 422 de la API (simulado con `page.route`: la regla real ya la frena el navegador); la baja rechazada de
+Laura Martínez (`CLIENT_IN_USE` real) con el foco en "Cerrar"; el botón del cambio de dueño inactivo hasta elegir y dos búsquedas
+seguidas que muestran la última, sin cambiar el dueño; un fallecido que guarda las notas con lo demás bloqueado; la baja con el
+detalle de Laura en la caché, que nunca muestra al borrado, 404 después, la demo como estaba y la consola sin errores. La primera
+corrida se cortó en el tercer control por el script (buscaba "Carlos Duarte" entero, y la API busca por campo; ahora, por el
+documento) y borró lo que había creado. **Datos de la demo:** el paciente "Valida Nube" se creó en Laura Martínez por la API y se
+borró desde la interfaz (después, 404); los pacientes de Laura y de Carlos, como antes.
+
+**Proceso.** Una tarea en segundo plano de la implementación quedó colgada casi 2 horas: el comando empezaba con `cat > /tmp/x`,
+que esperaba el teclado, y el resto (un `node -e` que editaba `PatientDetailPage.tsx`) nunca corrió; ya había pasado en la 1.1. Se
+detuvo por su PID y se comprobó que `9bf37ba` ya tenía todo lo que ese script quería hacer. Desde `c8ca294`, un hook PreToolUse
+de `.claude/settings.json` (`.claude/hooks/block-cat-stdin.js`) rechaza todo `cat >` o `cat >>` sin entrada por un heredoc, una
+redirección o una tubería, con la regla al principio del `CLAUDE.md` de la raíz (R-069). Probado: 14 casos con el script solo y,
+en vivo, uno rechazado y uno con heredoc que pasa.
+
+**Validación.** El usuario dio la entrega por validada con las correcciones H1 a H5 y los 11 desvíos aceptados (R-069). Evidencia:
+Edge sin ventana, 10 de 10 de la implementación y 5 de 5 de las correcciones; Playwright, el caso nuevo en la implementación y 5 de
+5 de `pacientes-estado` y `clientes-abm` después de las correcciones; el desvío 8 de la 0.1, verificado contra la API real.
+
+Corrida de `npm test` del frontend (2026-11-14): 694 tests en 37 archivos, en verde.

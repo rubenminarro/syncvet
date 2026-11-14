@@ -14,7 +14,12 @@ import {
   TextField,
 } from '../../components/ui';
 import { todayInAppZone } from '../../lib/format/dates';
-import { PATIENT_MESSAGES, patientFormSchema, type PatientFormValues } from './form';
+import {
+  deceasedPatientFormSchema,
+  PATIENT_MESSAGES,
+  patientFormSchema,
+  type PatientFormValues,
+} from './form';
 import { breedOptions, speciesOptions, type CurrentCatalog } from './species-options';
 import type { Species } from './types';
 
@@ -63,7 +68,8 @@ export function PatientForm({
   locked = false,
 }: PatientFormProps) {
   const form = useForm<PatientFormValues>({
-    resolver: zodResolver(patientFormSchema),
+    // Un fallecido: solo las notas se validan (lo demás está bloqueado y se manda con lo guardado).
+    resolver: zodResolver(locked ? deceasedPatientFormSchema : patientFormSchema),
     defaultValues,
   });
   const {

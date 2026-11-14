@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066), la 1.2 cerrada (R-067) y la 1.3a cerrada (R-068). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | 1.3a (pacientes: listado, detalle, alta y edición), COMPLETADO (R-068) en `feature/front-1-3a-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13a). Antes, la 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
-| Siguiente | La 1.3b de la F1 (pacientes: fallecimiento, cambio de dueño y baja; la verificación del desvío 8 de la 0.1), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#13b-pacientes-fallecimiento-cambio-de-dueño-y-baja), en `feature/front-1-3b-pacientes` |
-| Tests | Vitest: 642 tests en 35 archivos, en verde (corrida del cierre de la 1.3a, el 2026-11-14, registrada en "Resultado" de `f1-clientes-y-pacientes.md`), más 3 del último cambio de la entrega, verificados con `vitest related`; Playwright: 18 casos contra `syncvet_e2e`, en verde |
+| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066), la 1.2 cerrada (R-067), la 1.3a cerrada (R-068) y la 1.3b cerrada (R-069). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | 1.3b (pacientes: fallecimiento, cambio de dueño y baja), COMPLETADO (R-069) en `feature/front-1-3b-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13b). Antes, la 1.3a (pacientes: listado, detalle, alta y edición), COMPLETADO (R-068) en `feature/front-1-3a-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13a). Antes, la 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
+| Siguiente | La 1.4 de la F1 (foto del paciente: ver como `Blob`, subir y borrar), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#14-foto-del-paciente), en `feature/front-1-4-foto` (creada desde `feature/front-1-3b-pacientes`) |
+| Tests | Vitest: 694 tests en 37 archivos, en verde (corrida del cierre de la 1.3b, el 2026-11-14, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 19 casos contra `syncvet_e2e` (18 de la 1.3a y `pacientes-estado` de la 1.3b; la corrida completa, al cerrar la F1) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -68,7 +68,7 @@ frontend/
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, TimeField, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
     ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
@@ -152,7 +152,12 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   el foco a "Cancelar" si sale del diálogo o al terminar la espera y bloquea el desplazamiento del fondo; al cerrar, el foco vuelve
   al botón que lo abrió. Los botones inactivos del diálogo usan `aria-disabled` (`Button` con `focusableWhenInactive`): con
   `disabled`, el botón suelta el foco. El error de negocio (`*_IN_USE`) va dentro del diálogo, con la acción que corresponda o solo
-  "Cerrar" (`canConfirm={false}`).
+  "Cerrar" (`canConfirm={false}`). Desde la 1.3b: `tone` (`danger` por defecto; `primary` para lo que no borra), `size` (`md`, con
+  campos o una lista) y `confirmDisabled` (falta elegir algo); al terminar la espera con un error, el foco va al primer campo con
+  error del diálogo (`aria-invalid`) o, si no hay, a "Cancelar".
+* **Caché después de borrar o mover un registro hijo** (desde la 1.2 y la 1.3b): los listados y los detalles que lo mostraban y no
+  están a la vista se vacían con `resetQueries` (no se invalidan), así al entrar se espera la lista nueva y no se ve un momento la
+  vieja: la baja de un paciente vacía el detalle de su dueño, y el cambio de dueño, los de los dos clientes (`resetClientDetails`).
 * **Fechas y dinero**: la API manda las fechas con hora en UTC (`Z`); se muestran con `formatDate`, `formatDateTime` y `formatTime`
   (`src/lib/format/dates.ts`, siempre en `America/Asuncion`, nunca con la zona de la PC); se mandan con `toApiDateTime` (la hora de
   pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Una fecha sin

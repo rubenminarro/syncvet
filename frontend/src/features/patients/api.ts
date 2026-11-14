@@ -91,17 +91,34 @@ export function deletePatient(id: number) {
 }
 
 /**
- * Después de la baja (o de un 404 en una acción: el paciente ya no está), antes de salir del detalle: los listados de
- * pacientes se vacían (no se ve un momento el paciente borrado) y las consultas de clientes quedan viejas (el detalle del
- * dueño lo listaba). Devuelve lo que se hace después de salir: sacar el detalle de la caché.
+ * Los detalles de estos clientes se vacían (resetQueries, como los listados en la baja de un cliente de la 1.2): no están a
+ * la vista, así que no se vuelven a pedir hasta mostrarse, y al entrar se espera la lista nueva de sus pacientes en lugar de
+ * mostrar un momento la vieja (revisión de la 1.3b).
  */
-export function afterPatientGone(queryClient: QueryClient, id: number): () => void {
+export function resetClientDetails(queryClient: QueryClient, ids: (number | null)[]) {
+  for (const id of new Set(ids)) {
+    if (id !== null) {
+      void queryClient.resetQueries({ queryKey: clientKeys.detail(id), exact: true });
+    }
+  }
+}
+
+/**
+ * Después de la baja (o de un 404 en una acción: el paciente ya no está), antes de salir del detalle: los listados de
+ * pacientes y el detalle del dueño se vacían (no se ve un momento el paciente borrado) y las demás consultas de clientes
+ * quedan viejas. Devuelve lo que se hace después de salir: sacar el detalle de la caché.
+ */
+export function afterPatientGone(
+  queryClient: QueryClient,
+  patient: Pick<PatientDetail, 'id' | 'client'>,
+): () => void {
   void queryClient.resetQueries({ queryKey: patientKeys.lists });
   void queryClient.invalidateQueries({ queryKey: patientKeys.all, refetchType: 'none' });
   void queryClient.invalidateQueries({ queryKey: clientKeys.all, refetchType: 'none' });
+  resetClientDetails(queryClient, [patient.client?.id ?? null]);
 
   return () => {
-    queryClient.removeQueries({ queryKey: patientKeys.detail(id), exact: true });
+    queryClient.removeQueries({ queryKey: patientKeys.detail(patient.id), exact: true });
   };
 }
 

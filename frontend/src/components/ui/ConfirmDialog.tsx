@@ -41,7 +41,7 @@ const FOCUSABLE = [
  * Confirmación antes de una acción que no se deshace (el modal de Tabler, sin su JS): role="dialog" con aria-modal y el
  * foco en "Cancelar" al abrir. Mientras está abierto (revisión de la 1.2): las teclas se escuchan en `document` (Escape
  * cierra y Tab y Shift+Tab recorren solo el diálogo, esté el foco donde esté), el foco vuelve a "Cancelar" si sale del
- * diálogo o al terminar la espera, los botones inactivos no sueltan el foco (aria-disabled) y el fondo no se desplaza. Al
+ * diálogo o al terminar la espera (al primer campo con error, si lo hay), los botones inactivos no sueltan el foco (aria-disabled) y el fondo no se desplaza. Al
  * cerrar, el foco vuelve a donde estaba. El error de negocio se muestra adentro.
  */
 export function ConfirmDialog({
@@ -147,11 +147,15 @@ export function ConfirmDialog({
     };
   }, [open]);
 
-  // Al terminar la espera (con un error: la acción no se hizo), el foco vuelve a "Cancelar" (o "Cerrar"). También si el
-  // botón rojo desaparece (un *_IN_USE).
+  // Al terminar la espera (con un error: la acción no se hizo), el foco va al primer campo con error del diálogo (un 422 de
+  // la API en un campo, revisión de la 1.3b) o, si no hay, vuelve a "Cancelar" (o "Cerrar"). Si el botón de la acción
+  // desaparece (un *_IN_USE), a "Cerrar".
   useEffect(() => {
-    if (open && ((wasBusy.current && !busy) || !canConfirm)) {
+    if (open && !canConfirm) {
       cancelRef.current?.focus();
+    } else if (open && wasBusy.current && !busy) {
+      const invalid = dialogRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      (invalid ?? cancelRef.current)?.focus();
     }
 
     wasBusy.current = busy;
