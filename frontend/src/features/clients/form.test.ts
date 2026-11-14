@@ -191,6 +191,17 @@ describe('clientFormErrors: los límites de cada campo', () => {
     expect(errorsFor({ notes: '𠀀'.repeat(1001) }, person).notes).toBe(M.notes.max);
     expect(errorsFor({ notes: '🐶'.repeat(10) }, person).notes).toBe(M.notes.regex);
   });
+
+  it.each([
+    ['address', 255],
+    ['city', 100],
+  ] as const)(
+    '%s cuenta caracteres: %i letras de 2 unidades UTF-16 pasan; una más, el error del largo',
+    (field, max) => {
+      expect(errorsFor({ [field]: '𠀀'.repeat(max) }, person)[field]).toBeUndefined();
+      expect(errorsFor({ [field]: '𠀀'.repeat(max + 1) }, person)[field]).toBe(M[field].max);
+    },
+  );
 });
 
 describe('clientFormToPayload: el cuerpo que se manda', () => {

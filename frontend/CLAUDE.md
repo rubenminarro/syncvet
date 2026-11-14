@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066) y la 1.2 cerrada (R-067). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
-| Siguiente | La 1.3a de la F1 (pacientes: listado, detalle, alta y edición), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#13a-pacientes-listado-detalle-alta-y-edición); los listados siguen la convención de la 1.1 y los formularios, la de la 1.2 (§5); queda la deuda 22 del backend (el microchip) |
-| Tests | Vitest: 502 tests en 29 archivos, en verde (corrida del cierre de la 1.2, el 2026-11-13, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 17 casos contra `syncvet_e2e`, en verde |
+| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066), la 1.2 cerrada (R-067) y la 1.3a cerrada (R-068). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | 1.3a (pacientes: listado, detalle, alta y edición), COMPLETADO (R-068) en `feature/front-1-3a-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13a). Antes, la 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
+| Siguiente | La 1.3b de la F1 (pacientes: fallecimiento, cambio de dueño y baja; la verificación del desvío 8 de la 0.1), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#13b-pacientes-fallecimiento-cambio-de-dueño-y-baja), en `feature/front-1-3b-pacientes` |
+| Tests | Vitest: 642 tests en 35 archivos, en verde (corrida del cierre de la 1.3a, el 2026-11-14, registrada en "Resultado" de `f1-clientes-y-pacientes.md`), más 3 del último cambio de la entrega, verificados con `vitest related`; Playwright: 18 casos contra `syncvet_e2e`, en verde |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -68,8 +68,8 @@ frontend/
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1)
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
@@ -107,7 +107,8 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   * **Lo escrito es siempre texto en la URL**: el router lee cada valor como JSON (`?buscar=1e3` sería el número 1000); las
     claves de `TEXT_SEARCH_PARAMS` (`src/app/search-params.ts`, el `parseSearch` y el `stringifySearch` del router) se leen y
     se escriben tal cual. `buscar` ya está y vale para todos los listados; otro parámetro de texto se suma a esa lista.
-  * **El campo de búsqueda es local** (`SearchField`) y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`,
+  * **El campo de búsqueda es local** (`SearchField`, con el hook común `useSearchText` de `src/lib/hooks/use-search-text.ts`, desde
+    la 1.3a: lo usan `/clientes` y `/pacientes`) y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`,
     `src/lib/hooks/`, solo con primitivos), sin los espacios de los extremos, con `replace: true` y de vuelta en la página 1; el
     filtro y la página cambian la URL con historial ("Atrás" vuelve). El campo toma lo de la URL **solo si el cambio vino de
     afuera** ("Atrás", un enlace): no si es lo que el campo mandó y todavía no llegó, ni si coincide con lo escrito sin los
@@ -137,6 +138,11 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
     DNS, la API.
   * **Un solo envío**: Guardar se deshabilita con `formState.isSubmitting` y con la mutación pendiente, y una `ref` deja pasar un
     solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido.
+  * **El largo en caracteres, como la API** (desde la 1.3a): los textos que admiten letras fuera del plano básico (`\p{L}`, o sin
+    regla de caracteres) no llevan `maxLength` nativo, que cuenta unidades UTF-16 (un emoji es 2); el largo lo controla Zod con el
+    mensaje de la API. Lo conservan los campos de solo caracteres de una unidad (documento, email, microchip).
+  * **Una fecha a medio escribir** (`DateField`, desde la 1.3a): el `<input type="date">` da `''` con `validity.badInput`; al
+    enviar se lee del campo y se muestra el error de formato de la API, sin mandar (nunca se borra una fecha guardada sin aviso).
   * **Los opcionales vacíos van en `null`** y la edición manda el formulario completo; guardar y "Cancelar" reemplazan la entrada
     del formulario en el historial (`replace`).
 * **Componentes de Tabler a través de `src/components/ui`**: las páginas no repiten el marcado de Tabler. Sin Tailwind ni otra

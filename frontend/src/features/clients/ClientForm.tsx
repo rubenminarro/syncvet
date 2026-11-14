@@ -30,8 +30,11 @@ interface ClientFormProps {
 }
 
 /**
- * El formulario de alta y edición (persona o empresa). Al cambiar de tipo, los campos del otro se ocultan (sus valores
- * quedan en el formulario, por si se vuelve, pero se mandan en null: clientFormToPayload).
+ * El formulario de alta y edición (persona o empresa). Los textos con letras (nombre, apellido, razón social, dirección, ciudad y
+ * notas) no llevan `maxLength`: el navegador cuenta unidades UTF-16 y la API, caracteres (`mb_strlen`); el largo lo controla
+ * clientFormErrors, con el mensaje de la API. El documento (letras sin tilde, números y guiones) y el email lo conservan.
+ * Al cambiar de tipo, los campos del otro se ocultan (sus valores quedan en el formulario, por si se vuelve, pero se mandan en
+ * null: clientFormToPayload).
  */
 export function ClientForm({
   title,
@@ -73,7 +76,6 @@ export function ClientForm({
               <TextField
                 label="Razón social"
                 required
-                maxLength={150}
                 autoComplete="organization"
                 error={errors.business_name?.message}
                 {...register('business_name')}
@@ -85,7 +87,6 @@ export function ClientForm({
                 <TextField
                   label="Nombre"
                   required
-                  maxLength={100}
                   autoComplete="given-name"
                   error={errors.first_name?.message}
                   {...register('first_name')}
@@ -95,7 +96,6 @@ export function ClientForm({
                 <TextField
                   label="Apellido"
                   required
-                  maxLength={100}
                   autoComplete="family-name"
                   error={errors.last_name?.message}
                   {...register('last_name')}
@@ -139,7 +139,6 @@ export function ClientForm({
           <div className="col-md-6">
             <TextField
               label="Ciudad"
-              maxLength={100}
               autoComplete="address-level2"
               error={errors.city?.message}
               {...register('city')}
@@ -148,7 +147,6 @@ export function ClientForm({
           <div className="col-12">
             <TextField
               label="Dirección"
-              maxLength={255}
               autoComplete="street-address"
               error={errors.address?.message}
               {...register('address')}
@@ -163,7 +161,6 @@ export function ClientForm({
             />
           </div>
           <div className="col-12">
-            {/* Sin maxLength: el navegador cuenta unidades UTF-16 y la API, caracteres (mb_strlen); lo controla clientFormErrors. */}
             <TextareaField
               label="Notas"
               rows={3}

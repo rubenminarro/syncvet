@@ -120,5 +120,6 @@ de una PC.
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
 * **Frontend:** F0 completada (R-063) e integrada a `main`, con la entrega de soporte del backend (front-00). F1 (clientes y
   pacientes) en curso: diseño aprobado (R-064), la entrega de soporte del backend front-01 (R-065), la 1.1 (clientes: listado y
-  detalle, R-066) y la 1.2 (clientes: alta, edición y baja, R-067) cerradas; el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+  detalle, R-066), la 1.2 (clientes: alta, edición y baja, R-067) y la 1.3a (pacientes: listado, detalle, alta y edición, R-068)
+  cerradas; sigue la 1.3b; el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

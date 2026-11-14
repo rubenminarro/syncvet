@@ -184,6 +184,25 @@ describe('/clientes/nuevo: alta', () => {
   });
 
   // Revisión de la 1.2: dos clics seguidos llegaban los dos a mutate antes de que el botón se deshabilitara (dos POST).
+  it('los textos con letras sin maxLength del navegador: una dirección de 255 caracteres de 2 unidades UTF-16 se manda', async () => {
+    const { store } = await openCreate();
+    // "𠀀" (U+20000) es una letra (\p{L}): la dirección la admite; el navegador la contaría como 2.
+    const address = '𠀀'.repeat(255);
+
+    for (const label of ['Nombre', 'Apellido', 'Dirección', 'Ciudad']) {
+      expect(field(label)).not.toHaveAttribute('maxlength');
+    }
+    fireEvent.click(field('Empresa'));
+    expect(field('Razón social')).not.toHaveAttribute('maxlength');
+    fireEvent.click(field('Persona'));
+    fillPerson();
+    type('Dirección', address);
+    submit();
+
+    await screen.findByText('Juan Pérez', { selector: 'h2' });
+    expect(store.bodies[0]?.address).toBe(address);
+  });
+
   it('las notas sin maxLength del navegador: 1000 caracteres fuera del plano básico (2000 unidades UTF-16) se mandan', async () => {
     const { store } = await openCreate();
     const notes = '𠀀'.repeat(1000);
