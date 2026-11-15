@@ -33,6 +33,14 @@ export const PERMISSIONS = {
   patientsUploadPhoto: 'patients.upload-photo',
   /** Quitar la foto (F1, entrega 1.4): los tres roles. */
   patientsDeletePhoto: 'patients.delete-photo',
+  /** /especies (F1, entrega 1.5): los tres roles. */
+  speciesIndex: 'species.index',
+  /** Alta de especies y razas (F1, entrega 1.5): administrador y veterinario. */
+  speciesStore: 'species.store',
+  /** Renombrar, activar e inactivar especies y razas propias (F1, entrega 1.5): administrador y veterinario. */
+  speciesUpdate: 'species.update',
+  /** La baja de especies y razas propias (F1, entrega 1.5): administrador y veterinario. */
+  speciesDestroy: 'species.destroy',
   /** /configuracion (provisoria en la F0; solo el administrador). */
   settingsUpdate: 'system-settings.update',
 } as const;

@@ -366,6 +366,53 @@ recepcionista ve la lista sin botones.
 
 **En el navegador.** La lista con muchas razas (el `SpeciesSeeder`); el ancho de tablet.
 
+#### Pendiente para el cierre (1.5)
+
+Implementación en `feature/front-1-5-especies` (commit WIP). Lo que pasa al resultado al cerrar:
+
+* **Frontend**: `/especies` (`species.index`, los tres roles) y "Especies" en el menú, entre "Pacientes" y "Configuración"
+  (`features/species/SpeciesPage.tsx`): las especies con sus razas en una lista que se despliega (`aria-expanded`), cada una con
+  "Común" o "Propia", "Inactivada" y la cantidad de razas. Quien administra (`species.store`, `.update` o `.destroy`: administrador
+  y veterinario) pide `GET species?include_inactive=1`; el recepcionista, sin él y sin acciones. Solo en las propias, cada acción
+  con su permiso: "Renombrar" (diálogo con un campo), "Inactivar" o "Activar" (sin confirmación) y "Eliminar" (`ConfirmDialog`;
+  con `SPECIES_IN_USE` o `BREED_IN_USE`, el mensaje y "Inactivar …", que la inactiva desde el mismo diálogo; ya inactivada o sin
+  `species.update`, solo "Cerrar"). "Nueva especie" y "Nueva raza" (también en una especie común) con `species.store`. El nombre,
+  con Zod y los mensajes de la API (`features/species/name.ts`: obligatorio, de 2 a 60 u 80 caracteres en `Array.from`, sin los
+  espacios de los extremos, al menos una letra y los caracteres de `CatalogMessages::NAME_REGEX`); el repetido, 422 en `name` al
+  campo. `CATALOG_GLOBAL_NOT_EDITABLE`, en el diálogo (no `/sin-permiso`); 404, aviso, el diálogo cerrado y el catálogo de nuevo.
+  Cada cambio invalida `['species']` (se vuelve a pedir) y `['patients']` (sin pedir hasta mostrarse). Doble envío: el botón en
+  espera y una `ref`. `PERMISSIONS` suma `speciesIndex`, `speciesStore`, `speciesUpdate` y `speciesDestroy`.
+* **Pruebas**: Vitest, `name.test.ts` (21), `SpeciesPage.test.tsx` (18) y el menú de los tres roles con "Especies"
+  (`permissions.test.tsx`). Mutaciones: 4 de 4 detectadas (las acciones en las comunes, 2 tests; el recepcionista pidiendo las
+  inactivas, 1; sin "Inactivar" con `*_IN_USE`, 1; el nombre sin recortar, 1). Playwright: `e2e/especies.spec.ts` (nuevo).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | La marca de lo inactivo dice "Inactivada", no "Inactiva" | El test de voseo toma "Inactiva" por el imperativo de tú de "inactivar" |
+| 2 | Activar o inactivar no pide confirmación (se deshace con el mismo botón); el error va en un aviso | No borra nada y la API lo permite aunque esté en uso |
+| 3 | Con `*_IN_USE`, el botón del diálogo pasa a "Inactivar …" (azul) en lugar de sumar uno, como `PATIENT_IN_USE` en la 1.3b | `ConfirmDialog` tiene dos botones |
+| 4 | El caso de Playwright usa "Canino" (la especie común del `SpeciesSeeder`), no "Perro" como decía el diseño | Es el nombre real del catálogo común |
+| 5 | La raza creada por Playwright queda inactivada en `syncvet_e2e` (no se puede borrar: la usó un paciente, también eliminado) | La base `syncvet_e2e` se recrea en cada corrida; en la demo (`syncvet.test`) no se usó ninguna raza nueva en un paciente |
+| 6 | `useSingleAction` se repite en `features/species/CatalogDialogs.tsx` (es de pacientes, `use-patient-action.ts`) | Moverla a `src/lib/hooks` toca la 1.3b y la 1.4: queda para una entrega de limpieza si se acepta |
+| 7 | "Nueva raza" se ofrece también en una especie inactivada | La API lo acepta (`StoreBreedRequest` y `BreedService` no lo controlan); el diseño no lo limita |
+
+**Cifras** (2026-11-14). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test` falló en 5
+tests de `src/lib/auth/permissions.test.ts`, un segundo test del menú que no se había actualizado con "Especies" (el de
+`src/app/permissions.test.tsx` sí); corregido (y sumado el caso sin `species.index`), se repitieron solo `npm test` y el `lint` y el
+`typecheck` de ese archivo, con la regla nueva del presupuesto: Vitest, 786 tests en 41 archivos, en verde (antes 746 en 39: 40
+nuevos). Playwright, solo el caso nuevo `e2e/especies.spec.ts`: 1 de 1 (39,2 s; 1,5 min con la preparación), con `:8010` y `:5174`
+libres después.
+
+**Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` (Vite propio en `:5181`, detenido por su PID,
+16260), solo lo que el caso de Playwright no ve, **6 de 6**: (1) como `vet-a`, "Especies" en el menú y Canino desplegado con sus 14
+razas comunes, sin botones; (2) a 768 px de ancho, sin desplazamiento horizontal; (3) "12" frenado en el navegador y "  CANINO "
+rechazado por la API (422, "Ya existe una especie con ese nombre." en el campo: sin distinguir mayúsculas ni espacios); (4) una
+especie propia: alta, cambio de nombre, inactivación ("Inactivada") y baja; (5) `recepcion-a`, sin ningún botón de acción; (6) el
+catálogo como estaba (el `GET species?include_inactive=1` igual antes y después). La consola: solo el 422 del control 3, provocado
+por él. Capturas en `%TEMP%\claude\…\scratchpad\capturas-1-5`: `01-especies-canino-desplegado.png`, `02-tablet.png`,
+`03-nombre-repetido.png`, `04-especie-propia-inactivada.png`, `05-dialogo-eliminar.png` y `06-recepcionista.png`. **Datos de la
+demo:** la especie "Valida Especie" se creó, se renombró, se inactivó y se borró desde la interfaz; ninguna raza ni paciente nuevo.
+
 ## Documentación por entrega
 
 | Entrega | Actualizar |
