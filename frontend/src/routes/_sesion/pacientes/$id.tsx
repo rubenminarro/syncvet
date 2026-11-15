@@ -16,5 +16,7 @@ export const Route = createFileRoute('/_sesion/pacientes/$id')({
 function PatientDetailRoute() {
   const { id } = Route.useLoaderData();
 
-  return <PatientDetailPage id={id} />;
+  // key: otro id es otra pantalla (revisión de la 1.4). Sin ella, el router reutiliza el componente y el estado local (un
+  // archivo elegido, un diálogo abierto, un pedido en curso) pasaría de un registro al otro.
+  return <PatientDetailPage key={id} id={id} />;
 }

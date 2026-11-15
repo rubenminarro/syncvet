@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066), la 1.2 cerrada (R-067), la 1.3a cerrada (R-068) y la 1.3b cerrada (R-069). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | 1.3b (pacientes: fallecimiento, cambio de dueño y baja), COMPLETADO (R-069) en `feature/front-1-3b-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13b). Antes, la 1.3a (pacientes: listado, detalle, alta y edición), COMPLETADO (R-068) en `feature/front-1-3a-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13a). Antes, la 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
-| Siguiente | La 1.4 de la F1 (foto del paciente: ver como `Blob`, subir y borrar), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#14-foto-del-paciente), en `feature/front-1-4-foto` (creada desde `feature/front-1-3b-pacientes`) |
-| Tests | Vitest: 694 tests en 37 archivos, en verde (corrida del cierre de la 1.3b, el 2026-11-14, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 19 casos contra `syncvet_e2e` (18 de la 1.3a y `pacientes-estado` de la 1.3b; la corrida completa, al cerrar la F1) |
+| Fase | F1 (clientes y pacientes), EN CURSO: diseño aprobado (R-064), front-01 cerrada (R-065), la 1.1 cerrada (R-066), la 1.2 cerrada (R-067), la 1.3a cerrada (R-068), la 1.3b cerrada (R-069) y la 1.4 cerrada (R-070). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | 1.4 (foto del paciente: ver como `Blob`, subir, reemplazar y quitar), COMPLETADO (R-070) en `feature/front-1-4-foto`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-14). Antes, la 1.3b (pacientes: fallecimiento, cambio de dueño y baja), COMPLETADO (R-069) en `feature/front-1-3b-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13b). Antes, la 1.3a (pacientes: listado, detalle, alta y edición), COMPLETADO (R-068) en `feature/front-1-3a-pacientes`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13a). Antes, la 1.2 (clientes: alta, edición y baja), COMPLETADO (R-067) en `feature/front-1-2-clientes-abm`, sin integrar a `main` (se integra al cerrar la F1): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12). Antes, la 1.1 (clientes: listado y detalle), COMPLETADO (R-066) en `feature/front-1-1-clientes`: [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11) |
+| Siguiente | La 1.5 de la F1 (especies y razas), APROBADA (R-064), en [`f1-clientes-y-pacientes.md`](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#15-especies-y-razas), en `feature/front-1-5-especies` (creada desde `feature/front-1-4-foto`) |
+| Tests | Vitest: 746 tests en 39 archivos, en verde (corrida del cierre de la 1.4, el 2026-11-14, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 20 casos contra `syncvet_e2e` (18 de la 1.3a, `pacientes-estado` de la 1.3b y `pacientes-foto` de la 1.4; la corrida completa, al cerrar la F1) |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -68,8 +68,8 @@ frontend/
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, TimeField, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a)
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, TimeField, FileField, BlobImage, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
@@ -189,7 +189,25 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   consultas de la sucursal, `invalidateBranchQueries`) y `branch-changed` en el canal (las demás pestañas invalidan `['me']` y
   las consultas de la sucursal). Al volver a la pestaña (`focus`, `visibilitychange`), `SessionLayout` vuelve a pedir `me`: la
   sucursal pudo cambiar en otra PC o un administrador pudo inactivarla. Sin sucursal actual, un aviso pide elegir una.
-* **Descargas con token** (desde la F1): se piden con el cliente como `blob` y se muestran con una URL de objeto.
+* **Descargas con token** (desde la 1.4): `api.getBlob(path, { expectedType })` (`src/lib/api/client.ts`) arma el pedido como los
+  demás (el token en la cabecera, nunca en la URL) y devuelve el `Blob`; los errores JSON de la API son el `ApiError` de siempre (el
+  401 cierra la sesión) y un 2xx en JSON, una página HTML o un tipo distinto de `expectedType` (la foto pide `image/`) es
+  `HTTP_ERROR`. Se muestran con `BlobImage` (`src/components/ui`): la ref del `<img>`, con limpieza (React 19), crea la URL de
+  objeto al montar y la libera (`revokeObjectURL`) al cambiar el `Blob` o al desmontar, sin estado. La caché de un archivo
+  (`['patients', 'photo', id]`: `staleTime: Infinity`, `gcTime` de 5 minutos) se vacía al reemplazarlo (`resetQueries`: se espera
+  el nuevo, nunca se ve el viejo) o al borrarlo (`Query.reset()`, sin volver a pedirlo); salir de la sesión la borra con el resto
+  (`queryClient.clear()`).
+* **Subir un archivo** (desde la 1.4; el modelo es `features/patients/PatientPhoto.tsx` y `photo.ts`): `FileField`, vista previa
+  con `BlobImage` y un botón para mandar (`FormData`). El navegador controla como la API, con sus mensajes: el tamaño primero (5 MB
+  justos pasan, como `max` de Laravel en kilobytes) y el tipo **por el contenido** (los primeros bytes de un JPG, un PNG o un WEBP;
+  nunca por la extensión ni el tipo declarado, que la API ignora). Un 422 o 413 con `errors.<campo>` va al campo (con el foco al
+  terminar la espera, por un pedido de foco propio y no por la vuelta de `isPending`); un 413 sin `errors`, a una alerta. La
+  mutación lleva `gcTime: 0` y `reset()` en `onSettled`: el archivo no queda en la caché de mutaciones. En los tests, el `FormData`
+  y el `File` de Node (el `fetch` de Node no lee el `File` de jsdom).
+* **Una pantalla por registro** (desde la 1.4): la ruta de un detalle dibuja su página con `key={id}`
+  (`<PatientDetailPage key={id} id={id} />`): sin ella, el router reutiliza el componente al cambiar solo el `$id` y el estado local
+  (un archivo elegido, un diálogo abierto, un pedido en curso) pasaría de un registro al otro. Toda pantalla de detalle nueva la
+  lleva.
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
   con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
   necesita el DOM lo pide con `// @vitest-environment jsdom` en la primera línea (`client.test.ts`). Se permiten `.each` y los

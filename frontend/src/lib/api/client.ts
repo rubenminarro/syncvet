@@ -254,11 +254,20 @@ export async function apiRequest<T>(
  * Los errores de la API son JSON y llegan como siempre, como ApiError (también el cierre de sesión con un 401); un 2xx en JSON
  * no es un archivo: el `success: false` del contrato es su ApiError y lo demás, HTTP_ERROR.
  */
-export async function getBlob(path: string, options: ReadOptions = {}): Promise<Blob> {
-  const sent = await send(path, { ...options, method: 'GET' });
+export async function getBlob(
+  path: string,
+  options: ReadOptions & { expectedType?: string } = {},
+): Promise<Blob> {
+  const { expectedType, ...rest } = options;
+  const sent = await send(path, { ...rest, method: 'GET' });
   const { response } = sent;
+  const type = (response.headers.get('Content-Type') ?? '').toLowerCase();
+  // Revisión de la 1.4: una página HTML (el index.html de un servidor mal configurado) o un tipo distinto del esperado no es
+  // el archivo: HTTP_ERROR, como un 2xx fuera del contrato en apiRequest.
+  const outOfContract =
+    type.includes('text/html') || (expectedType !== undefined && !type.startsWith(expectedType));
 
-  if (!response.ok || (response.headers.get('Content-Type') ?? '').includes('json')) {
+  if (!response.ok || type.includes('json') || outOfContract) {
     const received = await readBody(response);
     const json = received.kind === 'json' ? received.value : null;
 

@@ -117,8 +117,14 @@ function choose(file: File) {
   fireEvent.change(fileInput(), { target: { files: [file] } });
 }
 
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
 function png(name = 'nueva.png', size = 10): File {
-  return nodeFile([new Uint8Array(size)], name, 'image/png');
+  // Con la firma de un PNG: el navegador mira los primeros bytes, como la API (revisión de la 1.4).
+  const bytes = new Uint8Array(Math.max(size, PNG_SIGNATURE.length));
+  bytes.set(PNG_SIGNATURE);
+
+  return nodeFile([bytes], name, 'image/png');
 }
 
 async function blobText(blob: Blob | undefined): Promise<string> {
@@ -182,6 +188,65 @@ describe('/pacientes/$id: la foto (1.4)', () => {
     });
     expect(screen.queryByText('El paciente no tiene foto.')).not.toBeInTheDocument();
     expect(screen.queryByText('No encontramos este paciente')).not.toBeInTheDocument();
+    // El detalle pasa a sin foto (revisión de la 1.4): ni "Cambiar la foto" ni "Quitar la foto" sobre una que no está.
+    expect(await screen.findByText('Elegir una foto', { selector: 'label' })).toBeInTheDocument();
+    expect(document.querySelector('.patient-photo-delete')).toBeNull();
+  });
+
+  it('un 200 que no es una imagen (el index.html de un servidor mal configurado): el error, no una foto rota', async () => {
+    server.use(
+      http.get(
+        PHOTO_URL,
+        () =>
+          new HttpResponse('<!doctype html><title>SyncVet</title>', {
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    );
+    await openDetail(patientDetail({ has_photo: true }));
+
+    expect(
+      await screen.findByText(
+        'No se pudo completar el pedido. Si se repite, avisá al administrador.',
+        {
+          selector: '.patient-photo-error',
+        },
+      ),
+    ).toBeInTheDocument();
+    expect(image()).toBeNull();
+    expect(created).toHaveLength(0);
+  });
+
+  it('otro paciente es otra pantalla (key, revisión de la 1.4): el archivo elegido no pasa al siguiente', async () => {
+    let posts = 0;
+    server.use(
+      meHandler(meFor('recepcionista')),
+      http.get('/api/patients/:id', ({ params }) =>
+        success(
+          patientDetail({
+            id: Number(params.id),
+            name: params.id === '1' ? 'Firulais' : 'Michi',
+          }),
+        ),
+      ),
+      http.post('/api/patients/:id/photo', () => {
+        posts += 1;
+
+        return success(patientDetail({ has_photo: true }));
+      }),
+    );
+    const { history } = renderApp('/pacientes/1', { session: sessionFor() });
+    await screen.findByText('Firulais', { selector: 'h2', exact: false });
+    choose(png('de-firulais.png'));
+    await screen.findByAltText('Vista previa de la foto nueva');
+
+    history.push('/pacientes/2');
+
+    await screen.findByText('Michi', { selector: 'h2', exact: false });
+    expect(screen.queryByAltText('Vista previa de la foto nueva')).not.toBeInTheDocument();
+    expect(screen.queryByText('Subir la foto', { selector: 'button' })).not.toBeInTheDocument();
+    expect(revoked).toEqual(['blob:syncvet/1']);
+    expect(posts).toBe(0);
   });
 
   it('un error del servidor al verla: el mensaje en el lugar de la foto, el detalle sigue', async () => {
@@ -209,7 +274,7 @@ describe('/pacientes/$id: la foto (1.4)', () => {
         });
       }),
     );
-    await openDetail(patientDetail({ has_photo: false }));
+    const { queryClient } = await openDetail(patientDetail({ has_photo: false }));
 
     choose(png('nueva.png'));
 
@@ -233,6 +298,8 @@ describe('/pacientes/$id: la foto (1.4)', () => {
     expect(revoked).toContain('blob:syncvet/1');
     expect(await blobText(created[1]?.blob)).toBe('de-la-api');
     expect(fileInput().value).toBe('');
+    // El archivo no queda en la caché de mutaciones (revisión de la 1.4): gcTime 0 y reset() al terminar.
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
     expect(screen.getByText('Cambiar la foto', { selector: 'label' })).toBeInTheDocument();
   });
 
@@ -331,6 +398,37 @@ describe('/pacientes/$id: la foto (1.4)', () => {
       expect(posts).toBe(0);
     },
   );
+
+  it('un texto renombrado a .png lo frena el navegador por el contenido, sin pedido', async () => {
+    let posts = 0;
+    server.use(
+      http.post(PHOTO_URL, () => {
+        posts += 1;
+
+        return success(patientDetail({ has_photo: true }));
+      }),
+    );
+    await openDetail(patientDetail());
+
+    choose(nodeFile(['Esto es un texto.'], 'texto.png', 'image/png'));
+
+    expect(
+      await screen.findByText('La foto debe ser una imagen JPG, PNG o WEBP.', {
+        selector: '.invalid-feedback',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByAltText('Vista previa de la foto nueva')).not.toBeInTheDocument();
+    expect(posts).toBe(0);
+  });
+
+  it('un JPG con la extensión .gif pasa el navegador (la API mira el contenido y lo acepta)', async () => {
+    await openDetail(patientDetail());
+
+    choose(nodeFile([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0])], 'foto.gif', 'image/gif'));
+
+    expect(await screen.findByAltText('Vista previa de la foto nueva')).toBeInTheDocument();
+    expect(document.querySelector('.patient-photo-form .invalid-feedback')).toBeNull();
+  });
 
   it('5 MB justos pasan el control del navegador', async () => {
     await openDetail(patientDetail());

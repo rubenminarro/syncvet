@@ -17,13 +17,13 @@ import { useCan } from '../auth/permissions';
 import {
   afterPhotoChanged,
   deletePatientPhoto,
-  forgetPatientPhoto,
+  markWithoutPhoto,
   patientKeys,
   patientPhotoQueryOptions,
   uploadPatientPhoto,
 } from './api';
 import { usePatientGone, useSingleAction } from './use-patient-action';
-import { PHOTO_ACCEPT, photoFileError } from './photo';
+import { PHOTO_ACCEPT, PHOTO_MESSAGES, photoFileError } from './photo';
 import type { PatientDetail } from './types';
 
 /** La foto no está (otra persona la quitó, o la referencia apunta a un archivo que no existe): el lugar vacío, sin error. */
@@ -59,8 +59,12 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
   const [alert, setAlert] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  // El foco va al campo con el error de la API cuando termina la espera: mientras sube, el campo está deshabilitado.
-  const focusInput = useRef(false);
+  // El foco va al campo con el error de la API cuando termina la espera (mientras sube, el campo está deshabilitado). Es un
+  // pedido propio y no la vuelta de isPending: con reset() al terminar, React puede no dibujar nunca la espera.
+  const [focusRequest, setFocusRequest] = useState(0);
+  const focusedRequest = useRef(0);
+  // El control del archivo lee sus primeros bytes (asíncrono): solo cuenta el de la última elección.
+  const choice = useRef(0);
 
   const photo = useQuery({
     ...patientPhotoQueryOptions(patient.id),
@@ -77,12 +81,15 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
 
   const upload = useMutation({
     mutationFn: (chosen: File) => uploadPatientPhoto(patient.id, chosen),
+    // El archivo no queda en la caché de mutaciones (revisión de la 1.4, como las contraseñas): gcTime 0 y reset() al terminar.
+    gcTime: 0,
     onMutate: () => {
       setAlert(null);
       setFieldError(undefined);
     },
     onSettled: () => {
       single.release();
+      upload.reset();
     },
     onSuccess: (response) => {
       clearFile();
@@ -96,7 +103,7 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
       if (photoError !== undefined) {
         clearFile();
         setFieldError(photoError);
-        focusInput.current = true;
+        setFocusRequest((current) => current + 1);
 
         return;
       }
@@ -129,10 +136,7 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
         // Ya no tenía foto (la quitó otra persona): aviso y el paciente pedido de nuevo (has_photo).
         toast.show(isApiError(error) ? error.message : MESSAGES.programming);
         setConfirmingDelete(false);
-        queryClient.setQueryData<PatientDetail>(patientKeys.detail(patient.id), (current) =>
-          current === undefined ? current : { ...current, has_photo: false },
-        );
-        forgetPatientPhoto(queryClient, patient.id);
+        markWithoutPhoto(queryClient, patient.id);
         void queryClient.invalidateQueries({ queryKey: patientKeys.detail(patient.id) });
 
         return;
@@ -148,12 +152,24 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
     },
   });
 
+  // Con 404 PATIENT_PHOTO_NOT_FOUND al verla (has_photo decía que había; el archivo falta): el detalle pasa a sin foto, así
+  // no se ofrecen "Cambiar" ni "Quitar" sobre una foto que no está (revisión de la 1.4).
+  const photoMissing = isPhotoMissing(photo.error);
+
   useEffect(() => {
-    if (!upload.isPending && focusInput.current) {
-      focusInput.current = false;
+    if (photoMissing) {
+      markWithoutPhoto(queryClient, patient.id);
+    }
+  }, [photoMissing, queryClient, patient.id]);
+
+  const uploading = upload.isPending;
+
+  useEffect(() => {
+    if (!uploading && focusRequest !== focusedRequest.current) {
+      focusedRequest.current = focusRequest;
       inputRef.current?.focus();
     }
-  }, [upload.isPending]);
+  }, [focusRequest, uploading]);
 
   if (!canShow && !canUpload && !canDelete) {
     return null;
@@ -219,6 +235,7 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
             disabled={busy}
             onChange={(event) => {
               const chosen = event.target.files?.[0] ?? null;
+              const current = ++choice.current;
               setAlert(null);
 
               if (chosen === null) {
@@ -228,14 +245,28 @@ export function PatientPhoto({ patient }: { patient: PatientDetail }) {
                 return;
               }
 
-              const error = photoFileError(chosen);
-              setFieldError(error ?? undefined);
+              void photoFileError(chosen).then(
+                (error) => {
+                  if (current !== choice.current) {
+                    return;
+                  }
 
-              if (error === null) {
-                setFile(chosen);
-              } else {
-                clearFile();
-              }
+                  setFieldError(error ?? undefined);
+
+                  if (error === null) {
+                    setFile(chosen);
+                  } else {
+                    clearFile();
+                  }
+                },
+                () => {
+                  // El navegador no pudo leer el archivo (se movió o se borró después de elegirlo).
+                  if (current === choice.current) {
+                    setFieldError(PHOTO_MESSAGES.notAnImage);
+                    clearFile();
+                  }
+                },
+              );
             }}
           />
           {file !== null ? (

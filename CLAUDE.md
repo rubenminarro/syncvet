@@ -74,9 +74,12 @@ alguna pide más corridas, vale esta.
 * **Al final**, una sola corrida completa del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y `build`; en el backend,
   `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
   entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.
+* **Si la corrida final falla por un detalle** (un tipo, una regla de lint, un formato), se corrige y se repiten solo el paso que
+  falló y los tests del archivo tocado, no la corrida entera.
 * **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
 * **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
-* **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla.
+* **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
+  cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales).
 * **Mutaciones**: 3 o 4, de las reglas más importantes.
 * **Revisión**: lee el diff y corre solo `composer test:fast` o `npm test`; no repite suites, Playwright ni el navegador.
 * **Esperas**: mientras corre algo largo, no se consulta en bucle; se espera el aviso de fin.
@@ -126,7 +129,8 @@ de una PC.
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
 * **Frontend:** F0 completada (R-063) e integrada a `main`, con la entrega de soporte del backend (front-00). F1 (clientes y
   pacientes) en curso: diseño aprobado (R-064), la entrega de soporte del backend front-01 (R-065), la 1.1 (clientes: listado y
-  detalle, R-066), la 1.2 (clientes: alta, edición y baja, R-067), la 1.3a (pacientes: listado, detalle, alta y edición, R-068) y
-  la 1.3b (pacientes: fallecimiento, cambio de dueño y baja, R-069) cerradas; sigue la 1.4 (foto del paciente); el detalle, en
+  detalle, R-066), la 1.2 (clientes: alta, edición y baja, R-067), la 1.3a (pacientes: listado, detalle, alta y edición, R-068),
+  la 1.3b (pacientes: fallecimiento, cambio de dueño y baja, R-069) y la 1.4 (foto del paciente, R-070) cerradas; sigue la 1.5
+  (especies y razas); el detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

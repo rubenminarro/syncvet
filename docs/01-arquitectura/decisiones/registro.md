@@ -1524,3 +1524,23 @@ en `5f3aac7`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en
 | Siguiente | La entrega 1.4 del frontend (foto del paciente), APROBADA (R-064), en `feature/front-1-4-foto`, creada desde `feature/front-1-3b-pacientes` | Usuario |
 
 **Qué no cambió.** Backend, rutas, permisos de la API, `error_code`, códigos HTTP y colecciones.
+
+# R-070 Cierre de la entrega 1.4 del frontend (foto del paciente) (2026-11-14)
+
+Quinta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-4-foto` (desde `feature/front-1-3b-pacientes` en
+`e20186e`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-14).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `api.getBlob` (descargas con el token; los errores JSON como `ApiError`, el 401 cierra la sesión). En `/pacientes/$id`, la tarjeta "Foto": verla como `Blob` con `BlobImage` (la URL de objeto se libera al cambiar o desmontar), subirla o reemplazarla con `FileField`, vista previa y "Subir la foto", y quitarla con `ConfirmDialog`; el navegador frena lo que no es JPG, PNG o WEBP y lo de más de 5 MB, con los mensajes de la API; 413 y 422 en el campo; la foto no se descarga en los listados. Los tres permisos de foto (los tres roles). Sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvíos | Los 11, aceptados: entre ellos, `POST` y `DELETE` de la foto responden 200 (no 201); `BlobImage` en lugar de un hook con estado; al quitar, `Query.reset()`; el "rol sin permiso" del navegador, simulado (ningún rol real lo pierde); los tests de la subida con el `FormData` y el `File` de Node. El 6 (el tipo declarado) quedó reemplazado por la corrección 3 | Usuario |
+| Foto vertical de un celular | Prueba manual del usuario: la orientación del EXIF la aplica el backend (R-027) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `dde595a`: 5 hallazgos (el estado de la foto pasaba de un paciente a otro si el router cambiaba solo el `$id`; `getBlob` aceptaba una página HTML como archivo; el navegador rechazaba por la extensión un JPG que la API acepta; "Cambiar" y "Quitar" sobre una foto cuyo archivo falta; el `File` en la caché de mutaciones); 3 de 3 mutaciones detectadas | Revisión |
+| Correcciones | 1: **convención nueva**, cada ruta de detalle dibuja su página con `key={id}` (`/pacientes/$id` y `/clientes/$id`; `frontend/CLAUDE.md` §5). 2: `getBlob` da `HTTP_ERROR` con HTML o con un tipo distinto de `expectedType` (la foto pide `image/`). 3: el tipo de la foto por los primeros bytes, como la API. 4: con 404 `PATIENT_PHOTO_NOT_FOUND` al verla, el detalle pasa a `has_photo: false`. 5: la subida con `gcTime: 0` y `reset()`, y el foco tras el error por un pedido propio | Usuario |
+| Presupuesto por entrega | Dos reglas nuevas en el `CLAUDE.md` de la raíz: si la corrida final falla por un detalle, se repiten solo el paso que falló y los tests del archivo tocado; si Playwright ya cubre un flujo, en Edge solo lo que Playwright no ve | Usuario |
+| Tarea para después de la F1 | Una entrega `chore`: la preparación de Playwright reutiliza `syncvet_e2e` cuando las migraciones no cambiaron y solo restaura los datos de la demo ([handoff](../../03-plan-desarrollo/handoff.md#próximas-tareas)) | Usuario |
+| Validación | El usuario dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 10 de 10 de la implementación y 5 de 5 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 746 tests en 39 archivos; `typecheck`, `lint` y `build` sin errores ni avisos; Playwright, `pacientes-foto` en la implementación y después de las correcciones | Usuario |
+| Siguiente | La entrega 1.5 del frontend (especies y razas), APROBADA (R-064), en `feature/front-1-5-especies`, creada desde `feature/front-1-4-foto` | Usuario |
+
+**Qué no cambió.** Backend, rutas, permisos de la API, `error_code`, códigos HTTP y colecciones.

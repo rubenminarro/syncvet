@@ -107,8 +107,8 @@ interfaz.
 | 1.2 | Clientes: alta, edición (persona y empresa, el cambio de tipo) y baja | No | `feature/front-1-2-clientes-abm` | COMPLETADO (R-067, [resultado](#entrega-12)) |
 | 1.3a | Pacientes: listado, detalle, alta (desde el cliente) y edición | front-01 | `feature/front-1-3a-pacientes` | COMPLETADO (R-068, [resultado](#entrega-13a)) |
 | 1.3b | Pacientes: fallecimiento (y anularlo), cambio de dueño y baja; la verificación del desvío 8 | No | `feature/front-1-3b-pacientes`, desde `feature/front-1-3a-pacientes` (nombre del usuario al cerrar la 1.3a; el diseño decía `feature/front-1-3b-pacientes-estado`) | COMPLETADO (R-069, [resultado](#entrega-13b)) |
-| 1.4 | Foto del paciente: ver (como `Blob`), subir y borrar | No | `feature/front-1-4-foto`, desde `feature/front-1-3b-pacientes` | APROBADA (R-064) |
-| 1.5 | Especies y razas: listado, alta, edición, inactivación y baja | No | `feature/front-1-5-especies` | APROBADA (R-064) |
+| 1.4 | Foto del paciente: ver (como `Blob`), subir y borrar | No | `feature/front-1-4-foto`, desde `feature/front-1-3b-pacientes` | COMPLETADO (R-070, [resultado](#entrega-14)) |
+| 1.5 | Especies y razas: listado, alta, edición, inactivación y baja | No | `feature/front-1-5-especies`, desde `feature/front-1-4-foto` | APROBADA (R-064) |
 
 Cada rama sale de la anterior, como en la F0, y todo se integra a `main` al cerrar la F1. La entrega de pacientes del pedido original
 se divide en dos (1.3a y 1.3b, [pregunta 12](#preguntas-del-diseño)): sola sería el doble que las demás. Las especies quedan al final:
@@ -339,60 +339,7 @@ de la foto al volver al detalle dentro de los 5 minutos; la consola sin errores.
 
 #### Pendiente para el cierre (1.4)
 
-Implementación en `feature/front-1-4-foto` (commit WIP). Lo que pasa al resultado al cerrar:
-
-* **Frontend**: `api.getBlob` (`src/lib/api/client.ts`, también exportada sola): el mismo armado del pedido que `apiRequest` (ahora
-  en `send` y `failed`, sin cambiar su comportamiento); con un 2xx que no es JSON devuelve el `Blob`; los errores JSON son el
-  `ApiError` de siempre (el 401 cierra la sesión); un 2xx en JSON es su `ApiError` (`success: false`) o `HTTP_ERROR`; la
-  cancelación se propaga tal cual. En `/pacientes/$id`, la tarjeta "Foto" (`features/patients/PatientPhoto.tsx`): la foto con
-  `['patients', 'photo', id]` (`staleTime: Infinity`, `gcTime` de 5 minutos), solo si `has_photo` y con `patients.show-photo`;
-  sin foto o con 404 `PATIENT_PHOTO_NOT_FOUND`, "Sin foto"; otro error, su mensaje en el lugar de la foto. Subir o reemplazar:
-  `FileField` (nuevo), la vista previa y "Subir la foto"; el navegador frena lo que no es JPG, PNG o WEBP y lo de más de 5 MB
-  (`features/patients/photo.ts`, con los mensajes de la API); 422 y 413 con `errors.photo`, al campo (con el foco, al terminar la
-  espera); 413 sin `errors`, alerta; 404 del paciente, aviso y al listado. "Quitar la foto" con `ConfirmDialog`; con
-  `PATIENT_PHOTO_NOT_FOUND`, aviso y el paciente pedido de nuevo. Doble envío: el botón en espera y la `ref` de `useSingleAction`.
-  `PERMISSIONS` suma `patientsShowPhoto`, `patientsUploadPhoto` y `patientsDeletePhoto` (los tres roles). El listado no descarga
-  fotos (test).
-* **Pruebas**: Vitest, `client.test.ts` (5 de `getBlob`), `photo.test.ts` (10) y `PatientPhoto.test.tsx` (28). Mutaciones: 4 de 4
-  detectadas (sin `revokeObjectURL`, 5 tests; sin el control de tamaño, 3; `getBlob` que toma un 404 como éxito, 4;
-  `invalidateQueries` en lugar de `resetQueries` al reemplazar, que mostraba la foto vieja mientras llegaba la nueva, 1).
-  Playwright: `e2e/pacientes-foto.spec.ts` (nuevo). Navegador: ver abajo.
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | `POST` y `DELETE patients/{id}/photo` responden **200** con el `ShowPatientResource`, no 201 como decía el diseño. El detalle toma esa respuesta (`has_photo`) sin otro pedido | Es el contrato de la API (`PatientPhotoController`); la interfaz no depende del código |
-| 2 | La URL de objeto la maneja `BlobImage` (`src/components/ui`): la ref del `<img>` (con limpieza, React 19) crea la URL al montar y la libera al cambiar el `Blob` o al desmontar. No hay un hook con efecto y estado | `react-hooks/set-state-in-effect` rechaza el `setState` en el efecto; además, así el `<img>` nunca tiene la URL de un `Blob` ya liberado |
-| 3 | `useSingleAction` y `usePatientGone` pasan de `PatientActions.tsx` a `features/patients/use-patient-action.ts` | Los usa también la foto, y `react-refresh/only-export-components` no deja exportar hooks desde un archivo de componentes |
-| 4 | Al quitar la foto, la consulta se vacía con `Query.reset()` (`forgetPatientPhoto`), no con `resetQueries` ni `removeQueries`; al subir, `resetQueries` | Los dos la volvían a pedir (la consulta sigue habilitada hasta que el detalle dice `has_photo: false`): lo mostró el test del borrado, con dos descargas |
-| 5 | El lugar vacío lleva un ícono genérico (`IconPaw`) y "Sin foto", no el de la especie | Tabler no tiene un ícono por cada especie del catálogo (también las propias) |
-| 6 | El control del navegador mira el tipo **declarado**: un archivo sin tipo (sin extensión conocida) pasa y lo decide la API | La API mira el contenido; el navegador no rechaza nada que la API acepta (`frontend/CLAUDE.md` §5) |
-| 7 | Con un 422 o 413 de la API en `photo`, el archivo elegido se descarta (sin vista previa) y la foto guardada sigue a la vista | Mantener la vista previa de un archivo rechazado invitaría a mandarlo otra vez |
-| 8 | Sin `patients.show-photo` y con foto: "Tiene foto", sin descargarla; sin ninguno de los tres permisos, sin la tarjeta | Los tres roles los tienen todos; el caso solo se da con permisos a medida |
-| 9 | "Un rol sin permiso" en el navegador se simuló quitando los permisos de foto de `me` (`page.route`): ningún rol real los pierde (`clinic-roles.json`). Con `vet-a` se comprobó que un rol real sí ve el campo | No hay un rol real sin esos permisos; en Vitest se prueba con los permisos quitados de un rol real |
-| 10 | Los tests de la subida usan el `FormData` y el `File` de Node (`node:buffer`; el `FormData`, sacado de una `Response`), no los de jsdom | El `fetch` de Node no puede leer el `File` de jsdom: el pedido se cortaba (`AbortError`), un límite del entorno de test |
-| 11 | La foto vertical de un celular (de "En el navegador" del diseño) no se probó | No hay una en el repositorio; la orientación la aplica la API (R-027, con sus tests) |
-
-**Cifras** (2026-11-14). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 737 tests en
-39 archivos, en verde (antes 694 en 37: 43 nuevos). El primer `typecheck` dio un error de tipos en `PatientPhoto.test.tsx` (las
-partes del `File` de Node), corregido; después, `typecheck`, `lint`, `build` y ese archivo (28 de 28) sin errores. Playwright, solo
-el caso nuevo: 1 de 1 (34,5 s; 1,4 min con la preparación de `syncvet_e2e`), con `:8010` y `:5174` libres después.
-
-**Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` con un Vite propio en `:5181` (detenido por su
-PID, 1796), script fuera del repositorio: **10 de 10**. (1) Subir `foto-paciente.png` como `recepcion-a`: vista previa y POST 200,
-la foto dibujada; (2) al recargar, GET 200 `image/png` con `no-store, private`; (3) volver al detalle desde el listado: ningún
-pedido de la foto; (4) reemplazar por `logo-clinica.webp`: GET `image/webp` y la URL de objeto anterior ya liberada (un `fetch` a
-ella falla); (5) un texto renombrado a `.png`: pasa el navegador y la API responde 422 con "La foto debe ser una imagen JPG, PNG o
-WEBP." en el campo, el foco en él y la foto anterior a la vista; (6) uno de 6 MB: "La foto no debe pesar más de 5 MB." sin POST;
-(7) quitar con el diálogo: "Sin foto" y la API responde 404 `PATIENT_PHOTO_NOT_FOUND`; (8) `vet-a` ve el campo para subir; (9) sin
-los permisos de foto (simulado, desvío 9): sin la tarjeta y sin pedir la foto; (10) la demo como estaba. El control 9 se repitió
-solo: la primera vez contaba cualquier URL con `/photo` y tomaba el módulo `features/patients/photo.ts` que sirve Vite; con la URL
-de la API, 0 pedidos. La consola: sin errores propios de la aplicación; los dos que aparecieron los provocaron los controles (el
-`fetch` a la URL liberada del 4 y el 422 del 5, que el navegador anota como recurso fallido). Capturas en
-`%TEMP%\claude\…\scratchpad\capturas-1-4`: `01-vista-previa.png`, `02-detalle-con-foto.png`, `03-texto-rechazado-por-la-api.png`,
-`04-mas-de-5-mb.png`, `05-dialogo-quitar.png` y `06-sin-permisos-de-foto.png`. **Datos de la demo:** el paciente "Valida Foto" se
-creó en Laura Martínez por la API (dos veces: la corrida completa y la del control 9), con su foto subida y quitada, y se borró
-por la API (después, 404); los pacientes de Laura, como antes. La foto se quitó antes de cada baja (la baja deja el archivo en
-el disco), así que no quedó ningún archivo de la validación.
+Vacío: la entrega se cerró (R-070) y todo lo que había acá pasó a su [resultado](#entrega-14).
 
 ### 1.5 Especies y razas
 
@@ -1001,3 +948,95 @@ Edge sin ventana, 10 de 10 de la implementación y 5 de 5 de las correcciones; P
 5 de `pacientes-estado` y `clientes-abm` después de las correcciones; el desvío 8 de la 0.1, verificado contra la API real.
 
 Corrida de `npm test` del frontend (2026-11-14): 694 tests en 37 archivos, en verde.
+
+### Entrega 1.4
+
+Estado: **COMPLETADO** el 2026-11-14 (R-070). Foto del paciente: verla como `Blob`, subirla con vista previa, reemplazarla y quitarla,
+en `feature/front-1-4-foto` (desde `feature/front-1-3b-pacientes` en `e20186e`), sin integrar a `main` (se integra al cerrar la F1).
+Commits: `dde595a` (WIP de la implementación) y el de este cierre (R-070: las correcciones de la revisión y la documentación).
+
+**Implementación.**
+
+* **Frontend**: `api.getBlob` (`src/lib/api/client.ts`): el mismo armado del pedido que `apiRequest` (ahora en `send` y `failed`,
+  sin cambiar su comportamiento), el token en la cabecera; con un 2xx devuelve el `Blob`; los errores JSON son el `ApiError` de
+  siempre (el 401 cierra la sesión); un 2xx en JSON es su `ApiError` (`success: false`) o `HTTP_ERROR`; la cancelación se propaga
+  tal cual. En `/pacientes/$id`, la tarjeta "Foto" (`features/patients/PatientPhoto.tsx`): la foto con `['patients', 'photo', id]`
+  (`staleTime: Infinity`, `gcTime` de 5 minutos), solo si `has_photo` y con `patients.show-photo`, mostrada con `BlobImage` (nuevo:
+  la URL de objeto se crea y se libera en la ref del `<img>`); sin foto, "Sin foto"; otro error, su mensaje en el lugar de la foto.
+  Subir o reemplazar: `FileField` (nuevo), la vista previa y "Subir la foto"; el navegador frena lo que no es JPG, PNG o WEBP y lo
+  de más de 5 MB (`features/patients/photo.ts`, con los mensajes de la API); 422 y 413 con `errors.photo`, al campo (con el foco al
+  terminar la espera); 413 sin `errors`, alerta; 404 del paciente, aviso y al listado. "Quitar la foto" con `ConfirmDialog`; con
+  `PATIENT_PHOTO_NOT_FOUND`, aviso y el paciente pedido de nuevo. Al subir, `resetQueries` de la foto (se espera la nueva, nunca se
+  ve la vieja); al quitar, `Query.reset()` (sin volver a pedirla). Doble envío: el botón en espera y la `ref` de `useSingleAction`.
+  `PERMISSIONS` suma `patientsShowPhoto`, `patientsUploadPhoto` y `patientsDeletePhoto` (los tres roles). El listado no descarga
+  fotos (test). Vitest: 737 tests en 39 archivos (antes 694 en 37); `typecheck`, `lint` y `build` sin errores. Mutaciones: 4 de 4
+  detectadas (sin `revokeObjectURL`; sin el control de tamaño; `getBlob` que toma un 404 como éxito; `invalidateQueries` en lugar de
+  `resetQueries` al reemplazar, que mostraba la foto vieja mientras llegaba la nueva). Playwright: el caso nuevo
+  `e2e/pacientes-foto.spec.ts` (subir `foto-paciente.png` a un paciente recién creado, verla al recargar, reemplazarla por
+  `logo-clinica.webp` y quitarla), 1 de 1.
+* **Validación en el navegador** (2026-11-14): Edge sin ventana contra `syncvet.test` (Vite propio en `:5181`, detenido por su PID,
+  1796), script fuera del repositorio: **10 de 10** (subir; ver al recargar, con `no-store, private`; volver al detalle sin otra
+  descarga; reemplazar por un WEBP, con la URL anterior liberada; un texto renombrado a `.png` rechazado por la API con 422; uno de 6
+  MB frenado en el navegador sin pedido; quitar con el diálogo; `vet-a` con el campo para subir; sin los permisos de foto, simulado,
+  sin la tarjeta ni pedidos; la demo como estaba). El control 9 se repitió solo: contaba también el módulo `photo.ts` que sirve Vite.
+  Los dos errores de la consola los provocaron los controles (el `fetch` a la URL liberada y el 422 esperado). Capturas en
+  `%TEMP%\claude\…\scratchpad\capturas-1-4`: `01-vista-previa.png`, `02-detalle-con-foto.png`, `03-texto-rechazado-por-la-api.png`,
+  `04-mas-de-5-mb.png`, `05-dialogo-quitar.png` y `06-sin-permisos-de-foto.png`.
+* **Foto vertical de un celular**: queda como prueba manual del usuario (la orientación del EXIF la aplica el backend, R-027).
+
+**Desvíos.**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | `POST` y `DELETE patients/{id}/photo` responden **200** con el `ShowPatientResource`, no 201 como decía el diseño. El detalle toma esa respuesta (`has_photo`) sin otro pedido | Es el contrato de la API (`PatientPhotoController`); la interfaz no depende del código |
+| 2 | La URL de objeto la maneja `BlobImage` (`src/components/ui`): la ref del `<img>` (con limpieza, React 19) crea la URL al montar y la libera al cambiar el `Blob` o al desmontar. No hay un hook con efecto y estado | `react-hooks/set-state-in-effect` rechaza el `setState` en el efecto; además, así el `<img>` nunca tiene la URL de un `Blob` ya liberado |
+| 3 | `useSingleAction` y `usePatientGone` pasan de `PatientActions.tsx` a `features/patients/use-patient-action.ts` | Los usa también la foto, y `react-refresh/only-export-components` no deja exportar hooks desde un archivo de componentes |
+| 4 | Al quitar la foto, la consulta se vacía con `Query.reset()` (`forgetPatientPhoto`), no con `resetQueries` ni `removeQueries`; al subir, `resetQueries` | Los dos la volvían a pedir (la consulta sigue habilitada hasta que el detalle dice `has_photo: false`): lo mostró el test del borrado, con dos descargas |
+| 5 | El lugar vacío lleva un ícono genérico (`IconPaw`) y "Sin foto", no el de la especie | Tabler no tiene un ícono por cada especie del catálogo (también las propias) |
+| 6 | El control del navegador miraba el tipo **declarado** y dejaba pasar un archivo sin tipo. **Reemplazado por la corrección 3**: ahora mira el contenido | La API mira el contenido; el navegador no rechaza nada que la API acepta (`frontend/CLAUDE.md` §5) |
+| 7 | Con un 422 o 413 de la API en `photo`, el archivo elegido se descarta (sin vista previa) y la foto guardada sigue a la vista | Mantener la vista previa de un archivo rechazado invitaría a mandarlo otra vez |
+| 8 | Sin `patients.show-photo` y con foto: "Tiene foto", sin descargarla; sin ninguno de los tres permisos, sin la tarjeta | Los tres roles los tienen todos; el caso solo se da con permisos a medida |
+| 9 | "Un rol sin permiso" en el navegador se simuló quitando los permisos de foto de `me` (`page.route`): ningún rol real los pierde (`clinic-roles.json`). Con `vet-a` se comprobó que un rol real sí ve el campo | No hay un rol real sin esos permisos; en Vitest se prueba con los permisos quitados de un rol real |
+| 10 | Los tests de la subida usan el `FormData` y el `File` de Node (`node:buffer`; el `FormData`, sacado de una `Response`), no los de jsdom | El `fetch` de Node no puede leer el `File` de jsdom: el pedido se cortaba (`AbortError`), un límite del entorno de test |
+| 11 | La foto vertical de un celular (de "En el navegador" del diseño) no se probó en la entrega | No hay una en el repositorio; la orientación la aplica la API (R-027, con sus tests). La prueba el usuario a mano |
+
+Los 11 desvíos, aceptados por el usuario en la revisión.
+
+**Revisión** (2026-11-14, con el [presupuesto por entrega](../../../../CLAUDE.md#presupuesto-por-entrega): lectura del diff, 3
+mutaciones y solo `npm test`, 737 en verde). Mutaciones: 3 de 3 detectadas (pedir la foto sin `patients.show-photo`; conservar el
+archivo rechazado por la API; `getBlob` sin avisar a la sesión con un 401). Con tests temporales (borrados después) se confirmó que
+la URL de objeto se libera también con respuestas fuera de orden al cambiar de paciente y que salir de la sesión vacía la foto y
+las mutaciones de la caché (`queryClient.clear()`), libera la URL y no vuelve a pedirla. Hallazgos, de más grave a menos grave:
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| 1 | Media (latente): el router reutiliza el componente al cambiar solo el `$id`, así que el archivo elegido, la vista previa, los errores y el diálogo pasaban al paciente siguiente ("Subir la foto" subiría la de Firulais a Michi; el aviso de un pedido anterior caía en el nuevo). Hoy no hay un enlace de un paciente a otro | **Convención nueva** (`frontend/CLAUDE.md` §5, "Una pantalla por registro"): la ruta de cada detalle dibuja su página con `key={id}` (`/pacientes/$id` y `/clientes/$id`). Tests: el archivo elegido no pasa al paciente siguiente; el diálogo de baja abierto no pasa al cliente siguiente |
+| 2 | Baja-media: `getBlob` aceptaba como archivo cualquier 2xx que no fuera JSON, también una página HTML (el `index.html` de un servidor mal configurado), que quedaba como foto rota sin mensaje y sin vencer | `getBlob` responde `HTTP_ERROR` con una página HTML y con un tipo distinto de `expectedType`; la foto pide `image/`. Tests en `client.test.ts` y el mensaje en el lugar de la foto |
+| 3 | Baja: el navegador rechazaba por el tipo declarado (la extensión): un JPG llamado `.gif`, que la API acepta, no se podía mandar | `photoFileError` (asíncrona) mira los primeros bytes (JPG `FF D8 FF`, la firma de 8 bytes del PNG, `RIFF….WEBP`), como finfo en la API, y el tamaño primero; un contador descarta el resultado de una elección vieja. Un texto renombrado a `.png` ya no llega a la API. Tests: los tres formatos, un JPG llamado `.gif`, un texto, un GIF, un SVG, un WAV, una firma cortada y un archivo vacío |
+| 4 | Baja: con `has_photo` y el archivo faltante (404 `PATIENT_PHOTO_NOT_FOUND` al verla) se mostraban "Sin foto" con "Cambiar la foto" y "Quitar la foto" | `markWithoutPhoto`: con ese 404, el detalle pasa a `has_photo: false` (también al quitarla con 404). Test: "Elegir una foto" y sin "Quitar la foto" |
+| 5 | Informativa: el `File` subido quedaba 5 minutos en la caché de mutaciones | La mutación lleva `gcTime: 0` y `reset()` en `onSettled`, como las contraseñas. El foco tras el error dependía de la vuelta de `isPending`, que con `reset()` React no llegaba a dibujar: ahora es un pedido de foco propio (un contador en el estado). Test: la caché de mutaciones vacía después de subir |
+
+**Correcciones de la revisión** (2026-11-14). Mutaciones: 3 de 3 detectadas (sin la `key` en el detalle del paciente; sin mirar el
+contenido del archivo; sin `has_photo: false` con el 404 al verla). Corrida completa del frontend: `typecheck`, `lint` y `build` sin
+errores ni avisos; Vitest, 746 tests en 39 archivos, en verde (9 nuevos). Playwright, solo `e2e/pacientes-foto.spec.ts`: 1 de 1
+(26,3 s; 1,3 min con la preparación), con `:8010` y `:5174` libres después. Edge sin ventana contra `syncvet.test` (Vite propio en
+`:5181`, detenido por su PID, 6464), solo lo que Playwright no ve, **5 de 5**: un texto renombrado a `.png` frenado en el navegador
+sin POST (lectura real de los bytes); un PNG llamado `.gif` aceptado y subido (200); el archivo borrado del disco con `has_photo` en
+verdadero en la API: "Sin foto" y "Elegir una foto", sin "Quitar la foto"; otro paciente por el historial (`pushState` y
+`popstate`, como Atrás o Adelante) sin la vista previa ni "Subir la foto"; la demo como estaba. El único error de la consola es el
+404 de la foto faltante, provocado por el control. Capturas en `%TEMP%\claude\…\scratchpad\capturas-1-4-correcciones`:
+`01-texto-frenado-en-el-navegador.png` y `02-archivo-faltante.png`. **Datos de la demo:** el paciente "Valida Foto" se creó en Laura
+Martínez por la API y se borró por la API (después, 404); su archivo se borró del disco en el control 3 (el paciente eliminado
+conserva la referencia a un archivo que ya no existe, sin efecto) y no quedó ningún archivo; los pacientes de Laura, como antes.
+
+**Presupuesto por entrega** (pedido del usuario en la revisión, en el [`CLAUDE.md` de la raíz](../../../../CLAUDE.md#presupuesto-por-entrega)):
+si la corrida final falla por un detalle, se corrigen y se repiten solo el paso que falló y los tests del archivo tocado; si un caso
+de Playwright ya cubre un flujo, los controles en Edge son solo para lo que Playwright no ve. En el
+[handoff](../../handoff.md#próximas-tareas), la tarea para después del cierre de la F1: una entrega `chore` para que la preparación
+de Playwright reutilice `syncvet_e2e` cuando las migraciones no cambiaron y solo restaure los datos de la demo.
+
+**Validación.** El usuario dio la entrega por validada con las correcciones 1 a 5 y los 11 desvíos aceptados (R-070). Evidencia:
+Edge sin ventana, 10 de 10 de la implementación y 5 de 5 de las correcciones; Playwright del caso de la foto, en la implementación y
+después de las correcciones.
+
+Corrida de `npm test` del frontend (2026-11-14): 746 tests en 39 archivos, en verde.

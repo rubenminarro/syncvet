@@ -145,7 +145,7 @@ export const PHOTO_GC_TIME_MS = 5 * 60 * 1000;
 export function patientPhotoQueryOptions(id: number) {
   return queryOptions({
     queryKey: patientKeys.photo(id),
-    queryFn: ({ signal }) => getBlob(`patients/${id}/photo`, { signal }),
+    queryFn: ({ signal }) => getBlob(`patients/${id}/photo`, { signal, expectedType: 'image/' }),
     staleTime: Infinity,
     gcTime: PHOTO_GC_TIME_MS,
   });
@@ -173,6 +173,17 @@ export function forgetPatientPhoto(queryClient: QueryClient, id: number) {
     .getQueryCache()
     .find({ queryKey: patientKeys.photo(id), exact: true })
     ?.reset();
+}
+
+/**
+ * El paciente quedó sin foto según la API (404 PATIENT_PHOTO_NOT_FOUND al verla o al quitarla): el detalle pasa a has_photo
+ * false y la foto guardada se vacía.
+ */
+export function markWithoutPhoto(queryClient: QueryClient, id: number) {
+  queryClient.setQueryData<PatientDetail>(patientKeys.detail(id), (current) =>
+    current === undefined ? current : { ...current, has_photo: false },
+  );
+  forgetPatientPhoto(queryClient, id);
 }
 
 /**

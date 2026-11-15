@@ -283,6 +283,25 @@ describe('/clientes/$id: editar y eliminar', () => {
     },
   );
 
+  it('otro cliente es otra pantalla (key, revisión de la 1.4): el diálogo abierto no pasa al siguiente', async () => {
+    server.use(
+      meHandler(meFor('administrador')),
+      http.get('/api/clients/:id', ({ params }) =>
+        success(detail(params.id === '1' ? PERSON : { ...COMPANY, id: 2 })),
+      ),
+    );
+    const { history } = renderApp('/clientes/1', { session: sessionFor() });
+    fireEvent.click(await screen.findByText('Eliminar', { selector: 'button' }));
+    expect(dialog()).not.toBeNull();
+
+    history.push('/clientes/2');
+
+    expect(
+      await screen.findByText(COMPANY.display_name, { selector: 'h2', exact: false }),
+    ).toBeInTheDocument();
+    expect(dialog()).toBeNull();
+  });
+
   it('"Cancelar" en la confirmación no llama a la API', async () => {
     const api = deleteHandler();
     server.use(

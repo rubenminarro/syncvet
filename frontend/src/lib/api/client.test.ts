@@ -301,6 +301,43 @@ describe('client', () => {
       });
     });
 
+    it('un 200 con una página HTML (el index.html de un servidor mal configurado) es HTTP_ERROR, no un archivo', async () => {
+      server.use(
+        http.get(
+          '/api/patients/1/photo',
+          () =>
+            new HttpResponse('<!doctype html><title>SyncVet</title>', {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            }),
+        ),
+      );
+
+      expect(await caught(api.getBlob('patients/1/photo'))).toMatchObject({
+        status: 200,
+        errorCode: 'HTTP_ERROR',
+      });
+    });
+
+    it('con expectedType: otro tipo es HTTP_ERROR; el esperado, el archivo', async () => {
+      server.use(
+        http.get(
+          '/api/patients/1/photo',
+          () => new HttpResponse(PNG, { headers: { 'Content-Type': 'application/pdf' } }),
+        ),
+        http.get(
+          '/api/patients/2/photo',
+          () => new HttpResponse(PNG, { headers: { 'Content-Type': 'image/png' } }),
+        ),
+      );
+
+      expect(
+        await caught(api.getBlob('patients/1/photo', { expectedType: 'image/' })),
+      ).toMatchObject({ errorCode: 'HTTP_ERROR' });
+      expect((await api.getBlob('patients/2/photo', { expectedType: 'image/' })).type).toBe(
+        'image/png',
+      );
+    });
+
     it('sin respuesta del servidor es NETWORK_ERROR; una cancelación se propaga tal cual', async () => {
       server.use(http.get('/api/patients/1/photo', () => HttpResponse.error()));
 
