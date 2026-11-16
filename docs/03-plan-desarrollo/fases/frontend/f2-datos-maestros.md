@@ -332,6 +332,39 @@ Implementación en `feature/front-2-2b-usuarios` (commit WIP), sin la documentac
 | 7 | La captura `04-baja-en-uso.png` muestra "Inactivar" en un rojo pálido: es la transición de color de Tabler (0,3 s) tomada a mitad; un test comprueba que el botón es `btn-primary` | Captura tomada apenas llegó el mensaje |
 | 8 | Prettier cambió el formato de `e2e/usuarios-estado.spec.ts` después de su corrida; no se repitió | Solo formato |
 
+Los 8 desvíos, aceptados por el usuario. Sobre el 2: `dialogError` pasa a código común en la 2.3 (anotado en su diseño y en el
+handoff).
+
+**Revisión** (sobre `2cd6dd4`, con el diff desde el cierre de la 2.2a, `0bf3ed0`; 2026-11-16). Sin hallazgos que cambien el
+comportamiento. Revisado contra `backend/CLAUDE.md` §6.5:
+
+* Los botones no se ofrecen en el propio usuario (`isSelf`), y un `USER_SELF_ACTION` que llegara igual se muestra en los dos
+  diálogos con solo "Cerrar". `USER_LAST_ADMIN`, igual. `USER_IN_USE` ofrece "Inactivar" (en azul) solo si está activo y con
+  `users.update`; en un inactivo, el mensaje y "Cerrar".
+* El cuerpo es solo `{ is_active }`; los avisos de los dos diálogos, los del diseño. Inactivar y reactivar invalidan `['users']`
+  (sin volver a pedir; el detalle toma la respuesta) y `['veterinarians']`; la baja vacía los listados, invalida usuarios y
+  veterinarios y saca el detalle de la caché al llegar al listado (desvío 1).
+* Un solo pedido con `useSingleAction` en los dos diálogos; Escape y el clic afuera no cierran mientras espera (`ConfirmDialog`).
+* Permisos: "Inactivar"/"Reactivar" con `users.update`, "Eliminar" con `users.destroy` (los dos, solo del administrador, que es el
+  único con `users.show`).
+
+**Correcciones (solo tests, `UserPages.test.tsx`).**
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| R1 | El 200 de la baja no comprobaba el desvío 1 (que el detalle no se vuelve a pedir) ni la invalidación de veterinarios | El test cuenta los `GET users/7` y revisa `['veterinarians']` invalidado |
+| R2 | El doble clic se probaba solo al inactivar | El mismo test de la baja hace doble clic: un solo `DELETE` |
+| R3 | Sin test del foco al pasar de la baja con `USER_IN_USE` al diálogo de inactivar, ni de Escape | Test nuevo: el foco en "Cancelar" del diálogo de inactivar; Escape lo cierra sin pedido y el foco vuelve a "Eliminar" |
+
+**Mutaciones** (3 detectadas de 4 probadas): los errores de negocio con el botón para probar de nuevo (`final: false`): 4 tests
+fallan; la baja sin invalidar `['veterinarians']`: falla R1; la baja sin `single.tryStart()`: falla R2. **No detectada:**
+`resetQueries` del detalle antes de navegar (lo que el desvío 1 evita): en jsdom el detalle no se vuelve a pedir (1 pedido antes y
+después), así que el conteo de R1 no protege ese caso; se deja anotado, sin otro test (el 404 que el desvío evita solo se vería
+contra la API real).
+
+Corrida final, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 996 tests en 49 archivos, en
+verde (2026-11-16). Playwright y el navegador no se repitieron: la revisión solo tocó tests de Vitest.
+
 ### front-02 Soporte del backend: la ficha de veterinario en el listado de usuarios
 
 **Aprobada con la [pregunta 1](#preguntas-del-diseño) (R-074).** `veterinarian` (`id`, `code`, o `null` sin ficha o con la ficha
@@ -374,6 +407,11 @@ usuario tenía una ficha eliminada, la API la restaura con el mismo código (201
 
 **Acciones en el detalle.** Inactivar o Activar (`PATCH` con `{ status }`) y Eliminar (`VETERINARIAN_IN_USE`: el mensaje y
 "Inactivar"). Con el 200 de la baja, al listado.
+
+**Código común** (decisión del usuario en la revisión de la 2.2b, desvío 2): la función que trata los errores en los diálogos
+(`dialogError`: el 404 al aviso y al listado; el 422 y los errores de negocio, el mensaje y solo "Cerrar"; lo demás, el mensaje y
+el botón para probar de nuevo), hoy repetida en `features/branches/BranchDialogs.tsx` y `features/users/UserActions.tsx`, pasa a
+código común (`src/lib/api`, con sus tests) y la usan sucursales, usuarios y veterinarios, sin cambiar su comportamiento.
 
 **Tests (Vitest).** `validateSearch` y el estado traducido (`status=inactive`, `include_inactive=1`); el enlace del listado solo
 para el administrador; el recepcionista en `/veterinarios/$id` va a `/sin-permiso`; el selector sin los usuarios con ficha y con

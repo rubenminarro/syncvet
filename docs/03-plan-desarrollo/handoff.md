@@ -53,7 +53,7 @@ datos maestros, está en curso: diseño aprobado (R-074), la 2.1, sucursales y d
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** La entrega 2.2b del frontend (usuarios: inactivar, reactivar y baja), en `feature/front-2-2b-usuarios`, creada desde `feature/front-2-2a-usuarios` y subida ([diseño](fases/frontend/f2-datos-maestros.md#22b-usuarios-inactivar-reactivar-y-baja), aprobado en R-074) | La autorización del usuario para implementar |
+| 2 | **Siguiente.** El cierre de la entrega 2.2b del frontend (usuarios: inactivar, reactivar y baja), en `feature/front-2-2b-usuarios`: implementada y revisada (WIP), con los 8 desvíos aceptados por el usuario ([pendiente para el cierre](fases/frontend/f2-datos-maestros.md#pendiente-para-el-cierre-22b)). En la 2.3, la función que trata los errores en los diálogos (`dialogError`, hoy repetida en `BranchDialogs.tsx` y `UserActions.tsx`) pasa a código común (decisión del usuario sobre el desvío 2) | `/cerrar-entrega` |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |
 | 5 | Opcional: verificar el desvío 16 de la 1.1 (dos pedidos iguales al entrar a `/clientes?buscar=…` con `npm run dev`; probablemente el doble efecto del `StrictMode` de React en desarrollo) con `npm run build` y `npm run preview` | Ninguno |

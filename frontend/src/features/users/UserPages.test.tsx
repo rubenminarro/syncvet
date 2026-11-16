@@ -846,21 +846,31 @@ describe('/configuracion/usuarios/$id: inactivar, reactivar y eliminar (2.2b)', 
     expect(bodies).toHaveLength(1);
   });
 
-  it('eliminar con el 200: al listado, sin el detalle en la caché', async () => {
+  it('eliminar con el 200 (doble clic): un pedido, al listado, sin pedir de nuevo el detalle ni dejarlo en la caché', async () => {
     const calls: string[] = [];
+    let detailGets = 0;
     const { history, queryClient } = await openDetail(RECEPTION_USER, [
+      http.get('/api/users/:id', () => {
+        detailGets += 1;
+
+        return success(RECEPTION_USER);
+      }),
       deleteHandler(calls, deleted),
       http.get('/api/users', () =>
         success([userListItem(ADMIN_USER)], { meta: pagination({ total: 1 }) }),
       ),
       ...optionHandlers(),
     ]);
+    queryClient.setQueryData(['veterinarians', 'list', {}], { probe: true });
+    const loads = detailGets;
 
     fireEvent.click(required('.user-delete'));
     expect(dialog()?.textContent).toContain(
       '¿Querés eliminar a Rosa Benítez? No se puede deshacer.',
     );
-    fireEvent.click(await findDialogButton('Eliminar a Rosa Benítez'));
+    const confirm = await findDialogButton('Eliminar a Rosa Benítez');
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
 
     expect(await screen.findByText('Gómez, Ana', { selector: 'a' })).toBeInTheDocument();
     expect(history.location.pathname).toBe('/configuracion/usuarios');
@@ -868,8 +878,39 @@ describe('/configuracion/usuarios/$id: inactivar, reactivar y eliminar (2.2b)', 
     await waitFor(() => {
       expect(queryClient.getQueryData(['users', 'detail', 7])).toBeUndefined();
     });
+    // Desvío 1: el detalle sale de la caché al llegar al listado, sin volver a pedirse (sería un 404).
+    expect(detailGets).toBe(loads);
+    expect(queryClient.getQueryState(['veterinarians', 'list', {}])?.isInvalidated).toBe(true);
     expect(screen.queryByText('Benítez, Rosa')).toBeNull();
     expect(screen.getByText('Usuario eliminado correctamente.')).toBeInTheDocument();
+  });
+
+  it('de la baja con USER_IN_USE a inactivar con el teclado: el foco en "Cancelar", Escape cierra sin pedido y vuelve a "Eliminar"', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    await openDetail(VET_USER, [
+      deleteHandler([], () => failure(409, 'USER_IN_USE', IN_USE_MESSAGE)),
+      statusHandler(bodies, VET_USER),
+    ]);
+
+    const opener = required('.user-delete');
+    opener.focus();
+    fireEvent.click(opener);
+    fireEvent.click(await findDialogButton('Eliminar a Víctor Acosta'));
+    const inactivate = await findDialogButton('Inactivar');
+    fireEvent.click(inactivate);
+
+    await waitFor(() => {
+      expect(dialog()?.textContent).toContain('Se van a cerrar todas sus sesiones');
+    });
+    expect(document.activeElement).toBe(dialogButton('Cancelar'));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(dialog()).toBeNull();
+    });
+    expect(document.activeElement).toBe(required('.user-delete'));
+    expect(bodies).toEqual([]);
   });
 
   it('eliminar con USER_IN_USE: el mensaje y "Inactivar", que abre el diálogo de inactivar', async () => {
