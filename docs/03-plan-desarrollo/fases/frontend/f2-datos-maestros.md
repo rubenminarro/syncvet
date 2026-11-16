@@ -136,8 +136,8 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 |---|---|---|---|---|
 | 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | COMPLETADO (R-075, [resultado](#entrega-21)) |
 | 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios`, desde `feature/front-2-1-sucursales` | COMPLETADO (R-076, [resultado](#entrega-22a)) |
-| 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios` | APROBADA (R-074) |
-| front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-ficha-en-usuarios` | APROBADA (R-074) |
+| 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios`, desde `feature/front-2-2a-usuarios` | COMPLETADO (R-077, [resultado](#entrega-22b)) |
+| front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-usuarios-veterinario`, desde `feature/front-2-2b-usuarios` (el nombre, del usuario en R-077) | APROBADA (R-074) |
 | 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios` | APROBADA (R-074) |
 | 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios` | APROBADA (R-074) |
 | 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra) | No | `feature/front-2-5-configuracion` | APROBADA (R-074) |
@@ -303,67 +303,7 @@ filtro.
 
 #### Pendiente para el cierre (2.2b)
 
-Implementación en `feature/front-2-2b-usuarios` (commit WIP), sin la documentación de cierre (la hace `/cerrar-entrega`).
-
-* **Código.** `features/users/UserActions.tsx` (nuevo): "Inactivar" o "Reactivar" (`users.update`) y "Eliminar"
-  (`users.destroy`) en el detalle, ocultos en el propio usuario; `UserStatusDialog` (`PATCH users/{id}` con solo
-  `{ is_active }`, `afterUserChanged`: el detalle toma la respuesta, `['users']` y `['veterinarians']` invalidados) y
-  `DeleteUserDialog` (`DELETE users/{id}`; con el 200, `afterUserGone` y al listado). `api.ts` suma `setUserActive`,
-  `deleteUser` y `afterUserGone`; `PERMISSIONS` suma `usersDestroy`. Un solo pedido con `useSingleAction`; la `key` del
-  detalle ya estaba (2.2a).
-* **Pruebas.** Vitest: 13 tests nuevos en `UserPages.test.tsx` (los botones ocultos en el propio usuario; inactivar con el aviso,
-  el cuerpo `{ is_active: false }`, la marca y la invalidación; reactivar; el doble clic; `USER_LAST_ADMIN` y `USER_SELF_ACTION`
-  al inactivar y al eliminar; la baja con el 200 sin el detalle en la caché; `USER_IN_USE` con "Inactivar" (en azul) que abre
-  el otro diálogo, y sin él en un inactivo; el 404 al eliminar; la ida y vuelta con "Incluir los inactivos"). Mutaciones: 4 de 4
-  detectadas (los botones en el propio usuario, `USER_IN_USE` sin "Inactivar", la baja sin sacar el detalle de la caché y sin
-  invalidar usuarios y veterinarios al inactivar). Playwright: `e2e/usuarios-estado.spec.ts` (nuevo), 1 de 1 en 54,5 s.
-  Edge sin ventana contra `syncvet.test`: 5 de 5, con un usuario temporal borrado por la API al terminar (`DELETE users/62`, 200).
-  Corrida final, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 995 tests en 49 archivos, en
-  verde (2026-11-16).
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | Con el 200 de la baja, el detalle sale de la caché con `removeQueries` al llegar al listado (como la baja del paciente), no con `resetQueries`; los listados, sí con `resetQueries` | Mientras navega, el detalle todavía está a la vista: vaciarlo antes lo volvería a pedir (un 404) |
-| 2 | `dialogError` de `UserActions.tsx` repite el de `BranchDialogs.tsx` (no exportado) | Llevarlo a código común es otro tema; candidato para cuando lo use una tercera pantalla (2.3 o 2.4) |
-| 3 | En el diálogo de baja con `USER_IN_USE`, el botón dice solo "Inactivar" (el diseño); el del diálogo de inactivar, "Inactivar a …" | El primero solo abre el otro diálogo |
-| 4 | Un 422 al inactivar o eliminar (no debería llegar) muestra sus mensajes en el diálogo con "Cerrar" | Como la 2.1 (desvío 8) |
-| 5 | Playwright: la sesión del otro contexto, al recargar, termina con "Tu sesión terminó. Ingresá de nuevo." (401: la API revocó sus tokens), y el mensaje de `USER_INACTIVE` aparece al volver a ingresar | Es lo que responde la API; el caso lo comprueba así |
-| 6 | Edge: `USER_IN_USE` simulado (el `DELETE` del usuario temporal interceptado con un 409) para la captura y el paso con el teclado al diálogo de inactivar | No se intenta la baja de `vet-a` en la demo; la real está en Playwright contra `syncvet_e2e` |
-| 7 | La captura `04-baja-en-uso.png` muestra "Inactivar" en un rojo pálido: es la transición de color de Tabler (0,3 s) tomada a mitad; un test comprueba que el botón es `btn-primary` | Captura tomada apenas llegó el mensaje |
-| 8 | Prettier cambió el formato de `e2e/usuarios-estado.spec.ts` después de su corrida; no se repitió | Solo formato |
-
-Los 8 desvíos, aceptados por el usuario. Sobre el 2: `dialogError` pasa a código común en la 2.3 (anotado en su diseño y en el
-handoff).
-
-**Revisión** (sobre `2cd6dd4`, con el diff desde el cierre de la 2.2a, `0bf3ed0`; 2026-11-16). Sin hallazgos que cambien el
-comportamiento. Revisado contra `backend/CLAUDE.md` §6.5:
-
-* Los botones no se ofrecen en el propio usuario (`isSelf`), y un `USER_SELF_ACTION` que llegara igual se muestra en los dos
-  diálogos con solo "Cerrar". `USER_LAST_ADMIN`, igual. `USER_IN_USE` ofrece "Inactivar" (en azul) solo si está activo y con
-  `users.update`; en un inactivo, el mensaje y "Cerrar".
-* El cuerpo es solo `{ is_active }`; los avisos de los dos diálogos, los del diseño. Inactivar y reactivar invalidan `['users']`
-  (sin volver a pedir; el detalle toma la respuesta) y `['veterinarians']`; la baja vacía los listados, invalida usuarios y
-  veterinarios y saca el detalle de la caché al llegar al listado (desvío 1).
-* Un solo pedido con `useSingleAction` en los dos diálogos; Escape y el clic afuera no cierran mientras espera (`ConfirmDialog`).
-* Permisos: "Inactivar"/"Reactivar" con `users.update`, "Eliminar" con `users.destroy` (los dos, solo del administrador, que es el
-  único con `users.show`).
-
-**Correcciones (solo tests, `UserPages.test.tsx`).**
-
-| # | Hallazgo | Corrección |
-|---|---|---|
-| R1 | El 200 de la baja no comprobaba el desvío 1 (que el detalle no se vuelve a pedir) ni la invalidación de veterinarios | El test cuenta los `GET users/7` y revisa `['veterinarians']` invalidado |
-| R2 | El doble clic se probaba solo al inactivar | El mismo test de la baja hace doble clic: un solo `DELETE` |
-| R3 | Sin test del foco al pasar de la baja con `USER_IN_USE` al diálogo de inactivar, ni de Escape | Test nuevo: el foco en "Cancelar" del diálogo de inactivar; Escape lo cierra sin pedido y el foco vuelve a "Eliminar" |
-
-**Mutaciones** (3 detectadas de 4 probadas): los errores de negocio con el botón para probar de nuevo (`final: false`): 4 tests
-fallan; la baja sin invalidar `['veterinarians']`: falla R1; la baja sin `single.tryStart()`: falla R2. **No detectada:**
-`resetQueries` del detalle antes de navegar (lo que el desvío 1 evita): en jsdom el detalle no se vuelve a pedir (1 pedido antes y
-después), así que el conteo de R1 no protege ese caso; se deja anotado, sin otro test (el 404 que el desvío evita solo se vería
-contra la API real).
-
-Corrida final, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 996 tests en 49 archivos, en
-verde (2026-11-16). Playwright y el navegador no se repitieron: la revisión solo tocó tests de Vitest.
+Vacío: la entrega se cerró (R-077) y todo lo que había acá pasó a su [resultado](#entrega-22b).
 
 ### front-02 Soporte del backend: la ficha de veterinario en el listado de usuarios
 
@@ -756,3 +696,65 @@ el usuario entra con la contraseña nueva en otro contexto y la anterior ya no s
 `frontend/`, sobre `e8ecdeb`, `typecheck`, `lint` y `build` sin errores ni avisos.
 
 Corrida de `npm test` del frontend (2026-11-16): 982 tests en 49 archivos, en verde.
+
+### Entrega 2.2b
+
+Estado: **COMPLETADO** el 2026-11-16 (R-077). Usuarios: inactivar, reactivar y baja, en `feature/front-2-2b-usuarios` (desde
+`feature/front-2-2a-usuarios`, en el cierre de la 2.2a, `0bf3ed0`), sin integrar a `main` (se integra al cerrar la F2). Commits:
+`2cd6dd4` (WIP de la implementación), `3265903` (WIP de la revisión) y el de este cierre (R-077: la documentación).
+
+**Implementación.**
+
+* **Acciones en el detalle** (`features/users/UserActions.tsx`, nuevo): "Inactivar" o "Reactivar" (`users.update`) y "Eliminar"
+  (`users.destroy`), ocultos en el propio usuario. `PERMISSIONS` suma `usersDestroy`.
+* **Inactivar y reactivar** (`UserStatusDialog`, `tone="primary"`): `PATCH users/{id}` con solo `{ is_active }` (`setUserActive`),
+  con el aviso "Se van a cerrar todas sus sesiones y no va a poder ingresar hasta que lo reactives." o "Va a tener que ingresar de
+  nuevo."; con el 200, `afterUserChanged` (el detalle toma la respuesta; `['users']` y `['veterinarians']` invalidados).
+* **Baja** (`DeleteUserDialog`, `tone="danger"`): `DELETE users/{id}` (`deleteUser`); con el 200, `afterUserGone` (los listados
+  vaciados, usuarios y veterinarios invalidados) y al listado, donde el detalle sale de la caché (desvío 1). Con `USER_IN_USE`, el
+  mensaje de la API y "Inactivar" (en azul, si está activo y con `users.update`), que cierra este diálogo y abre el de inactivar; en
+  un inactivo, el mensaje y "Cerrar".
+* **Errores en los diálogos.** `USER_LAST_ADMIN` y `USER_SELF_ACTION` (si llegara, por un detalle viejo de otra pestaña) y un 422,
+  el mensaje y solo "Cerrar"; el 404, aviso y vuelta al listado (`useUserGone`); lo demás (el servidor, la red, `FORBIDDEN`), el
+  mensaje y el botón para probar de nuevo. Un solo pedido con `useSingleAction` en los dos diálogos.
+* **Pruebas.** Vitest: 14 tests nuevos en `UserPages.test.tsx` (13 de la implementación y 1 de la revisión). Playwright:
+  `e2e/usuarios-estado.spec.ts` (nuevo), 1 de 1 en 54,5 s: la sesión abierta en otro contexto termina al inactivar, el login
+  responde el mensaje de `USER_INACTIVE`, la reactivación deja entrar de nuevo, la baja del usuario y la de `vet-a` (con ficha)
+  ofrece "Inactivar" sin confirmarlo. Mutaciones de la implementación: 4 de 4 detectadas (los botones en el propio usuario,
+  `USER_IN_USE` sin "Inactivar", la baja sin sacar el detalle de la caché y sin invalidar usuarios y veterinarios al inactivar).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Con el 200 de la baja, el detalle sale de la caché con `removeQueries` al llegar al listado (como la baja del paciente), no con `resetQueries`; los listados, sí con `resetQueries` | Mientras navega, el detalle todavía está a la vista: vaciarlo antes lo volvería a pedir (un 404) |
+| 2 | `dialogError` de `UserActions.tsx` repite el de `BranchDialogs.tsx` (no exportado) | Llevarlo a código común es otro tema; el usuario decidió hacerlo en la 2.3 (R-077, anotado en su [diseño](#23-veterinarios)) |
+| 3 | En el diálogo de baja con `USER_IN_USE`, el botón dice solo "Inactivar" (el diseño); el del diálogo de inactivar, "Inactivar a …" | El primero solo abre el otro diálogo |
+| 4 | Un 422 al inactivar o eliminar (no debería llegar) muestra sus mensajes en el diálogo con "Cerrar" | Como la 2.1 (desvío 8) |
+| 5 | Playwright: la sesión del otro contexto, al recargar, termina con "Tu sesión terminó. Ingresá de nuevo." (401: la API revocó sus tokens), y el mensaje de `USER_INACTIVE` aparece al volver a ingresar | Es lo que responde la API; el caso lo comprueba así |
+| 6 | Edge: `USER_IN_USE` simulado (el `DELETE` del usuario temporal interceptado con un 409) para la captura y el paso con el teclado al diálogo de inactivar | No se intenta la baja de `vet-a` en la demo; la real está en Playwright contra `syncvet_e2e` |
+| 7 | La captura `04-baja-en-uso.png` muestra "Inactivar" en un rojo pálido: es la transición de color de Tabler (0,3 s) tomada a mitad; un test comprueba que el botón es `btn-primary` | Captura tomada apenas llegó el mensaje |
+| 8 | Prettier cambió el formato de `e2e/usuarios-estado.spec.ts` después de su corrida; no se repitió | Solo formato |
+
+**Revisión (2026-11-16).** Sobre `2cd6dd4`, contra el cierre de la 2.2a (`0bf3ed0`), con el presupuesto por entrega y
+`backend/CLAUDE.md` §6.5: sin hallazgos que cambien el comportamiento (los botones ocultos en el propio usuario y
+`USER_SELF_ACTION` bien mostrado si llegara; `USER_LAST_ADMIN`; `USER_IN_USE` con "Inactivar" solo en un activo; el cuerpo
+`{ is_active }` y los avisos; la invalidación de usuarios y veterinarios; la baja sin volver a pedir el detalle; un solo pedido;
+Escape y el clic afuera no cierran mientras espera; los permisos). Corregido en `3265903` (solo tests, en `UserPages.test.tsx`):
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| R1 | El 200 de la baja no comprobaba el desvío 1 (que el detalle no se vuelve a pedir) ni la invalidación de veterinarios | El test cuenta los `GET users/7` y revisa `['veterinarians']` invalidado |
+| R2 | El doble clic se probaba solo al inactivar | El mismo test de la baja hace doble clic: un solo `DELETE` |
+| R3 | Sin test del foco al pasar de la baja con `USER_IN_USE` al diálogo de inactivar, ni de Escape | Test nuevo: el foco en "Cancelar" del diálogo de inactivar; Escape lo cierra sin pedido y el foco vuelve a "Eliminar" |
+
+Mutaciones de la revisión: 3 detectadas de 4 probadas (los errores de negocio con el botón para probar de nuevo, 4 tests; la baja
+sin invalidar `['veterinarians']`, R1; la baja sin `useSingleAction`, R2). No detectada: `resetQueries` del detalle antes de
+navegar (lo que el desvío 1 evita): en jsdom el detalle no se vuelve a pedir, así que el conteo de R1 no protege ese caso; queda
+anotada, sin otro test (el 404 solo se vería contra la API real).
+
+**Validación.** El usuario aceptó los 8 desvíos y dio la entrega por validada al pedir su cierre (R-077). Evidencia: Claude Code,
+5 de 5 en Edge sin ventana contra `syncvet.test` (un usuario temporal, borrado por la API al terminar, `DELETE users/62`, 200;
+`USER_IN_USE` simulado, desvío 6), con capturas fuera del repositorio, en la PC de la validación (entre ellas
+`04-baja-en-uso.png`); Playwright, `e2e/usuarios-estado.spec.ts`, 1 de 1 (en la implementación; la revisión no tocó su caso);
+desde `frontend/`, sobre `3265903`, `typecheck`, `lint` y `build` sin errores ni avisos.
+
+Corrida de `npm test` del frontend (2026-11-16): 996 tests en 49 archivos, en verde.
