@@ -1,8 +1,8 @@
 # F2 — Datos maestros (frontend)
 
-Etapa: Datos de la clínica. Estado: **PROPUESTA**, en `docs/front-f2-diseno` (desde `main` en `1daee8c`, el merge de
-`chore/post-f1`), esperando las [preguntas del diseño](#preguntas-del-diseño). Ninguna entrega empieza sin la autorización del
-usuario. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
+Etapa: Datos de la clínica. Estado: **APROBADO** por el usuario el 2026-11-16 (R-074), en `docs/front-f2-diseno` (desde `main` en `1daee8c`, el merge de
+`chore/post-f1`), con las [preguntas del diseño](#preguntas-del-diseño) respondidas: todas las recomendaciones, también la entrega
+front-02 del backend antes de la 2.3. Cada entrega empieza con la autorización del usuario. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -134,14 +134,14 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | PENDIENTE |
-| 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios` | PENDIENTE |
-| 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios` | PENDIENTE |
-| front-02 | Soporte del backend: la ficha de veterinario en `GET users` (si se aprueba la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-ficha-en-usuarios` | PENDIENTE |
-| 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios` | PENDIENTE |
-| 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios` | PENDIENTE |
-| 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra) | No | `feature/front-2-5-configuracion` | PENDIENTE |
-| 2.6 | Auditoría: listado con filtros (fechas con y sin hora en Asunción) y detalle de los cambios | No | `feature/front-2-6-auditoria` | PENDIENTE |
+| 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | APROBADA (R-074) |
+| 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios` | APROBADA (R-074) |
+| 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios` | APROBADA (R-074) |
+| front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-ficha-en-usuarios` | APROBADA (R-074) |
+| 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios` | APROBADA (R-074) |
+| 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios` | APROBADA (R-074) |
+| 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra) | No | `feature/front-2-5-configuracion` | APROBADA (R-074) |
+| 2.6 | Auditoría: listado con filtros (fechas con y sin hora en Asunción) y detalle de los cambios | No | `feature/front-2-6-auditoria` | APROBADA (R-074) |
 
 Cada rama sale de la anterior, como en la F1, y todo se integra a `main` al cerrar la F2. Los usuarios van en dos entregas
 ([pregunta 3](#preguntas-del-diseño)), como en el backend: juntos serían el doble que las demás. front-02 va antes de la 2.3, la
@@ -307,7 +307,7 @@ Vacío.
 
 ### front-02 Soporte del backend: la ficha de veterinario en el listado de usuarios
 
-**Si se aprueba la [pregunta 1](#preguntas-del-diseño).** `veterinarian` (`id`, `code`, o `null` sin ficha o con la ficha
+**Aprobada con la [pregunta 1](#preguntas-del-diseño) (R-074).** `veterinarian` (`id`, `code`, o `null` sin ficha o con la ficha
 eliminada) pasa de `ShowUserResource` a `UserResource`, y `UserController::RELATIONS` suma `veterinarian`: el listado, el alta, el
 detalle y la edición lo traen. Sin rutas, permisos, migraciones ni `error_code` nuevos; aditivo. Tests: el listado con y sin ficha y
 con la ficha eliminada (`null`), sin N+1 (cantidad de consultas fija con 1 y con 5 usuarios). Postman: una aserción en la colección
@@ -521,24 +521,24 @@ Vacío.
 
 | # | Pregunta | Opciones | Recomendación | Respuesta |
 |---|---|---|---|---|
-| 1 | El listado de usuarios no dice quién ya tiene ficha de veterinario (H1). ¿Se suma en el backend? | (a) Entrega de soporte front-02, chica y aditiva; (b) el selector ofrece a todos y el 422 va al campo | **(a)**: el alta ofrece solo a quien se puede elegir y el listado de usuarios puede mostrar el código `VET-` | |
-| 2 | ¿Dónde van las pantallas de administración? (H9) | (a) Bajo `/configuracion/…` con una página de entrada, y "Veterinarios" y "Servicios" con su ítem; (b) un ítem del menú por módulo; (c) un menú desplegable "Administración" | **(a)**: la barra horizontal no admite diez ítems, el ítem "Configuración" ya es del administrador, y veterinarios y servicios los listan los tres roles. (c) necesita un desplegable propio (sin el JS de Tabler) | |
-| 3 | ¿Usuarios en dos entregas (2.2a y 2.2b)? | Dos; una | **Dos**, como en el backend: el formulario con las contraseñas y el propio usuario por un lado, la inactivación y la baja con sus 409 por el otro | |
-| 4 | El recepcionista y el veterinario pueden listar las sucursales (`branches.index`). ¿Tienen pantalla? | Solo el administrador; los tres, solo la lista | **Solo el administrador**: los otros ven sus sucursales en el selector de la barra; el listado de la API queda para los selectores de la F3 | |
-| 5 | ¿Los depósitos tienen pantalla propia? | Dentro del detalle de la sucursal, con diálogos; `/configuracion/sucursales/$id/depositos/…` | **Dentro del detalle**: son pocos campos, no hay `GET` de un depósito y el detalle de la sucursal ya los trae todos | |
-| 6 | La contraseña de otro usuario al editarlo (H3) | (a) "Cambiar la contraseña" que muestra los campos, con la repetición, el aviso de que se cierran sus sesiones y las reglas de forma en Zod; (b) los campos siempre visibles y opcionales; (c) una acción aparte en el detalle | **(a)**: no se manda nada por error y el aviso aparece justo cuando hace falta. El control de filtraciones, solo la API | |
-| 7 | El administrador se quita su propio rol de administrador (con otro activo) | Con confirmación y vuelta a `/`; sin confirmación | **Con confirmación**: pierde el acceso a la pantalla en la que está | |
-| 8 | El precio de los servicios | (a) Texto que acepta los puntos de miles ("150.000") y se manda como texto de solo dígitos; (b) solo dígitos, sin puntos | **(a)**: en Paraguay el precio se escribe con puntos; la coma y los decimales se rechazan con el mensaje de la API | |
-| 9 | ¿El logo se muestra en la barra? | Sí, para los tres roles; solo en `/configuracion/clinica` | **Sí**: los tres pueden verlo y es la forma de saber en qué clínica se está | |
-| 10 | "Hasta" con hora en la auditoría (H7) | Con los segundos en 59 (todo ese minuto); el instante exacto | **Con 59**: "hasta las 18:00" incluye lo de las 18:00 | |
-| 11 | Los campos en el detalle de la auditoría | El nombre de la API (`first_name`); un texto en castellano por campo | **El nombre de la API** en la F2: es una pantalla del administrador y una tabla de textos por modelo es mucho para lo que da; se puede sumar después | |
-| 12 | ¿El frontend oculta también las contraseñas y las rutas de la auditoría (`maskAuditValues`)? | Sí, además de la API; solo la API | **Sí**: es una función pura chica con sus tests y protege si la API un día deja pasar una | |
-| 13 | ¿Activar, inactivar y eliminar como botones del detalle (también el estado de veterinarios y servicios)? | Botones con diálogo; el estado como campo del formulario | **Botones**, como especies: un cambio de estado tiene sus avisos y sus 409, y el formulario queda para los datos | |
+| 1 | El listado de usuarios no dice quién ya tiene ficha de veterinario (H1). ¿Se suma en el backend? | (a) Entrega de soporte front-02, chica y aditiva; (b) el selector ofrece a todos y el 422 va al campo | **(a)**: el alta ofrece solo a quien se puede elegir y el listado de usuarios puede mostrar el código `VET-` | Aprobada (usuario, 2026-11-16) |
+| 2 | ¿Dónde van las pantallas de administración? (H9) | (a) Bajo `/configuracion/…` con una página de entrada, y "Veterinarios" y "Servicios" con su ítem; (b) un ítem del menú por módulo; (c) un menú desplegable "Administración" | **(a)**: la barra horizontal no admite diez ítems, el ítem "Configuración" ya es del administrador, y veterinarios y servicios los listan los tres roles. (c) necesita un desplegable propio (sin el JS de Tabler) | Aprobada (usuario, 2026-11-16) |
+| 3 | ¿Usuarios en dos entregas (2.2a y 2.2b)? | Dos; una | **Dos**, como en el backend: el formulario con las contraseñas y el propio usuario por un lado, la inactivación y la baja con sus 409 por el otro | Aprobada (usuario, 2026-11-16) |
+| 4 | El recepcionista y el veterinario pueden listar las sucursales (`branches.index`). ¿Tienen pantalla? | Solo el administrador; los tres, solo la lista | **Solo el administrador**: los otros ven sus sucursales en el selector de la barra; el listado de la API queda para los selectores de la F3 | Aprobada (usuario, 2026-11-16) |
+| 5 | ¿Los depósitos tienen pantalla propia? | Dentro del detalle de la sucursal, con diálogos; `/configuracion/sucursales/$id/depositos/…` | **Dentro del detalle**: son pocos campos, no hay `GET` de un depósito y el detalle de la sucursal ya los trae todos | Aprobada (usuario, 2026-11-16) |
+| 6 | La contraseña de otro usuario al editarlo (H3) | (a) "Cambiar la contraseña" que muestra los campos, con la repetición, el aviso de que se cierran sus sesiones y las reglas de forma en Zod; (b) los campos siempre visibles y opcionales; (c) una acción aparte en el detalle | **(a)**: no se manda nada por error y el aviso aparece justo cuando hace falta. El control de filtraciones, solo la API | Aprobada (usuario, 2026-11-16) |
+| 7 | El administrador se quita su propio rol de administrador (con otro activo) | Con confirmación y vuelta a `/`; sin confirmación | **Con confirmación**: pierde el acceso a la pantalla en la que está | Aprobada (usuario, 2026-11-16) |
+| 8 | El precio de los servicios | (a) Texto que acepta los puntos de miles ("150.000") y se manda como texto de solo dígitos; (b) solo dígitos, sin puntos | **(a)**: en Paraguay el precio se escribe con puntos; la coma y los decimales se rechazan con el mensaje de la API | Aprobada (usuario, 2026-11-16) |
+| 9 | ¿El logo se muestra en la barra? | Sí, para los tres roles; solo en `/configuracion/clinica` | **Sí**: los tres pueden verlo y es la forma de saber en qué clínica se está | Aprobada (usuario, 2026-11-16) |
+| 10 | "Hasta" con hora en la auditoría (H7) | Con los segundos en 59 (todo ese minuto); el instante exacto | **Con 59**: "hasta las 18:00" incluye lo de las 18:00 | Aprobada (usuario, 2026-11-16) |
+| 11 | Los campos en el detalle de la auditoría | El nombre de la API (`first_name`); un texto en castellano por campo | **El nombre de la API** en la F2: es una pantalla del administrador y una tabla de textos por modelo es mucho para lo que da; se puede sumar después | Aprobada (usuario, 2026-11-16) |
+| 12 | ¿El frontend oculta también las contraseñas y las rutas de la auditoría (`maskAuditValues`)? | Sí, además de la API; solo la API | **Sí**: es una función pura chica con sus tests y protege si la API un día deja pasar una | Aprobada (usuario, 2026-11-16) |
+| 13 | ¿Activar, inactivar y eliminar como botones del detalle (también el estado de veterinarios y servicios)? | Botones con diálogo; el estado como campo del formulario | **Botones**, como especies: un cambio de estado tiene sus avisos y sus 409, y el formulario queda para los datos | Aprobada (usuario, 2026-11-16) |
 
 ## Criterio de cierre
 
 * Las entregas aprobadas cerradas, con Vitest y Playwright en verde, `typecheck`, `lint` y `build` sin errores ni avisos.
-* Si se aprueba front-02: `composer test` y la suite del backend completa en MySQL y en serie, al cerrar la fase.
+* Por front-02: `composer test` y la suite del backend completa en MySQL y en serie, al cerrar la fase.
 * Newman de **todas** las colecciones de `docs/05-pruebas/postman` desde la raíz (R-057), sin fallas.
 
 ## Resultado

@@ -1606,3 +1606,23 @@ usuario. Sin cambios en el backend ni en la API.
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP y contrato de respuesta. Las demás colecciones de
 Postman.
+
+# R-074 Aprobación del diseño de la F2 del frontend (datos maestros) (2026-11-16)
+
+El usuario aprueba el diseño de la F2 del frontend,
+[`f2-datos-maestros.md`](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md), en `docs/front-f2-diseno`
+(desde `main` en `1daee8c`, el merge de `chore/post-f1`, R-073), con las 13
+[preguntas del diseño](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#preguntas-del-diseño) respondidas con la
+recomendación.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | 2.1 (sucursales y depósitos, con lo que queda de la tarea 3c), 2.2a y 2.2b (usuarios), front-02 (backend), 2.3 (veterinarios), 2.4 (servicios), 2.5 (configuración y logo) y 2.6 (auditoría), en ramas encadenadas desde `docs/front-f2-diseno`; todo se integra a `main` al cerrar la F2 | Usuario |
+| Ficha de veterinario en los usuarios (pregunta 1) | Entrega de soporte del backend front-02, aditiva y antes de la 2.3: `veterinarian` (`id` y `code`, o `null`) en `GET users`, sin N+1 y sin cambiar otras respuestas | Usuario |
+| Navegación y pantallas (preguntas 2, 4, 5, 9 y 13) | Sucursales, usuarios, la clínica y la auditoría bajo `/configuracion/…`, con una página de entrada; "Veterinarios" y "Servicios" con su ítem para los tres roles; la pantalla de sucursales, solo para el administrador; los depósitos, en diálogos dentro del detalle de la sucursal; el logo también en la barra; activar, inactivar y eliminar como botones del detalle | Usuario |
+| Usuarios (preguntas 3, 6 y 7) | Dos entregas (2.2a y 2.2b); la contraseña de otro usuario detrás de "Cambiar la contraseña", con la repetición y el aviso de que se cierran sus sesiones, sin mandar `password` si no cambia; confirmación cuando el administrador se quita su propio rol de administrador | Usuario |
+| Servicios (pregunta 8) | El precio acepta los puntos de miles ("150.000") y se manda como texto de solo dígitos | Usuario |
+| Auditoría (preguntas 10 a 12) | "Hasta" con hora se manda con los segundos en 59; los campos del detalle, con su nombre de la API; el frontend también oculta contraseñas, tokens y rutas (`maskAuditValues`) | Usuario |
+| Rama de la 2.1 | `feature/front-2-1-sucursales`, creada desde `docs/front-f2-diseno` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos y colecciones: la aprobación solo documenta.
