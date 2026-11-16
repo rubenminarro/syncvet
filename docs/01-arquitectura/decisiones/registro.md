@@ -1544,3 +1544,22 @@ Quinta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-4
 | Siguiente | La entrega 1.5 del frontend (especies y razas), APROBADA (R-064), en `feature/front-1-5-especies`, creada desde `feature/front-1-4-foto` | Usuario |
 
 **Qué no cambió.** Backend, rutas, permisos de la API, `error_code`, códigos HTTP y colecciones.
+
+# R-071 Cierre de la entrega 1.5 del frontend (especies y razas) (2026-11-16)
+
+Sexta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-5-especies` (desde `feature/front-1-4-foto` en
+`28c5eb5`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/especies` (`species.index`, los tres roles) y "Especies" en el menú: las especies con sus razas en una lista que se despliega, "Común" o "Propia" e "Inactivada". Con los permisos de especie (administrador y veterinario), solo en las propias: renombrar, activar o inactivar (sin confirmación) y eliminar (con `SPECIES_IN_USE` o `BREED_IN_USE`, "Inactivar …" desde el diálogo); "Nueva especie" y "Nueva raza" (también en una común). El nombre con Zod y los mensajes de la API; el repetido, 422 en el campo; `CATALOG_GLOBAL_NOT_EDITABLE` en el diálogo, no `/sin-permiso`. Cada cambio vacía la lista de los selectores del paciente (`afterCatalogChanged`). Sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvíos | Los 1 a 10, aceptados: entre ellos, "Inactivada" en lugar de "Inactiva" (test de voseo); activar o inactivar sin confirmación; las listas de especies que no están a la vista se vacían (`resetQueries`), no se invalidan (hallado en Edge); `useSingleAction` repetido en `features/species` | Usuario |
+| Listado de especies (desvío 11) | Solo las activas por defecto, con "Incluir las inactivas" (`?inactivas=1`) como los demás listados, visible solo con `species.update`; sin el filtro, la consulta de los selectores del paciente (`speciesQueryOptions`) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `dd15e51`: 3 hallazgos (H1, el listado con las inactivas siempre; H2, un 404 que invalidaba en lugar de vaciar la lista de los selectores, sin test en el botón; H3, el diálogo con `*_IN_USE` seguía preguntando si eliminar) y 2 detalles (un comentario largo; el nombre viejo de la especie un instante en el detalle del cliente, aceptado como informativo); 2 de 3 mutaciones detectadas | Revisión |
+| Correcciones | H1 a H3 y el detalle 1, en `26772d1`; 3 de 3 mutaciones detectadas. Desvíos 12 (la 1.3b no quita la pregunta con `PATIENT_IN_USE`), 13 (sin el filtro, el listado puede tardar hasta 5 minutos en mostrar cambios de otra PC) y 14 (también se ajustó el caso 1 de Playwright), aceptados | Usuario |
+| Tareas para después de la F1 | En la entrega `chore` ([handoff](../../03-plan-desarrollo/handoff.md#próximas-tareas), tarea 3c): que la colección de Postman de especies borre lo que crea; limpiar los restos "Hurón doméstico NNNNNN" de la base de desarrollo; quitar la pregunta del diálogo de baja del paciente con `PATIENT_IN_USE` (desvío 12); mover `useSingleAction` a `src/lib/hooks` (desvío 6) | Usuario |
+| Validación | El usuario dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 6 de 6 de la primera sesión, 6 controles de la segunda (con la repetición del que encontró el desvío 8) y 3 de 3 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 800 tests en 42 archivos; `typecheck` y `build` sin errores; `lint` en verde después de corregir 2 errores de estilo del test; Playwright, `e2e/especies.spec.ts`, 2 de 2 | Usuario |
+| Siguiente | El cierre de la F1: Playwright completo, la suite del backend completa en MySQL, Newman de todas las colecciones y la integración a `main` | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP y colecciones.
