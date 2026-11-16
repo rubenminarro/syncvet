@@ -26,9 +26,13 @@ import { Route as SesionClientesIdEditarRouteImport } from './routes/_sesion/cli
 import { Route as SesionConfiguracionSucursalesIndexRouteImport } from './routes/_sesion/configuracion/sucursales/index'
 import { Route as SesionConfiguracionSucursalesIdRouteImport } from './routes/_sesion/configuracion/sucursales/$id'
 import { Route as SesionConfiguracionSucursalesNuevaRouteImport } from './routes/_sesion/configuracion/sucursales/nueva'
+import { Route as SesionConfiguracionUsuariosIndexRouteImport } from './routes/_sesion/configuracion/usuarios/index'
+import { Route as SesionConfiguracionUsuariosIdRouteImport } from './routes/_sesion/configuracion/usuarios/$id'
+import { Route as SesionConfiguracionUsuariosNuevoRouteImport } from './routes/_sesion/configuracion/usuarios/nuevo'
 import { Route as SesionPacientesIdEditarRouteImport } from './routes/_sesion/pacientes/$id_.editar'
 import { Route as SesionClientesIdPacientesNuevoRouteImport } from './routes/_sesion/clientes/$id_.pacientes.nuevo'
 import { Route as SesionConfiguracionSucursalesIdEditarRouteImport } from './routes/_sesion/configuracion/sucursales/$id_.editar'
+import { Route as SesionConfiguracionUsuariosIdEditarRouteImport } from './routes/_sesion/configuracion/usuarios/$id_.editar'
 
 const PublicoRoute = PublicoRouteImport.update({
   id: '/_publico',
@@ -117,6 +121,24 @@ const SesionConfiguracionSucursalesNuevaRoute =
     path: '/configuracion/sucursales/nueva',
     getParentRoute: () => SesionRoute,
   } as any)
+const SesionConfiguracionUsuariosIndexRoute =
+  SesionConfiguracionUsuariosIndexRouteImport.update({
+    id: '/configuracion/usuarios/',
+    path: '/configuracion/usuarios/',
+    getParentRoute: () => SesionRoute,
+  } as any)
+const SesionConfiguracionUsuariosIdRoute =
+  SesionConfiguracionUsuariosIdRouteImport.update({
+    id: '/configuracion/usuarios/$id',
+    path: '/configuracion/usuarios/$id',
+    getParentRoute: () => SesionRoute,
+  } as any)
+const SesionConfiguracionUsuariosNuevoRoute =
+  SesionConfiguracionUsuariosNuevoRouteImport.update({
+    id: '/configuracion/usuarios/nuevo',
+    path: '/configuracion/usuarios/nuevo',
+    getParentRoute: () => SesionRoute,
+  } as any)
 const SesionPacientesIdEditarRoute = SesionPacientesIdEditarRouteImport.update({
   id: '/pacientes/$id_/editar',
   path: '/pacientes/$id/editar',
@@ -132,6 +154,12 @@ const SesionConfiguracionSucursalesIdEditarRoute =
   SesionConfiguracionSucursalesIdEditarRouteImport.update({
     id: '/configuracion/sucursales/$id_/editar',
     path: '/configuracion/sucursales/$id/editar',
+    getParentRoute: () => SesionRoute,
+  } as any)
+const SesionConfiguracionUsuariosIdEditarRoute =
+  SesionConfiguracionUsuariosIdEditarRouteImport.update({
+    id: '/configuracion/usuarios/$id_/editar',
+    path: '/configuracion/usuarios/$id/editar',
     getParentRoute: () => SesionRoute,
   } as any)
 
@@ -150,10 +178,14 @@ export interface FileRoutesByFullPath {
   '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
   '/configuracion/sucursales/$id': typeof SesionConfiguracionSucursalesIdRoute
   '/configuracion/sucursales/nueva': typeof SesionConfiguracionSucursalesNuevaRoute
+  '/configuracion/usuarios/$id': typeof SesionConfiguracionUsuariosIdRoute
+  '/configuracion/usuarios/nuevo': typeof SesionConfiguracionUsuariosNuevoRoute
   '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
   '/configuracion/sucursales/': typeof SesionConfiguracionSucursalesIndexRoute
+  '/configuracion/usuarios/': typeof SesionConfiguracionUsuariosIndexRoute
   '/clientes/$id/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
   '/configuracion/sucursales/$id/editar': typeof SesionConfiguracionSucursalesIdEditarRoute
+  '/configuracion/usuarios/$id/editar': typeof SesionConfiguracionUsuariosIdEditarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof SesionIndexRoute
@@ -170,10 +202,14 @@ export interface FileRoutesByTo {
   '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
   '/configuracion/sucursales/$id': typeof SesionConfiguracionSucursalesIdRoute
   '/configuracion/sucursales/nueva': typeof SesionConfiguracionSucursalesNuevaRoute
+  '/configuracion/usuarios/$id': typeof SesionConfiguracionUsuariosIdRoute
+  '/configuracion/usuarios/nuevo': typeof SesionConfiguracionUsuariosNuevoRoute
   '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
   '/configuracion/sucursales': typeof SesionConfiguracionSucursalesIndexRoute
+  '/configuracion/usuarios': typeof SesionConfiguracionUsuariosIndexRoute
   '/clientes/$id/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
   '/configuracion/sucursales/$id/editar': typeof SesionConfiguracionSucursalesIdEditarRoute
+  '/configuracion/usuarios/$id/editar': typeof SesionConfiguracionUsuariosIdEditarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -193,10 +229,14 @@ export interface FileRoutesById {
   '/_sesion/clientes/$id_/editar': typeof SesionClientesIdEditarRoute
   '/_sesion/configuracion/sucursales/$id': typeof SesionConfiguracionSucursalesIdRoute
   '/_sesion/configuracion/sucursales/nueva': typeof SesionConfiguracionSucursalesNuevaRoute
+  '/_sesion/configuracion/usuarios/$id': typeof SesionConfiguracionUsuariosIdRoute
+  '/_sesion/configuracion/usuarios/nuevo': typeof SesionConfiguracionUsuariosNuevoRoute
   '/_sesion/pacientes/$id_/editar': typeof SesionPacientesIdEditarRoute
   '/_sesion/configuracion/sucursales/': typeof SesionConfiguracionSucursalesIndexRoute
+  '/_sesion/configuracion/usuarios/': typeof SesionConfiguracionUsuariosIndexRoute
   '/_sesion/clientes/$id_/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
   '/_sesion/configuracion/sucursales/$id_/editar': typeof SesionConfiguracionSucursalesIdEditarRoute
+  '/_sesion/configuracion/usuarios/$id_/editar': typeof SesionConfiguracionUsuariosIdEditarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -215,10 +255,14 @@ export interface FileRouteTypes {
     | '/clientes/$id/editar'
     | '/configuracion/sucursales/$id'
     | '/configuracion/sucursales/nueva'
+    | '/configuracion/usuarios/$id'
+    | '/configuracion/usuarios/nuevo'
     | '/pacientes/$id/editar'
     | '/configuracion/sucursales/'
+    | '/configuracion/usuarios/'
     | '/clientes/$id/pacientes/nuevo'
     | '/configuracion/sucursales/$id/editar'
+    | '/configuracion/usuarios/$id/editar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -235,10 +279,14 @@ export interface FileRouteTypes {
     | '/clientes/$id/editar'
     | '/configuracion/sucursales/$id'
     | '/configuracion/sucursales/nueva'
+    | '/configuracion/usuarios/$id'
+    | '/configuracion/usuarios/nuevo'
     | '/pacientes/$id/editar'
     | '/configuracion/sucursales'
+    | '/configuracion/usuarios'
     | '/clientes/$id/pacientes/nuevo'
     | '/configuracion/sucursales/$id/editar'
+    | '/configuracion/usuarios/$id/editar'
   id:
     | '__root__'
     | '/_publico'
@@ -257,10 +305,14 @@ export interface FileRouteTypes {
     | '/_sesion/clientes/$id_/editar'
     | '/_sesion/configuracion/sucursales/$id'
     | '/_sesion/configuracion/sucursales/nueva'
+    | '/_sesion/configuracion/usuarios/$id'
+    | '/_sesion/configuracion/usuarios/nuevo'
     | '/_sesion/pacientes/$id_/editar'
     | '/_sesion/configuracion/sucursales/'
+    | '/_sesion/configuracion/usuarios/'
     | '/_sesion/clientes/$id_/pacientes/nuevo'
     | '/_sesion/configuracion/sucursales/$id_/editar'
+    | '/_sesion/configuracion/usuarios/$id_/editar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -389,6 +441,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SesionConfiguracionSucursalesNuevaRouteImport
       parentRoute: typeof SesionRoute
     }
+    '/_sesion/configuracion/usuarios/': {
+      id: '/_sesion/configuracion/usuarios/'
+      path: '/configuracion/usuarios'
+      fullPath: '/configuracion/usuarios/'
+      preLoaderRoute: typeof SesionConfiguracionUsuariosIndexRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/configuracion/usuarios/$id': {
+      id: '/_sesion/configuracion/usuarios/$id'
+      path: '/configuracion/usuarios/$id'
+      fullPath: '/configuracion/usuarios/$id'
+      preLoaderRoute: typeof SesionConfiguracionUsuariosIdRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/configuracion/usuarios/nuevo': {
+      id: '/_sesion/configuracion/usuarios/nuevo'
+      path: '/configuracion/usuarios/nuevo'
+      fullPath: '/configuracion/usuarios/nuevo'
+      preLoaderRoute: typeof SesionConfiguracionUsuariosNuevoRouteImport
+      parentRoute: typeof SesionRoute
+    }
     '/_sesion/pacientes/$id_/editar': {
       id: '/_sesion/pacientes/$id_/editar'
       path: '/pacientes/$id/editar'
@@ -408,6 +481,13 @@ declare module '@tanstack/react-router' {
       path: '/configuracion/sucursales/$id/editar'
       fullPath: '/configuracion/sucursales/$id/editar'
       preLoaderRoute: typeof SesionConfiguracionSucursalesIdEditarRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/configuracion/usuarios/$id_/editar': {
+      id: '/_sesion/configuracion/usuarios/$id_/editar'
+      path: '/configuracion/usuarios/$id/editar'
+      fullPath: '/configuracion/usuarios/$id/editar'
+      preLoaderRoute: typeof SesionConfiguracionUsuariosIdEditarRouteImport
       parentRoute: typeof SesionRoute
     }
   }
@@ -438,10 +518,14 @@ interface SesionRouteChildren {
   SesionClientesIdEditarRoute: typeof SesionClientesIdEditarRoute
   SesionConfiguracionSucursalesIdRoute: typeof SesionConfiguracionSucursalesIdRoute
   SesionConfiguracionSucursalesNuevaRoute: typeof SesionConfiguracionSucursalesNuevaRoute
+  SesionConfiguracionUsuariosIdRoute: typeof SesionConfiguracionUsuariosIdRoute
+  SesionConfiguracionUsuariosNuevoRoute: typeof SesionConfiguracionUsuariosNuevoRoute
   SesionPacientesIdEditarRoute: typeof SesionPacientesIdEditarRoute
   SesionConfiguracionSucursalesIndexRoute: typeof SesionConfiguracionSucursalesIndexRoute
+  SesionConfiguracionUsuariosIndexRoute: typeof SesionConfiguracionUsuariosIndexRoute
   SesionClientesIdPacientesNuevoRoute: typeof SesionClientesIdPacientesNuevoRoute
   SesionConfiguracionSucursalesIdEditarRoute: typeof SesionConfiguracionSucursalesIdEditarRoute
+  SesionConfiguracionUsuariosIdEditarRoute: typeof SesionConfiguracionUsuariosIdEditarRoute
 }
 
 const SesionRouteChildren: SesionRouteChildren = {
@@ -459,12 +543,17 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionConfiguracionSucursalesIdRoute: SesionConfiguracionSucursalesIdRoute,
   SesionConfiguracionSucursalesNuevaRoute:
     SesionConfiguracionSucursalesNuevaRoute,
+  SesionConfiguracionUsuariosIdRoute: SesionConfiguracionUsuariosIdRoute,
+  SesionConfiguracionUsuariosNuevoRoute: SesionConfiguracionUsuariosNuevoRoute,
   SesionPacientesIdEditarRoute: SesionPacientesIdEditarRoute,
   SesionConfiguracionSucursalesIndexRoute:
     SesionConfiguracionSucursalesIndexRoute,
+  SesionConfiguracionUsuariosIndexRoute: SesionConfiguracionUsuariosIndexRoute,
   SesionClientesIdPacientesNuevoRoute: SesionClientesIdPacientesNuevoRoute,
   SesionConfiguracionSucursalesIdEditarRoute:
     SesionConfiguracionSucursalesIdEditarRoute,
+  SesionConfiguracionUsuariosIdEditarRoute:
+    SesionConfiguracionUsuariosIdEditarRoute,
 }
 
 const SesionRouteWithChildren =

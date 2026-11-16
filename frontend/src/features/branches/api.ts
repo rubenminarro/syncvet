@@ -25,7 +25,25 @@ export const branchKeys = {
   lists: ['branches', 'list'] as const,
   list: (filters: BranchListFilters) => ['branches', 'list', filters] as const,
   detail: (id: number) => ['branches', 'detail', id] as const,
+  options: ['branches', 'options'] as const,
 };
+
+/** Las sucursales de los selectores y los filtros (usuarios desde la 2.2a; veterinarios en la 2.3): todas, también las inactivas. */
+export const BRANCH_OPTIONS_PER_PAGE = 100;
+
+/** GET branches?include_inactive=1&per_page=100: la lista entera de la clínica, para elegir (las inactivas se marcan). */
+export function branchOptionsQueryOptions() {
+  return queryOptions({
+    queryKey: branchKeys.options,
+    queryFn: async ({ signal }) =>
+      (
+        await getPage<Branch>('branches', {
+          signal,
+          query: { include_inactive: 1, per_page: BRANCH_OPTIONS_PER_PAGE },
+        })
+      ).items,
+  });
+}
 
 /** GET branches: 20 por página; mientras llega otra página o búsqueda, la tabla sigue con la anterior. */
 export function branchListQueryOptions(filters: BranchListFilters) {

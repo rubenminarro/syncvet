@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PERSON_NAME_PATTERN } from '../../lib/person-name';
 import { normalizePhone, PHONE_MESSAGE, PHONE_PATTERN } from '../../lib/phone';
 import { hasValidRucCheckDigit, RUC_MESSAGE } from './ruc';
 import type { Client, ClientKind, ClientPayload } from './types';
@@ -70,8 +71,8 @@ export function clientToForm(client: Client): ClientFormValues {
 }
 
 // Las expresiones de la API (PHP con /u), con \pL y \pN escritos \p{L} y \p{N}.
-/** `App\Support\PersonName::REGEX`: letras separadas por espacios, o por un apóstrofo o un guion entre letras. */
-const PERSON_NAME = /^[a-zA-ZñÑáéíóúÁÉÍÓÚüÜ]+(?:(?:\s+|['-])[a-zA-ZñÑáéíóúÁÉÍÓÚüÜ]+)*$/u;
+/** `App\Support\PersonName::REGEX`, común con los usuarios desde la 2.2a (src/lib/person-name.ts). */
+const PERSON_NAME = PERSON_NAME_PATTERN;
 const BUSINESS_NAME = /^[\p{L}\p{N}\s.,\-&()']+$/u;
 const DOCUMENT = /^[a-zA-Z0-9-]+$/;
 const PHONE = PHONE_PATTERN;

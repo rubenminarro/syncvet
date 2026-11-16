@@ -271,7 +271,35 @@ la contraseña y la sesión del otro contexto termina con "Tu sesión terminó. 
 
 #### Pendiente para el cierre (2.2a)
 
-Vacío.
+Implementación (2026-11-16, commit WIP de la 2.2a), para pasar al resultado al cerrar:
+
+* **Hecho.** `features/users` (listado, detalle, alta y edición, con `form.ts`, `search.ts`, `loader.ts`, `api.ts` y
+  `use-user-gone.ts`), las cuatro rutas de `/configuracion/usuarios`, la tarjeta "Usuarios" en `/configuracion`,
+  `CheckboxGroupField` en `src/components/ui` (controlado, con `Controller`), `PERMISSIONS` con `usersIndex`, `usersShow`,
+  `usersStore`, `usersUpdate` y `rolesIndex`, y `['branches', 'options']` (`branchOptionsQueryOptions`, en `features/branches/api.ts`).
+* **Cifras.** Vitest: `npm test` completo, 979 tests en 49 archivos, en verde (después, solo cambios de tipos y de lint en los
+  tests de usuarios, verificados con sus 69 tests); `typecheck`, `lint` y `build` sin errores ni avisos. Mutaciones: 4 de 4
+  detectadas (`password` mandado sin "Cambiar la contraseña", la contraseña visible en el propio usuario, sin invalidar `['me']` al
+  editarse a sí mismo y sin la confirmación de quitarse el rol de administrador). Playwright: `e2e/usuarios.spec.ts`, 1 de 1.
+  Edge sin ventana contra `syncvet.test`: 5 de 5.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Playwright siguió el caso del pedido de la entrega (alta con rol y sucursal, edición de sus roles, cambio de su contraseña con el ingreso con la nueva en otro contexto, y `USER_LAST_ADMIN` al quitarse el rol el único administrador), no el del diseño (el menú del usuario nuevo, la sesión del otro contexto cerrada y el email repetido) | Pedido de la entrega; el 422 del email y el de `branch_ids.0` están en Vitest |
+| 2 | "Inactivado" (la marca del usuario) y "(inactivada)" (la sucursal en el filtro y en el formulario), no "Inactivo" ni "(inactiva)" | El test de voseo toma "Inactiva" por el imperativo (desvío 3 de la 2.1) |
+| 3 | `USER_IS_VETERINARIAN`: la alerta muestra el código de la ficha como texto ("Ficha de veterinario: VET-…."), sin enlace; el detalle, el código sin enlace y sin "Crear la ficha de veterinario" | `/veterinarios/$id` llega en la 2.3 |
+| 4 | Los errores del alta y la edición se tratan en las opciones de `useMutation`, no en las de `mutate()`, y las variables llevan el formulario (`{ values, form }`) | `reset()` en `onSettled` (la contraseña fuera de la caché, `gcTime: 0`) descarta los callbacks de `mutate()`: el error no llegaba al formulario |
+| 5 | La regla de nombres de personas pasó a `src/lib/person-name.ts` (`PERSON_NAME_PATTERN`), y clientes la importa de ahí sin cambiar su comportamiento | Es la misma regla (`PersonName`) en clientes y usuarios |
+| 6 | Los `loader` del alta y la edición traen también los roles y las sucursales: un 403 o un 5xx de esos pedidos va a la página de error de la ruta | El formulario no se dibuja sin las casillas |
+| 7 | La columna "Nombre" del listado muestra "Apellido, Nombre" | El listado de la API ordena por apellido |
+| 8 | "Incluir los inactivos" ya está en el listado de la 2.2a (el pedido nombraba solo el rol y la sucursal) | Está en la URL de la 2.2a del diseño |
+| 9 | `e2e/support/session.ts`: `User` pasa a ser `{ email, name }` (antes, solo los tres del `DemoSeeder`) | Para entrar con el usuario creado en el caso |
+| 10 | Edge: el usuario temporal se creó con un email `@mailinator.com` y se borró por la API (`DELETE users/61`, 200; queda eliminado con el sufijo de baja, como toda baja). Dos corridas del script fallaron antes sin cambiar la demo: con `@example.com` (422: la demo tiene `EMAIL_DNS_CHECK=true` y ese dominio no tiene MX) y con el id de `admin-a` supuesto (el de los tests) | La demo valida el DNS del email; `admin-a`, `recepcion-a` y `vet-a` solo se leyeron |
+| 11 | Después de la corrida de Playwright, `e2e/support/session.ts` cambió solo en el tipo de `User` (desvío 9); no se repitió | Sin cambios de comportamiento |
+
+Capturas (fuera del repositorio, en la PC de la validación), en `%TEMP%\claude\…\scratchpad\capturas-2-2a`: `01-configuracion.png`,
+`02-listado.png`, `03-detalle-vet.png`, `04-alta.png`, `05-edicion-cambiar-contrasena.png`, `06-quitarse-el-rol.png` y
+`07-edicion-propia-768.png`.
 
 ### 2.2b Usuarios: inactivar, reactivar y baja
 

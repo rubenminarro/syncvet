@@ -53,6 +53,16 @@ export const PERMISSIONS = {
   warehousesStore: 'warehouses.store',
   /** Editar, marcar por defecto, activar e inactivar un depósito (F2, entrega 2.1): solo el administrador. */
   warehousesUpdate: 'warehouses.update',
+  /** /configuracion/usuarios (F2, entrega 2.2a): solo el administrador. */
+  usersIndex: 'users.index',
+  /** /configuracion/usuarios/$id (F2, entrega 2.2a): solo el administrador. */
+  usersShow: 'users.show',
+  /** /configuracion/usuarios/nuevo (F2, entrega 2.2a): solo el administrador. */
+  usersStore: 'users.store',
+  /** /configuracion/usuarios/$id/editar (F2, entrega 2.2a): solo el administrador. */
+  usersUpdate: 'users.update',
+  /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
+  rolesIndex: 'roles.index',
 } as const;
 
 export interface WithPermissions {

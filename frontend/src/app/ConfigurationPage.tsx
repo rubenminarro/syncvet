@@ -1,11 +1,11 @@
-import { IconBuildingStore, type Icon } from '@tabler/icons-react';
+import { IconBuildingStore, IconUsersGroup, type Icon } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { Card } from '../components/ui';
 import { useCan } from '../features/auth/permissions';
 import { PERMISSIONS } from '../lib/auth/permissions';
 
 interface Section {
-  to: '/configuracion/sucursales';
+  to: '/configuracion/sucursales' | '/configuracion/usuarios';
   title: string;
   description: string;
   icon: Icon;
@@ -14,7 +14,7 @@ interface Section {
 
 /**
  * Las secciones de la administración (pregunta 2 del diseño de la F2): cada una llega en su entrega (Sucursales en la 2.1;
- * Usuarios, la Clínica y la Auditoría, después).
+ * Usuarios en la 2.2a; la Clínica y la Auditoría, después).
  */
 const SECTIONS: readonly Section[] = [
   {
@@ -23,6 +23,13 @@ const SECTIONS: readonly Section[] = [
     description: 'Las sucursales de la clínica, con su establecimiento de SIFEN y sus depósitos.',
     icon: IconBuildingStore,
     permission: PERMISSIONS.branchesShow,
+  },
+  {
+    to: '/configuracion/usuarios',
+    title: 'Usuarios',
+    description: 'Quién ingresa al sistema, con sus roles y sus sucursales.',
+    icon: IconUsersGroup,
+    permission: PERMISSIONS.usersIndex,
   },
 ];
 
