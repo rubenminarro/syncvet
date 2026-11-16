@@ -405,6 +405,83 @@ describe('/especies (1.5)', () => {
     expect(screen.queryByText('Eliminar Exótico', { selector: 'button' })).not.toBeInTheDocument();
   });
 
+  it('renombrar una especie propia: PATCH species/20 con el nombre', async () => {
+    let request: { url: string; body: unknown } | null = null;
+    server.use(
+      http.patch('/api/species/:id', async ({ request: received }) => {
+        request = { url: new URL(received.url).pathname, body: await received.json() };
+
+        return success({}, { message: 'Especie actualizada correctamente.' });
+      }),
+    );
+    await openPage();
+    clickIn(speciesItem('Pez'), '.species-rename');
+
+    expect(nameInput()).toHaveValue('Pez');
+    fireEvent.change(nameInput(), { target: { value: 'Peces' } });
+    fireEvent.click(dialogButton('Guardar el nombre'));
+
+    expect(await screen.findByText('Especie actualizada correctamente.')).toBeInTheDocument();
+    expect(request).toEqual({ url: '/api/species/20', body: { name: 'Peces' } });
+    expect(dialog()).toBeNull();
+  });
+
+  it('eliminar una raza con BREED_IN_USE: "Inactivar" la inactiva por la ruta anidada', async () => {
+    const patches: { url: string; body: unknown }[] = [];
+    server.use(
+      http.delete('/api/species/:species/breeds/:breed', () =>
+        failure(
+          409,
+          'BREED_IN_USE',
+          'La raza está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
+        ),
+      ),
+      http.patch('/api/species/:species/breeds/:breed', async ({ request }) => {
+        patches.push({ url: new URL(request.url).pathname, body: await request.json() });
+
+        return success({}, { message: 'Raza actualizada correctamente.' });
+      }),
+    );
+    await openPage();
+    expand('Canino');
+    clickIn(breedItem('Ovejero Chaqueño'), '.breed-delete');
+    fireEvent.click(dialogButton('Eliminar Ovejero Chaqueño'));
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      'La raza está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
+    );
+    fireEvent.click(
+      await screen.findByText('Inactivar Ovejero Chaqueño', {
+        selector: '[role="dialog"] button',
+      }),
+    );
+
+    expect(await screen.findByText('Raza actualizada correctamente.')).toBeInTheDocument();
+    expect(patches).toEqual([{ url: '/api/species/1/breeds/7', body: { is_active: false } }]);
+    expect(dialog()).toBeNull();
+  });
+
+  it('inactivar vacía la lista de los selectores del paciente (no está a la vista): el alta espera la nueva', async () => {
+    server.use(
+      http.patch('/api/species/:id', () =>
+        success({}, { message: 'Especie actualizada correctamente.' }),
+      ),
+    );
+    const { calls, queryClient } = await openPage();
+    const selectorKey = ['species', { include_inactive: false }];
+    queryClient.setQueryData(selectorKey, catalog(false));
+
+    clickIn(speciesItem('Pez'), '.species-toggle-active');
+
+    expect(await screen.findByText('Especie actualizada correctamente.')).toBeInTheDocument();
+    // Vaciada, no solo vieja: sin datos, el alta del paciente espera el pedido en lugar de mostrar la lista anterior.
+    expect(queryClient.getQueryData(selectorKey)).toBeUndefined();
+    // El catálogo a la vista, en cambio, se vuelve a pedir.
+    await waitFor(() => {
+      expect(calls).toEqual(['1', '1']);
+    });
+  });
+
   it('CATALOG_GLOBAL_NOT_EDITABLE (403): el mensaje en el diálogo, no la página de sin permiso', async () => {
     server.use(
       http.patch('/api/species/:id', () =>

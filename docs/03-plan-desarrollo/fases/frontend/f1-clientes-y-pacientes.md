@@ -380,11 +380,19 @@ Implementación en `feature/front-1-5-especies` (commit WIP). Lo que pasa al res
   con Zod y los mensajes de la API (`features/species/name.ts`: obligatorio, de 2 a 60 u 80 caracteres en `Array.from`, sin los
   espacios de los extremos, al menos una letra y los caracteres de `CatalogMessages::NAME_REGEX`); el repetido, 422 en `name` al
   campo. `CATALOG_GLOBAL_NOT_EDITABLE`, en el diálogo (no `/sin-permiso`); 404, aviso, el diálogo cerrado y el catálogo de nuevo.
-  Cada cambio invalida `['species']` (se vuelve a pedir) y `['patients']` (sin pedir hasta mostrarse). Doble envío: el botón en
+  Cada cambio (`afterCatalogChanged`, `features/species/api.ts`) vuelve a pedir el catálogo a la vista, **vacía** (`resetQueries`)
+  las listas de especies que no están a la vista (la de los selectores del paciente; desvío 8) e invalida `['patients']` (sin
+  pedir hasta mostrarse). Doble envío: el botón en
   espera y una `ref`. `PERMISSIONS` suma `speciesIndex`, `speciesStore`, `speciesUpdate` y `speciesDestroy`.
-* **Pruebas**: Vitest, `name.test.ts` (21), `SpeciesPage.test.tsx` (18) y el menú de los tres roles con "Especies"
-  (`permissions.test.tsx`). Mutaciones: 4 de 4 detectadas (las acciones en las comunes, 2 tests; el recepcionista pidiendo las
-  inactivas, 1; sin "Inactivar" con `*_IN_USE`, 1; el nombre sin recortar, 1). Playwright: `e2e/especies.spec.ts` (nuevo).
+* **Pruebas**: Vitest, `name.test.ts` (21), `SpeciesPage.test.tsx` (21: los 18 de la primera sesión, más renombrar una especie,
+  `BREED_IN_USE` en una raza activa con "Inactivar" por `species/1/breeds/7` y la lista de los selectores del paciente vaciada) y
+  el menú de los tres roles con "Especies" (`permissions.test.tsx`). Mutaciones, primera sesión: 4 de 4 detectadas (las acciones
+  en las comunes, 2 tests; el recepcionista pidiendo las inactivas, 1; sin "Inactivar" con `*_IN_USE`, 1; el nombre sin
+  recortar, 1); segunda sesión (2026-11-16), 4 de 4: invalidar solo la lista con inactivas (1 test), la raza por la ruta de la
+  especie (2), "Inactivar" desde el diálogo con `is_active: true` (2) e invalidar en lugar de vaciar las listas que no están a la
+  vista (1). Playwright: `e2e/especies.spec.ts` (nuevo), con dos casos: la raza propia en "Canino" usada por un paciente
+  (`BREED_IN_USE` e "Inactivar") y el recepcionista; y una especie propia con una raza: alta, cambio de nombre, inactivación y
+  baja (se lleva la raza).
 
 | # | Desvío | Motivo |
 |---|---|---|
@@ -395,6 +403,10 @@ Implementación en `feature/front-1-5-especies` (commit WIP). Lo que pasa al res
 | 5 | La raza creada por Playwright queda inactivada en `syncvet_e2e` (no se puede borrar: la usó un paciente, también eliminado) | La base `syncvet_e2e` se recrea en cada corrida; en la demo (`syncvet.test`) no se usó ninguna raza nueva en un paciente |
 | 6 | `useSingleAction` se repite en `features/species/CatalogDialogs.tsx` (es de pacientes, `use-patient-action.ts`) | Moverla a `src/lib/hooks` toca la 1.3b y la 1.4: queda para una entrega de limpieza si se acepta |
 | 7 | "Nueva raza" se ofrece también en una especie inactivada | La API lo acepta (`StoreBreedRequest` y `BreedService` no lo controlan); el diseño no lo limita |
+| 8 | Las listas de especies que no están a la vista se vacían (`resetQueries`), no se invalidan como decía el diseño ("invalidan `['species']`") | Hallado en Edge (2026-11-16): invalidada, el alta de un paciente mostraba la lista vieja, con la especie recién inactivada, mientras la volvía a pedir (`useSuspenseQuery` con datos en la caché). Es la convención de "Caché después de borrar o mover un registro hijo" de `frontend/CLAUDE.md` |
+| 9 | La validación en Edge de la segunda sesión usó 6 controles (5 y la repetición del 3 después de corregirlo), no 5 | La repetición comprueba la corrección del desvío 8 |
+| 10 | "Dejar la demo como estaba": las especies y razas creadas se borraron desde la interfaz, que es una baja lógica (`SoftDeletes`, con `//deleted_<id>_<timestamp>` en el nombre); las filas quedan en la base | Es la única baja que da la API; el `GET species?include_inactive=1` es igual antes y después |
+| 11 | La demo (`syncvet.test`, Clínica A) tiene 17 especies propias inactivadas "Hurón doméstico NNNNNN", con una raza cada una, que no creó esta entrega (estaban antes de la validación) | Informativo: parecen restos de corridas de pruebas manuales o de Newman contra la demo; no se tocaron. Ocupan la mayor parte de la lista del administrador |
 
 **Cifras** (2026-11-14). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test` falló en 5
 tests de `src/lib/auth/permissions.test.ts`, un segundo test del menú que no se había actualizado con "Especies" (el de
@@ -412,6 +424,20 @@ catálogo como estaba (el `GET species?include_inactive=1` igual antes y despué
 por él. Capturas en `%TEMP%\claude\…\scratchpad\capturas-1-5`: `01-especies-canino-desplegado.png`, `02-tablet.png`,
 `03-nombre-repetido.png`, `04-especie-propia-inactivada.png`, `05-dialogo-eliminar.png` y `06-recepcionista.png`. **Datos de la
 demo:** la especie "Valida Especie" se creó, se renombró, se inactivó y se borró desde la interfaz; ninguna raza ni paciente nuevo.
+
+**Segunda sesión (2026-11-16).** Lo que el pedido nombraba y faltaba: el caso de Playwright de la especie propia con una raza, tres
+tests de Vitest (ver "Pruebas") y, en Edge, el selector del paciente con una especie inactivada, que encontró el desvío 8 (corregido
+en `afterCatalogChanged`). **Cifras:** corrida completa del frontend, `typecheck`, `lint` y `build` sin errores ni avisos; Vitest,
+789 tests en 41 archivos, en verde (3 nuevos). Playwright, solo `e2e/especies.spec.ts`: 2 de 2 (2,0 min con la preparación), con
+`:8010` y `:5174` libres después. **Edge** sin ventana contra `syncvet.test` (Vite propio en `:5182`, detenido por su PID, 31864,
+con el puerto libre comprobado), como `admin-a`: (1) una especie propia con una raza junto a las comunes: Canino "Común" sin
+botones, la propia "Propia" con "Renombrar", "Inactivar" y "Eliminar"; (2) sin recargar, el alta de un paciente (Laura Martínez)
+ofrece la especie propia y su raza; (3) inactivada, el alta todavía la ofrecía (**falla**, desvío 8); corregido y repetido: ya no
+la ofrece; (4) a 768 px, sin desplazamiento horizontal; (5) la baja desde la interfaz y el `GET species?include_inactive=1` igual
+antes y después (la primera vez el script contó la especie antes de que llegara la lista nueva; la repetición del control 3 lo
+espera y da igual). Consola, sin errores. Ningún paciente guardado. Capturas en el scratchpad de la sesión,
+`%TEMP%\claude\…\scratchpad\capturas-1-5`: `01-comunes-y-propias.png` (tomada antes de que llegara la lista con la raza: dice
+"0 razas"), `02-propia-inactivada.png`, `03-tablet.png` y `04-dialogo-eliminar.png`.
 
 ## Documentación por entrega
 

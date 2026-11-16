@@ -64,10 +64,13 @@ export function deleteBreed(breed: Pick<Breed, 'id' | 'species_id'>) {
 }
 
 /**
- * Después de cualquier cambio del catálogo (diseño de la F1, "Invalidaciones"): el catálogo se vuelve a pedir (está a la
- * vista) y las consultas de pacientes quedan viejas (muestran el nombre de la especie y la raza), sin pedirse hasta mostrarse.
+ * Después de cualquier cambio del catálogo (diseño de la F1, "Invalidaciones"): el catálogo a la vista se vuelve a pedir; las
+ * listas de especies que no están a la vista (la de los selectores del paciente, solo con las activas) se vacían
+ * (`resetQueries`), así el alta de un paciente espera la lista nueva y no ofrece un momento una especie recién inactivada o
+ * borrada. Las consultas de pacientes quedan viejas (muestran el nombre de la especie y la raza), sin pedirse hasta mostrarse.
  */
 export function afterCatalogChanged(queryClient: QueryClient) {
-  void queryClient.invalidateQueries({ queryKey: speciesKeys.all });
+  void queryClient.invalidateQueries({ queryKey: speciesKeys.all, type: 'active' });
+  void queryClient.resetQueries({ queryKey: speciesKeys.all, type: 'inactive' });
   void queryClient.invalidateQueries({ queryKey: patientKeys.all, refetchType: 'none' });
 }

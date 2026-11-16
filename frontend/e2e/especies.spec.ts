@@ -94,3 +94,52 @@ test('una raza propia: alta, en uso en un paciente, la baja rechazada y la inact
     }
   }
 });
+
+test('una especie propia con una raza: alta, cambio de nombre, inactivación y baja (se lleva la raza)', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const suffix = String(Date.now()).slice(-6);
+  const name = `Especie E2E ${suffix}`;
+  const renamed = `Especie Renombrada ${suffix}`;
+  const breedName = `Raza Propia ${suffix}`;
+  const species = (label: string) => page.locator(`.species-item[data-species="${label}"]`);
+  await login(page, USERS.admin);
+  await page.goto('/especies');
+
+  // Alta de la especie y de una raza en ella (POST species/{id}/breeds).
+  await page.locator('.species-new').click();
+  await dialog(page).getByLabel('Nombre').fill(name);
+  await dialog(page).getByRole('button', { name: 'Crear la especie' }).click();
+  await expect(page.getByText('Especie creada correctamente.')).toBeVisible();
+  await expect(species(name)).toContainText('Propia');
+  await species(name).locator('.species-expand').click();
+  await species(name).getByRole('button', { name: 'Nueva raza' }).click();
+  await dialog(page).getByLabel('Nombre').fill(breedName);
+  await dialog(page).getByRole('button', { name: 'Crear la raza' }).click();
+  await expect(page.getByText('Raza creada correctamente.')).toBeVisible();
+  await expect(species(name).locator(`.breed-item[data-breed="${breedName}"]`)).toContainText(
+    'Propia',
+  );
+
+  // Cambio de nombre.
+  await species(name).locator('.species-rename').click();
+  await dialog(page).getByLabel('Nombre').fill(renamed);
+  await dialog(page).getByRole('button', { name: 'Guardar el nombre' }).click();
+  await expect(page.getByText('Especie actualizada correctamente.')).toBeVisible();
+  await expect(species(renamed)).toHaveCount(1);
+  await expect(species(name)).toHaveCount(0);
+
+  // Inactivación, sin confirmación.
+  await species(renamed).locator('.species-toggle-active').click();
+  await expect(species(renamed)).toContainText('Inactivada');
+  await expect(species(renamed).locator('.species-toggle-active')).toHaveText('Activar');
+
+  // Baja con confirmación: sin pacientes, se va con su raza.
+  await species(renamed).locator('.species-delete').click();
+  await dialog(page)
+    .getByRole('button', { name: `Eliminar ${renamed}` })
+    .click();
+  await expect(page.getByText('Especie eliminada correctamente.')).toBeVisible();
+  await expect(species(renamed)).toHaveCount(0);
+});
