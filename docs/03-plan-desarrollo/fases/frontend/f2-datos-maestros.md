@@ -301,6 +301,31 @@ Capturas (fuera del repositorio, en la PC de la validación), en `%TEMP%\claude\
 `02-listado.png`, `03-detalle-vet.png`, `04-alta.png`, `05-edicion-cambiar-contrasena.png`, `06-quitarse-el-rol.png` y
 `07-edicion-propia-768.png`.
 
+Revisión (2026-11-16, sobre el WIP `fff201c`, contra el cierre de la 2.1 `0f7b80b`). El usuario aceptó los 11 desvíos.
+
+* **Revisado sin hallazgos.** `password` va solo en el alta y con "Cambiar la contraseña" (`sendsPassword`), nunca `null`; la
+  edición propia sin la casilla ni los campos, con el enlace a `/perfil`. Las dos mutaciones con `gcTime: 0` y `reset()` en
+  `onSettled`, y los errores en las opciones de `useMutation` (desvío 4). `USER_LAST_ADMIN` (409, la alerta) y
+  `USER_IS_VETERINARIAN` (409, la alerta con el código de la ficha), con los mensajes y códigos de `UserService`. La
+  confirmación al quitarse el rol, `['me']` de nuevo y la vuelta a `/`. `afterUserChanged` invalida `['me']` por el id del
+  usuario de la sesión (no por el modo). Las reglas de forma coinciden con `StoreUserRequest`, `UpdateUserRequest`,
+  `UserMessages` y `Password::defaults()` (`min(12)->mixedCase()->numbers()->symbols()`, en el orden de Laravel); las sucursales,
+  las activas más las inactivas que el usuario ya tiene (`branchRules($user)`). `PERSON_NAME_PATTERN` es la misma expresión que
+  tenía clientes, carácter por carácter (sus tests, sin cambios y en verde). Las cuatro rutas con `requirePermission` y los botones
+  con `useCan()`; el recepcionista y el veterinario, a `/sin-permiso`.
+* **Corregido (menor).** Un 422 de `password` al editarse a sí mismo ("Para cambiar tu contraseña usá tu perfil."; no debería
+  llegar, porque no se manda) caía en un campo que no se dibuja y no se veía: ahora, en `edit-self`, `password` no está en los
+  campos de `applyValidationErrors` y el mensaje va a la alerta.
+* **Tests agregados** (3, y una comprobación en uno existente): el 422 del alta deja el error en sus campos y la contraseña fuera de
+  la caché de mutaciones (el desvío 4: el formulario conserva lo escrito); el 422 de la contraseña filtrada al cambiar la de otro
+  usuario, en su campo y fuera de la caché; el 422 de `password` del propio usuario, en la alerta; editarse y sacar la sucursal
+  actual: `['me']` de nuevo y las consultas `['branch', …]` invalidadas (`invalidateBranchQueries`, que no tenía test).
+* **Mutaciones**: 3 de 3 detectadas. Sin `reset()` en la edición (solo la ve el test nuevo del 422: con el 200, la página se
+  desmonta y `gcTime: 0` borra la mutación igual, así que el test de éxito no la detectaba); las sucursales inactivas que el
+  usuario ya tiene fuera de las opciones; sin `invalidateBranchQueries` al cambiar la sucursal actual (solo la ve el test nuevo).
+* **Cifras.** Corrida de `npm test` del frontend (2026-11-16): 982 tests en 49 archivos, en verde. `typecheck`, `lint` y `build`
+  sin errores ni avisos. Playwright no se corrió: el cambio no toca su caso (el 409 `USER_LAST_ADMIN`, no un 422).
+
 ### 2.2b Usuarios: inactivar, reactivar y baja
 
 **Acciones en el detalle** (`users.update` y `users.destroy`), ocultas en el propio usuario:

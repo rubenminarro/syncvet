@@ -44,6 +44,8 @@ interface SaveVariables {
 
 interface SaveErrorContext {
   form: UseFormReturn<UserFormValues>;
+  /** Los campos que se dibujan: un error de otro campo va a la alerta (no a un campo que no está). */
+  fields: readonly (keyof UserFormValues)[];
   setAlert: (alert: FormAlert) => void;
   /** La ficha del usuario editado, para la alerta de USER_IS_VETERINARIAN. */
   veterinarian?: UserDetail['veterinarian'];
@@ -71,7 +73,7 @@ function handleSaveError(error: unknown, context: SaveErrorContext) {
 
   switch (errorTreatment(error.errorCode)) {
     case 'validation': {
-      const others = applyValidationErrors(error, context.form.setError, USER_FORM_FIELDS) ?? [];
+      const others = applyValidationErrors(error, context.form.setError, context.fields) ?? [];
       context.setAlert(others.length > 0 ? { title: others.join(' ') } : null);
       break;
     }
@@ -157,7 +159,7 @@ export function UserCreatePage() {
       setAlert(null);
     },
     onError: (error, { form }) => {
-      handleSaveError(error, { form, setAlert });
+      handleSaveError(error, { form, fields: USER_FORM_FIELDS, setAlert });
     },
     onSuccess: (response) => {
       void afterUserChanged(queryClient, response.data);
@@ -240,6 +242,12 @@ export function UserEditPage({ id }: { id: number }) {
     onError: (error, { form }) => {
       handleSaveError(error, {
         form,
+        // Al editarse a sí mismo no está la contraseña: el 422 de `password` ("Para cambiar tu contraseña usá tu perfil.",
+        // que no debería llegar porque no se manda) va a la alerta y no a un campo que no se dibuja.
+        fields:
+          mode === 'edit-self'
+            ? USER_FORM_FIELDS.filter((field) => field !== 'password')
+            : USER_FORM_FIELDS,
         setAlert,
         veterinarian: user.veterinarian,
         onGone,

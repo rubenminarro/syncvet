@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { http } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -79,6 +80,15 @@ function findDialogButton(label: string): Promise<HTMLElement> {
     return found;
   });
 }
+
+/** El estado de las mutaciones de la caché, como texto: para comprobar que la contraseña no quedó ahí. */
+const mutationCacheText = (queryClient: QueryClient) =>
+  JSON.stringify(
+    queryClient
+      .getMutationCache()
+      .getAll()
+      .map((mutation) => mutation.state),
+  );
 
 const ADMIN = meFor('administrador');
 const PASSWORD = 'Clave-Segura-2026';
@@ -382,9 +392,9 @@ describe('/configuracion/usuarios/nuevo: alta', () => {
     expect(bodies).toEqual([]);
   });
 
-  it('el 422 del email y de branch_ids.0 van a sus campos', async () => {
+  it('el 422 del email y de branch_ids.0 van a sus campos, sin dejar la contraseña en la caché', async () => {
     const bodies: Record<string, unknown>[] = [];
-    await openCreate(bodies, () =>
+    const { queryClient } = await openCreate(bodies, () =>
       failure(422, 'VALIDATION_ERROR', 'Los datos no son válidos.', {
         errors: {
           email: ['Ya hay un usuario con ese email.'],
@@ -401,10 +411,42 @@ describe('/configuracion/usuarios/nuevo: alta', () => {
     });
     expect(groupError('user-branches-field')).toBe('La sucursal no existe o está inactiva.');
     expect(bodies).toHaveLength(1);
+    // Desvío 4: el error llega al formulario y la mutación (con la contraseña) igual sale de la caché.
+    expect(field('Contraseña').value).toBe(PASSWORD);
+    await waitFor(() => {
+      expect(mutationCacheText(queryClient)).not.toContain(PASSWORD);
+    });
   });
 });
 
 describe('/configuracion/usuarios/$id/editar: otro usuario', () => {
+  it('el 422 de la contraseña filtrada va a su campo, sin dejarla en la caché', async () => {
+    const message = 'Esa contraseña aparece en filtraciones de datos conocidas: elegí otra.';
+    const bodies: Record<string, unknown>[] = [];
+    const { history, queryClient } = await openEdit(RECEPTION_USER, ADMIN, [
+      updateHandler(bodies, RECEPTION_USER, () =>
+        failure(422, 'VALIDATION_ERROR', 'Los datos no son válidos.', {
+          errors: { password: [message] },
+        }),
+      ),
+    ]);
+
+    fireEvent.click(field('Cambiar la contraseña'));
+    await screen.findByText('Se van a cerrar todas sus sesiones.');
+    type('Contraseña nueva', PASSWORD);
+    type('Repetí la contraseña', PASSWORD);
+    save();
+
+    await waitFor(() => {
+      expect(fieldError('Contraseña nueva')).toBe(message);
+    });
+    expect(bodies).toEqual([expect.objectContaining({ password: PASSWORD })]);
+    expect(history.location.pathname).toBe('/configuracion/usuarios/7/editar');
+    await waitFor(() => {
+      expect(mutationCacheText(queryClient)).not.toContain(PASSWORD);
+    });
+  });
+
   it('sin "Cambiar la contraseña", el cuerpo no lleva la clave password; la inactiva que ya tenía se ofrece', async () => {
     const bodies: Record<string, unknown>[] = [];
     const user: UserDetail = {
@@ -523,6 +565,61 @@ describe('/configuracion/usuarios/$id/editar: el propio usuario', () => {
     });
     expect(bodies).toHaveLength(1);
     expect(bodies[0]).not.toHaveProperty('password');
+  });
+
+  it('un 422 de password (no se manda, pero si llega) va a la alerta: el campo no está', async () => {
+    const message = 'Para cambiar tu contraseña usá tu perfil.';
+    await openEdit(ADMIN_USER, ADMIN, [
+      updateHandler([], ADMIN_USER, () =>
+        failure(422, 'VALIDATION_ERROR', 'Los datos no son válidos.', {
+          errors: { password: [message] },
+        }),
+      ),
+    ]);
+
+    save();
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it('si su sucursal actual sale de la lista: me de nuevo y las consultas de la sucursal invalidadas', async () => {
+    let current: Me = {
+      ...ADMIN,
+      branches: [...ADMIN.branches, { id: 11, code: 'NOR', name: 'Sucursal Norte' }],
+    };
+    const bodies: Record<string, unknown>[] = [];
+    const user: UserDetail = {
+      ...ADMIN_USER,
+      branches: [...ADMIN_USER.branches, { id: 11, code: 'NOR', name: 'Sucursal Norte' }],
+    };
+    const { history, queryClient } = await openEdit(user, current, [
+      http.get('/api/me', () => success(current)),
+      updateHandler(bodies, user, () => {
+        current = {
+          ...current,
+          current_branch: { id: 11, code: 'NOR', name: 'Sucursal Norte' },
+          branches: [{ id: 11, code: 'NOR', name: 'Sucursal Norte' }],
+        };
+
+        return success(
+          { ...user, branches: [user.branches[1]], current_branch_id: 11 },
+          { message: 'Usuario actualizado correctamente.' },
+        );
+      }),
+    ]);
+    queryClient.setQueryData(['branch', 10, 'probe'], 'datos de CEN');
+
+    fireEvent.click(field('CEN · Casa central'));
+    save();
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/configuracion/usuarios/3');
+    });
+    expect(bodies).toEqual([expect.objectContaining({ branch_ids: [11] })]);
+    await waitFor(() => {
+      expect(queryClient.getQueryState(['branch', 10, 'probe'])?.isInvalidated).toBe(true);
+    });
+    expect(queryClient.getQueryData<Me>(['me'])?.current_branch?.id).toBe(11);
   });
 
   it('USER_LAST_ADMIN al quitarse el rol: la confirmación y, con el 409, la alerta arriba', async () => {
