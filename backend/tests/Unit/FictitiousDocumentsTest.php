@@ -8,11 +8,11 @@ use Symfony\Component\Finder\Finder;
 
 /**
  * Documentos de ejemplo ficticios (R-011, R-013): ningún número de los tests, las
- * factories, los seeders, los fixtures, la guía de Postman ni sus colecciones puede ser una cédula
+ * factories, los seeders, los fixtures, la guía de Postman, sus colecciones ni el frontend (src y e2e) puede ser una cédula
  * o un RUC de una persona o empresa real.
  *
  * Se revisa toda secuencia de 7 a 9 dígitos, escrita como sea: con o sin comillas,
- * con puntos o espacios de miles (4.567.890, 4 567 890) y con o sin dígito
+ * con puntos o espacios de miles (0.456.789, 0 456 789) y con o sin dígito
  * verificador (80024680-2, 80024680 - 2). No importa en qué clave ni en qué
  * expresión esté: un número suelto, un argumento con nombre o una opción
  * `--ruc=...` se revisan igual. Rangos ficticios:
@@ -39,6 +39,12 @@ class FictitiousDocumentsTest extends TestCase
     private const DOCS = ['docs/05-pruebas/guia-postman.md', 'docs/05-pruebas/postman/*.json'];
 
     /**
+     * El frontend (*.ts y *.tsx), relativo a la raíz del repositorio: el código, los tests de Vitest y los casos de
+     * Playwright (revisión de la entrega 1.2 del frontend).
+     */
+    private const FRONTEND = ['frontend/src', 'frontend/e2e'];
+
+    /**
      * Documentos reales permitidos, por archivo y con su motivo. Se anotan los
      * dígitos, sin separadores ni dígito verificador.
      *
@@ -53,9 +59,21 @@ class FictitiousDocumentsTest extends TestCase
             'reason' => 'Una base ficticia (99xxxxxx) con el dígito verificador mal a propósito: la colección comprueba que la API rechace un RUC con el dígito incorrecto (el correcto es 9)',
             'documents' => ['99300002'],
         ],
+        'frontend/src/features/clients/ruc.test.ts' => [
+            'reason' => 'Los mismos RUC de tests/Unit/RucCheckDigitTest.php: públicos, de empresas (la serie de las personas jurídicas, que empieza con 80), publicados por la DNIT; contrastan rucCheckDigit del frontend con el backend (R-010; revisión de la 1.2)',
+            'documents' => ['80000519', '80002675', '80002201', '80003457', '80004866', '80022955', '80020753'],
+        ],
+        'frontend/src/lib/format/money.ts' => [
+            'reason' => 'Un importe en guaraníes en el comentario de formatGuaranies (Gs. 1.234.567), no un documento',
+            'documents' => ['1234567'],
+        ],
+        'frontend/src/lib/format/money.test.ts' => [
+            'reason' => 'Importes en guaraníes de los tests de formatGuaranies (1234567 → Gs. 1.234.567), no documentos',
+            'documents' => ['1234567'],
+        ],
         'tests/Unit/FictitiousDocumentsTest.php' => [
             'reason' => 'Ejemplos de documentos reales que este test tiene que rechazar. Además repite, en esta lista, los de los demás archivos',
-            'documents' => ['80009735', '4567890', '80024680', '98999999', '9999999'],
+            'documents' => ['80009735', '0456789', '80024680', '98999999', '0999999'],
         ],
     ];
 
@@ -111,14 +129,14 @@ class FictitiousDocumentsTest extends TestCase
     {
         $forms = [
             "\$a = ['ruc' => '80009735'];",
-            "\$b = ['document_number' => 4567890];",
-            "\$client->document_number = '4567890';",
+            "\$b = ['document_number' => 0456789];",
+            "\$client->document_number = '0456789';",
             "\$c = new ClinicData(ruc: '80009735');",
             "\$d = ['--ruc=80009735'];",
-            "\$e = ['document_number' => '4.567.890'];",
+            "\$e = ['document_number' => '0.456.789'];",
             "\$f = ['document_number' => '80024680 - 2'];",
-            "\$g = sprintf('%s', '4567890');",
-            '{"document_number": "4 567 890"}',
+            "\$g = sprintf('%s', '0456789');",
+            '{"document_number": "0 456 789"}',
             '| `POST /api/clients` | `{"document_number":"80024680-2"}` |',
         ];
 
@@ -146,7 +164,7 @@ class FictitiousDocumentsTest extends TestCase
         $this->assertTrue($this->isFictitious('981123456', null));
         $this->assertFalse($this->isFictitious('99999903', 5), 'Dígito verificador incorrecto');
         $this->assertFalse($this->isFictitious('98999999', null), 'Fuera de 99xxxxxx');
-        $this->assertFalse($this->isFictitious('9999999', null), 'Siete dígitos: rango de cédulas reales');
+        $this->assertFalse($this->isFictitious('0999999', null), 'Siete dígitos: rango de cédulas reales');
 
         // Un documento ficticio con un dígito verificador incorrecto se detecta como tal.
         $wrong = $this->documents("'99999903" . "-5'");
@@ -223,6 +241,15 @@ class FictitiousDocumentsTest extends TestCase
             foreach ($found as $path) {
                 $files[substr(str_replace('\\', '/', $path), strlen(str_replace('\\', '/', $repository)) + 1)] = file_get_contents($path);
             }
+        }
+
+        // El frontend también vive fuera de backend/: sus rutas, desde la raíz (frontend/src/…).
+        $frontend = Finder::create()->files()->name(['*.ts', '*.tsx'])
+            ->in(array_map(fn (string $directory) => "{$repository}/{$directory}", self::FRONTEND));
+        $this->assertTrue($frontend->hasResults(), 'No se encontraron archivos del frontend en ' . implode(', ', self::FRONTEND) . '.');
+
+        foreach ($frontend as $file) {
+            $files[substr(str_replace('\\', '/', $file->getPathname()), strlen(str_replace('\\', '/', $repository)) + 1)] = $file->getContents();
         }
 
         return $files;

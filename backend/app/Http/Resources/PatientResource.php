@@ -28,6 +28,14 @@ class PatientResource extends JsonResource
             'is_deceased' => $this->deceased_at !== null,
             // La ruta interna del archivo no sale de la API (entrega 1.5, pregunta 14).
             'has_photo' => $this->photo_path !== null,
+            // El dueño, solo si se cargó (GET patients; entrega front-01, R-064). El
+            // listado de un cliente y el detalle del cliente no lo cargan: no cambian.
+            // Va último para que el detalle (ShowPatientResource, que lo reemplaza por
+            // uno más completo) conserve el orden de sus claves.
+            'client' => $this->whenLoaded('client', fn () => $this->client === null ? null : [
+                'id' => $this->client->id,
+                'display_name' => $this->client->display_name,
+            ]),
         ];
     }
 }

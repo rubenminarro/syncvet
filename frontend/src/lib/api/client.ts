@@ -155,10 +155,14 @@ function toApiError(response: Response, body: unknown): ApiError {
   });
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: RequestOptions = {},
-): Promise<ApiSuccess<T>> {
+/** La respuesta de fetch, con el token con que salió el pedido (para el cierre de sesión de un 401). */
+interface Sent {
+  response: Response;
+  token: string | null;
+  usesSessionToken: boolean;
+}
+
+async function send(path: string, options: RequestOptions): Promise<Sent> {
   const headers = new Headers({ Accept: 'application/json' });
   const usesSessionToken = options.token === undefined;
   const token = options.token === undefined ? tokenProvider() : options.token;
@@ -194,17 +198,31 @@ export async function apiRequest<T>(
     throw new ApiError({ status: 0, errorCode: NETWORK_ERROR, message: MESSAGES.network });
   }
 
+  return { response, token, usesSessionToken };
+}
+
+/** El error de la respuesta, avisando a la sesión si la termina (solo si el pedido llevó el token de la sesión). */
+function failed(sent: Sent, json: unknown): ApiError {
+  const error = toApiError(sent.response, json);
+
+  if (sent.usesSessionToken && sent.token !== null && endsSession(error)) {
+    sessionErrorHandler(error, sent.token);
+  }
+
+  return error;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<ApiSuccess<T>> {
+  const sent = await send(path, options);
+  const { response } = sent;
   const received = await readBody(response);
   const json = received.kind === 'json' ? received.value : null;
 
   if (!response.ok || isFailure(json)) {
-    const error = toApiError(response, json);
-
-    if (usesSessionToken && token !== null && endsSession(error)) {
-      sessionErrorHandler(error, token);
-    }
-
-    throw error;
+    throw failed(sent, json);
   }
 
   // Un 204 (o un 2xx sin cuerpo) es un éxito sin datos: data = null. Quien llama a un endpoint así lo tipa con T = null.
@@ -231,6 +249,51 @@ export async function apiRequest<T>(
   return json as ApiSuccess<T>;
 }
 
+/**
+ * Una descarga con el token (la foto del paciente, 1.4, H2 del diseño de la F1): con un 2xx devuelve el archivo como Blob.
+ * Los errores de la API son JSON y llegan como siempre, como ApiError (también el cierre de sesión con un 401); un 2xx en JSON
+ * no es un archivo: el `success: false` del contrato es su ApiError y lo demás, HTTP_ERROR.
+ */
+export async function getBlob(
+  path: string,
+  options: ReadOptions & { expectedType?: string } = {},
+): Promise<Blob> {
+  const { expectedType, ...rest } = options;
+  const sent = await send(path, { ...rest, method: 'GET' });
+  const { response } = sent;
+  const type = (response.headers.get('Content-Type') ?? '').toLowerCase();
+  // Revisión de la 1.4: una página HTML (el index.html de un servidor mal configurado) o un tipo distinto del esperado no es
+  // el archivo: HTTP_ERROR, como un 2xx fuera del contrato en apiRequest.
+  const outOfContract =
+    type.includes('text/html') || (expectedType !== undefined && !type.startsWith(expectedType));
+
+  if (!response.ok || type.includes('json') || outOfContract) {
+    const received = await readBody(response);
+    const json = received.kind === 'json' ? received.value : null;
+
+    if (!response.ok || isFailure(json)) {
+      throw failed(sent, json);
+    }
+
+    throw new ApiError({
+      status: response.status,
+      errorCode: 'HTTP_ERROR',
+      message: unexpected(response.status),
+    });
+  }
+
+  try {
+    return await response.blob();
+  } catch (error) {
+    // El archivo se cortó a mitad de camino: una cancelación se propaga tal cual; lo demás, la red.
+    if (options.signal?.aborted === true) {
+      throw error;
+    }
+
+    throw new ApiError({ status: 0, errorCode: NETWORK_ERROR, message: MESSAGES.network });
+  }
+}
+
 export const api = {
   get: <T>(path: string, options: ReadOptions = {}) =>
     apiRequest<T>(path, { ...options, method: 'GET' }),
@@ -242,6 +305,7 @@ export const api = {
     apiRequest<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T>(path: string, options: ReadOptions = {}) =>
     apiRequest<T>(path, { ...options, method: 'DELETE' }),
+  getBlob,
 };
 
 /** Un listado paginado: los ítems y `meta.pagination` (per_page, current_page y last_page, en snake_case). */

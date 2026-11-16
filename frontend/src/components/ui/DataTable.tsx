@@ -13,6 +13,16 @@ interface DataTableProps<T> {
   pagination?: Pagination;
   onPageChange?: (page: number) => void;
   empty?: string;
+  /**
+   * El enlace a la página 1 (un `<Link>` con la búsqueda de la URL, sin la página) que acompaña a "Esta página no existe."
+   * cuando la página pedida pasa la última (`?pagina=99` de 7, o después de borrar): sin filas no es "no hay datos".
+   */
+  firstPageLink?: ReactNode;
+}
+
+/** Una página más allá de la última: la API devuelve la página vacía, con el total real. */
+function isPageOutOfRange(pagination: Pagination | undefined): boolean {
+  return pagination !== undefined && pagination.current_page > pagination.last_page;
 }
 
 /** Tabla de un listado, con la paginación de `meta.pagination` (snake_case). */
@@ -23,7 +33,10 @@ export function DataTable<T>({
   pagination,
   onPageChange,
   empty = 'No hay datos para mostrar.',
+  firstPageLink,
 }: DataTableProps<T>) {
+  const outOfRange = rows.length === 0 && isPageOutOfRange(pagination);
+
   return (
     <>
       <div className="table-responsive">
@@ -39,7 +52,14 @@ export function DataTable<T>({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="text-center text-secondary">
-                  {empty}
+                  {outOfRange ? (
+                    <span className="page-out-of-range">
+                      Esta página no existe.
+                      {firstPageLink === undefined ? null : <> {firstPageLink}</>}
+                    </span>
+                  ) : (
+                    empty
+                  )}
                 </td>
               </tr>
             ) : (

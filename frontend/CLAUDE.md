@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | Ninguna en curso |
-| Siguiente | El análisis y el diseño de la F1 (clientes y pacientes), sobre la API de la FASE 1 del backend; ningún código antes del diseño aprobado |
-| Tests | Vitest: 269 tests en 21 archivos, en verde (corrida del cierre de la F0, el 2026-11-12, registrada en "Resultado" de `f0-base.md`); Playwright: 11 casos contra `syncvet_e2e`, en verde |
+| Fase | F1 (clientes y pacientes), COMPLETADA el 2026-11-16 (R-072) e integrada a `main`, con front-01 (R-065) y sus entregas 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1)). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | Ninguna en curso. La última, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
+| Siguiente | La entrega `chore/…` de las tareas 3b y 3c del [handoff](../docs/03-plan-desarrollo/handoff.md#próximas-tareas) (Playwright que reutiliza `syncvet_e2e`; la colección de especies que borra lo que crea, la limpieza de la base de desarrollo, el diálogo de baja con `PATIENT_IN_USE` y `useSingleAction` en `src/lib/hooks`); después, el análisis y el diseño de la F2 (datos maestros) |
+| Tests | Vitest: 800 tests en 42 archivos, en verde (corrida del cierre de la F1, el 2026-11-16, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 22 casos contra `syncvet_e2e`, 22 de 22 en la corrida completa del cierre de la F1 |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -64,17 +64,19 @@ frontend/
     ├── main.tsx         Arranque: estilos de Tabler y <App>
     ├── routeTree.gen.ts Generado por el plugin del router (se versiona; no se edita a mano)
     ├── routes/          Una ruta por archivo; el nombre es la URL en castellano
-    ├── app/             Proveedores (App), router, layouts, menú y páginas de error
+    ├── app/             Proveedores (App), router (con search-params.ts: la búsqueda escrita como texto), layouts, menú y páginas de error
     ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, Alert, Card, DataTable, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (en la F0, auth)
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, TimeField, FileField, BlobImage, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
 Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/`, `/perfil`,
-`/configuracion`, provisoria y solo para el administrador, y `/sin-permiso`; exige la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
+`/configuracion`, provisoria y solo para el administrador, `/clientes` y `/clientes/$id`, desde la 1.1, `/clientes/nuevo` y
+`/clientes/$id/editar` (archivo `$id_.editar.tsx`: con `_`, no se dibuja dentro del detalle), desde la 1.2, y `/sin-permiso`; exige
+la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
 
 ## 5. Convenciones
@@ -97,6 +99,30 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   `branchKey(idDeLaSucursal, …)` (`['branch', 10, 'appointments', 'queue', { date }]`), así los datos de dos sucursales no se
   mezclan y el cambio de sucursal invalida solo esas (`invalidateBranchQueries`); las demás (catálogos, clientes, pacientes: son
   de la clínica) empiezan con su módulo (`['clients', …]`) y no se tocan al cambiar de sucursal.
+* **Listados** (desde la 1.1; el modelo es `/clientes`, `features/clients/ClientListPage.tsx`, y sus tests):
+  * **Búsqueda, filtros y página en la URL** (`/clientes?buscar=&tipo=&pagina=`): la ruta los valida en `validateSearch` con Zod
+    (`features/clients/search.ts`); un valor inválido vuelve al valor por defecto, y los valores por defecto no van en la URL.
+    `validateSearch` devuelve **siempre todas sus claves** (`undefined` si el valor se descarta): el router mezcla lo que
+    devuelve sobre la búsqueda cruda, así que una clave que falta deja pasar el valor de la URL.
+  * **Lo escrito es siempre texto en la URL**: el router lee cada valor como JSON (`?buscar=1e3` sería el número 1000); las
+    claves de `TEXT_SEARCH_PARAMS` (`src/app/search-params.ts`, el `parseSearch` y el `stringifySearch` del router) se leen y
+    se escriben tal cual. `buscar` ya está y vale para todos los listados; otro parámetro de texto se suma a esa lista.
+  * **El campo de búsqueda es local** (`SearchField`, con el hook común `useSearchText` de `src/lib/hooks/use-search-text.ts`, desde
+    la 1.3a: lo usan `/clientes` y `/pacientes`) y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`,
+    `src/lib/hooks/`, solo con primitivos), sin los espacios de los extremos, con `replace: true` y de vuelta en la página 1; el
+    filtro y la página cambian la URL con historial ("Atrás" vuelve). El campo toma lo de la URL **solo si el cambio vino de
+    afuera** ("Atrás", un enlace): no si es lo que el campo mandó y todavía no llegó, ni si coincide con lo escrito sin los
+    espacios de los extremos (así no se pierden el espacio de "Laura " ni la tecla escrita mientras la URL cambiaba).
+  * **La consulta** usa `placeholderData: keepPreviousData` (una respuesta vieja no pisa a la nueva: cada búsqueda tiene su
+    clave) y 20 por página, fijo. Mientras llega, `SearchField` recibe `busy`: el indicador y "Buscando…" en su región
+    `role="status"`, que está siempre en el DOM.
+  * **Página fuera de rango** (`current_page > last_page`, por una URL editada o después de borrar): `DataTable` muestra "Esta
+    página no existe." con el `firstPageLink` del listado (un `<Link>` con la misma búsqueda, sin `pagina`), no el vacío.
+  * **Tests**: la espera con relojes falsos y los 300 ms escritos en el test (299 ms sin URL ni pedido, 300 ms con uno); el
+    espacio final ("Laura ", pausa, "M"), la tecla durante la navegación, la respuesta fuera de orden, "Buscando…", la página
+    fuera de rango y `?buscar=1e3`.
+  * Un **detalle** valida su id en el `loader` (sin llamar a la API si no es un entero positivo) y convierte el 404 de la API en
+    `notFound()`, con el `notFoundComponent` de la ruta, dentro del layout.
 * **Contraseñas fuera de la caché de mutaciones** (0.2b): una mutación que manda una contraseña (`/ingresar`, `/perfil`) va con
   `gcTime: 0` y `mutation.reset()` en `onSettled`, para que sus variables no queden en la caché de Query.
 * **Tipos escritos a mano** en el `types.ts` del módulo, con los nombres de la API (`snake_case`, también `meta.pagination`:
@@ -104,9 +130,34 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
 * **Formularios**: React Hook Form con Zod; un 422 se vuelca con `applyValidationErrors` (`src/lib/api/form-errors.ts`): cada clave
   de `errors` a su campo con `setError` y foco en el primero; las demás, a una `Alert` arriba del formulario. Las claves con índice
   de Laravel (`branch_ids.0`) van al campo padre declarado (`branch_ids`), o al de un patrón con `*` (`hours.*.starts_at` recibe
-  `hours.1.starts_at`); varias claves de un mismo campo juntan sus mensajes.
+  `hours.1.starts_at`); varias claves de un mismo campo juntan sus mensajes. Desde la 1.2 (el modelo es `features/clients/form.ts`,
+  `ClientForm.tsx` y `ClientFormPages.tsx`):
+  * **Las reglas de forma de la API, con sus mensajes**, en una función pura con sus tests (cada límite en su borde: pasa en el
+    límite y falla pasándolo), comparadas con el Form Request; el largo en caracteres (`Array.from`, como `mb_strlen`). El
+    navegador no rechaza nada que la API acepta: el email, solo la forma mínima (`^[^\s@]+@[^\s@]+$`); el formato completo y el
+    DNS, la API.
+  * **Un solo envío**: Guardar se deshabilita con `formState.isSubmitting` y con la mutación pendiente, y una `ref` deja pasar un
+    solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido.
+  * **El largo en caracteres, como la API** (desde la 1.3a): los textos que admiten letras fuera del plano básico (`\p{L}`, o sin
+    regla de caracteres) no llevan `maxLength` nativo, que cuenta unidades UTF-16 (un emoji es 2); el largo lo controla Zod con el
+    mensaje de la API. Lo conservan los campos de solo caracteres de una unidad (documento, email, microchip).
+  * **Una fecha a medio escribir** (`DateField`, desde la 1.3a): el `<input type="date">` da `''` con `validity.badInput`; al
+    enviar se lee del campo y se muestra el error de formato de la API, sin mandar (nunca se borra una fecha guardada sin aviso).
+  * **Los opcionales vacíos van en `null`** y la edición manda el formulario completo; guardar y "Cancelar" reemplazan la entrada
+    del formulario en el historial (`replace`).
 * **Componentes de Tabler a través de `src/components/ui`**: las páginas no repiten el marcado de Tabler. Sin Tailwind ni otra
   biblioteca de componentes; sin el JS de Tabler (menús, diálogos y avisos son componentes de React).
+* **Confirmación antes de borrar** (desde la 1.2): `ConfirmDialog` (`role="dialog"`, `aria-modal`), con el foco en "Cancelar" al
+  abrir. Mientras está abierto escucha las teclas en `document` (Escape cierra; Tab y Shift+Tab recorren solo el diálogo), devuelve
+  el foco a "Cancelar" si sale del diálogo o al terminar la espera y bloquea el desplazamiento del fondo; al cerrar, el foco vuelve
+  al botón que lo abrió. Los botones inactivos del diálogo usan `aria-disabled` (`Button` con `focusableWhenInactive`): con
+  `disabled`, el botón suelta el foco. El error de negocio (`*_IN_USE`) va dentro del diálogo, con la acción que corresponda o solo
+  "Cerrar" (`canConfirm={false}`). Desde la 1.3b: `tone` (`danger` por defecto; `primary` para lo que no borra), `size` (`md`, con
+  campos o una lista) y `confirmDisabled` (falta elegir algo); al terminar la espera con un error, el foco va al primer campo con
+  error del diálogo (`aria-invalid`) o, si no hay, a "Cancelar".
+* **Caché después de borrar o mover un registro hijo** (desde la 1.2 y la 1.3b): los listados y los detalles que lo mostraban y no
+  están a la vista se vacían con `resetQueries` (no se invalidan), así al entrar se espera la lista nueva y no se ve un momento la
+  vieja: la baja de un paciente vacía el detalle de su dueño, y el cambio de dueño, los de los dos clientes (`resetClientDetails`).
 * **Fechas y dinero**: la API manda las fechas con hora en UTC (`Z`); se muestran con `formatDate`, `formatDateTime` y `formatTime`
   (`src/lib/format/dates.ts`, siempre en `America/Asuncion`, nunca con la zona de la PC); se mandan con `toApiDateTime` (la hora de
   pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Una fecha sin
@@ -138,11 +189,32 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   consultas de la sucursal, `invalidateBranchQueries`) y `branch-changed` en el canal (las demás pestañas invalidan `['me']` y
   las consultas de la sucursal). Al volver a la pestaña (`focus`, `visibilitychange`), `SessionLayout` vuelve a pedir `me`: la
   sucursal pudo cambiar en otra PC o un administrador pudo inactivarla. Sin sucursal actual, un aviso pide elegir una.
-* **Descargas con token** (desde la F1): se piden con el cliente como `blob` y se muestran con una URL de objeto.
+* **Descargas con token** (desde la 1.4): `api.getBlob(path, { expectedType })` (`src/lib/api/client.ts`) arma el pedido como los
+  demás (el token en la cabecera, nunca en la URL) y devuelve el `Blob`; los errores JSON de la API son el `ApiError` de siempre (el
+  401 cierra la sesión) y un 2xx en JSON, una página HTML o un tipo distinto de `expectedType` (la foto pide `image/`) es
+  `HTTP_ERROR`. Se muestran con `BlobImage` (`src/components/ui`): la ref del `<img>`, con limpieza (React 19), crea la URL de
+  objeto al montar y la libera (`revokeObjectURL`) al cambiar el `Blob` o al desmontar, sin estado. La caché de un archivo
+  (`['patients', 'photo', id]`: `staleTime: Infinity`, `gcTime` de 5 minutos) se vacía al reemplazarlo (`resetQueries`: se espera
+  el nuevo, nunca se ve el viejo) o al borrarlo (`Query.reset()`, sin volver a pedirlo); salir de la sesión la borra con el resto
+  (`queryClient.clear()`).
+* **Subir un archivo** (desde la 1.4; el modelo es `features/patients/PatientPhoto.tsx` y `photo.ts`): `FileField`, vista previa
+  con `BlobImage` y un botón para mandar (`FormData`). El navegador controla como la API, con sus mensajes: el tamaño primero (5 MB
+  justos pasan, como `max` de Laravel en kilobytes) y el tipo **por el contenido** (los primeros bytes de un JPG, un PNG o un WEBP;
+  nunca por la extensión ni el tipo declarado, que la API ignora). Un 422 o 413 con `errors.<campo>` va al campo (con el foco al
+  terminar la espera, por un pedido de foco propio y no por la vuelta de `isPending`); un 413 sin `errors`, a una alerta. La
+  mutación lleva `gcTime: 0` y `reset()` en `onSettled`: el archivo no queda en la caché de mutaciones. En los tests, el `FormData`
+  y el `File` de Node (el `fetch` de Node no lee el `File` de jsdom).
+* **Una pantalla por registro** (desde la 1.4): la ruta de un detalle dibuja su página con `key={id}`
+  (`<PatientDetailPage key={id} id={id} />`): sin ella, el router reutiliza el componente al cambiar solo el `$id` y el estado local
+  (un archivo elegido, un diálogo abierto, un pedido en curso) pasaría de un registro al otro. Toda pantalla de detalle nueva la
+  lleva.
 * **Tests**: Vitest con MSW (un pedido sin handler hace fallar el test) y Testing Library. Corren en UTC, para que mostrar una fecha
   con la zona de la PC falle. Los `.test.ts` (lógica) corren en `node` y los `.test.tsx` (componentes), en jsdom; un `.test.ts` que
   necesita el DOM lo pide con `// @vitest-environment jsdom` en la primera línea (`client.test.ts`). Se permiten `.each` y los
-  bucles. La cifra de tests del frontend sale de la última corrida de `npm test`, registrada en "Resultado" de la fase con la
+  bucles. Límites (desde la 1.1): `findBy*` y `waitFor` esperan hasta 3 s (`configure({ asyncUtilTimeout: 3000 })` en
+  `src/test/setup.ts`) y cada test de jsdom, hasta 15 s (`testTimeout` del proyecto `dom`): con la PC cargada, el primer render
+  con el layout pasaba el segundo. Una espera de tiempo se prueba con relojes falsos (`vi.useFakeTimers()` después de cargar la
+  página y `vi.useRealTimers()` en `afterEach`), no con `setTimeout` reales. La cifra de tests del frontend sale de la última corrida de `npm test`, registrada en "Resultado" de la fase con la
   línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.``: `/validar-docs` la compara con la
   documentación (no cuenta los tests en el código). En las páginas con el layout, consultar por texto con selector: `*ByRole`
   tarda segundos en jsdom con los íconos SVG. Los textos de JSX y las cadenas de una palabra con mayúscula inicial también pasan
@@ -177,8 +249,10 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 
 | # | Deuda | Prioridad |
 |---|---|---|
-| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta 10 veces, una por paquete); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
+| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta una vez por paquete: 9 al cerrar la F1); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
 | 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
+| 23 | Listados: un clic en un enlace durante los 300 ms de la espera de la búsqueda puede volver al listado (el cambio de la URL pisa la navegación); visto en Playwright con la PC cargada, no confirmado a mano | Baja |
+| 24 | El test de voseo recorre todo `src/` con el límite de 5 s de Vitest: con la PC cargada, lo pasó (5,7 s; solo, 0,5 s) | Baja |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
 [resultado](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01).
@@ -193,11 +267,20 @@ repetidas):
   consultar paquete por paquete con `npm view`.
 * **`environment: node` para los tests sin DOM.** Preparar jsdom es la mayor parte del tiempo de la suite: los `.test.ts` corren
   en `node` (proyecto `node` de `vite.config.ts`) y solo los `.test.tsx`, o un `.test.ts` que lo pide, en jsdom.
+* **Manda el [Presupuesto por entrega](../CLAUDE.md#presupuesto-por-entrega)** del `CLAUDE.md` de la raíz (Playwright, Newman,
+  navegador, mutaciones y revisión).
 * **Durante el trabajo, `npx vitest related <archivos tocados> --run`**, o el archivo de test puntual. La suite completa,
   `typecheck`, `lint` y `build`, una sola vez al final de la entrega.
+* **Playwright**: en una entrega, solo los casos nuevos o tocados (`npx playwright test e2e/<archivo>.spec.ts`); `npm run test:e2e`
+  completo, al cerrar la fase. **Navegador** (Edge sin ventana): hasta 10 controles, con capturas solo si cambió una pantalla.
 * **Prettier solo sobre los archivos cambiados**: `npx prettier --write <archivos>` (por ejemplo, los de
   `git diff --name-only -- frontend`), no `npm run format` sobre todo el proyecto en cada vuelta.
 * **Una entrega, un tema.** El validador de la documentación, las skills y la documentación general (roadmap, handoff,
   `technology-stack.md`) van en entregas o cierres separados, no mezclados con el código del frontend.
 * En Windows, excluir `frontend/node_modules` del antivirus (los pasos, en
   [`setup.md`](../docs/04-desarrollo/setup.md#antivirus-de-windows)): sin eso, una instalación tarda varios minutos más.
+* **Un Vite levantado para una prueba se detiene por el PID del proceso `vite.js`**, no deteniendo la tarea que lo lanzó
+  (`npx` y `timeout` son envoltorios: cortarlos deja vivo a Vite escuchando en su puerto). El PID se busca por el puerto
+  (`netstat -ano`) y se confirma con su línea de comando (`vite.js --port <puerto>`) antes de cerrarlo; después se comprueba
+  que el puerto quedó libre. Así quedaron vivos el de `:5180` de la 1.2 y, probablemente, el de `:5173` de la 1.1 (revisión
+  de la 1.2).

@@ -14,8 +14,17 @@ import { Route as SesionRouteImport } from './routes/_sesion'
 import { Route as PublicoIngresarRouteImport } from './routes/_publico/ingresar'
 import { Route as SesionIndexRouteImport } from './routes/_sesion/index'
 import { Route as SesionConfiguracionRouteImport } from './routes/_sesion/configuracion'
+import { Route as SesionEspeciesRouteImport } from './routes/_sesion/especies'
 import { Route as SesionPerfilRouteImport } from './routes/_sesion/perfil'
 import { Route as SesionSinPermisoRouteImport } from './routes/_sesion/sin-permiso'
+import { Route as SesionClientesIndexRouteImport } from './routes/_sesion/clientes/index'
+import { Route as SesionClientesIdRouteImport } from './routes/_sesion/clientes/$id'
+import { Route as SesionClientesNuevoRouteImport } from './routes/_sesion/clientes/nuevo'
+import { Route as SesionPacientesIndexRouteImport } from './routes/_sesion/pacientes/index'
+import { Route as SesionPacientesIdRouteImport } from './routes/_sesion/pacientes/$id'
+import { Route as SesionClientesIdEditarRouteImport } from './routes/_sesion/clientes/$id_.editar'
+import { Route as SesionPacientesIdEditarRouteImport } from './routes/_sesion/pacientes/$id_.editar'
+import { Route as SesionClientesIdPacientesNuevoRouteImport } from './routes/_sesion/clientes/$id_.pacientes.nuevo'
 
 const PublicoRoute = PublicoRouteImport.update({
   id: '/_publico',
@@ -40,6 +49,11 @@ const SesionConfiguracionRoute = SesionConfiguracionRouteImport.update({
   path: '/configuracion',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionEspeciesRoute = SesionEspeciesRouteImport.update({
+  id: '/especies',
+  path: '/especies',
+  getParentRoute: () => SesionRoute,
+} as any)
 const SesionPerfilRoute = SesionPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
@@ -50,20 +64,79 @@ const SesionSinPermisoRoute = SesionSinPermisoRouteImport.update({
   path: '/sin-permiso',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionClientesIndexRoute = SesionClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionClientesIdRoute = SesionClientesIdRouteImport.update({
+  id: '/clientes/$id',
+  path: '/clientes/$id',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionClientesNuevoRoute = SesionClientesNuevoRouteImport.update({
+  id: '/clientes/nuevo',
+  path: '/clientes/nuevo',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionPacientesIndexRoute = SesionPacientesIndexRouteImport.update({
+  id: '/pacientes/',
+  path: '/pacientes/',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionPacientesIdRoute = SesionPacientesIdRouteImport.update({
+  id: '/pacientes/$id',
+  path: '/pacientes/$id',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionClientesIdEditarRoute = SesionClientesIdEditarRouteImport.update({
+  id: '/clientes/$id_/editar',
+  path: '/clientes/$id/editar',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionPacientesIdEditarRoute = SesionPacientesIdEditarRouteImport.update({
+  id: '/pacientes/$id_/editar',
+  path: '/pacientes/$id/editar',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionClientesIdPacientesNuevoRoute =
+  SesionClientesIdPacientesNuevoRouteImport.update({
+    id: '/clientes/$id_/pacientes/nuevo',
+    path: '/clientes/$id/pacientes/nuevo',
+    getParentRoute: () => SesionRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SesionIndexRoute
   '/ingresar': typeof PublicoIngresarRoute
   '/configuracion': typeof SesionConfiguracionRoute
+  '/especies': typeof SesionEspeciesRoute
   '/perfil': typeof SesionPerfilRoute
   '/sin-permiso': typeof SesionSinPermisoRoute
+  '/clientes/$id': typeof SesionClientesIdRoute
+  '/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/pacientes/$id': typeof SesionPacientesIdRoute
+  '/clientes/': typeof SesionClientesIndexRoute
+  '/pacientes/': typeof SesionPacientesIndexRoute
+  '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
+  '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
+  '/clientes/$id/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof SesionIndexRoute
   '/ingresar': typeof PublicoIngresarRoute
   '/configuracion': typeof SesionConfiguracionRoute
+  '/especies': typeof SesionEspeciesRoute
   '/perfil': typeof SesionPerfilRoute
   '/sin-permiso': typeof SesionSinPermisoRoute
+  '/clientes/$id': typeof SesionClientesIdRoute
+  '/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/pacientes/$id': typeof SesionPacientesIdRoute
+  '/clientes': typeof SesionClientesIndexRoute
+  '/pacientes': typeof SesionPacientesIndexRoute
+  '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
+  '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
+  '/clientes/$id/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,24 +144,70 @@ export interface FileRoutesById {
   '/_sesion': typeof SesionRouteWithChildren
   '/_publico/ingresar': typeof PublicoIngresarRoute
   '/_sesion/configuracion': typeof SesionConfiguracionRoute
+  '/_sesion/especies': typeof SesionEspeciesRoute
   '/_sesion/perfil': typeof SesionPerfilRoute
   '/_sesion/sin-permiso': typeof SesionSinPermisoRoute
   '/_sesion/': typeof SesionIndexRoute
+  '/_sesion/clientes/$id': typeof SesionClientesIdRoute
+  '/_sesion/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/_sesion/pacientes/$id': typeof SesionPacientesIdRoute
+  '/_sesion/clientes/': typeof SesionClientesIndexRoute
+  '/_sesion/pacientes/': typeof SesionPacientesIndexRoute
+  '/_sesion/clientes/$id_/editar': typeof SesionClientesIdEditarRoute
+  '/_sesion/pacientes/$id_/editar': typeof SesionPacientesIdEditarRoute
+  '/_sesion/clientes/$id_/pacientes/nuevo': typeof SesionClientesIdPacientesNuevoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ingresar' | '/configuracion' | '/perfil' | '/sin-permiso'
+  fullPaths:
+    | '/'
+    | '/ingresar'
+    | '/configuracion'
+    | '/especies'
+    | '/perfil'
+    | '/sin-permiso'
+    | '/clientes/$id'
+    | '/clientes/nuevo'
+    | '/pacientes/$id'
+    | '/clientes/'
+    | '/pacientes/'
+    | '/clientes/$id/editar'
+    | '/pacientes/$id/editar'
+    | '/clientes/$id/pacientes/nuevo'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ingresar' | '/configuracion' | '/perfil' | '/sin-permiso'
+  to:
+    | '/'
+    | '/ingresar'
+    | '/configuracion'
+    | '/especies'
+    | '/perfil'
+    | '/sin-permiso'
+    | '/clientes/$id'
+    | '/clientes/nuevo'
+    | '/pacientes/$id'
+    | '/clientes'
+    | '/pacientes'
+    | '/clientes/$id/editar'
+    | '/pacientes/$id/editar'
+    | '/clientes/$id/pacientes/nuevo'
   id:
     | '__root__'
     | '/_publico'
     | '/_sesion'
     | '/_publico/ingresar'
     | '/_sesion/configuracion'
+    | '/_sesion/especies'
     | '/_sesion/perfil'
     | '/_sesion/sin-permiso'
     | '/_sesion/'
+    | '/_sesion/clientes/$id'
+    | '/_sesion/clientes/nuevo'
+    | '/_sesion/pacientes/$id'
+    | '/_sesion/clientes/'
+    | '/_sesion/pacientes/'
+    | '/_sesion/clientes/$id_/editar'
+    | '/_sesion/pacientes/$id_/editar'
+    | '/_sesion/clientes/$id_/pacientes/nuevo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -133,6 +252,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SesionConfiguracionRouteImport
       parentRoute: typeof SesionRoute
     }
+    '/_sesion/especies': {
+      id: '/_sesion/especies'
+      path: '/especies'
+      fullPath: '/especies'
+      preLoaderRoute: typeof SesionEspeciesRouteImport
+      parentRoute: typeof SesionRoute
+    }
     '/_sesion/perfil': {
       id: '/_sesion/perfil'
       path: '/perfil'
@@ -145,6 +271,62 @@ declare module '@tanstack/react-router' {
       path: '/sin-permiso'
       fullPath: '/sin-permiso'
       preLoaderRoute: typeof SesionSinPermisoRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/clientes/': {
+      id: '/_sesion/clientes/'
+      path: '/clientes'
+      fullPath: '/clientes/'
+      preLoaderRoute: typeof SesionClientesIndexRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/clientes/$id': {
+      id: '/_sesion/clientes/$id'
+      path: '/clientes/$id'
+      fullPath: '/clientes/$id'
+      preLoaderRoute: typeof SesionClientesIdRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/clientes/nuevo': {
+      id: '/_sesion/clientes/nuevo'
+      path: '/clientes/nuevo'
+      fullPath: '/clientes/nuevo'
+      preLoaderRoute: typeof SesionClientesNuevoRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/pacientes/': {
+      id: '/_sesion/pacientes/'
+      path: '/pacientes'
+      fullPath: '/pacientes/'
+      preLoaderRoute: typeof SesionPacientesIndexRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/pacientes/$id': {
+      id: '/_sesion/pacientes/$id'
+      path: '/pacientes/$id'
+      fullPath: '/pacientes/$id'
+      preLoaderRoute: typeof SesionPacientesIdRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/clientes/$id_/editar': {
+      id: '/_sesion/clientes/$id_/editar'
+      path: '/clientes/$id/editar'
+      fullPath: '/clientes/$id/editar'
+      preLoaderRoute: typeof SesionClientesIdEditarRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/pacientes/$id_/editar': {
+      id: '/_sesion/pacientes/$id_/editar'
+      path: '/pacientes/$id/editar'
+      fullPath: '/pacientes/$id/editar'
+      preLoaderRoute: typeof SesionPacientesIdEditarRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/clientes/$id_/pacientes/nuevo': {
+      id: '/_sesion/clientes/$id_/pacientes/nuevo'
+      path: '/clientes/$id/pacientes/nuevo'
+      fullPath: '/clientes/$id/pacientes/nuevo'
+      preLoaderRoute: typeof SesionClientesIdPacientesNuevoRouteImport
       parentRoute: typeof SesionRoute
     }
   }
@@ -163,16 +345,34 @@ const PublicoRouteWithChildren =
 
 interface SesionRouteChildren {
   SesionConfiguracionRoute: typeof SesionConfiguracionRoute
+  SesionEspeciesRoute: typeof SesionEspeciesRoute
   SesionPerfilRoute: typeof SesionPerfilRoute
   SesionSinPermisoRoute: typeof SesionSinPermisoRoute
   SesionIndexRoute: typeof SesionIndexRoute
+  SesionClientesIdRoute: typeof SesionClientesIdRoute
+  SesionClientesNuevoRoute: typeof SesionClientesNuevoRoute
+  SesionPacientesIdRoute: typeof SesionPacientesIdRoute
+  SesionClientesIndexRoute: typeof SesionClientesIndexRoute
+  SesionPacientesIndexRoute: typeof SesionPacientesIndexRoute
+  SesionClientesIdEditarRoute: typeof SesionClientesIdEditarRoute
+  SesionPacientesIdEditarRoute: typeof SesionPacientesIdEditarRoute
+  SesionClientesIdPacientesNuevoRoute: typeof SesionClientesIdPacientesNuevoRoute
 }
 
 const SesionRouteChildren: SesionRouteChildren = {
   SesionConfiguracionRoute: SesionConfiguracionRoute,
+  SesionEspeciesRoute: SesionEspeciesRoute,
   SesionPerfilRoute: SesionPerfilRoute,
   SesionSinPermisoRoute: SesionSinPermisoRoute,
   SesionIndexRoute: SesionIndexRoute,
+  SesionClientesIdRoute: SesionClientesIdRoute,
+  SesionClientesNuevoRoute: SesionClientesNuevoRoute,
+  SesionPacientesIdRoute: SesionPacientesIdRoute,
+  SesionClientesIndexRoute: SesionClientesIndexRoute,
+  SesionPacientesIndexRoute: SesionPacientesIndexRoute,
+  SesionClientesIdEditarRoute: SesionClientesIdEditarRoute,
+  SesionPacientesIdEditarRoute: SesionPacientesIdEditarRoute,
+  SesionClientesIdPacientesNuevoRoute: SesionClientesIdPacientesNuevoRoute,
 }
 
 const SesionRouteWithChildren =

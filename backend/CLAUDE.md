@@ -42,9 +42,12 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   semanal y bloqueos (R-050), 3.2a, turnos únicos (R-051), 3.2b, estados del turno (R-053), 3.3, turnos recurrentes (R-054), y 3.4,
   disponibilidad por agenda y cola del día (R-055), todas validadas por el usuario con Postman. Después, la entrega de soporte del
   frontend (front-00: `me.branches`, CORS por variable de entorno y paginación en `snake_case`) está cerrada (R-059) e integrada a
-  `main` con la F0 del frontend (R-063). Sigue el frontend (F1 a F3, R-058) y, después de la F3, la FASE 4 (historia clínica). Hoy:
-  78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F0 del frontend, 1445 casos (14183 aserciones en SQLite y 14257
-  en MySQL).
+  `main` con la F0 del frontend (R-063). La entrega de soporte front-01 (el dueño en `GET patients`, pedida por la F1 del
+  frontend) está cerrada (R-065) e integrada a `main` con la F1 del frontend (R-072). La entrega 1.2 del frontend (R-067) cambió el
+  backend en un commit aparte: el choque con un índice único de `clients` responde 422 en su campo, nunca 500 (§6.1); la 1.3a
+  (R-068), lo mismo con el microchip de `patients` (deuda 22, §6.2). Sigue el frontend (F2 y F3, R-058) y, después de la F3, la
+  FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F1 del frontend, 1463 casos
+  (14274 aserciones en SQLite y 14360 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -81,7 +84,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** historia clínica, aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
 * **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; la F0 (esqueleto,
-  sesión contra esta API y permisos) completada e integrada a `main` (R-063); sigue la F1, clientes y pacientes. Su estado y sus reglas, en
+  sesión contra esta API y permisos) y la F1 (clientes, pacientes, la foto y las especies) completadas e integradas a `main` (R-063
+  y R-072); sigue la F2, datos maestros. Su estado y sus reglas, en
   [`frontend/CLAUDE.md`](../frontend/CLAUDE.md).
 
 ---
@@ -94,13 +98,15 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 
 ### Ritmo de las entregas (backend)
 
-* MySQL (`syncvet_test_mysql`) una vez por entrega, antes del cierre, salvo que la entrega toque migraciones, concurrencia,
-  búsquedas de texto o autenticación: entonces también durante el trabajo.
+* Manda el [Presupuesto por entrega](../CLAUDE.md#presupuesto-por-entrega) del `CLAUDE.md` de la raíz.
+* MySQL (`syncvet_test_mysql`): en una entrega, solo si toca migraciones, concurrencia o búsqueda de texto, y solo los tests
+  afectados (`--filter`, con `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql`). La suite completa en MySQL (`composer
+  test:mysql`, de 5 a 6 min y medio), al cerrar la fase.
 * Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
-  de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, `composer test:fast` (SQLite en
-  paralelo, alrededor de 1 min 20 s), y los tests sueltos, con `XDEBUG_MODE=off php vendor/bin/phpunit <archivo>`. Para el cierre,
-  `composer test` (SQLite en serie, alrededor de 3 min 20 s) y `composer test:mysql` (de 5 a 6 min y medio): las cifras de
-  aserciones del registro salen de la suite en serie.
+  de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, solo los tests de lo tocado
+  (`XDEBUG_MODE=off php artisan test --filter <test>`). Al final de la entrega, una sola corrida completa: `composer test` (SQLite
+  en serie, alrededor de 3 min 20 s), de donde salen las cifras de aserciones del registro. La revisión corre solo
+  `composer test:fast` (SQLite en paralelo, alrededor de 1 min 20 s).
 * En cada cierre de fase, `composer audit` tiene que quedar sin avisos. Un aviso se corrige con
   `composer update <paquete> --with-dependencies` dentro de las restricciones de `composer.json`. Si la corrección pide cambiar una
   restricción o subir de versión mayor, se consulta al usuario. Lo actualizado queda en el registro de decisiones (R-046).
@@ -119,7 +125,8 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   `services_clinic_id_name_unique`) o por `tabla.columna` (SQLite, `UNIQUE constraint failed: services.clinic_id, services.name`),
   nunca buscando el nombre de la columna en el mensaje: el mensaje trae el SQL, que nombra todas las columnas. Una violación que no
   es la esperada sigue su camino; la del código llega a `DocumentSequenceService` (409 `DOCUMENT_CODE_CONFLICT`). Ejemplos:
-  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039).
+  `ServiceCatalogService::isNameViolation()` y `VeterinarianService::isLicenseViolation()` (R-039), `ClientService::UNIQUE_INDEXES`
+  (R-067) y `PatientService::MICROCHIP_INDEXES` (deuda 22, entrega 1.3a del frontend).
 * Mensajes al usuario en español con **voseo** ("Ingresá", "No tenés permisos"); código, clases, tablas, columnas y
   `error_code` en inglés. `VoseoTest` rechaza las palabras de tú y de usted, los imperativos de tú y de usted de sus verbos
   (un verbo nuevo en un mensaje se agrega a su lista) y los mensajes en inglés. Los mensajes de validación sin mensaje propio
@@ -240,8 +247,10 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   Been Pwned se simula en `TestCase`.
 * **Datos de ejemplo:** documentos ficticios. RUC `999999xx` con su dígito verificador y cédulas `99xxxxxx` (R-011); la
   `ClinicFactory`, RUC de 9 dígitos, que hoy no se emiten (R-013). Nunca un número de 7 dígitos (el rango de las cédulas
-  reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures y la
-  guía de Postman con sus colecciones (`docs/05-pruebas`); los RUC reales, solo en `tests/Unit/RucCheckDigitTest`, en su lista permitida.
+  reales). `FictitiousDocumentsTest` revisa toda secuencia de 7 a 9 dígitos de los tests, factories, seeders, fixtures, la
+  guía de Postman con sus colecciones (`docs/05-pruebas`) y el frontend (`frontend/src` y `frontend/e2e`, `*.ts` y `*.tsx`;
+  R-067); los RUC reales, solo en `tests/Unit/RucCheckDigitTest` y en su espejo del frontend (`ruc.test.ts`), en su lista
+  permitida. Un documento con el dígito verificador mal se arma en el código (`wrongRuc()`), no se escribe literal.
 * Claves de la API en **`snake_case`**: datos, `meta` y `errors` (entrega front-00, B3). `SnakeCaseKeysTest` revisa `app/` y
   `bootstrap/app.php` y falla con una clave literal en `camelCase` en un arreglo (`'fooBar' =>`, también anidada), asignada por
   índice (`$data['fooBar'] = …`), en `compact()` o como clave de `Arr::set`, `Arr::add`, `data_set` o `data_fill`. No cuentan los
@@ -266,9 +275,9 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 
 * Zona horaria `America/Asuncion` (UTC-3 todo el año desde el 15/10/2024); la API envía las fechas con hora en UTC (`Z`). PHP con la
   base de zonas 2025a o posterior (§3, Fechas con hora).
-* Tests: la suite completa corre en SQLite durante el trabajo, y en MySQL (`syncvet_test_mysql`) una vez por entrega, antes del
-  cierre, y también durante el trabajo si se tocan migraciones, búsquedas de texto, concurrencia o autenticación (§2, Ritmo de
-  las entregas): `composer test:mysql`. La de SQLite y la de MySQL, nunca a la vez: comparten los discos falsos de
+* Tests: en SQLite en cada entrega; en MySQL (`syncvet_test_mysql`), solo los tests afectados cuando la entrega toca migraciones,
+  concurrencia o búsqueda de texto, y la suite completa (`composer test:mysql`) al cerrar la fase (§2, Ritmo de las entregas, y
+  el Presupuesto por entrega del `CLAUDE.md` de la raíz). La de SQLite y la de MySQL, nunca a la vez: comparten los discos falsos de
   `Storage::fake` (`docs/04-desarrollo/testing.md`). Los procesos de una misma suite con `--parallel` sí se pueden correr juntos, porque
   cada uno tiene su base y sus discos. Sin red: `Http::preventStrayRequests()` y Have I Been Pwned simulado en `TestCase`, y
   `EMAIL_DNS_CHECK=false` (la rama con DNS, en `EmailDnsCheckTest`). Un test que compara una hora calculada congela el reloj
@@ -410,6 +419,9 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   turnos, consultas o facturas y no puede eliminarse."); el uso se revisa dentro de la transacción de la baja, con la fila del
   cliente bloqueada (§3).
 * La búsqueda (`search`) también encuentra al dueño por el nombre o el código de su mascota.
+* Dos altas o ediciones simultáneas con el mismo documento (también la misma base) o el mismo email pasan las dos la
+  validación: la segunda choca con el índice único y responde el 422 de la regla `unique` en `document_number` o `email`,
+  nunca 500 (`ClientService`, por el nombre del índice; R-067). `ClientConcurrencyTest` (MySQL) lo prueba con dos procesos.
 
 ### 6.2 Pacientes
 
@@ -436,8 +448,15 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   la hora de Asunción; si lo es, 422 en `deceased_at` (R-021).
 * No se elimina con consultas, aplicaciones o turnos (`PATIENT_IN_USE`, 409): se registra el fallecimiento. El uso se revisa dentro
   de la transacción de la baja, con la fila del paciente bloqueada (§3).
-* `microchip` único en la clínica, de hasta 30 caracteres. La baja agrega `//deleted_<id>_<timestamp>` entero:
+* `microchip` único en la clínica, de hasta 30 caracteres. Dos altas o ediciones simultáneas con el mismo microchip: una entra y
+  la otra recibe el 422 de la regla `unique` en `microchip`, nunca 500 (la violación del índice se traduce en `PatientService`,
+  deuda 22). La baja agrega `//deleted_<id>_<timestamp>` entero:
   `patients.microchip` admite 60 caracteres (30 del chip y 21 más el id del sufijo, con ids de hasta 9 dígitos).
+* El listado `GET patients` trae el dueño de cada paciente, `client` con `id` y `display_name` (entrega front-01, R-065), cargado
+  con el `with` del listado, sin N+1. `PatientResource` lo saca solo si la relación está cargada (`whenLoaded`): el listado de un
+  cliente (`clients/{client}/patients`) y los pacientes del detalle del cliente no lo traen. El detalle del paciente
+  (`ShowPatientResource`) lo reemplaza por el suyo, con `phone`, `email` y `deleted`, en el mismo lugar de las claves. Un dueño
+  eliminado se muestra igual (la relación es `withTrashed`).
 * **Foto** (`patients/{patient}/photo`: subir con `POST`, ver con `GET`, borrar con `DELETE`; permisos `patients.upload-photo`,
   `patients.show-photo` y `patients.delete-photo`). La suben y la borran el recepcionista y el veterinario; la ven los tres roles.
   JPG, PNG o WEBP de hasta 5 MB, por el contenido del archivo, no por la extensión (`UploadPatientPhotoRequest`); otro tipo →
@@ -888,3 +907,4 @@ Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../doc
 | 6 | Límite del login con caché `database`: en una ráfaga simultánea pasan de 0 a 4 intentos de más; se resuelve con Redis en producción |
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
 | 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |
+| 21 | Tests: `countQueries` copiado en tres tests (turnos, agenda y pacientes); prioridad baja: unificarlo cuando se toquen esos tests |

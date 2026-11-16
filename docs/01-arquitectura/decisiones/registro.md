@@ -1409,3 +1409,177 @@ Cierre de la F0 del frontend (base y login), junto con la entrega de soporte del
 | Siguiente | El análisis y el diseño de la F1 del frontend (clientes y pacientes), sobre la API de la FASE 1 | Usuario |
 
 **Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-064 Aprobación del diseño de la F1 del frontend (clientes y pacientes) (2026-11-12)
+
+El usuario aprueba el diseño de la F1 del frontend,
+[`f1-clientes-y-pacientes.md`](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md), en `docs/front-f1-diseno`
+(desde `main` en `668eb48`), con las 13 [preguntas del diseño](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#preguntas-del-diseño)
+respondidas con la recomendación.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | front-01 (backend: el dueño en `GET patients`), 1.1, 1.2, 1.3a, 1.3b, 1.4 y 1.5, en ramas encadenadas desde `docs/front-f1-diseno`; todo se integra a `main` al cerrar la F1 | Usuario |
+| Dueño en el listado de pacientes (pregunta 1) | Entrega de soporte del backend front-01, aditiva: `client: { id, display_name }` en `GET patients`, sin N+1 y sin cambiar otras respuestas | Usuario |
+| Interfaz (preguntas 2 a 4, 7 a 9, 11 y 13) | Listados en tabla, 20 por página sin selector; los pacientes del cliente desde `GET clients/{id}`, con los fallecidos detrás de un botón; diálogo simple antes de borrar; alta del paciente en una página propia; "Especies" con menú propio; foto con vista previa y botón; sin aviso de cambios sin guardar en la F1 | Usuario |
+| Validación (preguntas 5 y 6) | El dígito verificador del RUC también en el navegador, con los casos de `RucCheckDigitTest`; el email se pasa a minúsculas al mandar | Usuario |
+| Pacientes (preguntas 10 y 12) | "Anular el fallecimiento" con confirmación; pacientes en dos entregas (1.3a y 1.3b, con la verificación del desvío 8 de la 0.1 en la 1.3b) | Usuario |
+| Rama de front-01 | `feature/front-01-dueno-pacientes` (el nombre que dio el usuario; el diseño decía `feature/front-01-duenio-en-pacientes`) | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos y colecciones: la aprobación solo documenta.
+
+# R-065 Cierre de la entrega front-01 del backend (el dueño en el listado de pacientes) (2026-11-12)
+
+Entrega de soporte del backend pedida por la F1 del frontend (R-064), en `feature/front-01-dueno-pacientes` (desde
+`docs/front-f1-diseno`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-front-01).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `GET patients` trae `client` con `id` y `display_name`, con `whenLoaded` en `PatientResource` y el `with('client')` que el listado ya tenía; sin rutas, permisos ni migraciones (78, 135, 36); sin cambios en `error_code` ni códigos HTTP | Diseño (R-064) |
+| Desvío 1 | `client` va última en `PatientResource`, para que el detalle del paciente (`ShowPatientResource`, que la reemplaza) conserve el orden de sus claves | Usuario: aceptado |
+| Desvío 2 | El listado no trae `deleted` del dueño (solo `id` y `display_name`); un dueño eliminado se muestra igual (`withTrashed`) | Usuario: aceptado |
+| Desvíos informativos | 3 a 7 de la entrega: el detalle ya traía el dueño; el caso de N+1 con 1 y 6 pacientes y un pedido previo; `client` en `null` por defensa; dos aserciones en pedidos existentes de Postman; el intento de cerrar todos los `php.exe` | Registrados |
+| Regla de procesos | Claude Code solo detiene los procesos que él mismo levantó, por su PID o su tarea; nunca por nombre (`php.exe`, `nginx`, `node`) ni los de Laragon o del usuario ([`CLAUDE.md`](../../../CLAUDE.md) de la raíz, §2, Procesos) | Usuario |
+| Revisión | Sin hallazgos que corregir, en una sesión aparte sobre el WIP `3e3e386`; una observación sin cambio (`countQueries` repetido en tres tests) | Revisión |
+| Validación | Desde `backend/`, en serie sobre `3e3e386`: SQLite, 1451 casos y 14225 aserciones (14 omitidos, solo de MySQL); MySQL, 1451 casos y 14299 aserciones, sin omitidos. Newman, las 14 colecciones desde la raíz (puerto 8001): 483 pedidos y 1074 aserciones, sin fallas (pacientes, 61 → 63). La suite del frontend no cambió (`npm test`, 269 tests en 21 archivos del frontend) | Usuario |
+| Siguiente | La entrega 1.1 del frontend (clientes: listado y detalle), en `feature/front-1-1-clientes`, creada desde `feature/front-01-dueno-pacientes` | Usuario |
+
+# R-066 Cierre de la entrega 1.1 del frontend (clientes: listado y detalle) (2026-11-13)
+
+Primera entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-1-clientes` (desde `feature/front-01-dueno-pacientes`
+en `6ee193a`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-11).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/clientes` (búsqueda con espera de 300 ms, tipo y página en la URL; 20 por página) y `/clientes/$id` (datos y pacientes, con los fallecidos detrás de "Mostrar los fallecidos (N)"); permisos `clients.index` y `clients.show` en las rutas y en el menú ("Clientes", los tres roles); `SearchField` y `SelectField`; sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvíos de la implementación | 1 a 11 (la rama, `SelectField` adelantado, la página de no encontrado dentro del layout, `validateSearch` con las tres claves siempre, `NotFoundError` en ESLint, `queryClient.query` en lugar de `ensureQueryData`, el error del listado en la tarjeta, detalles de presentación, 3 fallas por tiempo de la primera corrida, el fallecido simulado en la validación y la deuda 21 del backend) | Usuario: aceptados en la revisión |
+| Revisión | En una sesión que la revisó como quien no la escribió, sobre el WIP `3ea03b9`: 8 hallazgos (1 alto: el campo de búsqueda perdía el espacio final; 3 medios; 4 bajos o informativos) | Revisión |
+| Correcciones | Hallazgos 1 a 7 corregidos en `104aee1`: el campo toma lo de la URL solo si el cambio vino de afuera; "Esta página no existe." con el enlace a la página 1 (en `DataTable`); la espera probada con relojes falsos; límites de 3 s (`asyncUtilTimeout`) y 15 s (`testTimeout` de jsdom); "Buscando…" en una región `role="status"` fija; `parseSearch` y `stringifySearch` del router (la búsqueda escrita es siempre texto); `useDebouncedValue` solo con primitivos. El hallazgo 8 (un rol con `clients.show` sin `clients.index`), informativo | Usuario |
+| Convención de listados | El modelo para los próximos listados, en [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md) §5 ("Listados" y "Tests"): búsqueda y página en la URL, lo escrito siempre como texto (`TEXT_SEARCH_PARAMS`), el campo local con espera y cuándo toma la URL, la página fuera de rango y cómo probar la espera | Usuario |
+| Desvíos de las correcciones | 12 (H1 suma "lo que el campo mandó y todavía no llegó" a la regla del usuario), 13 (una corrida final repetida por 2 errores de `lint`), 14 (la página fuera de rango en `DataTable`, genérico), 15 (la validación usó un `npm run dev` que ya estaba en `:5173`; no lo cerró Claude Code) y 16 (dos pedidos iguales al entrar: probablemente el doble efecto del `StrictMode` de React en desarrollo; verificarlo con `npm run build` y `npm run preview` queda opcional, PENDIENTE DE VERIFICACIÓN) | Usuario: aceptados |
+| Validación | El usuario la validó en el navegador el 2026-11-13: "el listado y el detalle se ven bien y es rápido". Desde `frontend/`, sobre el código de `104aee1`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 357 tests en 25 archivos; `npm run test:e2e`, 13 de 13. En Edge sin ventana contra `syncvet.test`: 31 de 31 de la implementación y 4 de 4 de las correcciones. La suite del backend no cambió (la entrega no toca su código) | Usuario |
+| `modulos.md` | Los cierres del frontend suman su avance a las observaciones del módulo del backend que usan (en la 1.1, la fila Clientes), sin cambiar su estado ni agregar filas | Usuario |
+| Siguiente | La entrega 1.2 del frontend (clientes: alta, edición y baja), APROBADA (R-064) | Diseño (R-064) |
+
+**Qué no cambió.** Código, tests, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre solo documenta.
+
+# R-067 Cierre de la entrega 1.2 del frontend (clientes: alta, edición y baja) (2026-11-13)
+
+Segunda entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-2-clientes-abm` (desde `feature/front-1-1-clientes`
+en `78e9657`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-12).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/clientes/nuevo` (`clients.store`) y `/clientes/$id/editar` (`clients.update`) con el mismo formulario de persona y empresa (los campos del otro tipo, en `null`), las reglas de forma de la API en el navegador con sus mensajes (el dígito verificador del RUC con los casos de `RucCheckDigitTest`) y los 422 en cada campo; la baja desde el detalle (`clients.destroy`, solo el administrador) con `ConfirmDialog` y `CLIENT_IN_USE` en el diálogo; "Nuevo cliente" y "Editar" según el permiso; la baja vuelve a la página del listado de donde se vino. Componentes nuevos: `ConfirmDialog`, `RadioGroup`, `CheckboxField` y `TextareaField`; sin paquetes nuevos | Diseño (R-064) |
+| Desvíos de la implementación | 1 a 14: aceptados el 1 (la búsqueda del listado en el estado del historial), el 2 (la baja vacía los listados antes de volver), el 3 (guardar y "Cancelar" reemplazan el formulario en el historial), el 5 (detalles de los componentes) y el 6 (el email lo decide la API); el 4 (los RUC reales en `ruc.test.ts`) queda con las excepciones justificadas de los RUC públicos de empresas; los demás, informativos. En las correcciones, el 17 (la única diferencia del email con la API, `"juan perez"@…`), aceptado | Usuario |
+| Revisión | En una sesión que la revisó como quien no la escribió, sobre el WIP `657100e`: 7 hallazgos (1 alto: el doble clic en Guardar mandaba dos altas y la segunda daba 500; 4 medios: el foco del diálogo, el email más estricto que la API, 14 mutaciones que pasaban los tests y `FictitiousDocumentsTest` sin revisar el frontend; 1 bajo y 1 informativo) | Revisión |
+| RUC reales | Los 7 RUC de `ruc.test.ts` (los de `RucCheckDigitTest`, de la DNIT) son de empresas, de la serie de las personas jurídicas: quedan, en `ALLOWED`. Los ejemplos de 7 dígitos de `FictitiousDocumentsTest` (el rango de las cédulas reales) pasan a números con un cero adelante, que no pueden ser una cédula | Usuario |
+| Correcciones | Hallazgos 1 a 6: Guardar se deshabilita también con `isSubmitting` y una `ref` deja pasar un solo envío; en el backend (commit aparte, `594ad20`), `ClientService` responde 422 en `document_number` o `email` cuando choca con un índice único de `clients`, nunca 500 (identificado por el nombre del índice); `ConfirmDialog` con las teclas en `document`, el foco de vuelta a "Cancelar", `aria-disabled` y el fondo sin desplazamiento; el email del navegador, solo la forma mínima; tests de los límites, la caché de la baja, la invalidación de pacientes y la vuelta de la edición; `FictitiousDocumentsTest` revisa también `frontend/src` y `frontend/e2e`; en `bb8cab5` | Usuario |
+| Procesos | `frontend/CLAUDE.md` §8: un Vite de una prueba se detiene por el PID de `vite.js` (detener la tarea dejaba vivo a Vite), comprobando después que el puerto quedó libre | Usuario |
+| Deuda 22 | `PatientService` guarda el microchip solo con la regla `unique`: dos altas o ediciones simultáneas con el mismo microchip darían 500 (el mismo hueco que tenía `ClientService`). Prioridad media; se corrige al empezar la 1.3a, como commit aparte del backend | Usuario |
+| Validación | El usuario revisó los formularios en el navegador ("están bien") y dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 19 de 19 de la implementación y 8 de 8 de las correcciones (el doble clic, el teclado en el diálogo y un email con tilde); la demo sin clientes nuevos. Desde `frontend/`, sobre el código de `bb8cab5`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 502 tests en 29 archivos; `npm run test:e2e`, 17 de 17. Desde `backend/`: `composer test:fast` y la suite en serie, 1458 casos (14262 aserciones en SQLite, 15 omitidos; 14342 en MySQL, sin omitidos); Newman de la colección de clientes, 24 pedidos y 48 aserciones, sin fallas | Usuario |
+| Siguiente | La entrega 1.3a del frontend (pacientes: listado, detalle, alta y edición), APROBADA (R-064) | Diseño (R-064) |
+
+**Qué no cambió.** Rutas, permisos, `error_code`, códigos HTTP de lo que ya respondía la API y colecciones. Lo único nuevo del backend
+es el 422 donde antes había un 500 (el choque con un índice único de `clients`).
+
+# R-068 Cierre de la entrega 1.3a del frontend (pacientes: listado, detalle, alta y edición) (2026-11-14)
+
+Tercera entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-3a-pacientes` (desde `feature/front-1-2-clientes-abm`
+en `d36c37b`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13a).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/pacientes` (tabla de 20 con el dueño; búsqueda, especie y "Incluir los fallecidos" en la URL), `/pacientes/$id`, el alta desde el cliente (`/clientes/$id/pacientes/nuevo`) y la edición, con la raza dependiente de la especie (la inactivada del paciente, en las opciones), `birth_date` sin pasar por `Date`, el peso con coma decimal y las reglas de forma de la API con sus mensajes; el nombre del paciente como enlace y "Nuevo paciente" en el detalle del cliente; el menú "Pacientes" y los permisos `patients.index`, `.show`, `.store` y `.update`. Componentes: `DateField` nuevo y `SelectField` con error y `ref`; sin paquetes nuevos | Diseño (R-064) |
+| Deuda 22 | Resuelta en un commit aparte del backend (`f12f3c7`): `PatientService` traduce la violación del índice único del microchip (por su nombre en MySQL o `patients.microchip` en SQLite) al 422 de la regla `unique` en `microchip`, en el alta y en la edición; `PatientUniqueIndexTest` y `PatientConcurrencyTest` (dos altas simultáneas, MySQL) | Usuario (R-067) |
+| Desvíos | Los 11, aceptados: entre ellos, `useSearchText` común a los listados (sin cambiar el de clientes), "(inactivada)" por el test de voseo y el alta que va al detalle del paciente. El 4 (al editar un paciente con una especie inactiva, solo su raza actual) queda así para el MVP; el 6 (el sexo `unknown`), unificado en "Sin determinar", el texto de la API | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `c68511c`: backend sin hallazgos; en el frontend, 6 hallazgos (el sexo con dos textos, la fecha a medio escribir que se mandaba en `null` y borraba la guardada, tres mutaciones que pasaban los tests, la especie de la URL fuera del selector y el `maxLength` que contaba unidades UTF-16) | Revisión |
+| Correcciones | En `150216e`: "Sin determinar"; la fecha a medio escribir (`validity.badInput`) da el error de formato y no se manda; "Especie no disponible" para una especie de la URL fuera del selector (no se descarta: una inactivada todavía tiene pacientes); tests del detalle con lo recién guardado, "Incluir los fallecidos" a la página 1 y el 409 de la edición (M1 a M3, ahora detectadas); sin `maxLength` nativo en los textos con letras del paciente y, en el cierre, en todos los de clientes (nombre, apellido, razón social, dirección, ciudad y notas): el largo se cuenta en caracteres, como la API | Usuario |
+| Presupuesto por entrega | Nueva sección del `CLAUDE.md` de la raíz, que manda sobre las demás reglas de velocidad: durante la entrega, solo los tests de lo tocado; al final, una corrida completa del lado que cambió; MySQL solo con los tests afectados si hay migraciones, concurrencia o búsqueda de texto; Playwright y Newman solo de lo tocado; hasta 10 controles en el navegador; 3 o 4 mutaciones; la revisión no repite suites. Al cerrar la fase: la suite completa en MySQL y en serie, Playwright completo y Newman de todas las colecciones. `backend/CLAUDE.md` y `frontend/CLAUDE.md`, ajustados | Usuario |
+| Validación | El usuario probó la 1.3a en el navegador y salió todo bien (2026-11-14). Edge sin ventana contra `syncvet.test`: 26 de 26 de la implementación y 5 de 5 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 642 tests en 35 archivos sobre `150216e`, más 3 del último cambio verificados con `vitest related`; `typecheck`, `lint` y `build` sin errores ni avisos; Playwright, 18 de 18 en la implementación y el de pacientes, 1 de 1, después de las correcciones. Desde `backend/`, sobre `f12f3c7`: 1463 casos (14274 aserciones en SQLite en serie, 16 omitidos; 14360 en MySQL); Newman de la colección de pacientes, 63 de 63 | Usuario |
+| Siguiente | La entrega 1.3b del frontend (fallecimiento, cambio de dueño y baja del paciente), APROBADA (R-064), en `feature/front-1-3b-pacientes`, creada desde `feature/front-1-3a-pacientes` (el diseño decía `feature/front-1-3b-pacientes-estado`) | Usuario |
+
+**Qué no cambió.** Rutas, permisos, `error_code`, códigos HTTP de lo que ya respondía la API y colecciones. Lo único nuevo del backend
+es el 422 donde antes había un 500 (el choque con el índice único del microchip).
+
+# R-069 Cierre de la entrega 1.3b del frontend (pacientes: fallecimiento, cambio de dueño y baja) (2026-11-14)
+
+Cuarta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-3b-pacientes` (desde `feature/front-1-3a-pacientes`
+en `5f3aac7`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-13b).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | En `/pacientes/$id`: registrar, corregir y anular el fallecimiento (`patients.update`; la fecha y la hora de pared de Asunción, mandadas con `toApiDateTime` y `-03:00`; no futuras ni anteriores al nacimiento), cambiar de dueño (`patients.change-owner`: administrador y recepcionista; buscador de clientes sin el dueño actual) y la baja (`patients.destroy`: solo el administrador; con `PATIENT_IN_USE`, "Registrar el fallecimiento"); la edición de un fallecido deja editables solo las notas. `ConfirmDialog` con `tone`, `size` y `confirmDisabled`; `TimeField` nuevo; sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvío 8 de la 0.1 | VERIFICADO: `deceased_at` con `-03:00` se guarda y se lee igual contra la API real (Playwright y Edge), anotado en el [resultado de la 0.1](../../03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01) | Implementación |
+| Desvíos | Los 11, aceptados: entre ellos, registrar, corregir y anular mandan solo `deceased_at`; la fecha de fallecimiento se corrige desde el detalle (no en el formulario de edición); `ConfirmDialog` con campos para el fallecimiento y el cambio de dueño; y la hora en 12 horas del selector nativo de Edge, que depende del idioma de Windows | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `9bf37ba`: 5 hallazgos (el foco tras un 422 de la API en "Cancelar" en lugar del campo; el detalle del dueño con la lista vieja un momento después de la baja o del cambio de dueño; dos tests que faltaban, `confirmDisabled` y la respuesta fuera de orden del buscador; `keepPreviousData` repetido y Zod validando los campos bloqueados de un fallecido); 3 de 4 mutaciones detectadas | Revisión |
+| Correcciones | H1: `ConfirmDialog`, de forma general, lleva el foco al primer campo con error al terminar la espera (si no hay, a "Cancelar"), probado también en la baja de clientes de la 1.2. H2: la solución de la baja de clientes de la 1.2 (`resetQueries`) para el detalle del dueño en la baja y los de los dos clientes en el cambio de dueño: nunca muestran al paciente borrado o que se fue. H3 y H4: los dos tests. H5: `keepPreviousData` en un solo lugar y, en la edición de un fallecido, Zod valida solo las notas | Usuario |
+| Proceso: `cat` sin entrada | Una tarea en segundo plano quedó colgada casi 2 horas por un `cat > /tmp/x` que esperaba el teclado (ya había pasado en la 1.1); se detuvo por su PID y el commit ya tenía lo que quería hacer. Un hook PreToolUse versionado (`.claude/settings.json`, `.claude/hooks/block-cat-stdin.js`) rechaza todo `cat >` o `cat >>` sin heredoc, redirección o tubería, y la regla queda al principio del `CLAUDE.md` de la raíz; commit aparte `c8ca294` | Usuario |
+| Validación | El usuario dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 10 de 10 de la implementación y 5 de 5 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 694 tests en 37 archivos; `typecheck`, `lint` y `build` sin errores ni avisos; Playwright, el caso nuevo en la implementación y 5 de 5 de `pacientes-estado` y `clientes-abm` después de las correcciones | Usuario |
+| Siguiente | La entrega 1.4 del frontend (foto del paciente), APROBADA (R-064), en `feature/front-1-4-foto`, creada desde `feature/front-1-3b-pacientes` | Usuario |
+
+**Qué no cambió.** Backend, rutas, permisos de la API, `error_code`, códigos HTTP y colecciones.
+
+# R-070 Cierre de la entrega 1.4 del frontend (foto del paciente) (2026-11-14)
+
+Quinta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-4-foto` (desde `feature/front-1-3b-pacientes` en
+`e20186e`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-14).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `api.getBlob` (descargas con el token; los errores JSON como `ApiError`, el 401 cierra la sesión). En `/pacientes/$id`, la tarjeta "Foto": verla como `Blob` con `BlobImage` (la URL de objeto se libera al cambiar o desmontar), subirla o reemplazarla con `FileField`, vista previa y "Subir la foto", y quitarla con `ConfirmDialog`; el navegador frena lo que no es JPG, PNG o WEBP y lo de más de 5 MB, con los mensajes de la API; 413 y 422 en el campo; la foto no se descarga en los listados. Los tres permisos de foto (los tres roles). Sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvíos | Los 11, aceptados: entre ellos, `POST` y `DELETE` de la foto responden 200 (no 201); `BlobImage` en lugar de un hook con estado; al quitar, `Query.reset()`; el "rol sin permiso" del navegador, simulado (ningún rol real lo pierde); los tests de la subida con el `FormData` y el `File` de Node. El 6 (el tipo declarado) quedó reemplazado por la corrección 3 | Usuario |
+| Foto vertical de un celular | Prueba manual del usuario: la orientación del EXIF la aplica el backend (R-027) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `dde595a`: 5 hallazgos (el estado de la foto pasaba de un paciente a otro si el router cambiaba solo el `$id`; `getBlob` aceptaba una página HTML como archivo; el navegador rechazaba por la extensión un JPG que la API acepta; "Cambiar" y "Quitar" sobre una foto cuyo archivo falta; el `File` en la caché de mutaciones); 3 de 3 mutaciones detectadas | Revisión |
+| Correcciones | 1: **convención nueva**, cada ruta de detalle dibuja su página con `key={id}` (`/pacientes/$id` y `/clientes/$id`; `frontend/CLAUDE.md` §5). 2: `getBlob` da `HTTP_ERROR` con HTML o con un tipo distinto de `expectedType` (la foto pide `image/`). 3: el tipo de la foto por los primeros bytes, como la API. 4: con 404 `PATIENT_PHOTO_NOT_FOUND` al verla, el detalle pasa a `has_photo: false`. 5: la subida con `gcTime: 0` y `reset()`, y el foco tras el error por un pedido propio | Usuario |
+| Presupuesto por entrega | Dos reglas nuevas en el `CLAUDE.md` de la raíz: si la corrida final falla por un detalle, se repiten solo el paso que falló y los tests del archivo tocado; si Playwright ya cubre un flujo, en Edge solo lo que Playwright no ve | Usuario |
+| Tarea para después de la F1 | Una entrega `chore`: la preparación de Playwright reutiliza `syncvet_e2e` cuando las migraciones no cambiaron y solo restaura los datos de la demo ([handoff](../../03-plan-desarrollo/handoff.md#próximas-tareas)) | Usuario |
+| Validación | El usuario dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 10 de 10 de la implementación y 5 de 5 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 746 tests en 39 archivos; `typecheck`, `lint` y `build` sin errores ni avisos; Playwright, `pacientes-foto` en la implementación y después de las correcciones | Usuario |
+| Siguiente | La entrega 1.5 del frontend (especies y razas), APROBADA (R-064), en `feature/front-1-5-especies`, creada desde `feature/front-1-4-foto` | Usuario |
+
+**Qué no cambió.** Backend, rutas, permisos de la API, `error_code`, códigos HTTP y colecciones.
+
+# R-071 Cierre de la entrega 1.5 del frontend (especies y razas) (2026-11-16)
+
+Sexta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-5-especies` (desde `feature/front-1-4-foto` en
+`28c5eb5`), sin integrar a `main`: se integra al cerrar la F1. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/especies` (`species.index`, los tres roles) y "Especies" en el menú: las especies con sus razas en una lista que se despliega, "Común" o "Propia" e "Inactivada". Con los permisos de especie (administrador y veterinario), solo en las propias: renombrar, activar o inactivar (sin confirmación) y eliminar (con `SPECIES_IN_USE` o `BREED_IN_USE`, "Inactivar …" desde el diálogo); "Nueva especie" y "Nueva raza" (también en una común). El nombre con Zod y los mensajes de la API; el repetido, 422 en el campo; `CATALOG_GLOBAL_NOT_EDITABLE` en el diálogo, no `/sin-permiso`. Cada cambio vacía la lista de los selectores del paciente (`afterCatalogChanged`). Sin paquetes nuevos y sin cambios en la API | Diseño (R-064) |
+| Desvíos | Los 1 a 10, aceptados: entre ellos, "Inactivada" en lugar de "Inactiva" (test de voseo); activar o inactivar sin confirmación; las listas de especies que no están a la vista se vacían (`resetQueries`), no se invalidan (hallado en Edge); `useSingleAction` repetido en `features/species` | Usuario |
+| Listado de especies (desvío 11) | Solo las activas por defecto, con "Incluir las inactivas" (`?inactivas=1`) como los demás listados, visible solo con `species.update`; sin el filtro, la consulta de los selectores del paciente (`speciesQueryOptions`) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `dd15e51`: 3 hallazgos (H1, el listado con las inactivas siempre; H2, un 404 que invalidaba en lugar de vaciar la lista de los selectores, sin test en el botón; H3, el diálogo con `*_IN_USE` seguía preguntando si eliminar) y 2 detalles (un comentario largo; el nombre viejo de la especie un instante en el detalle del cliente, aceptado como informativo); 2 de 3 mutaciones detectadas | Revisión |
+| Correcciones | H1 a H3 y el detalle 1, en `26772d1`; 3 de 3 mutaciones detectadas. Desvíos 12 (la 1.3b no quita la pregunta con `PATIENT_IN_USE`), 13 (sin el filtro, el listado puede tardar hasta 5 minutos en mostrar cambios de otra PC) y 14 (también se ajustó el caso 1 de Playwright), aceptados | Usuario |
+| Tareas para después de la F1 | En la entrega `chore` ([handoff](../../03-plan-desarrollo/handoff.md#próximas-tareas), tarea 3c): que la colección de Postman de especies borre lo que crea; limpiar los restos "Hurón doméstico NNNNNN" de la base de desarrollo; quitar la pregunta del diálogo de baja del paciente con `PATIENT_IN_USE` (desvío 12); mover `useSingleAction` a `src/lib/hooks` (desvío 6) | Usuario |
+| Validación | El usuario dio la entrega por validada con las correcciones. Edge sin ventana contra `syncvet.test`: 6 de 6 de la primera sesión, 6 controles de la segunda (con la repetición del que encontró el desvío 8) y 3 de 3 de las correcciones, con la demo como estaba. Desde `frontend/`: `npm test`, 800 tests en 42 archivos; `typecheck` y `build` sin errores; `lint` en verde después de corregir 2 errores de estilo del test; Playwright, `e2e/especies.spec.ts`, 2 de 2 | Usuario |
+| Siguiente | El cierre de la F1: Playwright completo, la suite del backend completa en MySQL, Newman de todas las colecciones y la integración a `main` | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP y colecciones.
+
+# R-072 Cierre de la F1 del frontend y merge a `main` (2026-11-16)
+
+Cierre de la F1 del frontend (clientes y pacientes), junto con la entrega de soporte del backend (front-01), con las siete entregas
+cerradas (R-065 a R-071). El detalle, en el [cierre de la F1](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Entregas | front-01 (R-065), 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071): COMPLETADO, cada una con su revisión, sus correcciones y su validación; las ramas de la cadena, en GitHub. El cierre de la 1.5 estaba escrito sin commitear: va en su propio commit (`7ef0a9e`), antes del de este cierre | Cierre |
+| F1 | COMPLETADO: el criterio de cierre se cumple, punto por punto en el cierre de la F1 (entregas cerradas; Vitest, Playwright, `typecheck`, `lint` y `build` en verde; el desvío 8 de la 0.1 verificado en la 1.3b; Newman de todas las colecciones sin fallas) | Usuario |
+| Regresión del backend | Desde `backend/`, en serie, sobre `7ef0a9e`: SQLite, 1463 casos (16 omitidos, solo de MySQL), 14274 aserciones; MySQL, 1463 casos sin omitidos, 14360 aserciones. Frente a la F0, 18 casos más. 78 rutas, 135 permisos y 36 migraciones, sin cambios. `composer audit`, sin avisos | Cierre |
+| Regresión del frontend | Desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 800 tests en 42 archivos; `npm run test:e2e`, 22 de 22 después de ajustar los tests (desvíos 1 y 2). `npm audit`: solo el aviso de `minimatch` de la deuda 19 (ahora en 9 paquetes) | Cierre |
+| Desvíos del cierre | 1: `e2e/permisos.spec.ts` esperaba el menú sin "Especies" (la 1.5 solo corrió su spec). 2: cuatro casos escribían en "Buscar clientes" y hacían clic sin esperar la URL; con la PC cargada, la búsqueda devolvía la página al listado. Ahora esperan `?buscar=…`. Solo en los tests | Cierre |
+| Postman | Newman, las 14 colecciones de `docs/05-pruebas/postman` (R-057), servidor en el puerto 8001: 483 pedidos y 1074 aserciones, sin fallas | Cierre |
+| Deudas | Abiertas en la F1: 21 (backend), 23 y 24 (frontend: el clic durante la espera de la búsqueda y el límite del test de voseo), de prioridad baja. Resuelta: 22. Abiertas: 2, 3, 5, 6, 15, 17 y 21 (backend); 19, 20, 23 y 24 (frontend) | Cierre |
+| Merge a `main` | Autorizado por el usuario el 2026-11-16: merge `--no-ff` desde `feature/front-1-5-especies`, que contiene `docs/front-f1-diseno` y las ramas de front-01 a la 1.4. Antes, `main` local adelantado a `origin/main` (`668eb48`, el merge de la F0) con `--ff-only`. Antes del push de `main`, en `main`: la suite del backend en serie (SQLite y MySQL) y `npm test` del frontend. Las ramas se conservan. El hash del merge se informa al usuario y se anota en el handoff al empezar lo siguiente | Usuario |
+| Siguiente | La entrega `chore/…` de las tareas 3b y 3c del handoff; después, el análisis y el diseño de la F2 del frontend (datos maestros), sobre la API de la FASE 2 | Usuario |
+
+**Qué no cambió.** Código de la aplicación, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre documenta y
+ajusta solo cinco tests de Playwright.

@@ -49,7 +49,13 @@ export default defineConfig(({ mode }) => {
         },
         {
           extends: true,
-          test: { name: 'dom', environment: 'jsdom', include: ['src/**/*.test.tsx'] },
+          // 15 s por test (5 s por defecto): /ingresar y /perfil pasaron los 5 s con la PC cargada (1.1, hallazgo 4).
+          test: {
+            name: 'dom',
+            environment: 'jsdom',
+            include: ['src/**/*.test.tsx'],
+            testTimeout: 15_000,
+          },
         },
       ],
     },

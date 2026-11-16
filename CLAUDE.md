@@ -1,5 +1,10 @@
 # CLAUDE.md — SyncVet
 
+> **Nunca `cat > archivo` ni `cat >> archivo` sin entrada.** Sin un heredoc (`<<`) o una tubería, `cat` espera el teclado para
+> siempre y el resto del comando no corre (pasó en la 1.1 y en la 1.3b, con tareas colgadas durante horas). Los archivos se
+> escriben con el editor (Edit/Write) o, si son temporales, en el scratchpad. Lo hace cumplir el hook PreToolUse de
+> `.claude/settings.json` (`.claude/hooks/block-cat-stdin.js`), que rechaza el comando.
+
 Instrucciones permanentes comunes a todo el repositorio (monorepo: backend y frontend). Las reglas de cada proyecto están en su
 propio `CLAUDE.md`.
 
@@ -25,6 +30,7 @@ Si una regla contradice al código, **el código manda**: registrar la discrepan
 syncvet/
 ├── CLAUDE.md        Este archivo: proceso y reglas comunes
 ├── .claude/skills/  /retomar, /cerrar-entrega y /validar-docs, para todo el repositorio
+├── .claude/hooks/   El hook que rechaza `cat >` sin entrada (configurado en .claude/settings.json)
 ├── backend/         API Laravel, con su CLAUDE.md y su README.md (instalación)
 ├── frontend/        React 19 + TypeScript + Vite + Tabler, con su CLAUDE.md y su README.md (instalación)
 └── docs/            Documentación de todo el proyecto (índice en docs/README.md)
@@ -58,9 +64,30 @@ inglés.
 En fases nuevas: primero diseño funcional y de datos (con las preguntas de negocio, en `docs/03-plan-desarrollo/fases/`), después
 código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se declara cerrada sin evidencia (código + tests).
 
+### Presupuesto por entrega
+
+**Manda sobre las demás reglas de velocidad y de ritmo** (las de este archivo, `backend/CLAUDE.md` y `frontend/CLAUDE.md`): si
+alguna pide más corridas, vale esta.
+
+* **Durante la entrega**, solo los tests de lo tocado: `npx vitest related <archivos> --run` en el frontend;
+  `php artisan test --filter <test>` (sin Xdebug) en el backend.
+* **Al final**, una sola corrida completa del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y `build`; en el backend,
+  `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
+  entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.
+* **Si la corrida final falla por un detalle** (un tipo, una regla de lint, un formato), se corrige y se repiten solo el paso que
+  falló y los tests del archivo tocado, no la corrida entera.
+* **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
+* **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
+* **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
+  cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales).
+* **Mutaciones**: 3 o 4, de las reglas más importantes.
+* **Revisión**: lee el diff y corre solo `composer test:fast` o `npm test`; no repite suites, Playwright ni el navegador.
+* **Esperas**: mientras corre algo largo, no se consulta en bucle; se espera el aviso de fin.
+
 ### Ritmo de las entregas
 
-* En la implementación, mutaciones solo de las protecciones críticas de la entrega (alrededor de 5); la revisión hace las suyas.
+* En la implementación, mutaciones solo de las protecciones críticas de la entrega (3 o 4, el presupuesto); la revisión hace las
+  suyas.
 * En cada mutación se corren solo los tests relacionados; la suite completa, al final.
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 * Lo propio de cada proyecto (bases de datos, velocidad de la suite, auditoría de dependencias) está en su `CLAUDE.md`.
@@ -69,6 +96,8 @@ código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se
 
 * En cada cierre de fase se corren con Newman **todas** las colecciones de `docs/05-pruebas/postman`, no solo las de la fase (R-057),
   desde la raíz y con el servidor levantado desde `backend/`. Una falla se corrige o se registra como deuda antes de cerrar.
+* También al cerrar la fase (y no en cada entrega; ver [Presupuesto por entrega](#presupuesto-por-entrega)): la suite del backend
+  completa en MySQL y en serie, y Playwright completo.
 
 ### Documentación por cambio
 
@@ -79,6 +108,12 @@ empezar una sesión.
 Los desvíos, decisiones pendientes y notas para el cierre se escriben en el repositorio (sección "Pendiente para el cierre" de la
 entrega en el documento de la fase) y se suben con el commit WIP, nunca solo en la memoria de Claude Code: el usuario trabaja en más
 de una PC.
+
+### Procesos
+
+* Claude Code solo detiene los procesos que él mismo levantó (un servidor para Newman, Vite, Playwright…), por su PID o por la
+  tarea en segundo plano que los lanzó. Nunca cierra procesos por nombre (`php.exe`, `nginx`, `node`…) ni los de Laragon o del
+  usuario.
 
 ### Git
 
@@ -92,6 +127,7 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 completada (R-063) e integrada a `main`, con la entrega de soporte del backend (front-00); sigue el análisis y
-  el diseño de la F1 (clientes y pacientes); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0 (base y login, R-063) y F1 (clientes y pacientes, R-072) completadas e integradas a `main`, con sus entregas de
+  soporte del backend (front-00 y front-01). Sigue la entrega `chore` de las tareas 3b y 3c del handoff y después el análisis y el
+  diseño de la F2 (datos maestros); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).
