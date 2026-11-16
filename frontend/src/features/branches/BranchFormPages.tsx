@@ -204,6 +204,7 @@ export function BranchEditPage({ id }: { id: number }) {
         defaultValues={branchToForm(branch)}
         creating={false}
         wasDefault={wasDefault}
+        inactive={!branch.is_active}
         alert={alert}
         saving={mutation.isPending}
         onSubmit={(values, form) => {

@@ -12,6 +12,8 @@ interface BranchFormProps {
   creating: boolean;
   /** La sucursal ya es la por defecto: la casilla, marcada y deshabilitada (H4 del diseño). */
   wasDefault: boolean;
+  /** La sucursal está inactiva: la casilla, sin marcar y deshabilitada (una inactiva no es la por defecto; la API da 422). */
+  inactive?: boolean;
   /** El error de la acción que no es de un campo (la alerta de arriba). */
   alert: string | null;
   saving: boolean;
@@ -29,6 +31,7 @@ export function BranchForm({
   defaultValues,
   creating,
   wasDefault,
+  inactive = false,
   alert,
   saving,
   onSubmit,
@@ -111,6 +114,16 @@ export function BranchForm({
                 disabled
                 readOnly
                 hint="Para cambiarla, marcá otra sucursal como la por defecto."
+              />
+            ) : inactive ? (
+              // Una inactiva no puede ser la por defecto (la API responde 422): se activa primero, desde el detalle. Sin
+              // registrar, como la de arriba: el cuerpo manda el valor guardado (`false`).
+              <CheckboxField
+                label="Sucursal por defecto"
+                checked={false}
+                disabled
+                readOnly
+                hint="Activá la sucursal para marcarla como la por defecto."
               />
             ) : (
               <CheckboxField

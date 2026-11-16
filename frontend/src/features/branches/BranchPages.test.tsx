@@ -315,6 +315,30 @@ describe('/configuracion/sucursales/$id/editar: edición', () => {
     expect(document.activeElement).toBe(field('Establecimiento'));
     expect(document.querySelector('.alert')).toBeNull();
   });
+
+  it('una inactiva: "Sucursal por defecto" deshabilitada con la explicación, y el cuerpo con is_default: false', async () => {
+    const bodies: unknown[] = [];
+    const inactive = { ...NORTH, is_active: false };
+    server.use(
+      meHandler(ADMIN),
+      detailHandler(() => inactive),
+      updateHandler(bodies, () => success(inactive)),
+    );
+    renderApp('/configuracion/sucursales/11/editar', { session: sessionFor() });
+    await screen.findByText('Editar la sucursal', { selector: 'h2' });
+
+    expect(field('Sucursal por defecto')).not.toBeChecked();
+    expect(field('Sucursal por defecto')).toBeDisabled();
+    expect(
+      screen.getByText('Activá la sucursal para marcarla como la por defecto.'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Guardar', { selector: 'button' }));
+
+    await waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    expect(bodies[0]).toMatchObject({ is_default: false });
+  });
 });
 
 describe('/configuracion/sucursales/$id: detalle y acciones de la sucursal', () => {
@@ -418,6 +442,50 @@ describe('/configuracion/sucursales/$id: detalle y acciones de la sucursal', () 
     expect(bodies).toEqual([{ is_default: true }]);
   });
 
+  it('un doble clic en la confirmación manda un solo pedido', async () => {
+    const bodies: unknown[] = [];
+    await openDetail(NORTH);
+    server.use(
+      http.patch('/api/branches/:id', async ({ request }) => {
+        bodies.push(await request.json());
+
+        return success({ ...NORTH, is_default: true });
+      }),
+    );
+
+    fireEvent.click(pageButton('Marcar como por defecto'));
+    const confirm = dialogButton('Marcar como por defecto') as HTMLElement;
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(dialog()).toBeNull();
+    });
+    expect(bodies).toEqual([{ is_default: true }]);
+  });
+
+  it('un 404 en una acción: el aviso y de vuelta al listado', async () => {
+    const { history } = await openDetail(NORTH);
+    server.use(
+      http.patch('/api/branches/:id', () =>
+        failure(404, 'RESOURCE_NOT_FOUND', 'La sucursal no existe.'),
+      ),
+      http.get('/api/branches', () =>
+        success([listItem(CENTRAL)], { meta: pagination({ total: 1 }) }),
+      ),
+    );
+
+    fireEvent.click(pageButton('Inactivar'));
+    fireEvent.click(dialogButton('Inactivar Sucursal Norte') as HTMLElement);
+
+    expect(await screen.findByText('La sucursal no existe.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/configuracion/sucursales');
+    });
+    expect(await screen.findByText('Casa central', { selector: 'a' })).toBeInTheDocument();
+    expect(dialog()).toBeNull();
+  });
+
   it('un id que no existe: la página de no encontrado', async () => {
     server.use(
       meHandler(ADMIN),
@@ -467,6 +535,71 @@ describe('los depósitos, en diálogos del detalle', () => {
     expect(await screen.findByText('NOR-VAC')).toBeInTheDocument();
     expect(dialog()).toBeNull();
     expect(bodies).toEqual([{ code: 'NOR-VAC', name: 'Vacunas', is_default: false }]);
+  });
+
+  it('con el teclado: el foco en "Cancelar" al abrir, Escape cierra sin pedido y el foco vuelve a "Nuevo depósito"', async () => {
+    await openDetail(NORTH);
+    const opener = pageButton('Nuevo depósito');
+
+    opener.focus();
+    fireEvent.click(opener);
+    expect(document.activeElement).toBe(dialogButton('Cancelar'));
+
+    fireEvent.keyDown(openDialog(), { key: 'Escape' });
+
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('un doble clic en "Crear el depósito" manda un solo pedido', async () => {
+    const bodies: unknown[] = [];
+    await openDetail(NORTH);
+    server.use(
+      http.post('/api/branches/11/warehouses', async ({ request }) => {
+        bodies.push(await request.json());
+
+        return success(warehouse({ id: 112, branch_id: 11, is_default: false }), {
+          status: 201,
+          message: 'Depósito creado correctamente.',
+        });
+      }),
+    );
+
+    fireEvent.click(pageButton('Nuevo depósito'));
+    const form = openDialog();
+    type('Código', 'NOR-VAC', form);
+    type('Nombre', 'Vacunas', form);
+    const create = dialogButton('Crear el depósito') as HTMLElement;
+    fireEvent.click(create);
+    fireEvent.click(create);
+
+    await waitFor(() => {
+      expect(dialog()).toBeNull();
+    });
+    expect(bodies).toHaveLength(1);
+  });
+
+  it('un depósito que ya no está (404): el aviso, el diálogo cerrado y la sucursal pedida de nuevo', async () => {
+    let current = NORTH;
+    await openDetail(NORTH);
+    server.use(
+      detailHandler(() => current),
+      http.patch('/api/warehouses/:id', () => {
+        current = { ...NORTH, warehouses: NORTH.warehouses.slice(0, 1) };
+
+        return failure(404, 'RESOURCE_NOT_FOUND', 'El depósito no existe.');
+      }),
+    );
+
+    fireEvent.click(screen.getByLabelText('Editar Farmacia'));
+    type('Nombre', 'Farmacia central', openDialog());
+    fireEvent.click(dialogButton('Guardar') as HTMLElement);
+
+    expect(await screen.findByText('El depósito no existe.')).toBeInTheDocument();
+    expect(dialog()).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByText('NOR-FAR')).toBeNull();
+    });
   });
 
   it('la sucursal inactivada mientras tanto (422 en branch): el mensaje en la alerta del diálogo', async () => {

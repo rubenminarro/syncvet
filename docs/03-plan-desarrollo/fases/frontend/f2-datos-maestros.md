@@ -241,8 +241,38 @@ a mayúsculas).
    vuelve a pedir.
 9. **`afterBranchChanged` invalida `['users']` y `['veterinarians']`**, que todavía no existen (llegan en la 2.2a y la 2.3): no hacen
    nada hasta entonces.
-10. En la edición de una sucursal **inactiva**, "Sucursal por defecto" queda habilitada: si se marca, el 422 de la API ("Una
-    sucursal inactiva no puede ser la sucursal por defecto: activala primero.") va al campo.
+10. ~~En la edición de una sucursal **inactiva**, "Sucursal por defecto" queda habilitada: si se marca, el 422 de la API va al
+    campo.~~ **Cambiado en la revisión (decisión del usuario):** en la edición de una sucursal inactiva, la casilla queda sin
+    marcar y deshabilitada, con la explicación "Activá la sucursal para marcarla como la por defecto." (el cuerpo manda
+    `is_default: false`).
+
+Los desvíos 1 a 9, **aceptados por el usuario** en la revisión.
+
+**Revisión (2026-11-16)**, sobre `7de78f3`, `7e27822` y `626759b`, con el presupuesto por entrega.
+
+* **Sin hallazgos que cambien el comportamiento.** Revisado: `useSingleAction` movido sin cambios (el cuerpo es idéntico; pacientes
+  y especies la importan de `src/lib/hooks`); el diálogo de baja del paciente con `PATIENT_IN_USE`; la por defecto (la casilla
+  deshabilitada y `is_default: true` en el cuerpo, sin "Inactivar"; los 409 `*_DEFAULT_NOT_DEACTIVATABLE` y los 422 en el diálogo,
+  con solo "Cerrar"); el alta con su depósito (`warehouse_name` vacío en `null`); la paridad con `StoreBranchRequest`,
+  `UpdateBranchRequest`, los de depósitos y `BranchMessages` (el código con `trim` y mayúsculas solo ASCII, como `strtoupper`; el
+  establecimiento `^(?!000)\d{3}$`; los largos en caracteres; los mensajes, tal cual); la invalidación de `['me']` (y de las
+  consultas de la sucursal si cambió la actual) y el selector de la barra; los permisos (`branches.show`, `.store`, `.update` y
+  `warehouses.store`, `.update`, solo del administrador según `clinic-roles.json`); los diálogos de depósitos.
+* **Hallazgos menores, corregidos:**
+  1. El desvío 10, como lo decidió el usuario (`BranchForm.tsx`, prop `inactive`; `BranchFormPages.tsx`), con su test.
+  2. Faltaban tests de los diálogos: el doble clic en la confirmación de la sucursal, el doble clic en "Crear el depósito", el 404
+     en una acción de la sucursal (aviso y de vuelta al listado), el 404 de un depósito (aviso, diálogo cerrado y la sucursal pedida
+     de nuevo) y el teclado en el diálogo de depósito (el foco en "Cancelar", Escape sin pedido y el foco de vuelta en "Nuevo
+     depósito"). Seis tests nuevos en `BranchPages.test.tsx`.
+* **Mutaciones (3).** Antes de los tests nuevos sobrevivían las tres. Después: sin la guarda de un solo pedido en `StatusDialog`,
+  **detectada**; sin la vuelta al listado de `useBranchGone`, **detectada**; sin la guarda en `WarehouseDialog`, **sobrevive como
+  mutación equivalente en jsdom**: el clic llama a `setErrors`, React dibuja el botón en espera en el mismo evento y `Button` ignora
+  el segundo clic; la `ref` queda como segunda defensa (el test del doble clic queda igual, por el comportamiento).
+* **Para decidir (no se tocó):** el depósito inactivo en su diálogo de edición tiene "Depósito por defecto" habilitado (con el 422
+  de la API en el campo), como era la sucursal antes del desvío 10. ¿Se le aplica la misma regla ("Activá el depósito para marcarlo
+  como el por defecto.")?
+* **Corrida final del frontend:** `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 909 tests en 46 archivos, en verde
+  (903 antes de la revisión). Playwright no se corrió: lo tocado (la edición de una sucursal inactiva) no está en sus casos.
 
 **Para `/cerrar-entrega`.** `frontend/CLAUDE.md` (§4: `/configuracion` con sus secciones y `features/branches`; §5: `useSingleAction`
 común en `src/lib/hooks` y el teléfono en `src/lib/phone.ts`), el "Resultado" de este documento con las cifras de la corrida final,
