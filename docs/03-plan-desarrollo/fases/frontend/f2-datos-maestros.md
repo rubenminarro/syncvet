@@ -268,9 +268,11 @@ Los desvíos 1 a 9, **aceptados por el usuario** en la revisión.
   **detectada**; sin la vuelta al listado de `useBranchGone`, **detectada**; sin la guarda en `WarehouseDialog`, **sobrevive como
   mutación equivalente en jsdom**: el clic llama a `setErrors`, React dibuja el botón en espera en el mismo evento y `Button` ignora
   el segundo clic; la `ref` queda como segunda defensa (el test del doble clic queda igual, por el comportamiento).
-* **Para decidir (no se tocó):** el depósito inactivo en su diálogo de edición tiene "Depósito por defecto" habilitado (con el 422
-  de la API en el campo), como era la sucursal antes del desvío 10. ¿Se le aplica la misma regla ("Activá el depósito para marcarlo
-  como el por defecto.")?
+* **El depósito inactivo, como la sucursal (decisión del usuario, después de la revisión):** en su diálogo de edición,
+  "Depósito por defecto" queda sin marcar y deshabilitado, con "Activá el depósito para marcarlo como el por defecto." (el
+  cuerpo manda `is_default: false`; antes estaba habilitado y el 422 de la API iba al campo). En `BranchDialogs.tsx`, con su test
+  en `BranchPages.test.tsx`; verificado con `vitest related` de lo tocado (393 tests en 19 archivos, en verde) y ESLint de los dos
+  archivos, sin avisos. La corrida completa queda para `/cerrar-entrega`.
 * **Corrida final del frontend:** `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 909 tests en 46 archivos, en verde
   (903 antes de la revisión). Playwright no se corrió: lo tocado (la edición de una sucursal inactiva) no está en sus casos.
 

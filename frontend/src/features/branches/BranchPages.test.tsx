@@ -646,6 +646,38 @@ describe('los depósitos, en diálogos del detalle', () => {
     expect(bodies).toEqual([{ code: 'NOR-DEP', name: 'Depósito central', is_default: true }]);
   });
 
+  it('editar un inactivo: "Depósito por defecto" deshabilitado con la explicación, y el cuerpo con is_default: false', async () => {
+    const bodies: unknown[] = [];
+    const inactive = warehouse({
+      id: 111,
+      branch_id: 11,
+      code: 'NOR-FAR',
+      name: 'Farmacia',
+      is_default: false,
+      is_active: false,
+    });
+    await openDetail({ ...NORTH, warehouses: [NORTH.warehouses[0] ?? warehouse(), inactive] });
+    server.use(
+      http.patch('/api/warehouses/:id', async ({ request }) => {
+        bodies.push(await request.json());
+
+        return success(inactive, { message: 'Depósito actualizado correctamente.' });
+      }),
+    );
+
+    fireEvent.click(screen.getByLabelText('Editar Farmacia'));
+    const form = openDialog();
+    expect(field('Depósito por defecto', form)).not.toBeChecked();
+    expect(field('Depósito por defecto', form)).toBeDisabled();
+    expect(form).toHaveTextContent('Activá el depósito para marcarlo como el por defecto.');
+    fireEvent.click(dialogButton('Guardar') as HTMLElement);
+
+    await waitFor(() => {
+      expect(dialog()).toBeNull();
+    });
+    expect(bodies).toEqual([{ code: 'NOR-FAR', name: 'Farmacia', is_default: false }]);
+  });
+
   it('el por defecto sin "Inactivar"; otro, con WAREHOUSE_DEFAULT_NOT_DEACTIVATABLE en el diálogo', async () => {
     const message =
       'El depósito por defecto no se puede inactivar: marcá otro como depósito por defecto primero.';

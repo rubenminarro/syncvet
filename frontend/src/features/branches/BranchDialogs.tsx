@@ -136,6 +136,8 @@ export function WarehouseDialog({ branch, warehouse, onGone, onClose }: Warehous
   const single = useSingleAction();
   const editing = warehouse !== undefined;
   const wasDefault = warehouse?.is_default ?? false;
+  // Un inactivo no puede ser el por defecto (la API responde 422): se activa primero, desde el detalle.
+  const inactive = warehouse !== undefined && !warehouse.is_active;
   const [values, setValues] = useState<WarehouseFormValues>(() =>
     warehouse === undefined ? EMPTY_WAREHOUSE_FORM : warehouseToForm(warehouse),
   );
@@ -264,12 +266,14 @@ export function WarehouseDialog({ branch, warehouse, onGone, onClose }: Warehous
           <CheckboxField
             name="is_default"
             label="Depósito por defecto"
-            checked={wasDefault || values.is_default}
-            disabled={wasDefault}
+            checked={wasDefault || (!inactive && values.is_default)}
+            disabled={wasDefault || inactive}
             hint={
               wasDefault
                 ? 'Para cambiarlo, marcá otro depósito como el por defecto.'
-                : 'El anterior deja de serlo.'
+                : inactive
+                  ? 'Activá el depósito para marcarlo como el por defecto.'
+                  : 'El anterior deja de serlo.'
             }
             error={errors.is_default}
             onChange={(event) => {
