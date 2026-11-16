@@ -1,6 +1,6 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api/client';
-import { patientKeys, speciesKeys } from '../patients/api';
+import { patientKeys, speciesKeys, speciesQueryOptions } from '../patients/api';
 import type { Breed, Species } from '../patients/types';
 
 /**
@@ -8,21 +8,21 @@ import type { Breed, Species } from '../patients/types';
  * del paciente: el catálogo es de la clínica, no de la sucursal.
  */
 
+/** GET species?include_inactive=1: todas las especies con todas sus razas ("Incluir las inactivas" en /especies). */
+function inactiveCatalogQueryOptions() {
+  return queryOptions({
+    queryKey: speciesKeys.list({ include_inactive: true }),
+    queryFn: async ({ signal }) =>
+      (await api.get<Species[]>('species', { signal, query: { include_inactive: 1 } })).data,
+  });
+}
+
 /**
- * GET species con sus razas. Quien administra el catálogo (`species.store`, `.update` o `.destroy`) también ve las inactivas
- * (`include_inactive=1`); el recepcionista, solo las activas.
+ * El catálogo de /especies: por defecto, las activas con sus razas activas, la misma consulta que los selectores del
+ * paciente (`speciesQueryOptions`); con "Incluir las inactivas" (`?inactivas=1`, solo con `species.update`), todas.
  */
 export function catalogQueryOptions(includeInactive: boolean) {
-  return queryOptions({
-    queryKey: speciesKeys.list({ include_inactive: includeInactive }),
-    queryFn: async ({ signal }) =>
-      (
-        await api.get<Species[]>('species', {
-          signal,
-          query: { include_inactive: includeInactive ? 1 : null },
-        })
-      ).data,
-  });
+  return includeInactive ? inactiveCatalogQueryOptions() : speciesQueryOptions();
 }
 
 export interface CatalogPayload {

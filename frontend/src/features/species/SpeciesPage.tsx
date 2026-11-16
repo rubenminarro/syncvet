@@ -1,12 +1,12 @@
 import { IconChevronDown, IconChevronRight, IconPlus } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
-import { Alert, Button, Card, Loading, useToast } from '../../components/ui';
+import { Alert, Button, Card, CheckboxField, Loading, useToast } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import type { ApiSuccess } from '../../lib/api/types';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { useCan } from '../auth/permissions';
-import { speciesKeys } from '../patients/api';
 import type { Breed, Species } from '../patients/types';
 import {
   afterCatalogChanged,
@@ -19,6 +19,7 @@ import {
   updateSpecies,
 } from './api';
 import { DeleteDialog, NameDialog, type CatalogItem } from './CatalogDialogs';
+import type { SpeciesListSearch } from './search';
 
 type Dialog =
   | { type: 'new-species' }
@@ -52,9 +53,10 @@ function Badges({ item }: { item: Species | Breed }) {
 }
 
 /**
- * /especies (1.5): las especies con sus razas, en una lista que se despliega. Quien administra el catálogo (administrador y
- * veterinario: `species.store`, `.update` y `.destroy`) ve también las inactivas y, solo en las propias, renombrar, activar o
- * inactivar y eliminar; "Nueva especie" y "Nueva raza" (también en una especie común). El recepcionista solo lista las activas.
+ * /especies (1.5): las especies con sus razas, en una lista que se despliega. Por defecto, solo las activas; quien puede
+ * activarlas (`species.update`: administrador y veterinario) tiene "Incluir las inactivas" (`?inactivas=1`, como los demás
+ * listados). Quien administra el catálogo tiene, solo en las propias, renombrar, activar o inactivar y eliminar; "Nueva
+ * especie" y "Nueva raza" (también en una especie común). El recepcionista solo lista las activas.
  */
 export function SpeciesPage() {
   const can = useCan();
@@ -63,8 +65,11 @@ export function SpeciesPage() {
   const canStore = can(PERMISSIONS.speciesStore);
   const canUpdate = can(PERMISSIONS.speciesUpdate);
   const canDestroy = can(PERMISSIONS.speciesDestroy);
-  const manages = canStore || canUpdate || canDestroy;
-  const catalog = useQuery(catalogQueryOptions(manages));
+  const search = useSearch({ from: '/_sesion/especies' });
+  const navigate = useNavigate({ from: '/especies' });
+  // Sin species.update, ?inactivas=1 se ignora: el recepcionista no puede hacer nada con las inactivas.
+  const includeInactive = canUpdate && search.inactivas === 1;
+  const catalog = useQuery(catalogQueryOptions(includeInactive));
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const toggling = useRef(false);
@@ -83,8 +88,10 @@ export function SpeciesPage() {
       toast.show(response.message, 'success');
     },
     onError: (error) => {
+      // Un 404 (otra persona la borró): el catálogo de nuevo y las listas que no están a la vista vaciadas, como en los
+      // diálogos.
       if (isApiError(error) && errorTreatment(error.errorCode) === 'not-found') {
-        void queryClient.invalidateQueries({ queryKey: speciesKeys.all });
+        afterCatalogChanged(queryClient);
       }
 
       // CATALOG_GLOBAL_NOT_EDITABLE es un código de negocio, no FORBIDDEN: su mensaje, sin ir a /sin-permiso.
@@ -266,7 +273,26 @@ export function SpeciesPage() {
           ) : null}
         </div>
       </div>
-      <Card flush>{body}</Card>
+      <Card flush>
+        {canUpdate ? (
+          <div className="card-body border-bottom py-2 species-inactive-filter">
+            <CheckboxField
+              label="Incluir las inactivas"
+              checked={includeInactive}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                void navigate({
+                  search: (previous: SpeciesListSearch) => ({
+                    ...previous,
+                    inactivas: checked ? 1 : undefined,
+                  }),
+                });
+              }}
+            />
+          </div>
+        ) : null}
+        {body}
+      </Card>
       {dialog?.type === 'new-species' ? (
         <NameDialog
           kind="species"

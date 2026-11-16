@@ -8,9 +8,24 @@ import { meHandler, renderApp, sessionFor } from '../../test/session';
 import type { Species } from '../patients/types';
 
 /**
- * /especies (1.5): el catálogo con sus razas; las acciones solo en las propias y con los permisos de especie (administrador
- * y veterinario); el recepcionista solo lista las activas.
+ * /especies (1.5): el catálogo con sus razas; por defecto, solo las activas, y "Incluir las inactivas" (`?inactivas=1`) para
+ * quien tiene species.update; las acciones solo en las propias y con los permisos de especie (administrador y veterinario);
+ * el recepcionista solo lista las activas.
  */
+
+const filterBox = () =>
+  document.querySelector<HTMLInputElement>('.species-inactive-filter input[type="checkbox"]');
+
+/** Un clic en "Incluir las inactivas"; falla si no está. */
+function clickFilter() {
+  const box = filterBox();
+
+  if (box === null) {
+    throw new Error('No está "Incluir las inactivas".');
+  }
+
+  fireEvent.click(box);
+}
 
 /** Canino es común, con una raza común y una propia; Pez es propia; Exótico, propia e inactiva (solo con include_inactive). */
 function catalog(includeInactive: boolean): Species[] {
@@ -47,10 +62,17 @@ function catalogHandler() {
   return calls;
 }
 
-async function openPage(role: Role = 'administrador', permissions?: string[]) {
+/** Con las inactivas: `?inactivas=1` (solo lo usa quien tiene species.update). */
+const WITH_INACTIVE = '/especies?inactivas=1';
+
+async function openPage(
+  role: Role = 'administrador',
+  permissions?: string[],
+  url = '/especies',
+) {
   const calls = catalogHandler();
   server.use(meHandler(meFor(role, permissions === undefined ? {} : { permissions })));
-  const rendered = renderApp('/especies', { session: sessionFor() });
+  const rendered = renderApp(url, { session: sessionFor() });
   await screen.findByText('Canino', { selector: 'button' });
 
   return { ...rendered, calls };
@@ -108,10 +130,11 @@ function nameInput(): HTMLInputElement {
 }
 
 describe('/especies (1.5)', () => {
-  it('el recepcionista solo lista las activas, sin acciones', async () => {
-    const { calls } = await openPage('recepcionista');
+  it('el recepcionista solo lista las activas, sin acciones ni "Incluir las inactivas" (ignora ?inactivas=1)', async () => {
+    const { calls } = await openPage('recepcionista', undefined, WITH_INACTIVE);
 
     expect(calls).toEqual([null]);
+    expect(filterBox()).toBeNull();
     expect(document.querySelector('.species-item[data-species="Exótico"]')).toBeNull();
     expect(screen.queryByText('Nueva especie')).not.toBeInTheDocument();
     expand('Canino');
@@ -122,11 +145,19 @@ describe('/especies (1.5)', () => {
   });
 
   it.each(['administrador', 'veterinario'] as const)(
-    '%s ve las inactivas; "Común" sin acciones, "Propia" con renombrar, inactivar y eliminar',
+    '%s: por defecto solo las activas; "Incluir las inactivas" en la URL; "Común" sin acciones, "Propia" con renombrar, inactivar y eliminar',
     async (role) => {
-      const { calls } = await openPage(role);
+      const { calls, history } = await openPage(role);
 
-      expect(calls).toEqual(['1']);
+      expect(calls).toEqual([null]);
+      expect(document.querySelector('.species-item[data-species="Exótico"]')).toBeNull();
+      expect(filterBox()).not.toBeChecked();
+
+      clickFilter();
+      expect(await screen.findByText('Exótico', { selector: 'button' })).toBeInTheDocument();
+      expect(history.location.search).toBe('?inactivas=1');
+      expect(calls).toEqual([null, '1']);
+      expect(filterBox()).toBeChecked();
       expect(speciesItem('Exótico')).toHaveTextContent('Inactivada');
       expect(speciesItem('Canino')).toHaveTextContent('Común');
       expect(speciesItem('Canino').querySelector('.species-rename, .species-delete')).toBeNull();
@@ -145,6 +176,13 @@ describe('/especies (1.5)', () => {
       expect(breedItem('Ovejero Chaqueño').querySelector('.breed-rename')).not.toBeNull();
       // Una raza propia puede ir en una especie común.
       expect(speciesItem('Canino').querySelector('.breed-new')).not.toBeNull();
+
+      // Sin la casilla, de vuelta al valor por defecto (sin el parámetro en la URL).
+      clickFilter();
+      await waitFor(() => {
+        expect(document.querySelector('.species-item[data-species="Exótico"]')).toBeNull();
+      });
+      expect(history.location.search).toBe('');
     },
   );
 
@@ -321,7 +359,7 @@ describe('/especies (1.5)', () => {
         return success({}, { message: 'Especie actualizada correctamente.' });
       }),
     );
-    await openPage();
+    await openPage('administrador', undefined, WITH_INACTIVE);
 
     clickIn(speciesItem('Pez'), '.species-toggle-active');
     expect(await screen.findByText('Especie actualizada correctamente.')).toBeInTheDocument();
@@ -370,11 +408,15 @@ describe('/especies (1.5)', () => {
     );
     await openPage();
     clickIn(speciesItem('Pez'), '.species-delete');
+    expect(dialog()).toHaveTextContent('¿Querés eliminar la especie Pez?');
     fireEvent.click(dialogButton('Eliminar Pez'));
 
     expect(await screen.findByRole('dialog')).toHaveTextContent(
       'La especie está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
     );
+    // Ya no se elimina: sin la pregunta ni "No se puede deshacer", solo el mensaje de la API.
+    expect(dialog()).not.toHaveTextContent('¿Querés eliminar');
+    expect(dialog()).not.toHaveTextContent('No se puede deshacer');
     fireEvent.click(
       await screen.findByText('Inactivar Pez', { selector: '[role="dialog"] button' }),
     );
@@ -394,7 +436,7 @@ describe('/especies (1.5)', () => {
         ),
       ),
     );
-    await openPage();
+    await openPage('administrador', undefined, WITH_INACTIVE);
     clickIn(speciesItem('Exótico'), '.species-delete');
     fireEvent.click(dialogButton('Eliminar Exótico'));
 
@@ -467,7 +509,8 @@ describe('/especies (1.5)', () => {
         success({}, { message: 'Especie actualizada correctamente.' }),
       ),
     );
-    const { calls, queryClient } = await openPage();
+    // Con las inactivas: la lista a la vista no es la de los selectores.
+    const { calls, queryClient } = await openPage('administrador', undefined, WITH_INACTIVE);
     const selectorKey = ['species', { include_inactive: false }];
     queryClient.setQueryData(selectorKey, catalog(false));
 
@@ -477,6 +520,25 @@ describe('/especies (1.5)', () => {
     // Vaciada, no solo vieja: sin datos, el alta del paciente espera el pedido en lugar de mostrar la lista anterior.
     expect(queryClient.getQueryData(selectorKey)).toBeUndefined();
     // El catálogo a la vista, en cambio, se vuelve a pedir.
+    await waitFor(() => {
+      expect(calls).toEqual(['1', '1']);
+    });
+  });
+
+  it('un 404 al inactivar (otra persona la borró): aviso, el catálogo de nuevo y la lista de los selectores vaciada', async () => {
+    server.use(
+      http.patch('/api/species/:id', () =>
+        failure(404, 'RESOURCE_NOT_FOUND', 'El recurso solicitado no existe.'),
+      ),
+    );
+    const { calls, queryClient } = await openPage('administrador', undefined, WITH_INACTIVE);
+    const selectorKey = ['species', { include_inactive: false }];
+    queryClient.setQueryData(selectorKey, catalog(false));
+
+    clickIn(speciesItem('Pez'), '.species-toggle-active');
+
+    expect(await screen.findByText('El recurso solicitado no existe.')).toBeInTheDocument();
+    expect(queryClient.getQueryData(selectorKey)).toBeUndefined();
     await waitFor(() => {
       expect(calls).toEqual(['1', '1']);
     });

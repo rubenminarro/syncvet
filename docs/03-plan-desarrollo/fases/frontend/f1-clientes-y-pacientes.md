@@ -372,10 +372,11 @@ Implementación en `feature/front-1-5-especies` (commit WIP). Lo que pasa al res
 
 * **Frontend**: `/especies` (`species.index`, los tres roles) y "Especies" en el menú, entre "Pacientes" y "Configuración"
   (`features/species/SpeciesPage.tsx`): las especies con sus razas en una lista que se despliega (`aria-expanded`), cada una con
-  "Común" o "Propia", "Inactivada" y la cantidad de razas. Quien administra (`species.store`, `.update` o `.destroy`: administrador
-  y veterinario) pide `GET species?include_inactive=1`; el recepcionista, sin él y sin acciones. Solo en las propias, cada acción
-  con su permiso: "Renombrar" (diálogo con un campo), "Inactivar" o "Activar" (sin confirmación) y "Eliminar" (`ConfirmDialog`;
-  con `SPECIES_IN_USE` o `BREED_IN_USE`, el mensaje y "Inactivar …", que la inactiva desde el mismo diálogo; ya inactivada o sin
+  "Común" o "Propia", "Inactivada" y la cantidad de razas. Por defecto, solo las activas (`speciesQueryOptions`, la consulta de
+  los selectores del paciente); con `species.update` (administrador y veterinario), "Incluir las inactivas" (`?inactivas=1`,
+  `GET species?include_inactive=1`; corrección H1 de la revisión); el recepcionista, sin la casilla y sin acciones. Solo en las
+  propias, cada acción con su permiso: "Renombrar" (diálogo con un campo), "Inactivar" o "Activar" (sin confirmación) y "Eliminar" (`ConfirmDialog`;
+  con `SPECIES_IN_USE` o `BREED_IN_USE`, solo el mensaje de la API (sin la pregunta) y "Inactivar …", que la inactiva desde el mismo diálogo; ya inactivada o sin
   `species.update`, solo "Cerrar"). "Nueva especie" y "Nueva raza" (también en una especie común) con `species.store`. El nombre,
   con Zod y los mensajes de la API (`features/species/name.ts`: obligatorio, de 2 a 60 u 80 caracteres en `Array.from`, sin los
   espacios de los extremos, al menos una letra y los caracteres de `CatalogMessages::NAME_REGEX`); el repetido, 422 en `name` al
@@ -408,6 +409,12 @@ Implementación en `feature/front-1-5-especies` (commit WIP). Lo que pasa al res
 | 10 | "Dejar la demo como estaba": las especies y razas creadas se borraron desde la interfaz, que es una baja lógica (`SoftDeletes`, con `//deleted_<id>_<timestamp>` en el nombre); las filas quedan en la base | Es la única baja que da la API; el `GET species?include_inactive=1` es igual antes y después |
 | 11 | La demo (`syncvet.test`, Clínica A) tiene 17 especies propias inactivadas "Hurón doméstico NNNNNN", con una raza cada una, que no creó esta entrega (estaban antes de la validación) | Informativo: parecen restos de corridas de pruebas manuales o de Newman contra la demo; no se tocaron. Ocupan la mayor parte de la lista del administrador |
 
+**Decisiones de la revisión (2026-11-16).** El usuario acepta los desvíos 1 a 10. Desvío 11: el listado de especies muestra solo
+las activas por defecto, con "Incluir las inactivas" en la URL, como los demás listados (hallazgo a corregir; la API lo permite:
+`GET species` sin `include_inactive` trae las activas con sus razas activas). Los restos "Hurón doméstico NNNNNN" son de la
+colección de Postman de especies, que crea "Hurón {{run}}" y no lo borra: la limpieza va a la entrega `chore` de después de la F1
+([handoff](../../handoff.md#próximas-tareas), tarea 3c).
+
 **Cifras** (2026-11-14). Corrida completa del frontend: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test` falló en 5
 tests de `src/lib/auth/permissions.test.ts`, un segundo test del menú que no se había actualizado con "Especies" (el de
 `src/app/permissions.test.tsx` sí); corregido (y sumado el caso sin `species.index`), se repitieron solo `npm test` y el `lint` y el
@@ -438,6 +445,54 @@ antes y después (la primera vez el script contó la especie antes de que llegar
 espera y da igual). Consola, sin errores. Ningún paciente guardado. Capturas en el scratchpad de la sesión,
 `%TEMP%\claude\…\scratchpad\capturas-1-5`: `01-comunes-y-propias.png` (tomada antes de que llegara la lista con la raza: dice
 "0 razas"), `02-propia-inactivada.png`, `03-tablet.png` y `04-dialogo-eliminar.png`.
+
+**Revisión (2026-11-16).** Hallazgos: H1 (media), el listado mostraba siempre las inactivas a quien administra (el desvío 11,
+que el usuario pidió corregir); H2 (baja-media), un 404 al tocar "Inactivar" o "Activar" y en los diálogos invalidaba
+`['species']` en lugar de llamar a `afterCatalogChanged` (la lista de los selectores del paciente quedaba vieja, no vaciada), y
+el del botón no tenía test (la mutación que lo quitaba sobrevivía); H3 (baja), con `*_IN_USE` el diálogo seguía diciendo
+"¿Querés eliminar…? No se puede deshacer." debajo de "Inactivar …"; detalle 1, un comentario de `src/app/menu.ts` de unos 170
+caracteres; detalle 2 (aceptado como informativo), el detalle de un cliente muestra un instante el nombre viejo de la especie
+después de renombrarla. Mutaciones de la revisión: 2 de 3 detectadas (la del 404 del botón sobrevivió).
+
+**Correcciones de la revisión (2026-11-16):**
+
+* **H1**: `?inactivas=1` en la URL (`features/species/search.ts`, `validateSpeciesListSearch`, como `fallecidos` en
+  `/pacientes`; la clave va siempre) y la casilla "Incluir las inactivas" arriba de la lista, solo con `species.update`; sin ese
+  permiso, el parámetro se ignora. Sin el filtro, `/especies` usa `speciesQueryOptions()` (la misma consulta y la misma clave que
+  los selectores del paciente, con su `staleTime` de 5 minutos); con él, `GET species?include_inactive=1`
+  (`catalogQueryOptions`, `features/species/api.ts`). La casilla cambia la URL con historial y no repliega la lista.
+* **H2**: el 404 del botón y el de los diálogos (`useCatalogError`) llaman a `afterCatalogChanged`.
+* **H3**: con `*_IN_USE`, el diálogo deja solo el mensaje de la API (sin la pregunta ni "No se puede deshacer").
+* **Detalle 1**: el comentario de `menu.ts`, partido.
+
+| # | Desvío de las correcciones | Motivo |
+|---|---|---|
+| 12 | El pedido decía "como hizo la 1.3b con `PATIENT_IN_USE`", pero la 1.3b **no** cambia el texto: su diálogo sigue diciendo "¿Querés eliminar a …? No se puede deshacer." con `PATIENT_IN_USE` (`features/patients/PatientActions.tsx`). En la 1.5 se hizo lo pedido (solo el mensaje de la API); la 1.3b queda igual | Corregir la 1.3b es otra entrega: queda para decidir (se puede sumar a la `chore` de después de la F1) |
+| 13 | Sin el filtro, el listado puede tener hasta 5 minutos de antigüedad respecto de los cambios hechos en otra PC (el `staleTime` de `speciesQueryOptions`); los cambios propios lo actualizan al instante (`afterCatalogChanged`) | Es lo pedido (usar `speciesQueryOptions`) y lo mismo que ven los selectores del paciente |
+| 14 | Playwright: se ajustó también el caso 1 (la raza inactivada deja de verse sin la casilla; con ella, "Inactivada"; y el diálogo sin "No se puede deshacer"), no solo el 2 | Sin el ajuste, el caso 1 fallaba con el listado nuevo |
+
+**Pruebas de las correcciones.** Vitest: `search.test.ts` (nuevo, 10), y en `SpeciesPage.test.tsx` (22) el recepcionista con
+`?inactivas=1` (sin casilla, sin pedir las inactivas), el administrador y el veterinario (solo las activas, la casilla con
+`?inactivas=1` y de vuelta sin el parámetro), el 404 al inactivar (aviso, el catálogo de nuevo y la lista de los selectores
+vaciada) y el texto del diálogo antes y después de `SPECIES_IN_USE`; los tests que usan la especie inactivada entran con
+`?inactivas=1`. Mutaciones, 3 de 3 detectadas: quitar `afterCatalogChanged` del 404 del botón (la mutación 3 de la revisión, 1
+test), dejar la pregunta con `*_IN_USE` (1) y pedir las inactivas sin `species.update` (1).
+
+**Cifras de las correcciones** (2026-11-16). Corrida completa del frontend: `typecheck` y `build` sin errores; `lint`, 2 errores
+de estilo en el test nuevo (`as HTMLInputElement`; `non-nullable-type-assertion-style`), corregidos con un ayudante, y se
+repitieron solo el `lint` y el `typecheck` de ese archivo y los tests de `features/species`, en verde (53). Vitest, 800 tests en 42
+archivos, en verde (antes 789 en 41). Playwright, solo `e2e/especies.spec.ts`: el caso 2 pasó; el 1 falló por un detalle del caso
+(volvía a tocar "Canino", que seguía desplegado, y lo plegaba); corregido, se repitió solo ese caso, que pasó (2,0 min). `:8010` y
+`:5174` libres después.
+
+**Edge de las correcciones** (2026-11-16): sin ventana contra `syncvet.test` (Vite propio en `:5183`, detenido por su PID, 28080,
+con el puerto libre comprobado), como `admin-a`, **3 de 3**: (1) sin la casilla, 9 especies, ninguna "Hurón doméstico" ni
+"Inactivada" y la URL sin parámetros; (2) con la casilla, `?inactivas=1`, 26 especies, las 17 "Hurón doméstico" con "Inactivada";
+(3) "Eliminar" en la raza "Albino" (inactivada y en uso) de "Hurón doméstico 460603": antes, la pregunta; el `DELETE`, 409; después,
+solo "La raza está asignada a pacientes y no puede eliminarse. Podés inactivarla." y "Cerrar" (sin "Inactivar": ya está
+inactivada; el botón "Inactivar …" lo cubre el caso 1 de Playwright). La consola, solo el 409 del control 3, provocado por él.
+**Demo como estaba**: el `GET species?include_inactive=1` igual antes y después; no se creó ni se borró nada. Capturas en
+`%TEMP%\claude\…\scratchpad\capturas-1-5-correcciones`: `01-solo-activas.png`, `02-con-inactivas.png` y `03-raza-en-uso.png`.
 
 ## Documentación por entrega
 

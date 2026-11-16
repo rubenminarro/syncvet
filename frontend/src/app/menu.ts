@@ -17,8 +17,8 @@ export interface MenuItem {
 }
 
 /**
- * El menú: solo los módulos ya hechos (Inicio; Clientes, desde la 1.1; Pacientes, desde la 1.3a; Especies, desde la 1.5 (pregunta 8 del diseño: menú propio); la Configuración
- * provisoria de la 0.2b).
+ * El menú: solo los módulos ya hechos (Inicio; Clientes, desde la 1.1; Pacientes, desde la 1.3a; Especies, desde la 1.5
+ * (pregunta 8 del diseño: menú propio); la Configuración provisoria de la 0.2b).
  */
 export const MENU: readonly MenuItem[] = [
   { to: '/', label: 'Inicio', icon: IconHome },

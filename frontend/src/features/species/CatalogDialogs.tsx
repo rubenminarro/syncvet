@@ -3,7 +3,6 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ConfirmDialog, TextField, useToast } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import type { ApiSuccess } from '../../lib/api/types';
-import { speciesKeys } from '../patients/api';
 import type { Breed, Species } from '../patients/types';
 import { afterCatalogChanged } from './api';
 import { NAME_MAX, parseCatalogName, type CatalogKind } from './name';
@@ -47,7 +46,8 @@ function useCatalogError(onClose: () => void) {
 
     if (errorTreatment(error.errorCode) === 'not-found') {
       toast.show(error.message);
-      void queryClient.invalidateQueries({ queryKey: speciesKeys.all });
+      // Como después de un cambio: las listas que no están a la vista (los selectores del paciente) se vacían.
+      afterCatalogChanged(queryClient);
       onClose();
 
       return null;
@@ -283,9 +283,14 @@ export function DeleteDialog({
       }}
       onClose={onClose}
     >
-      ¿Querés eliminar {noun} <strong>{target.item.name}</strong>?
-      {target.kind === 'species' ? ' También se eliminan sus razas propias.' : ''} No se puede
-      deshacer.
+      {/* Con *_IN_USE ya no se elimina: queda solo el mensaje de la API (en la alerta), que ofrece inactivarla. */}
+      {inUse ? null : (
+        <>
+          ¿Querés eliminar {noun} <strong>{target.item.name}</strong>?
+          {target.kind === 'species' ? ' También se eliminan sus razas propias.' : ''} No se puede
+          deshacer.
+        </>
+      )}
     </ConfirmDialog>
   );
 }

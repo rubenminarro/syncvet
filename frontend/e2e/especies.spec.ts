@@ -65,10 +65,16 @@ test('una raza propia: alta, en uso en un paciente, la baja rechazada y la inact
     await expect(dialog(page)).toContainText(
       'La raza está asignada a pacientes y no puede eliminarse. Podés inactivarla.',
     );
+    await expect(dialog(page)).not.toContainText('No se puede deshacer');
     await dialog(page)
       .getByRole('button', { name: `Inactivar ${BREED}` })
       .click();
     await expect(dialog(page)).toHaveCount(0);
+    // Por defecto solo las activas: la raza inactivada se ve con "Incluir las inactivas".
+    await expect(breed(page)).toHaveCount(0);
+    await page.getByLabel('Incluir las inactivas').check();
+    await expect(page).toHaveURL(/\/especies\?inactivas=1$/);
+    // Canino sigue desplegado: la casilla cambia la lista, no la pantalla.
     await expect(breed(page)).toContainText('Inactivada');
 
     // El recepcionista: el catálogo sin botones y sin la raza inactivada.
@@ -130,8 +136,11 @@ test('una especie propia con una raza: alta, cambio de nombre, inactivación y b
   await expect(species(renamed)).toHaveCount(1);
   await expect(species(name)).toHaveCount(0);
 
-  // Inactivación, sin confirmación.
+  // Inactivación, sin confirmación: sin "Incluir las inactivas" deja de verse; con la casilla (?inactivas=1), "Inactivada".
   await species(renamed).locator('.species-toggle-active').click();
+  await expect(species(renamed)).toHaveCount(0);
+  await page.getByLabel('Incluir las inactivas').check();
+  await expect(page).toHaveURL(/\/especies\?inactivas=1$/);
   await expect(species(renamed)).toContainText('Inactivada');
   await expect(species(renamed).locator('.species-toggle-active')).toHaveText('Activar');
 
