@@ -211,7 +211,48 @@ recargar; la página de entrada de `/configuracion`; el ancho de tablet.
 
 #### Pendiente para el cierre (2.1)
 
-Vacío.
+Implementación en `feature/front-2-1-sucursales` (WIP, 2026-11-16), sin la revisión ni `/cerrar-entrega` todavía. Corrida
+final: `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 903 tests en 46 archivos, en verde (808 en 42 antes); Playwright,
+los 2 casos tocados (`sucursales.spec.ts` y "el administrador entra a /configuracion"), 2 de 2 en 58,5 s; 4 mutaciones, las 4
+detectadas (`is_default: false` en la por defecto, sin invalidar `['me']`, "Nuevo depósito" en una inactiva y el código sin pasar
+a mayúsculas).
+
+**Desvíos.**
+
+1. **`useSingleAction` no fue un movimiento de archivo.** El diseño pedía "el movimiento del archivo, en un commit sin cambios de
+   contenido", pero el hook estaba dentro de `features/patients/use-patient-action.ts`, junto con `usePatientGone`, que se queda.
+   Se sacó a `src/lib/hooks/use-single-action.ts` y se borró la copia de `features/species/CatalogDialogs.tsx`, en un commit propio
+   (`7de78f3`), sin tocar los tests de la F1. No tenía tests propios: se sumaron dos (`use-single-action.test.tsx`).
+2. **`/configuracion` pasó a `routes/_sesion/configuracion/index.tsx`** (para colgar `sucursales/`), con el id de la ruta cambiado en
+   el mismo commit: Git lo toma como renombre; no se separó porque el commit del movimiento solo no compilaba.
+3. **"Inactivada" e "Inactivado" en lugar de "Inactiva" e "Inactivo"**, en las marcas y en el estado del detalle: el test de voseo
+   toma "Inactiva" por el imperativo de "inactivar" (como "Inactivada" en especies, 1.5). "Incluir las inactivas" no cambia.
+4. **El listado junta "Por defecto" e "Inactivada" en una columna "Estado"** (marcas), en lugar de dos columnas.
+5. **Playwright siguió el caso del pedido de la entrega** (alta con su depósito, edición, un depósito nuevo marcado por defecto, el
+   anterior inactivado y la sucursal inactivada) en lugar del del diseño (marcar la sucursal por defecto y volver a la original):
+   marcar la sucursal por defecto cambia la de toda la base de prueba y lo cubre Vitest. Se tocó también el caso "el administrador
+   entra a /configuracion" de `permisos.spec.ts`, que buscaba "En construcción", y se corrió junto con el nuevo.
+6. **Navegador: 5 controles**, no los cuatro temas del diseño: la página de entrada, el listado a 768 px, el diálogo de depósito
+   con el teclado (foco en "Cancelar", Tab dentro del diálogo, Escape y el foco de vuelta). "Inactivar la sucursal actual y ver el
+   aviso sin recargar" quedó en Vitest y en Playwright (no se inactiva nada en la demo).
+7. **El diálogo de depósito no se manda con Enter** (dos campos y el botón en el pie, como el del fallecimiento de la 1.3b).
+8. **Los diálogos de estado** (marcar por defecto, activar, inactivar) con un 422 o un error de negocio muestran solo el mensaje
+   de la API y "Cerrar" (sin repetir la pregunta), como la 1.5. Un 404 de un depósito (no tiene detalle): aviso y la sucursal se
+   vuelve a pedir.
+9. **`afterBranchChanged` invalida `['users']` y `['veterinarians']`**, que todavía no existen (llegan en la 2.2a y la 2.3): no hacen
+   nada hasta entonces.
+10. En la edición de una sucursal **inactiva**, "Sucursal por defecto" queda habilitada: si se marca, el 422 de la API ("Una
+    sucursal inactiva no puede ser la sucursal por defecto: activala primero.") va al campo.
+
+**Para `/cerrar-entrega`.** `frontend/CLAUDE.md` (§4: `/configuracion` con sus secciones y `features/branches`; §5: `useSingleAction`
+común en `src/lib/hooks` y el teléfono en `src/lib/phone.ts`), el "Resultado" de este documento con las cifras de la corrida final,
+el roadmap, `modulos.md` y el handoff.
+
+**Datos.** La demo (`syncvet.test`) quedó sin cambios: los controles en Edge solo ingresaron y miraron (el diálogo de depósito se
+cerró con Escape, sin mandar). La sucursal del caso de Playwright (`E2E-…`, con sus dos depósitos) quedó inactivada en
+`syncvet_e2e`, que se vacía en cada corrida. Capturas (fuera del repositorio, en la PC de la validación), en
+`%TEMP%\claude\…\scratchpad\capturas-2-1`: `01-configuracion.png`, `02-sucursales-768.png`, `03-detalle-768.png` y
+`04-dialogo-deposito-768.png`.
 
 ### 2.2a Usuarios: listado, detalle, alta y edición
 

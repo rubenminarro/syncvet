@@ -41,8 +41,18 @@ export const PERMISSIONS = {
   speciesUpdate: 'species.update',
   /** La baja de especies y razas propias (F1, entrega 1.5): administrador y veterinario. */
   speciesDestroy: 'species.destroy',
-  /** /configuracion (provisoria en la F0; solo el administrador). */
+  /** /configuracion, la página de entrada (F2, entrega 2.1; provisoria en la F0): solo el administrador. */
   settingsUpdate: 'system-settings.update',
+  /** /configuracion/sucursales y su detalle (F2, entrega 2.1): solo el administrador (`branches.index` lo tienen los tres). */
+  branchesShow: 'branches.show',
+  /** /configuracion/sucursales/nueva (F2, entrega 2.1): solo el administrador. */
+  branchesStore: 'branches.store',
+  /** Editar, marcar por defecto, activar e inactivar una sucursal (F2, entrega 2.1): solo el administrador. */
+  branchesUpdate: 'branches.update',
+  /** "Nuevo depósito" en el detalle de la sucursal (F2, entrega 2.1): solo el administrador. */
+  warehousesStore: 'warehouses.store',
+  /** Editar, marcar por defecto, activar e inactivar un depósito (F2, entrega 2.1): solo el administrador. */
+  warehousesUpdate: 'warehouses.update',
 } as const;
 
 export interface WithPermissions {

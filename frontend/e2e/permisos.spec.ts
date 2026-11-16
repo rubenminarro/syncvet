@@ -28,7 +28,9 @@ test('el administrador entra a /configuracion', async ({ page }) => {
   await page.locator('.nav-link-title', { hasText: 'Configuración' }).click();
 
   await expect(page).toHaveURL(/\/configuracion$/);
-  await expect(page.getByRole('heading', { name: 'En construcción' })).toBeVisible();
+  // La página de entrada (2.1): una tarjeta por sección.
+  await expect(page.getByRole('heading', { name: 'Configuración' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Sucursales/ })).toBeVisible();
 });
 
 test('una ruta sin permiso lleva a /sin-permiso, dentro del layout', async ({ page }) => {
