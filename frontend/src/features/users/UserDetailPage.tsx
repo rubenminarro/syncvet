@@ -10,12 +10,13 @@ import { useCan } from '../auth/permissions';
 import { userDetailQueryOptions } from './api';
 import { useUserListSearch, withUserList } from './navigation';
 import type { UserDetail } from './types';
+import { UserActions } from './UserActions';
 import { UserInactiveBadge } from './UserInactiveBadge';
 
 /**
  * /configuracion/usuarios/$id (2.2a): los datos, los roles, las sucursales (con la actual marcada), la ficha de
- * veterinario y "Editar". "(vos)" junto al nombre del usuario de la sesión. Inactivar, reactivar y la baja llegan en la
- * 2.2b; el enlace a la ficha y "Crear la ficha de veterinario", en la 2.3.
+ * veterinario y "Editar". "(vos)" junto al nombre del usuario de la sesión. Desde la 2.2b, inactivar o reactivar y
+ * eliminar (`UserActions`), salvo en el propio usuario; el enlace a la ficha y "Crear la ficha de veterinario", en la 2.3.
  */
 export function UserDetailPage({ id }: { id: number }) {
   const { data: user } = useSuspenseQuery(userDetailQueryOptions(id));
@@ -42,8 +43,8 @@ export function UserDetailPage({ id }: { id: number }) {
               <UserInactiveBadge user={user} />
             </h2>
           </div>
-          {can(PERMISSIONS.usersUpdate) ? (
-            <div className="col-auto d-flex gap-2 flex-wrap user-actions">
+          <div className="col-auto d-flex gap-2 flex-wrap user-actions">
+            {can(PERMISSIONS.usersUpdate) ? (
               <Link
                 to="/configuracion/usuarios/$id/editar"
                 params={{ id: String(user.id) }}
@@ -53,8 +54,9 @@ export function UserDetailPage({ id }: { id: number }) {
                 <IconEdit size={18} className="me-2" aria-hidden="true" />
                 Editar
               </Link>
-            </div>
-          ) : null}
+            ) : null}
+            <UserActions user={user} isSelf={isSelf} />
+          </div>
         </div>
       </div>
       <div className="row row-cards">

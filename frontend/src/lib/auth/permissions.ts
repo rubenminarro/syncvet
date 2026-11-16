@@ -61,6 +61,8 @@ export const PERMISSIONS = {
   usersStore: 'users.store',
   /** /configuracion/usuarios/$id/editar (F2, entrega 2.2a): solo el administrador. */
   usersUpdate: 'users.update',
+  /** Eliminar un usuario desde su detalle (F2, entrega 2.2b): solo el administrador. */
+  usersDestroy: 'users.destroy',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

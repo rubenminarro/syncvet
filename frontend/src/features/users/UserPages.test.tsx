@@ -690,3 +690,305 @@ describe('/configuracion/usuarios/$id/editar: el propio usuario', () => {
     expect(bodies).toEqual([]);
   });
 });
+
+describe('/configuracion/usuarios/$id: inactivar, reactivar y eliminar (2.2b)', () => {
+  const statusButton = () => document.querySelector<HTMLElement>('.user-status');
+  const deleteButton = () => document.querySelector<HTMLElement>('.user-delete');
+
+  /** El elemento, o el test falla acá (no en el clic). */
+  function required(selector: string): HTMLElement {
+    const found = document.querySelector<HTMLElement>(selector);
+
+    if (found === null) {
+      throw new Error(`Sin ${selector}`);
+    }
+
+    return found;
+  }
+
+  /** El detalle de `user` (con el administrador en la sesión), con los handlers del caso primero. */
+  async function openDetail(user: UserDetail, extra: Parameters<typeof server.use> = []) {
+    server.use(
+      ...extra,
+      meHandler(ADMIN),
+      detailHandler(() => user),
+    );
+    const app = renderApp(`/configuracion/usuarios/${String(user.id)}`, { session: sessionFor() });
+    await screen.findByText(user.name, { selector: 'h2' });
+
+    return app;
+  }
+
+  /** PATCH users/{id} con el cuerpo parcial: guarda los cuerpos y aplica `is_active` (o responde con `respond`). */
+  function statusHandler(
+    bodies: Record<string, unknown>[],
+    base: UserDetail,
+    respond?: () => Response,
+  ) {
+    return http.patch('/api/users/:id', async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      bodies.push(body);
+
+      return (
+        respond?.() ??
+        success(
+          { ...base, is_active: body.is_active as boolean },
+          { message: 'Usuario actualizado correctamente.' },
+        )
+      );
+    });
+  }
+
+  function deleteHandler(calls: string[], respond: () => Response) {
+    return http.delete('/api/users/:id', ({ params }) => {
+      calls.push(String(params.id));
+
+      return respond();
+    });
+  }
+
+  const deleted = () => success(null, { message: 'Usuario eliminado correctamente.' });
+  const IN_USE_MESSAGE =
+    'El usuario tiene registros a su nombre y no se puede eliminar: inactivalo.';
+
+  it('el propio usuario no tiene "Inactivar" ni "Eliminar"; otro, sí', async () => {
+    await openDetail(ADMIN_USER);
+
+    expect(screen.getByText('(vos)')).toBeInTheDocument();
+    expect(document.querySelector('.user-edit')).not.toBeNull();
+    expect(statusButton()).toBeNull();
+    expect(deleteButton()).toBeNull();
+  });
+
+  it('inactivar: el aviso de las sesiones, solo is_active en el cuerpo, la marca y la invalidación', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    let current = RECEPTION_USER;
+    const { queryClient } = await openDetail(RECEPTION_USER, [
+      detailHandler(() => current),
+      statusHandler(bodies, RECEPTION_USER, () => {
+        current = { ...RECEPTION_USER, is_active: false };
+
+        return success(current, { message: 'Usuario actualizado correctamente.' });
+      }),
+    ]);
+    queryClient.setQueryData(['veterinarians', 'list', {}], { probe: true });
+    queryClient.setQueryData(['users', 'list', { probe: true }], { probe: true });
+
+    expect(statusButton()?.textContent).toBe('Inactivar');
+    expect(deleteButton()).not.toBeNull();
+    fireEvent.click(required('.user-status'));
+    expect(dialog()?.textContent).toContain(
+      'Se van a cerrar todas sus sesiones y no va a poder ingresar hasta que lo reactives.',
+    );
+    fireEvent.click(await findDialogButton('Inactivar a Rosa Benítez'));
+
+    expect(
+      await screen.findByText('Inactivado', { selector: '.user-inactive' }),
+    ).toBeInTheDocument();
+    expect(bodies).toEqual([{ is_active: false }]);
+    expect(dialog()).toBeNull();
+    expect(statusButton()?.textContent).toBe('Reactivar');
+    expect(screen.getByText('Inactivado', { selector: 'dd' })).toBeInTheDocument();
+    expect(queryClient.getQueryState(['veterinarians', 'list', {}])?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(['users', 'list', { probe: true }])?.isInvalidated).toBe(true);
+  });
+
+  it('reactivar: "Va a tener que ingresar de nuevo." e is_active: true', async () => {
+    const inactive = { ...RECEPTION_USER, is_active: false };
+    const bodies: Record<string, unknown>[] = [];
+    await openDetail(inactive, [statusHandler(bodies, inactive)]);
+
+    expect(statusButton()?.textContent).toBe('Reactivar');
+    fireEvent.click(required('.user-status'));
+    expect(dialog()?.textContent).toContain('Va a tener que ingresar de nuevo.');
+    fireEvent.click(await findDialogButton('Reactivar a Rosa Benítez'));
+
+    await waitFor(() => {
+      expect(statusButton()?.textContent).toBe('Inactivar');
+    });
+    expect(bodies).toEqual([{ is_active: true }]);
+    expect(document.querySelector('.user-inactive')).toBeNull();
+  });
+
+  it('dos clics seguidos en la confirmación mandan un solo pedido', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    await openDetail(RECEPTION_USER, [statusHandler(bodies, RECEPTION_USER)]);
+
+    fireEvent.click(required('.user-status'));
+    const confirm = await findDialogButton('Inactivar a Rosa Benítez');
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(dialog()).toBeNull();
+    });
+    expect(bodies).toHaveLength(1);
+  });
+
+  it.each([
+    ['USER_LAST_ADMIN', 'La clínica tiene que tener al menos un administrador activo.'],
+    ['USER_SELF_ACTION', 'No podés inactivarte ni darte de baja a vos mismo.'],
+  ])('inactivar con %s: el mensaje en el diálogo y solo "Cerrar"', async (code, message) => {
+    const bodies: Record<string, unknown>[] = [];
+    await openDetail(RECEPTION_USER, [
+      statusHandler(bodies, RECEPTION_USER, () => failure(409, code, message)),
+    ]);
+
+    fireEvent.click(required('.user-status'));
+    fireEvent.click(await findDialogButton('Inactivar a Rosa Benítez'));
+
+    await waitFor(() => {
+      expect(dialog()?.textContent).toContain(message);
+    });
+    expect(dialog()?.textContent).not.toContain('Se van a cerrar');
+    expect(dialogButton('Inactivar a Rosa Benítez')).toBeNull();
+    expect(dialogButton('Cerrar')).not.toBeNull();
+    expect(bodies).toHaveLength(1);
+  });
+
+  it('eliminar con el 200: al listado, sin el detalle en la caché', async () => {
+    const calls: string[] = [];
+    const { history, queryClient } = await openDetail(RECEPTION_USER, [
+      deleteHandler(calls, deleted),
+      http.get('/api/users', () =>
+        success([userListItem(ADMIN_USER)], { meta: pagination({ total: 1 }) }),
+      ),
+      ...optionHandlers(),
+    ]);
+
+    fireEvent.click(required('.user-delete'));
+    expect(dialog()?.textContent).toContain(
+      '¿Querés eliminar a Rosa Benítez? No se puede deshacer.',
+    );
+    fireEvent.click(await findDialogButton('Eliminar a Rosa Benítez'));
+
+    expect(await screen.findByText('Gómez, Ana', { selector: 'a' })).toBeInTheDocument();
+    expect(history.location.pathname).toBe('/configuracion/usuarios');
+    expect(calls).toEqual(['7']);
+    await waitFor(() => {
+      expect(queryClient.getQueryData(['users', 'detail', 7])).toBeUndefined();
+    });
+    expect(screen.queryByText('Benítez, Rosa')).toBeNull();
+    expect(screen.getByText('Usuario eliminado correctamente.')).toBeInTheDocument();
+  });
+
+  it('eliminar con USER_IN_USE: el mensaje y "Inactivar", que abre el diálogo de inactivar', async () => {
+    const calls: string[] = [];
+    const bodies: Record<string, unknown>[] = [];
+    await openDetail(VET_USER, [
+      deleteHandler(calls, () => failure(409, 'USER_IN_USE', IN_USE_MESSAGE)),
+      statusHandler(bodies, VET_USER),
+    ]);
+
+    fireEvent.click(required('.user-delete'));
+    fireEvent.click(await findDialogButton('Eliminar a Víctor Acosta'));
+
+    await waitFor(() => {
+      expect(dialog()?.textContent).toContain(IN_USE_MESSAGE);
+    });
+    expect(dialog()?.textContent).not.toContain('¿Querés eliminar');
+    expect(dialogButton('Eliminar a Víctor Acosta')).toBeNull();
+    // "Inactivar" no borra: el diálogo pasa a tone="primary" (azul), no rojo.
+    expect(dialogButton('Inactivar')?.className).toContain('btn-primary');
+    fireEvent.click(dialogButton('Inactivar') as HTMLElement);
+
+    await waitFor(() => {
+      expect(dialog()?.textContent).toContain('Se van a cerrar todas sus sesiones');
+    });
+    expect(bodies).toEqual([]);
+    fireEvent.click(await findDialogButton('Inactivar a Víctor Acosta'));
+
+    expect(
+      await screen.findByText('Inactivado', { selector: '.user-inactive' }),
+    ).toBeInTheDocument();
+    expect(bodies).toEqual([{ is_active: false }]);
+    expect(calls).toEqual(['8']);
+  });
+
+  it('eliminar a un inactivo con USER_IN_USE: el mensaje y solo "Cerrar"', async () => {
+    await openDetail({ ...VET_USER, is_active: false }, [
+      deleteHandler([], () => failure(409, 'USER_IN_USE', IN_USE_MESSAGE)),
+    ]);
+
+    fireEvent.click(required('.user-delete'));
+    fireEvent.click(await findDialogButton('Eliminar a Víctor Acosta'));
+
+    await waitFor(() => {
+      expect(dialog()?.textContent).toContain(IN_USE_MESSAGE);
+    });
+    expect(dialogButton('Inactivar')).toBeNull();
+    expect(dialogButton('Eliminar a Víctor Acosta')).toBeNull();
+    expect(dialogButton('Cerrar')).not.toBeNull();
+  });
+
+  it.each([
+    ['USER_LAST_ADMIN', 'La clínica tiene que tener al menos un administrador activo.'],
+    ['USER_SELF_ACTION', 'No podés inactivarte ni darte de baja a vos mismo.'],
+  ])('eliminar con %s: el mensaje y solo "Cerrar", sin "Inactivar"', async (code, message) => {
+    const calls: string[] = [];
+    const { history } = await openDetail(RECEPTION_USER, [
+      deleteHandler(calls, () => failure(409, code, message)),
+    ]);
+
+    fireEvent.click(required('.user-delete'));
+    fireEvent.click(await findDialogButton('Eliminar a Rosa Benítez'));
+
+    await waitFor(() => {
+      expect(dialog()?.textContent).toContain(message);
+    });
+    expect(dialogButton('Inactivar')).toBeNull();
+    expect(dialogButton('Eliminar a Rosa Benítez')).toBeNull();
+    expect(dialogButton('Cerrar')).not.toBeNull();
+    expect(history.location.pathname).toBe('/configuracion/usuarios/7');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('un 404 al eliminar (ya no está): el aviso y de vuelta al listado', async () => {
+    const { history } = await openDetail(RECEPTION_USER, [
+      deleteHandler([], () => failure(404, 'RESOURCE_NOT_FOUND', 'El recurso no existe.')),
+      http.get('/api/users', () => success([], { meta: pagination({ total: 0 }) })),
+      ...optionHandlers(),
+    ]);
+
+    fireEvent.click(required('.user-delete'));
+    fireEvent.click(await findDialogButton('Eliminar a Rosa Benítez'));
+
+    expect(await screen.findByText('El recurso no existe.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/configuracion/usuarios');
+    });
+  });
+
+  it('ida y vuelta: inactivado, sale del listado por defecto y está con "Incluir los inactivos"', async () => {
+    let current = RECEPTION_USER;
+    await openDetail(RECEPTION_USER, [
+      detailHandler(() => current),
+      statusHandler([], RECEPTION_USER, () => {
+        current = { ...RECEPTION_USER, is_active: false };
+
+        return success(current, { message: 'Usuario actualizado correctamente.' });
+      }),
+      http.get('/api/users', ({ request }) => {
+        const includeInactive = new URL(request.url).searchParams.get('include_inactive') === '1';
+        const items = [ADMIN_USER, current]
+          .filter((user) => includeInactive || user.is_active)
+          .map(userListItem);
+
+        return success(items, { meta: pagination({ total: items.length }) });
+      }),
+      ...optionHandlers(),
+    ]);
+
+    fireEvent.click(required('.user-status'));
+    fireEvent.click(await findDialogButton('Inactivar a Rosa Benítez'));
+    await screen.findByText('Inactivado', { selector: '.user-inactive' });
+
+    fireEvent.click(screen.getByText('Usuarios', { selector: 'a' }));
+    expect(await screen.findByText('Gómez, Ana', { selector: 'a' })).toBeInTheDocument();
+    expect(screen.queryByText('Benítez, Rosa', { selector: 'a' })).toBeNull();
+
+    fireEvent.click(field('Incluir los inactivos'));
+    expect(await screen.findByText('Benítez, Rosa', { selector: 'a' })).toBeInTheDocument();
+    expect(screen.getByText('Inactivado', { selector: '.user-inactive' })).toBeInTheDocument();
+  });
+});

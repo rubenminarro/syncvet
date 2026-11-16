@@ -75,6 +75,34 @@ export function updateUser(id: number, payload: UserPayload) {
 }
 
 /**
+ * PATCH users/{id} con solo `{ is_active }` (2.2b): inactivar revoca todos sus tokens; reactivar no los devuelve
+ * (backend/CLAUDE.md §6.5).
+ */
+export function setUserActive(id: number, isActive: boolean) {
+  return api.patch<UserDetail>(`users/${id}`, { is_active: isActive });
+}
+
+/** DELETE users/{id} (2.2b): solo sin uso; con uso, 409 USER_IN_USE. */
+export function deleteUser(id: number) {
+  return api.delete<null>(`users/${id}`);
+}
+
+/**
+ * Después de eliminar un usuario (2.2b): los listados se vacían (al volver se espera la lista nueva, sin verlo un momento),
+ * el resto de los usuarios y los veterinarios quedan viejos. Devuelve lo que se hace después de salir del detalle: sacarlo
+ * de la caché.
+ */
+export function afterUserGone(queryClient: QueryClient, id: number): () => void {
+  void queryClient.resetQueries({ queryKey: userKeys.lists });
+  void queryClient.invalidateQueries({ queryKey: userKeys.all, refetchType: 'none' });
+  void queryClient.invalidateQueries({ queryKey: ['veterinarians'] });
+
+  return () => {
+    queryClient.removeQueries({ queryKey: userKeys.detail(id), exact: true });
+  };
+}
+
+/**
  * Después de guardar un usuario (diseño de la F2, H5): los usuarios y los veterinarios (muestran el nombre) quedan viejos;
  * el detalle toma la respuesta, sin otro pedido. Si es el usuario de la sesión, `me` se vuelve a pedir (sus roles cambian
  * el menú y los permisos, y sus sucursales, el selector de la barra) y, si cambió su sucursal actual, también las consultas
