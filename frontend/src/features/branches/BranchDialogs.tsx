@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ReactNode } from 'react';
 import { CheckboxField, ConfirmDialog, TextField, useToast } from '../../components/ui';
-import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { dialogError, type DialogFailure } from '../../lib/api/dialog-error';
+import { errorTreatment, isApiError } from '../../lib/api/errors';
 import type { ApiSuccess } from '../../lib/api/types';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { afterBranchChanged, createWarehouse, updateWarehouse } from './api';
@@ -14,36 +15,6 @@ import {
   type WarehouseFormValues,
 } from './form';
 import type { BranchDetail, Warehouse } from './types';
-
-/**
- * Qué hace un diálogo con el error de su acción: un 404, `onGone` (aviso y lo que corresponda) y null; un 422 (la regla de
- * la por defecto, la sucursal inactiva) o un error de negocio (`*_DEFAULT_NOT_DEACTIVATABLE`), el mensaje de la API y solo
- * "Cerrar" (otro intento daría lo mismo); lo demás (el servidor, la red), el mensaje y el botón para probar de nuevo.
- */
-function dialogError(
-  error: unknown,
-  onGone: (message: string) => void,
-): { message: string; final: boolean } | null {
-  if (!isApiError(error)) {
-    return { message: MESSAGES.programming, final: false };
-  }
-
-  const treatment = errorTreatment(error.errorCode);
-
-  if (treatment === 'not-found') {
-    onGone(error.message);
-
-    return null;
-  }
-
-  if (treatment === 'validation') {
-    const messages = Object.values(error.fieldErrors()).flat();
-
-    return { message: messages.length > 0 ? messages.join(' ') : error.message, final: true };
-  }
-
-  return { message: userMessage(error), final: treatment === 'business' };
-}
 
 interface StatusDialogProps<T> {
   title: string;
@@ -70,7 +41,7 @@ export function StatusDialog<T>({
 }: StatusDialogProps<T>) {
   const toast = useToast();
   const single = useSingleAction();
-  const [failure, setFailure] = useState<{ message: string; final: boolean } | null>(null);
+  const [failure, setFailure] = useState<DialogFailure | null>(null);
 
   const mutation = useMutation({
     mutationFn: run,

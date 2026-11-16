@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Button, ConfirmDialog, useToast } from '../../components/ui';
-import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { dialogError, type DialogFailure } from '../../lib/api/dialog-error';
+import { isApiError } from '../../lib/api/errors';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { useCan } from '../auth/permissions';
@@ -13,39 +14,6 @@ import { useUserGone } from './use-user-gone';
 
 /** El usuario tiene registros a su nombre (backend/CLAUDE.md §6.5): se ofrece inactivarlo. */
 const USER_IN_USE = 'USER_IN_USE';
-
-/** Un error en el diálogo: el texto y si otro intento daría lo mismo (entonces queda solo "Cerrar"). */
-interface DialogFailure {
-  message: string;
-  final: boolean;
-}
-
-/**
- * Qué hace un diálogo con el error de su acción: un 404 (lo eliminaron en otra pestaña), aviso y al listado; un 422 o un
- * error de negocio (USER_LAST_ADMIN, USER_SELF_ACTION), el mensaje de la API y solo "Cerrar"; lo demás (el servidor, la
- * red, FORBIDDEN), el mensaje y el botón para probar de nuevo.
- */
-function dialogError(error: unknown, onGone: (message: string) => void): DialogFailure | null {
-  if (!isApiError(error)) {
-    return { message: MESSAGES.programming, final: false };
-  }
-
-  const treatment = errorTreatment(error.errorCode);
-
-  if (treatment === 'not-found') {
-    onGone(error.message);
-
-    return null;
-  }
-
-  if (treatment === 'validation') {
-    const messages = Object.values(error.fieldErrors()).flat();
-
-    return { message: messages.length > 0 ? messages.join(' ') : error.message, final: true };
-  }
-
-  return { message: userMessage(error), final: treatment === 'business' };
-}
 
 type UserDialog = 'status' | 'delete';
 
