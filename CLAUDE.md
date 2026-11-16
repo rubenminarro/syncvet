@@ -70,7 +70,9 @@ código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se
 alguna pide más corridas, vale esta.
 
 * **Durante la entrega**, solo los tests de lo tocado: `npx vitest related <archivos> --run` en el frontend;
-  `php artisan test --filter <test>` (sin Xdebug) en el backend.
+  `php artisan test --filter <test>` (sin Xdebug) en el backend. Las entregas del frontend corren además, desde `backend/`,
+  `php artisan test --filter=FictitiousDocumentsTest`: revisa `frontend/src` y `frontend/e2e` (ningún número de 7 a 9 dígitos con
+  forma de cédula o RUC real).
 * **Al final**, una sola corrida completa del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y `build`; en el backend,
   `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
   entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.

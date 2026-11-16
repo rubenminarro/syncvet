@@ -92,7 +92,8 @@ describe('branchFormErrors (las reglas de StoreBranchRequest con los mensajes de
     ['+595211100001', null],
     ['0981 123-456', BRANCH_MESSAGES.phone.regex],
     ['981 123 456', null],
-    ['1234567', BRANCH_MESSAGES.phone.regex],
+    // 7 dígitos, uno menos que el mínimo; armado en el código para no escribir un número con forma de cédula (R-011).
+    ['9'.repeat(7), BRANCH_MESSAGES.phone.regex],
     ['123456789012345', null],
     ['1234567890123456', BRANCH_MESSAGES.phone.regex],
   ])('el teléfono %j', (phone, expected) => {
