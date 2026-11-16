@@ -1645,3 +1645,20 @@ integrar a `main`: se integra al cerrar la F2. El detalle, en su
 | Siguiente | La entrega 2.2a (usuarios: listado, detalle, alta y edición), en `feature/front-2-2a-usuarios`, creada desde `feature/front-2-1-sucursales` y subida, sin código hasta la autorización del usuario | Usuario |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-076 Cierre de la entrega 2.2a del frontend (usuarios: listado, detalle, alta y edición) (2026-11-16)
+
+Segunda entrega de la F2 del frontend (R-074), en `feature/front-2-2a-usuarios` (desde `feature/front-2-1-sucursales`, en el
+cierre de la 2.1, `0f7b80b`), sin integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-22a).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Usuarios" en `/configuracion` y `/configuracion/usuarios` (listado con búsqueda, rol, sucursal e "Incluir los inactivos" en la URL; detalle; alta y edición con roles y sucursales en `CheckboxGroupField`), solo para el administrador. La contraseña: obligatoria en el alta, detrás de "Cambiar la contraseña" al editar a otro (sin la clave `password` si no se cambia) y ausente al editarse a sí mismo (el enlace a `/perfil`); fuera de la caché de mutaciones. Editarse invalida `['me']`; quitarse el rol de administrador pide confirmación y vuelve a `/`. Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Desvíos | Los 11, aceptados: entre ellos, Playwright con el caso del pedido de la entrega, "Inactivado" e "(inactivada)" por el test de voseo, `USER_IS_VETERINARIAN` con el código de la ficha sin enlace hasta la 2.3, los errores del alta y la edición en las opciones de `useMutation` (el `reset()` de `onSettled` descarta los callbacks de `mutate()`) y la regla de nombres de personas común en `src/lib/person-name.ts` | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `fff201c`: sin hallazgos que cambien el comportamiento. Corregido en `e8ecdeb` (menor): el 422 de `password` al editarse a sí mismo va a la alerta (caía en un campo que no se dibuja). 3 tests nuevos y una comprobación en uno existente: el 422 del alta y el de la contraseña filtrada de otro usuario con la contraseña fuera de la caché, el 422 de `password` propio en la alerta e `invalidateBranchQueries` al sacar la sucursal actual | Revisión |
+| Mutaciones de la revisión | 3 de 3 detectadas: sin `reset()` en la edición y sin `invalidateBranchQueries` (las dos, solo por los tests nuevos: sin ellos, sobrevivían) y las sucursales inactivas que el usuario ya tiene fuera de las opciones | Revisión |
+| Validación | El usuario aceptó los desvíos y pidió el cierre. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test` (el usuario temporal, borrado por la API); Playwright, `e2e/usuarios.spec.ts`, 1 de 1 (el usuario entra con la contraseña nueva en otro contexto y la anterior ya no sirve). Desde `frontend/`, sobre `e8ecdeb`: `npm test`, 982 tests en 49 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos | Usuario |
+| Siguiente | La entrega 2.2b (usuarios: inactivar, reactivar y baja), en `feature/front-2-2b-usuarios`, creada desde `feature/front-2-2a-usuarios` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.

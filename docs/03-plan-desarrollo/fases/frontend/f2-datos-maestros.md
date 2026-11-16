@@ -135,7 +135,7 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
 | 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | COMPLETADO (R-075, [resultado](#entrega-21)) |
-| 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios`, desde `feature/front-2-1-sucursales` | APROBADA (R-074); sigue |
+| 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios`, desde `feature/front-2-1-sucursales` | COMPLETADO (R-076, [resultado](#entrega-22a)) |
 | 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios` | APROBADA (R-074) |
 | front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-ficha-en-usuarios` | APROBADA (R-074) |
 | 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios` | APROBADA (R-074) |
@@ -271,60 +271,7 @@ la contraseña y la sesión del otro contexto termina con "Tu sesión terminó. 
 
 #### Pendiente para el cierre (2.2a)
 
-Implementación (2026-11-16, commit WIP de la 2.2a), para pasar al resultado al cerrar:
-
-* **Hecho.** `features/users` (listado, detalle, alta y edición, con `form.ts`, `search.ts`, `loader.ts`, `api.ts` y
-  `use-user-gone.ts`), las cuatro rutas de `/configuracion/usuarios`, la tarjeta "Usuarios" en `/configuracion`,
-  `CheckboxGroupField` en `src/components/ui` (controlado, con `Controller`), `PERMISSIONS` con `usersIndex`, `usersShow`,
-  `usersStore`, `usersUpdate` y `rolesIndex`, y `['branches', 'options']` (`branchOptionsQueryOptions`, en `features/branches/api.ts`).
-* **Cifras.** Vitest: `npm test` completo, 979 tests en 49 archivos, en verde (después, solo cambios de tipos y de lint en los
-  tests de usuarios, verificados con sus 69 tests); `typecheck`, `lint` y `build` sin errores ni avisos. Mutaciones: 4 de 4
-  detectadas (`password` mandado sin "Cambiar la contraseña", la contraseña visible en el propio usuario, sin invalidar `['me']` al
-  editarse a sí mismo y sin la confirmación de quitarse el rol de administrador). Playwright: `e2e/usuarios.spec.ts`, 1 de 1.
-  Edge sin ventana contra `syncvet.test`: 5 de 5.
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | Playwright siguió el caso del pedido de la entrega (alta con rol y sucursal, edición de sus roles, cambio de su contraseña con el ingreso con la nueva en otro contexto, y `USER_LAST_ADMIN` al quitarse el rol el único administrador), no el del diseño (el menú del usuario nuevo, la sesión del otro contexto cerrada y el email repetido) | Pedido de la entrega; el 422 del email y el de `branch_ids.0` están en Vitest |
-| 2 | "Inactivado" (la marca del usuario) y "(inactivada)" (la sucursal en el filtro y en el formulario), no "Inactivo" ni "(inactiva)" | El test de voseo toma "Inactiva" por el imperativo (desvío 3 de la 2.1) |
-| 3 | `USER_IS_VETERINARIAN`: la alerta muestra el código de la ficha como texto ("Ficha de veterinario: VET-…."), sin enlace; el detalle, el código sin enlace y sin "Crear la ficha de veterinario" | `/veterinarios/$id` llega en la 2.3 |
-| 4 | Los errores del alta y la edición se tratan en las opciones de `useMutation`, no en las de `mutate()`, y las variables llevan el formulario (`{ values, form }`) | `reset()` en `onSettled` (la contraseña fuera de la caché, `gcTime: 0`) descarta los callbacks de `mutate()`: el error no llegaba al formulario |
-| 5 | La regla de nombres de personas pasó a `src/lib/person-name.ts` (`PERSON_NAME_PATTERN`), y clientes la importa de ahí sin cambiar su comportamiento | Es la misma regla (`PersonName`) en clientes y usuarios |
-| 6 | Los `loader` del alta y la edición traen también los roles y las sucursales: un 403 o un 5xx de esos pedidos va a la página de error de la ruta | El formulario no se dibuja sin las casillas |
-| 7 | La columna "Nombre" del listado muestra "Apellido, Nombre" | El listado de la API ordena por apellido |
-| 8 | "Incluir los inactivos" ya está en el listado de la 2.2a (el pedido nombraba solo el rol y la sucursal) | Está en la URL de la 2.2a del diseño |
-| 9 | `e2e/support/session.ts`: `User` pasa a ser `{ email, name }` (antes, solo los tres del `DemoSeeder`) | Para entrar con el usuario creado en el caso |
-| 10 | Edge: el usuario temporal se creó con un email `@mailinator.com` y se borró por la API (`DELETE users/61`, 200; queda eliminado con el sufijo de baja, como toda baja). Dos corridas del script fallaron antes sin cambiar la demo: con `@example.com` (422: la demo tiene `EMAIL_DNS_CHECK=true` y ese dominio no tiene MX) y con el id de `admin-a` supuesto (el de los tests) | La demo valida el DNS del email; `admin-a`, `recepcion-a` y `vet-a` solo se leyeron |
-| 11 | Después de la corrida de Playwright, `e2e/support/session.ts` cambió solo en el tipo de `User` (desvío 9); no se repitió | Sin cambios de comportamiento |
-
-Capturas (fuera del repositorio, en la PC de la validación), en `%TEMP%\claude\…\scratchpad\capturas-2-2a`: `01-configuracion.png`,
-`02-listado.png`, `03-detalle-vet.png`, `04-alta.png`, `05-edicion-cambiar-contrasena.png`, `06-quitarse-el-rol.png` y
-`07-edicion-propia-768.png`.
-
-Revisión (2026-11-16, sobre el WIP `fff201c`, contra el cierre de la 2.1 `0f7b80b`). El usuario aceptó los 11 desvíos.
-
-* **Revisado sin hallazgos.** `password` va solo en el alta y con "Cambiar la contraseña" (`sendsPassword`), nunca `null`; la
-  edición propia sin la casilla ni los campos, con el enlace a `/perfil`. Las dos mutaciones con `gcTime: 0` y `reset()` en
-  `onSettled`, y los errores en las opciones de `useMutation` (desvío 4). `USER_LAST_ADMIN` (409, la alerta) y
-  `USER_IS_VETERINARIAN` (409, la alerta con el código de la ficha), con los mensajes y códigos de `UserService`. La
-  confirmación al quitarse el rol, `['me']` de nuevo y la vuelta a `/`. `afterUserChanged` invalida `['me']` por el id del
-  usuario de la sesión (no por el modo). Las reglas de forma coinciden con `StoreUserRequest`, `UpdateUserRequest`,
-  `UserMessages` y `Password::defaults()` (`min(12)->mixedCase()->numbers()->symbols()`, en el orden de Laravel); las sucursales,
-  las activas más las inactivas que el usuario ya tiene (`branchRules($user)`). `PERSON_NAME_PATTERN` es la misma expresión que
-  tenía clientes, carácter por carácter (sus tests, sin cambios y en verde). Las cuatro rutas con `requirePermission` y los botones
-  con `useCan()`; el recepcionista y el veterinario, a `/sin-permiso`.
-* **Corregido (menor).** Un 422 de `password` al editarse a sí mismo ("Para cambiar tu contraseña usá tu perfil."; no debería
-  llegar, porque no se manda) caía en un campo que no se dibuja y no se veía: ahora, en `edit-self`, `password` no está en los
-  campos de `applyValidationErrors` y el mensaje va a la alerta.
-* **Tests agregados** (3, y una comprobación en uno existente): el 422 del alta deja el error en sus campos y la contraseña fuera de
-  la caché de mutaciones (el desvío 4: el formulario conserva lo escrito); el 422 de la contraseña filtrada al cambiar la de otro
-  usuario, en su campo y fuera de la caché; el 422 de `password` del propio usuario, en la alerta; editarse y sacar la sucursal
-  actual: `['me']` de nuevo y las consultas `['branch', …]` invalidadas (`invalidateBranchQueries`, que no tenía test).
-* **Mutaciones**: 3 de 3 detectadas. Sin `reset()` en la edición (solo la ve el test nuevo del 422: con el 200, la página se
-  desmonta y `gcTime: 0` borra la mutación igual, así que el test de éxito no la detectaba); las sucursales inactivas que el
-  usuario ya tiene fuera de las opciones; sin `invalidateBranchQueries` al cambiar la sucursal actual (solo la ve el test nuevo).
-* **Cifras.** Corrida de `npm test` del frontend (2026-11-16): 982 tests en 49 archivos, en verde. `typecheck`, `lint` y `build`
-  sin errores ni avisos. Playwright no se corrió: el cambio no toca su caso (el 409 `USER_LAST_ADMIN`, no un 422).
+Vacío: la entrega se cerró (R-076) y todo lo que había acá pasó a su [resultado](#entrega-22a).
 
 ### 2.2b Usuarios: inactivar, reactivar y baja
 
@@ -666,3 +613,81 @@ cambiado (R-075). Evidencia: Claude Code, 5 de 5 en Edge sin ventana contra `syn
 de Playwright quedó inactivada en `syncvet_e2e`, que se vacía en cada corrida.
 
 Corrida de `npm test` del frontend (2026-11-16): 909 tests en 46 archivos, en verde.
+
+### Entrega 2.2a
+
+Estado: **COMPLETADO** el 2026-11-16 (R-076). Usuarios: listado, detalle, alta y edición, en `feature/front-2-2a-usuarios` (desde
+`feature/front-2-1-sucursales`, en el cierre de la 2.1, `0f7b80b`), sin integrar a `main` (se integra al cerrar la F2). Commits:
+`fff201c` (WIP de la implementación), `e8ecdeb` (WIP de la revisión) y el de este cierre (R-076: la documentación).
+
+**Implementación.**
+
+* **Pantallas** (todas del administrador): la tarjeta "Usuarios" en `/configuracion`; `/configuracion/usuarios` (`users.index`),
+  con la búsqueda por nombre, apellido o email, el rol (de `GET roles`), la sucursal (`['branches', 'options']`, las inactivas con
+  "(inactivada)"), "Incluir los inactivos" y la página en la URL, como `/clientes`; `/$id` (`users.show`), con los datos, los
+  roles, las sucursales con la actual marcada, el código de la ficha de veterinario (sin enlace hasta la 2.3) y "(vos)" en el
+  usuario de la sesión; `/nuevo` (`users.store`) y `/$id/editar` (`users.update`). En `features/users`. `PERMISSIONS` suma
+  `usersIndex`, `usersShow`, `usersStore`, `usersUpdate` y `rolesIndex`.
+* **Código común nuevo.** `CheckboxGroupField` en `src/components/ui` (controlado, con `Controller`), para los roles y las
+  sucursales; `branchOptionsQueryOptions` (`['branches', 'options']`, `GET branches?include_inactive=1&per_page=100`) en
+  `features/branches/api.ts`; la regla de nombres de personas en `src/lib/person-name.ts` (`PERSON_NAME_PATTERN`), que clientes
+  importa de ahí sin cambiar su comportamiento.
+* **Reglas.** Las de forma de `StoreUserRequest`, `UpdateUserRequest`, `UserMessages` y `UserPassword`, con sus mensajes
+  (`features/users/form.ts`): los nombres con `PersonName`, de 2 a 100 caracteres; el email solo ASCII, hasta 150, sin los
+  espacios de los extremos y en minúsculas; al menos un rol y una sucursal (las activas y, al editar, también las inactivas que el
+  usuario ya tiene); la contraseña con `Password::defaults()` (12 o más caracteres, mayúsculas y minúsculas, un número y un
+  símbolo) y su repetición. La contraseña: obligatoria en el alta; al editar a otro usuario, detrás de "Cambiar la contraseña", con
+  el aviso "Se van a cerrar todas sus sesiones.", y sin la clave `password` si no se cambia (ni `null`, H3); al editarse a sí
+  mismo, sin los campos, con el enlace a `/perfil`.
+* **Errores.** 422 a sus campos (`branch_ids.0` a `branch_ids`; al editarse a sí mismo, el de `password` a la alerta, porque el
+  campo no está); `USER_LAST_ADMIN`, alerta arriba; `USER_IS_VETERINARIAN`, alerta con el código de la ficha; 404 al guardar,
+  aviso y vuelta al listado.
+* **El propio usuario** (H5). Guardar invalida `['me']` y, si la sucursal actual cambió, las consultas de la sucursal
+  (`afterUserChanged`). Quitarse el rol de administrador pide antes la confirmación ("Vas a dejar de ser administrador y no vas a
+  poder volver a esta pantalla."); con el 200, `me` de nuevo y la vuelta a `/`.
+* **Contraseña fuera de la caché.** El alta y la edición con `gcTime: 0` y `reset()` en `onSettled`; los errores se tratan en las
+  opciones de `useMutation` (desvío 4).
+* **Pruebas.** Vitest: `form.test.ts`, `search.test.ts` y `UserPages.test.tsx` (con los 3 tests de la revisión). Playwright:
+  `e2e/usuarios.spec.ts` (nuevo: alta con rol y sucursal, edición de sus roles, cambio de su contraseña con el ingreso con la nueva
+  en otro contexto, donde la anterior ya no sirve, y `USER_LAST_ADMIN` al quitarse el rol el único administrador), 1 de 1. Mutaciones de la implementación: 4 de 4
+  detectadas (`password` mandado sin "Cambiar la contraseña", la contraseña visible en el propio usuario, sin invalidar `['me']` al
+  editarse a sí mismo y sin la confirmación de quitarse el rol de administrador).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Playwright siguió el caso del pedido de la entrega (alta con rol y sucursal, edición de sus roles, cambio de su contraseña con el ingreso con la nueva en otro contexto, y `USER_LAST_ADMIN` al quitarse el rol el único administrador), no el del diseño (el menú del usuario nuevo, la sesión del otro contexto cerrada y el email repetido) | Pedido de la entrega; el 422 del email y el de `branch_ids.0` están en Vitest |
+| 2 | "Inactivado" (la marca del usuario) y "(inactivada)" (la sucursal en el filtro y en el formulario), no "Inactivo" ni "(inactiva)" | El test de voseo toma "Inactiva" por el imperativo (desvío 3 de la 2.1) |
+| 3 | `USER_IS_VETERINARIAN`: la alerta muestra el código de la ficha como texto ("Ficha de veterinario: VET-…."), sin enlace; el detalle, el código sin enlace y sin "Crear la ficha de veterinario" | `/veterinarios/$id` llega en la 2.3 |
+| 4 | Los errores del alta y la edición se tratan en las opciones de `useMutation`, no en las de `mutate()`, y las variables llevan el formulario (`{ values, form }`) | `reset()` en `onSettled` (la contraseña fuera de la caché, `gcTime: 0`) descarta los callbacks de `mutate()`: el error no llegaba al formulario |
+| 5 | La regla de nombres de personas pasó a `src/lib/person-name.ts` (`PERSON_NAME_PATTERN`), y clientes la importa de ahí sin cambiar su comportamiento | Es la misma regla (`PersonName`) en clientes y usuarios |
+| 6 | Los `loader` del alta y la edición traen también los roles y las sucursales: un 403 o un 5xx de esos pedidos va a la página de error de la ruta | El formulario no se dibuja sin las casillas |
+| 7 | La columna "Nombre" del listado muestra "Apellido, Nombre" | El listado de la API ordena por apellido |
+| 8 | "Incluir los inactivos" ya está en el listado de la 2.2a (el pedido nombraba solo el rol y la sucursal) | Está en la URL de la 2.2a del diseño |
+| 9 | `e2e/support/session.ts`: `User` pasa a ser `{ email, name }` (antes, solo los tres del `DemoSeeder`) | Para entrar con el usuario creado en el caso |
+| 10 | Edge: el usuario temporal se creó con un email `@mailinator.com` y se borró por la API (`DELETE users/61`, 200; queda eliminado con el sufijo de baja, como toda baja). Dos corridas del script fallaron antes sin cambiar la demo: con `@example.com` (422: la demo tiene `EMAIL_DNS_CHECK=true` y ese dominio no tiene MX) y con el id de `admin-a` supuesto (el de los tests) | La demo valida el DNS del email; `admin-a`, `recepcion-a` y `vet-a` solo se leyeron |
+| 11 | Después de la corrida de Playwright, `e2e/support/session.ts` cambió solo en el tipo de `User` (desvío 9); no se repitió | Sin cambios de comportamiento |
+
+**Revisión (2026-11-16).** Sobre `fff201c`, contra el cierre de la 2.1 (`0f7b80b`), con el presupuesto por entrega: sin hallazgos
+que cambien el comportamiento (la contraseña nunca mandada sin "Cambiar la contraseña" ni como `null` y fuera de la caché, el
+propio usuario sin los campos y con el enlace a `/perfil`, `USER_LAST_ADMIN` y `USER_IS_VETERINARIAN`, la confirmación al quitarse
+el rol, la invalidación de `['me']` por el id del usuario de la sesión, la paridad con `StoreUserRequest`, `UpdateUserRequest`,
+`UserMessages` y `Password::defaults()`, `PERSON_NAME_PATTERN` igual carácter por carácter a la expresión que tenía clientes y los
+permisos). Corregido en `e8ecdeb` (menor): un 422 de `password` al editarse a sí mismo ("Para cambiar tu contraseña usá tu
+perfil."; no debería llegar, porque no se manda) caía en un campo que no se dibuja; ahora va a la alerta. Tres tests nuevos y una
+comprobación en uno existente: el 422 del alta con la contraseña fuera de la caché de mutaciones (el desvío 4), el 422 de la
+contraseña filtrada al cambiar la de otro usuario (en su campo y fuera de la caché), el 422 de `password` del propio usuario (en
+la alerta) y editarse sacando la sucursal actual (`['me']` de nuevo e `invalidateBranchQueries`, que no tenía test). Mutaciones: 3
+de 3 detectadas; dos de ellas, solo por los tests nuevos: sin `reset()` en la edición (con el 200, la página se desmonta y
+`gcTime: 0` borra la mutación igual, así que el test de éxito no la detectaba) y sin `invalidateBranchQueries` al cambiar la
+sucursal actual. La tercera, las sucursales inactivas que el usuario ya tiene fuera de las opciones, la detectaba un test que ya
+estaba.
+
+**Validación.** El usuario aceptó los 11 desvíos y dio la entrega por validada al pedir su cierre (R-076). Evidencia: Claude Code,
+5 de 5 en Edge sin ventana contra `syncvet.test` (el usuario temporal, borrado por la API; desvío 10), con capturas fuera del
+repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-2a`: `01-configuracion.png`, `02-listado.png`,
+`03-detalle-vet.png`, `04-alta.png`, `05-edicion-cambiar-contrasena.png`, `06-quitarse-el-rol.png` y
+`07-edicion-propia-768.png`); Playwright, `e2e/usuarios.spec.ts`, 1 de 1 (en la implementación; la revisión no tocó su caso):
+el usuario entra con la contraseña nueva en otro contexto y la anterior ya no sirve; desde
+`frontend/`, sobre `e8ecdeb`, `typecheck`, `lint` y `build` sin errores ni avisos.
+
+Corrida de `npm test` del frontend (2026-11-16): 982 tests en 49 archivos, en verde.
