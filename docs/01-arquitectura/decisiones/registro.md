@@ -1680,3 +1680,23 @@ cierre de la 2.2a, `0bf3ed0`), sin integrar a `main`: se integra al cerrar la F2
 | Siguiente | La entrega front-02 del backend (la ficha del veterinario en `GET users`), en `feature/front-02-usuarios-veterinario` (el nombre de la rama lo eligió el usuario; el diseño decía `feature/front-02-ficha-en-usuarios`), creada desde `feature/front-2-2b-usuarios` y subida, sin código hasta la autorización del usuario | Usuario |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-078 Cierre de la entrega front-02 del backend (la ficha de veterinario en el listado de usuarios) (2026-11-16)
+
+Entrega de soporte del backend pedida por la F2 del frontend (pregunta 1 de su diseño, R-074), en
+`feature/front-02-usuarios-veterinario` (desde `feature/front-2-2b-usuarios`, en el cierre de la 2.2b, `85ebf3a`), sin integrar a
+`main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-front-02).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `GET users` trae `veterinarian` (`id` y `code`, o `null` sin ficha o con la ficha eliminada): la clave pasó de `ShowUserResource` a `UserResource`, al final de sus claves, y `UserController::RELATIONS` suma `veterinarian` (sin N+1). El detalle, el alta, la edición y `me` conservan sus claves y su orden. Sin rutas, permisos ni migraciones (78, 135, 36); sin cambios en `error_code` ni códigos HTTP | Diseño (R-074) |
+| `FictitiousDocumentsTest` | Fallaba en la rama desde la 2.1 por `'1234567'` (7 dígitos, rango de cédulas reales) como teléfono corto en `frontend/src/features/branches/form.test.ts`; corregido en `f0218e6` con `'9'.repeat(7)`, armado en el código, sin cambiar lo que prueba | Usuario (pedido) |
+| Presupuesto por entrega | Las entregas del frontend corren también `php artisan test --filter=FictitiousDocumentsTest`, que revisa `frontend/src` y `frontend/e2e` ([`CLAUDE.md`](../../../CLAUDE.md) de la raíz, §2, `f0218e6`) | Usuario |
+| Desvíos | Aceptados: el test sin N+1 hace un pedido antes de contar (la caché de permisos de Spatie); `countQueries` quedó en el trait `Tests\Concerns\InspectsQueries` y las tres copias de la deuda 21 siguen; además, el desvío 1 del [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-front-02) (`FictitiousDocumentsTest`, abajo) | Usuario: aceptados |
+| Revisión | Sin hallazgos, en la misma sesión del cierre, sobre el WIP `bf98d8d` (diff con `85ebf3a`): la forma del diseño, sin N+1 (`with`), la ficha eliminada como `null` (`SoftDeletes`), `UserResource` usado solo en `UserController`, las claves del detalle y de `me` sin cambios, y los tests que fallarían con la regla rota (las 3 mutaciones de la implementación). `composer test:fast`: 1467 casos, 1451 pasan, 16 omitidos | Revisión |
+| Validación | El usuario dio la entrega por validada (`composer test` en SQLite, Newman de usuarios y la revisión) y pidió el cierre. Desde `backend/`, `composer test` en serie sobre `f0218e6`: 1467 casos, 1451 pasan, 16 omitidos (solo MySQL), 14303 aserciones. Newman de la colección de usuarios (en la implementación, sobre `bf98d8d`; el código del backend no cambió después): 54 pedidos y 138 aserciones, sin fallas. Desde `frontend/`, sobre `f0218e6`: `npm test`, 996 tests en 49 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos | Usuario |
+| Siguiente | La entrega 2.3 del frontend (veterinarios), en `feature/front-2-3-veterinarios`, creada desde `feature/front-02-usuarios-veterinario` (en el cierre de front-02) y subida, empezando por pasar `dialogError` a código común (R-077); sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Rutas, permisos, migraciones, `error_code`, códigos HTTP y las respuestas del detalle, el alta y la edición del
+usuario y de `me`.

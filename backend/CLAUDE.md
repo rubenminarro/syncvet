@@ -45,8 +45,11 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   `main` con la F0 del frontend (R-063). La entrega de soporte front-01 (el dueño en `GET patients`, pedida por la F1 del
   frontend) está cerrada (R-065) e integrada a `main` con la F1 del frontend (R-072). La entrega 1.2 del frontend (R-067) cambió el
   backend en un commit aparte: el choque con un índice único de `clients` responde 422 en su campo, nunca 500 (§6.1); la 1.3a
-  (R-068), lo mismo con el microchip de `patients` (deuda 22, §6.2). Sigue el frontend (F2 y F3, R-058) y, después de la F3, la
-  FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F1 del frontend, 1463 casos
+  (R-068), lo mismo con el microchip de `patients` (deuda 22, §6.2). La entrega de soporte front-02 (la ficha de veterinario en
+  `GET users`, pedida por la F2 del frontend) está cerrada (R-078), sin integrar a `main` (se integra al cerrar la F2). Sigue el
+  frontend (F2 y F3, R-058) y, después de la F3, la
+  FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de front-02, 1467 casos (14303
+  aserciones en SQLite, 16 omitidos de MySQL); la del cierre de la F1 del frontend, 1463 casos
   (14274 aserciones en SQLite y 14360 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de

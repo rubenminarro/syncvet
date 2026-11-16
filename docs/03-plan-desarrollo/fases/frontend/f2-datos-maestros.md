@@ -137,8 +137,8 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 | 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | COMPLETADO (R-075, [resultado](#entrega-21)) |
 | 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios`, desde `feature/front-2-1-sucursales` | COMPLETADO (R-076, [resultado](#entrega-22a)) |
 | 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios`, desde `feature/front-2-2a-usuarios` | COMPLETADO (R-077, [resultado](#entrega-22b)) |
-| front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-usuarios-veterinario`, desde `feature/front-2-2b-usuarios` (el nombre, del usuario en R-077) | APROBADA (R-074) |
-| 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios` | APROBADA (R-074) |
+| front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-usuarios-veterinario`, desde `feature/front-2-2b-usuarios` (el nombre, del usuario en R-077) | COMPLETADO (R-078, [resultado](#entrega-front-02)) |
+| 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios`, desde `feature/front-02-usuarios-veterinario` (creada y subida en el cierre de front-02, R-078) | APROBADA (R-074) |
 | 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios` | APROBADA (R-074) |
 | 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra) | No | `feature/front-2-5-configuracion` | APROBADA (R-074) |
 | 2.6 | Auditoría: listado con filtros (fechas con y sin hora en Asunción) y detalle de los cambios | No | `feature/front-2-6-auditoria` | APROBADA (R-074) |
@@ -316,28 +316,7 @@ de la colección de usuarios.
 
 #### Pendiente para el cierre (front-02)
 
-Implementada (WIP, 2026-11-16): `veterinarian` pasó de `ShowUserResource` a `UserResource` (en el mismo lugar de las claves) y
-`UserController::RELATIONS` suma `veterinarian`. Tests nuevos: `tests/Feature/Users/UserVeterinarianTest.php` (con y sin ficha, con
-la ficha eliminada, sin N+1 con 1 y 5 usuarios, y las claves del listado, el detalle, el alta y la edición) y, en `MeTest`, las
-claves de `me`. Mutaciones (3, todas detectadas): sin `veterinarian` en el `with` (6 → 10 consultas), la ficha cambiada en el detalle
-(el test de las claves) y la relación con `withTrashed()` (la ficha eliminada). Newman de usuarios: 54 pedidos y 138 aserciones,
-sin fallas (dos aserciones nuevas, pedidos 19 y 44). `composer test`: 1467 casos, 1450 pasan, 16 omitidos (solo MySQL) y **1 falla
-ajena a la entrega** (abajo).
-
-Desvíos y notas:
-
-* **`FictitiousDocumentsTest` falla en la rama desde la 2.1, no por front-02:** `frontend/src/features/branches/form.test.ts:95`
-  usa `'1234567'` (7 dígitos, el rango de las cédulas reales) como teléfono demasiado corto; llegó con `626759b` (WIP 2.1) y está
-  también en `feature/front-2-1-sucursales`, `feature/front-2-2a-usuarios` y `feature/front-2-2b-usuarios`. Las entregas del
-  frontend no corren la suite del backend, así que no se vio. **Decisión del usuario:** cambiar el caso del test del frontend (por
-  ejemplo, un teléfono corto con otra cantidad de dígitos, o uno con letras) en esta rama o en una aparte; no se tocó.
-* El test sin N+1 hace un pedido antes de contar: el primero llena la caché de permisos de Spatie (2 consultas más) y no es N+1;
-  igual que `AppointmentQueueTest`.
-* `countQueries` quedó como método del trait `Tests\Concerns\InspectsQueries` (el test nuevo lo usa); las tres copias privadas
-  de la deuda 21 siguen: se unifican cuando se toquen esos tests.
-* El alta y la edición ya respondían `veterinarian` (usan `ShowUserResource`): no cambian. `me` (`MeResource`) no se tocó.
-* Falta del cierre: el registro (R-…), el roadmap, el handoff, el estado del `CLAUDE.md` de la raíz y del de backend §1 (78 rutas,
-  sin cambios; los casos de la suite) y la validación del usuario.
+Vacío: la entrega se cerró (R-078) y todo lo que había acá pasó a su [resultado](#entrega-front-02).
 
 ### 2.3 Veterinarios
 
@@ -777,5 +756,44 @@ anotada, sin otro test (el 404 solo se vería contra la API real).
 `USER_IN_USE` simulado, desvío 6), con capturas fuera del repositorio, en la PC de la validación (entre ellas
 `04-baja-en-uso.png`); Playwright, `e2e/usuarios-estado.spec.ts`, 1 de 1 (en la implementación; la revisión no tocó su caso);
 desde `frontend/`, sobre `3265903`, `typecheck`, `lint` y `build` sin errores ni avisos.
+
+Corrida de `npm test` del frontend (2026-11-16): 996 tests en 49 archivos, en verde.
+
+### Entrega front-02
+
+Estado: **COMPLETADO** el 2026-11-16 (R-078). Soporte del backend: la ficha de veterinario en `GET users`, en
+`feature/front-02-usuarios-veterinario` (desde `feature/front-2-2b-usuarios`, en el cierre de la 2.2b, `85ebf3a`), sin integrar a
+`main` (se integra al cerrar la F2). Commits: `bf98d8d` (WIP de la implementación), `f0218e6` (el teléfono de ejemplo de
+`branches/form.test.ts` y el presupuesto por entrega) y el de este cierre (R-078: la documentación).
+
+**Implementación.**
+
+* `veterinarian` (`id` y `code`, o `null` sin ficha o con la ficha eliminada) pasó de `ShowUserResource` a `UserResource`, al final
+  de sus claves (el detalle conserva su orden), y `UserController::RELATIONS` suma `veterinarian`: el listado la carga con el `with`,
+  sin N+1. El alta y la edición ya la respondían; `me` (`MeResource`) no se tocó. Sin rutas, permisos, migraciones ni `error_code`
+  nuevos (78, 135, 36).
+* **Pruebas.** `tests/Feature/Users/UserVeterinarianTest.php` (nuevo): con y sin ficha y con la ficha eliminada; sin N+1 con 1 y 5
+  usuarios (después de un pedido que llena la caché de permisos de Spatie, como `AppointmentQueueTest`); las claves del listado, el
+  detalle, el alta y la edición. `MeTest`: las claves de `me`. `countQueries` quedó en el trait `Tests\Concerns\InspectsQueries`
+  (las tres copias de la deuda 21 siguen: se unifican cuando se toquen esos tests). Mutaciones: 3 de 3 detectadas (sin
+  `veterinarian` en el `with`, 6 → 10 consultas; la ficha cambiada en el detalle; la relación con `withTrashed()`). Postman: dos
+  aserciones en la colección de usuarios (pedidos 19 y 44).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | `FictitiousDocumentsTest` fallaba en la rama desde la 2.1 (`626759b`) por `'1234567'` como teléfono corto en `frontend/src/features/branches/form.test.ts` (7 dígitos, el rango de las cédulas reales). Corregido en esta rama (`f0218e6`) con `'9'.repeat(7)`, armado en el código, sin cambiar lo que prueba | Las entregas del frontend no corrían la suite del backend; desde `f0218e6`, el presupuesto por entrega del `CLAUDE.md` de la raíz les suma ese test (pedido del usuario) |
+| 2 | El test sin N+1 hace un pedido antes de contar | El primero llena la caché de permisos de Spatie (2 consultas más) y no es N+1; igual que `AppointmentQueueTest` |
+| 3 | `countQueries` quedó como método del trait `Tests\Concerns\InspectsQueries`; las tres copias privadas de la deuda 21 siguen | Se unifican cuando se toquen esos tests |
+
+**Revisión (2026-11-16).** Sobre `bf98d8d` (diff con `85ebf3a`), con el presupuesto por entrega: sin hallazgos. La ficha sale en
+el listado con la forma del diseño, cargada con el `with` (`UserResource` se usa solo en `UserController`); la ficha eliminada,
+`null` (`Veterinarian` con `SoftDeletes`); el detalle, el alta, la edición y `me`, con las mismas claves en el mismo orden; los
+tests fallan con la regla rota (las 3 mutaciones de la implementación). `composer test:fast`: 1467 casos, 1451 pasan y 16
+omitidos (solo MySQL), sin fallas.
+
+**Validación.** El usuario dio la entrega por validada (`composer test` en verde, Newman de usuarios y la revisión) y aceptó los 3 desvíos al pedir el cierre (R-078). Evidencia: desde `backend/`, `composer test` en serie
+sobre `f0218e6`, 1467 casos, 1451 pasan, 16 omitidos (solo MySQL) y 14303 aserciones; Newman de la colección de usuarios, 54
+pedidos y 138 aserciones, sin fallas (en la implementación, sobre `bf98d8d`; el código del backend no cambió después); desde
+`frontend/`, sobre `f0218e6`, `typecheck`, `lint` y `build` sin errores ni avisos.
 
 Corrida de `npm test` del frontend (2026-11-16): 996 tests en 49 archivos, en verde.
