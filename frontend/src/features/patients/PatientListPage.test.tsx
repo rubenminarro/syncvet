@@ -3,7 +3,7 @@ import { http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { failure, success } from '../../test/api';
 import { pagination } from '../../test/clients';
-import { listPatient, SPECIES } from '../../test/patients';
+import { listPatient, patientDetail, SPECIES } from '../../test/patients';
 import { meFor, ROLE_PERMISSIONS, type Role } from '../../test/roles';
 import { server } from '../../test/server';
 import { meHandler, renderApp, sessionFor } from '../../test/session';
@@ -177,6 +177,34 @@ describe('/pacientes: listado', () => {
     expect(history.length).toBe(entries);
     // El espacio escrito al final sigue en el campo.
     expect(searchInput().value).toBe('Laura ');
+  });
+
+  it('un clic en un resultado durante la espera va al detalle: la búsqueda pendiente no vuelve al listado (deuda 23)', async () => {
+    const { api, history } = await openList();
+    // El detalle no responde hasta que el test lo suelta: la navegación queda pendiente mientras se cumple la espera.
+    let release: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/patients/:id', async () => {
+        await answered;
+
+        return success(patientDetail());
+      }),
+    );
+
+    vi.useFakeTimers();
+    fireEvent.change(searchInput(), { target: { value: 'Firu' } });
+    fireEvent.click(screen.getByText('Firulais', { selector: 'a' }));
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    vi.useRealTimers();
+    release();
+
+    await screen.findByText('Firulais', { selector: 'h2' });
+    expect(history.location.pathname).toBe('/pacientes/1');
+    expect(history.location.search).toBe('');
+    expect(api.calls.filter((params) => params.has('search'))).toHaveLength(0);
   });
 
   it('la especie va a la URL y a la API, vuelve a la página 1 y "Atrás" la saca', async () => {

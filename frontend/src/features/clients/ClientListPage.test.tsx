@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { delay, http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { failure, success } from '../../test/api';
-import { COMPANY, pagination, PERSON } from '../../test/clients';
+import { COMPANY, detail, pagination, PERSON } from '../../test/clients';
 import { meFor } from '../../test/roles';
 import { server } from '../../test/server';
 import { meHandler, renderApp, sessionFor } from '../../test/session';
@@ -192,6 +192,35 @@ describe('/clientes: listado', () => {
       expect(history.location.search).toBe('?buscar=LauraM');
     });
     expect(searchInput().value).toBe('LauraM');
+  });
+
+  it('un clic en un resultado durante la espera va al detalle: la búsqueda pendiente no vuelve al listado (deuda 23)', async () => {
+    const { api, history } = await openList();
+    await screen.findByText('Laura Martínez', { selector: 'a' });
+    // El detalle no responde hasta que el test lo suelta: la navegación queda pendiente mientras se cumple la espera.
+    let release: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/clients/:id', async () => {
+        await answered;
+
+        return success(detail(PERSON));
+      }),
+    );
+
+    vi.useFakeTimers();
+    fireEvent.change(searchInput(), { target: { value: 'Laura' } });
+    fireEvent.click(screen.getByText('Laura Martínez', { selector: 'a' }));
+    await act(() => vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS * 2));
+    vi.useRealTimers();
+    release();
+
+    await screen.findByText('Laura Martínez', { selector: 'h2' });
+    expect(history.location.pathname).toBe(`/clientes/${String(PERSON.id)}`);
+    expect(history.location.search).toBe('');
+    expect(api.calls.filter((params) => params.has('search'))).toHaveLength(0);
   });
 
   it('una búsqueda vieja que responde tarde no pisa a la nueva', async () => {

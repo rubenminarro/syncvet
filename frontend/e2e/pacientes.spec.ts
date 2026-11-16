@@ -34,7 +34,6 @@ function patientIdOf(page: Page): number {
 async function openLauraMartinez(page: Page) {
   await page.goto('/clientes');
   await page.getByLabel('Buscar clientes').fill('99100001');
-  await expect(page).toHaveURL(/buscar=99100001$/);
   await page.getByRole('link', { name: 'Laura Martínez' }).click();
   await expect(page.getByRole('heading', { name: 'Laura Martínez' })).toBeVisible();
 }

@@ -9,9 +9,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F1 (clientes y pacientes), COMPLETADA el 2026-11-16 (R-072) e integrada a `main`, con front-01 (R-065) y sus entregas 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1)). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | Ninguna en curso. La última, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
-| Siguiente | La entrega `chore/…` de las tareas 3b y 3c del [handoff](../docs/03-plan-desarrollo/handoff.md#próximas-tareas) (Playwright que reutiliza `syncvet_e2e`; la colección de especies que borra lo que crea, la limpieza de la base de desarrollo, el diálogo de baja con `PATIENT_IN_USE` y `useSingleAction` en `src/lib/hooks`); después, el análisis y el diseño de la F2 (datos maestros) |
-| Tests | Vitest: 800 tests en 42 archivos, en verde (corrida del cierre de la F1, el 2026-11-16, registrada en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 22 casos contra `syncvet_e2e`, 22 de 22 en la corrida completa del cierre de la F1 |
+| Entrega | `chore/post-f1` (R-073), sin integrar a `main`: la preparación de Playwright que reutiliza `syncvet_e2e` si las migraciones no cambiaron, la espera de la búsqueda que se cancela al navegar (deuda 23) y el límite propio del test de voseo (deuda 24). Antes, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
+| Siguiente | El merge de `chore/post-f1`; lo que queda de la tarea 3c del [handoff](../docs/03-plan-desarrollo/handoff.md#próximas-tareas) (el diálogo de baja con `PATIENT_IN_USE` y `useSingleAction` en `src/lib/hooks`), a decidir por el usuario; después, el análisis y el diseño de la F2 (datos maestros) |
+| Tests | Vitest: 808 tests en 42 archivos, en verde (corrida de `chore/post-f1`, el 2026-11-16, registrada en R-073 y en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 22 casos contra `syncvet_e2e`, 22 de 22 en 3,9 min, reutilizando la base (4,1 min al cerrar la F1, recreándola) en la corrida completa de `chore/post-f1` |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -29,7 +29,7 @@ Desde `frontend/`, con Node 26 (`.nvmrc`; `engine-strict` rechaza otra versión 
 | `npm run lint` | ESLint, sin avisos (`--max-warnings 0`) |
 | `npm run format` | Prettier sobre todo el proyecto (`format:check` solo revisa) |
 | `npm test` | Vitest, una vez (`test:watch`, en modo observación) |
-| `npm run test:e2e` | Playwright contra el backend real y la base `syncvet_e2e`, recreada en cada corrida (levanta el backend en `:8010` y Vite en `:5174`); la contraseña de los usuarios del `DemoSeeder` se genera en cada corrida y queda en `frontend/e2e/.e2e-credentials` (ignorado por Git), para entrar a mano a `syncvet_e2e`; qué necesita, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright) |
+| `npm run test:e2e` | Playwright contra el backend real y la base `syncvet_e2e`, que queda como recién creada en cada corrida: si las migraciones no cambiaron (su huella, en `frontend/e2e/.e2e-migrations`), se vacían sus tablas y se vuelve a sembrar, sin recrearla; `E2E_FRESH=1` la recrea siempre (R-073). Levanta el backend en `:8010` y Vite en `:5174`; la contraseña de los usuarios del `DemoSeeder` se genera en cada corrida y queda en `frontend/e2e/.e2e-credentials` (ignorado por Git), para entrar a mano a `syncvet_e2e`; qué necesita, en [`setup.md`](../docs/04-desarrollo/setup.md#pruebas-de-punta-a-punta-playwright) |
 
 Antes de dar algo por terminado: `typecheck`, `lint`, `test` y `build`, los cuatro sin errores ni avisos. Las dependencias se
 verifican en npm antes de instalarlas y se auditan con `npm audit`.
@@ -112,7 +112,9 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
     `src/lib/hooks/`, solo con primitivos), sin los espacios de los extremos, con `replace: true` y de vuelta en la página 1; el
     filtro y la página cambian la URL con historial ("Atrás" vuelve). El campo toma lo de la URL **solo si el cambio vino de
     afuera** ("Atrás", un enlace): no si es lo que el campo mandó y todavía no llegó, ni si coincide con lo escrito sin los
-    espacios de los extremos (así no se pierden el espacio de "Laura " ni la tecla escrita mientras la URL cambiaba).
+    espacios de los extremos (así no se pierden el espacio de "Laura " ni la tecla escrita mientras la URL cambiaba). Si sale una
+    navegación a otra página (un clic en un resultado) mientras corre la espera, la espera se cancela y la URL no cambia (deuda 23,
+    R-073): `useSearchText` compara la ruta de `router.latestLocation`, que cambia apenas sale la navegación, con la del listado.
   * **La consulta** usa `placeholderData: keepPreviousData` (una respuesta vieja no pisa a la nueva: cada búsqueda tiene su
     clave) y 20 por página, fijo. Mientras llega, `SearchField` recibe `busy`: el indicador y "Buscando…" en su región
     `role="status"`, que está siempre en el DOM.
@@ -120,7 +122,7 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
     página no existe." con el `firstPageLink` del listado (un `<Link>` con la misma búsqueda, sin `pagina`), no el vacío.
   * **Tests**: la espera con relojes falsos y los 300 ms escritos en el test (299 ms sin URL ni pedido, 300 ms con uno); el
     espacio final ("Laura ", pausa, "M"), la tecla durante la navegación, la respuesta fuera de orden, "Buscando…", la página
-    fuera de rango y `?buscar=1e3`.
+    fuera de rango, `?buscar=1e3` y el clic en un resultado durante la espera (R-073).
   * Un **detalle** valida su id en el `loader` (sin llamar a la API si no es un entero positivo) y convierte el 404 de la API en
     `notFound()`, con el `notFoundComponent` de la ruta, dentro del layout.
 * **Contraseñas fuera de la caché de mutaciones** (0.2b): una mutación que manda una contraseña (`/ingresar`, `/perfil`) va con
@@ -251,8 +253,6 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 |---|---|---|
 | 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta una vez por paquete: 9 al cerrar la F1); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
 | 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
-| 23 | Listados: un clic en un enlace durante los 300 ms de la espera de la búsqueda puede volver al listado (el cambio de la URL pisa la navegación); visto en Playwright con la PC cargada, no confirmado a mano | Baja |
-| 24 | El test de voseo recorre todo `src/` con el límite de 5 s de Vitest: con la PC cargada, lo pasó (5,7 s; solo, 0,5 s) | Baja |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
 [resultado](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#entrega-01).

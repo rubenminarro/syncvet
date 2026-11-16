@@ -1299,3 +1299,13 @@ las reglas de forma con los mensajes de la API, un solo envío y el 422 por camp
 (`api.getBlob`). `/configuracion` sigue provisoria (solo el administrador) hasta la F2.
 
 Corrida de `npm test` del frontend (2026-11-16): 800 tests en 42 archivos, en verde.
+
+### Después del cierre: entrega `chore/post-f1`
+
+En `chore/post-f1`, desde `main` en `7164c20` (el merge de la F1), sin cambios en la API; el detalle, en
+[R-073](../../../01-arquitectura/decisiones/registro.md#r-073-entrega-chorepost-f1-playwright-más-rápido-la-colección-de-especies-que-limpia-y-las-deudas-23-y-24-2026-11-16).
+La preparación de Playwright reutiliza `syncvet_e2e` si las migraciones no cambiaron (tarea 3b del handoff); la colección de
+especies borra lo que la API permite y deja inactiva la especie usada (3c); `useSearchText` cancela la espera pendiente al navegar
+(deuda 23) y el test de voseo tiene su límite de 30 s (deuda 24). Playwright completo: 22 de 22 en 3,9 min, reutilizando la base (4,1 min al cerrar la F1, recreándola).
+
+Corrida de `npm test` del frontend (2026-11-16): 808 tests en 42 archivos, en verde.

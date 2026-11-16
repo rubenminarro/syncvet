@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 1: validación de especies y razas",
-        "description": "Validación manual de especies y razas (FASE 1, entrega 1.4). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera los nombres, el documento y el email de la corrida (rango propio, 400000 a 499998). La contraseña va en el Environment \"SyncVet local\" (demo_password). Ver docs/05-pruebas/guia-postman.md.",
+        "description": "Validación manual de especies y razas (FASE 1, entrega 1.4). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder y las migraciones al día. Se puede correr más de una vez sin recrear la base: el primer request genera los nombres, el documento y el email de la corrida (rango propio, 400000 a 499998). La contraseña va en el Environment \"SyncVet local\" (demo_password). Al final borra lo que creó cuando la API lo permite (la raza Fila, la especie Erizo y la del nombre liberado, el paciente y su dueña); la especie usada por el paciente (\"Hurón doméstico <run>\") y su raza quedan inactivas, porque la baja cuenta también los pacientes borrados (paso 40). Ver docs/05-pruebas/guia-postman.md.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -112,6 +112,57 @@
                 "body": {
                     "mode": "raw",
                     "raw": "{\n    \"email\": \"vet-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01c Login del administrador (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('Devuelve el token', () => pm.expect(json.data.token).to.be.a('string').and.not.empty);",
+                            "pm.collectionVariables.set('token_admin', json.data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
                     "options": {
                         "raw": {
                             "language": "json"
@@ -2251,6 +2302,140 @@
                     ]
                 }
             }
+        },
+        {
+            "name": "38 Limpieza: baja del paciente (administrador)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Lo que crea la colección se borra cuando la API lo permite (tarea 3c del handoff): el paciente y su dueña.",
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "39 Limpieza: baja de la dueña (administrador)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{owner_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{owner_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "40 La especie que usó un paciente borrado sigue sin baja → 409 (queda inactiva)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// La baja de una especie o de una raza cuenta también los pacientes borrados (SpeciesService y BreedService, con",
+                            "// withTrashed): la especie de esta corrida (\"Hurón doméstico <run>\") y su raza (Albino) no se pueden borrar y quedan",
+                            "// inactivas (pasos 24 y 25), fuera de los listados y de las altas. Es lo único que la colección deja en la base.",
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "pm.test('error_code SPECIES_IN_USE', () => pm.expect(pm.response.json().error_code).to.eql('SPECIES_IN_USE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species/{{huron_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species",
+                        "{{huron_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
         }
     ],
     "variable": [
@@ -2271,6 +2456,11 @@
         },
         {
             "key": "token_vet",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_admin",
             "value": "",
             "type": "string"
         },

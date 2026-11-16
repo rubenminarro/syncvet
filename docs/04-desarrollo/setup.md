@@ -36,7 +36,8 @@ copiar `frontend/.env.example` a `frontend/.env` y cambiarlo. El detalle, en [`f
 
 ### Pruebas de punta a punta (Playwright)
 
-Desde la F0.2b, contra el backend real y la base **`syncvet_e2e`** (MySQL), que se borra y se vuelve a crear en cada corrida:
+Desde la F0.2b, contra el backend real y la base **`syncvet_e2e`** (MySQL), que cada corrida deja como recién creada (desde la
+entrega `chore/post-f1`, R-073, sin recrearla si las migraciones no cambiaron):
 
 ```bash
 cd frontend
@@ -54,8 +55,12 @@ Qué necesita:
   `E2E_BROWSER_CHANNEL=chrome npm run test:e2e`.
 
 La preparación (`frontend/e2e/global-setup.ts`) **se niega a correr si la base no es `syncvet_e2e`**: controla el nombre pedido y
-el que resuelve Laravel con ese entorno (una configuración cacheada daría otro). Después hace `migrate:fresh --seed` y el
-`DemoSeeder` con una contraseña generada en cada corrida (`DEMO_PASSWORD` solo para esa ejecución; la de `backend/.env` no se
+el que resuelve Laravel con ese entorno (una configuración cacheada daría otro). Después compara la huella de
+`backend/database/migrations` (SHA-256 de los nombres y el contenido) con la de la última preparación que terminó bien
+(**`frontend/e2e/.e2e-migrations`**, ignorado por Git): si es la misma, reutiliza la base, vacía sus tablas (menos `migrations`)
+y corre `db:seed`; si no (o con **`E2E_FRESH=1`**), hace `migrate:fresh --seed`, como antes. La huella se borra antes de tocar la
+base y se guarda al terminar: una preparación cortada a la mitad hace que la próxima la recree. Recrear tarda unos 30 s más
+(R-073). En los dos casos sigue el `DemoSeeder` con una contraseña generada en cada corrida (`DEMO_PASSWORD` solo para esa ejecución; la de `backend/.env` no se
 usa), ingresa con ella en el backend de `:8010` (si no puede, ese backend no usa la base recién preparada y se detiene) y crea por
 la API la sucursal "Sucursal Norte" para `admin-a`. No toca la base `syncvet` de desarrollo.
 

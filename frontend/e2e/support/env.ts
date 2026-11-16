@@ -12,3 +12,6 @@ export const SECOND_BRANCH = { code: 'NOR', name: 'Sucursal Norte' } as const;
 
 /** La contraseña de la última corrida, para entrar a mano a syncvet_e2e (ignorado por Git: frontend/.gitignore). */
 export const CREDENTIALS_FILE = new URL('../.e2e-credentials', import.meta.url);
+
+/** La huella de las migraciones de la última preparación que terminó bien (ignorado por Git: frontend/.gitignore). */
+export const FINGERPRINT_FILE = new URL('../.e2e-migrations', import.meta.url);
