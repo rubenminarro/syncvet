@@ -60,6 +60,7 @@ test('subir la foto, verla al recargar, reemplazarla y quitarla', async ({ page 
   try {
     await page.goto('/clientes');
     await page.getByLabel('Buscar clientes').fill('99100001');
+    await expect(page).toHaveURL(/buscar=99100001$/);
     await page.getByRole('link', { name: 'Laura Martínez' }).click();
     await page.getByRole('link', { name: 'Nuevo paciente' }).click();
     await field(page, 'Nombre').fill('Nube');

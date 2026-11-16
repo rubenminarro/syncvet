@@ -5,10 +5,14 @@ const ROLES = [
   {
     role: 'administrador',
     user: USERS.admin,
-    menu: ['Inicio', 'Clientes', 'Pacientes', 'Configuración'],
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Configuración'],
   },
-  { role: 'recepcionista', user: USERS.recepcion, menu: ['Inicio', 'Clientes', 'Pacientes'] },
-  { role: 'veterinario', user: USERS.vet, menu: ['Inicio', 'Clientes', 'Pacientes'] },
+  {
+    role: 'recepcionista',
+    user: USERS.recepcion,
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies'],
+  },
+  { role: 'veterinario', user: USERS.vet, menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies'] },
 ] as const;
 
 for (const { role, user, menu } of ROLES) {
