@@ -1626,3 +1626,22 @@ recomendación.
 | Rama de la 2.1 | `feature/front-2-1-sucursales`, creada desde `docs/front-f2-diseno` y subida, sin código hasta la autorización del usuario | Usuario |
 
 **Qué no cambió.** Código, tests, rutas, permisos y colecciones: la aprobación solo documenta.
+
+# R-075 Cierre de la entrega 2.1 del frontend (sucursales y depósitos) (2026-11-16)
+
+Primera entrega de la F2 del frontend (R-074), en `feature/front-2-1-sucursales` (desde `docs/front-f2-diseno` en `16aec1d`), sin
+integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-21).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/configuracion` como página de entrada (una tarjeta por sección), `/configuracion/sucursales` (listado, alta con su depósito por defecto, detalle con sus depósitos y edición) y los depósitos en diálogos del detalle, solo para el administrador; marcar por defecto, activar e inactivar, con la por defecto que no se desmarca ni se inactiva (409 y 422 en el diálogo); cada cambio invalida `['me']` (el selector de la barra). Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Tarea 3c | Resuelta: `useSingleAction` en `src/lib/hooks/use-single-action.ts`, sin cambios de comportamiento, con sus tests (desvío 6 de la 1.5); el diálogo de baja del paciente con `PATIENT_IN_USE` muestra solo el mensaje de la API (desvío 12 de la 1.5) | Usuario (pedido, R-074) |
+| Desvíos | Los 1 a 9, aceptados: entre ellos, `useSingleAction` sacado en un commit propio y no movido (el hook no tenía archivo propio), "Inactivada" e "Inactivado" por el test de voseo, Playwright con el caso del pedido de la entrega y 5 controles en Edge | Usuario |
+| Desvío 10 | Cambiado: en la edición de una sucursal inactiva, "Sucursal por defecto" queda sin marcar y deshabilitada, con "Activá la sucursal para marcarla como la por defecto." (antes, habilitada, con el 422 de la API en el campo). La misma regla para el depósito inactivo, con "Activá el depósito para marcarlo como el por defecto." | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `7de78f3`, `7e27822` y `626759b`: sin hallazgos que cambien el comportamiento. Corregidos en `b30db49`: el desvío 10 y 6 tests que faltaban (doble clic en la confirmación de la sucursal y en "Crear el depósito", 404 en una acción de la sucursal y de un depósito, el teclado en el diálogo de depósito y la sucursal inactiva) | Revisión |
+| Mutaciones de la revisión | 3: sin los tests nuevos, las tres sobrevivían; con ellos, sin la guarda de `StatusDialog` y sin la vuelta al listado de `useBranchGone`, detectadas. Sin la guarda de `WarehouseDialog`, sigue sin detectarse: es equivalente en jsdom (el clic llama a `setErrors`, React dibuja el botón en espera en el mismo evento y `Button` ignora el segundo clic); la `ref` queda como segunda defensa | Revisión |
+| Validación | El usuario dio la entrega por validada. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test`, con la demo sin cambios; Playwright, `e2e/sucursales.spec.ts` y el caso de `/configuracion` de `permisos.spec.ts`, 2 de 2. Desde `frontend/`: `npm test`, 909 tests en 46 archivos, en verde (sobre `b30db49`); `typecheck`, `lint` y `build` sin errores ni avisos; el test del depósito inactivo (`a31b6ef`), con `vitest related` (393 tests en 19 archivos) y ESLint de lo tocado | Usuario |
+| Siguiente | La entrega 2.2a (usuarios: listado, detalle, alta y edición), en `feature/front-2-2a-usuarios`, creada desde `feature/front-2-1-sucursales` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.

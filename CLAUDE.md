@@ -129,6 +129,7 @@ de una PC.
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
 * **Frontend:** F0 (base y login, R-063) y F1 (clientes y pacientes, R-072) completadas e integradas a `main`, con sus entregas de
   soporte del backend (front-00 y front-01), y la entrega `chore/post-f1` (R-073), integrada a `main` en `1daee8c`. El diseño
-  de la F2 (datos maestros) está aprobado (R-074), en `docs/front-f2-diseno`, y sigue la entrega 2.1; el detalle, en
+  de la F2 (datos maestros) está aprobado (R-074), en `docs/front-f2-diseno`; la entrega 2.1 (sucursales y depósitos) está
+  cerrada (R-075) en `feature/front-2-1-sucursales`, sin integrar a `main`, y sigue la 2.2a en `feature/front-2-2a-usuarios`; el detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

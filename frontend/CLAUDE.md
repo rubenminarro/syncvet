@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), COMPLETADA el 2026-11-16 (R-072) e integrada a `main`, con front-01 (R-065) y sus entregas 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1)). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | `chore/post-f1` (R-073), integrada a `main` en `1daee8c`: la preparación de Playwright que reutiliza `syncvet_e2e` si las migraciones no cambiaron, la espera de la búsqueda que se cancela al navegar (deuda 23) y el límite propio del test de voseo (deuda 24). Antes, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
-| Siguiente | La F2, datos maestros, con el diseño aprobado (R-074) en [`f2-datos-maestros.md`](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md): la entrega 2.1 en `feature/front-2-1-sucursales` (sucursales y depósitos, con lo que queda de la tarea 3c: `useSingleAction` en `src/lib/hooks` y el diálogo de baja con `PATIENT_IN_USE`) |
-| Tests | Vitest: 808 tests en 42 archivos, en verde (corrida de `chore/post-f1`, el 2026-11-16, registrada en R-073 y en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 22 casos contra `syncvet_e2e`, 22 de 22 en 3,9 min, reutilizando la base (4,1 min al cerrar la F1, recreándola) en la corrida completa de `chore/post-f1` |
+| Fase | F2 (datos maestros), EN CURSO, con el diseño aprobado (R-074) en [`f2-datos-maestros.md`](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md). Antes, F1 (clientes y pacientes), COMPLETADA el 2026-11-16 (R-072) e integrada a `main`, con front-01 (R-065) y sus entregas 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1)). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | La 2.1 (sucursales y depósitos, con la tarea 3c), COMPLETADO (R-075) en `feature/front-2-1-sucursales`, sin integrar a `main` (se integra al cerrar la F2): `/configuracion` como página de entrada y `/configuracion/sucursales`, solo para el administrador ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-21)). Antes, `chore/post-f1` (R-073), integrada a `main` en `1daee8c`: la preparación de Playwright que reutiliza `syncvet_e2e` si las migraciones no cambiaron, la espera de la búsqueda que se cancela al navegar (deuda 23) y el límite propio del test de voseo (deuda 24). Antes, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
+| Siguiente | La entrega 2.2a (usuarios: listado, detalle, alta y edición), en `feature/front-2-2a-usuarios`, creada desde `feature/front-2-1-sucursales` y subida ([diseño](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#22a-usuarios-listado-detalle-alta-y-edición)); sin código hasta la autorización del usuario |
+| Tests | Vitest: 909 tests en 46 archivos, en verde (corrida de la 2.1, el 2026-11-16, sobre `b30db49`, registrada en R-075 y en "Resultado" de `f2-datos-maestros.md`; el test del depósito inactivo, después, con `vitest related`); Playwright: 23 casos contra `syncvet_e2e` (con `sucursales.spec.ts`); la última corrida completa, 22 de 22 en 3,9 min (`chore/post-f1`); la 2.1 corrió sus 2 casos tocados, 2 de 2 |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -69,12 +69,13 @@ frontend/
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
     ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, TimeField, FileField, BlobImage, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4)
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4; species, desde la 1.5; branches, desde la 2.1)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
 Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/`, `/perfil`,
-`/configuracion`, provisoria y solo para el administrador, `/clientes` y `/clientes/$id`, desde la 1.1, `/clientes/nuevo` y
+`/configuracion`, solo para el administrador: desde la 2.1, la página de entrada (`src/app/ConfigurationPage.tsx`, una tarjeta por
+sección que el usuario puede ver) con sus secciones debajo (`configuracion/index.tsx` y `configuracion/sucursales/…`), `/clientes` y `/clientes/$id`, desde la 1.1, `/clientes/nuevo` y
 `/clientes/$id/editar` (archivo `$id_.editar.tsx`: con `_`, no se dibuja dentro del detalle), desde la 1.2, y `/sin-permiso`; exige
 la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
@@ -139,7 +140,11 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
     navegador no rechaza nada que la API acepta: el email, solo la forma mínima (`^[^\s@]+@[^\s@]+$`); el formato completo y el
     DNS, la API.
   * **Un solo envío**: Guardar se deshabilita con `formState.isSubmitting` y con la mutación pendiente, y una `ref` deja pasar un
-    solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido.
+    solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido. Esa `ref`
+    es el hook común `useSingleAction` (`src/lib/hooks/use-single-action.ts`, desde la 2.1): `tryStart()` antes de `mutate` y
+    `release()` en `onSettled`; también en los diálogos con una acción.
+  * **El teléfono** (desde la 2.1): la regla de clientes es común (`src/lib/phone.ts`: `PHONE_PATTERN`, `PHONE_MESSAGE` y
+    `normalizePhone`, que quita los espacios y guiones escritos antes de validar y mandar); la usan clientes y sucursales.
   * **El largo en caracteres, como la API** (desde la 1.3a): los textos que admiten letras fuera del plano básico (`\p{L}`, o sin
     regla de caracteres) no llevan `maxLength` nativo, que cuenta unidades UTF-16 (un emoji es 2); el largo lo controla Zod con el
     mensaje de la API. Lo conservan los campos de solo caracteres de una unidad (documento, email, microchip).

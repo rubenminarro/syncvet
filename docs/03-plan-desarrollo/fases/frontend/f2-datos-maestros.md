@@ -134,8 +134,8 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | APROBADA (R-074) |
-| 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios` | APROBADA (R-074) |
+| 2.1 | Sucursales y depósitos, la página de entrada de `/configuracion` y lo que queda de la tarea 3c (`useSingleAction` a `src/lib/hooks` y el diálogo de baja del paciente con `PATIENT_IN_USE`) | No | `feature/front-2-1-sucursales`, desde `docs/front-f2-diseno` | COMPLETADO (R-075, [resultado](#entrega-21)) |
+| 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios`, desde `feature/front-2-1-sucursales` | APROBADA (R-074); sigue |
 | 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios` | APROBADA (R-074) |
 | front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-ficha-en-usuarios` | APROBADA (R-074) |
 | 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios` | APROBADA (R-074) |
@@ -211,80 +211,7 @@ recargar; la página de entrada de `/configuracion`; el ancho de tablet.
 
 #### Pendiente para el cierre (2.1)
 
-Implementación en `feature/front-2-1-sucursales` (WIP, 2026-11-16), sin la revisión ni `/cerrar-entrega` todavía. Corrida
-final: `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 903 tests en 46 archivos, en verde (808 en 42 antes); Playwright,
-los 2 casos tocados (`sucursales.spec.ts` y "el administrador entra a /configuracion"), 2 de 2 en 58,5 s; 4 mutaciones, las 4
-detectadas (`is_default: false` en la por defecto, sin invalidar `['me']`, "Nuevo depósito" en una inactiva y el código sin pasar
-a mayúsculas).
-
-**Desvíos.**
-
-1. **`useSingleAction` no fue un movimiento de archivo.** El diseño pedía "el movimiento del archivo, en un commit sin cambios de
-   contenido", pero el hook estaba dentro de `features/patients/use-patient-action.ts`, junto con `usePatientGone`, que se queda.
-   Se sacó a `src/lib/hooks/use-single-action.ts` y se borró la copia de `features/species/CatalogDialogs.tsx`, en un commit propio
-   (`7de78f3`), sin tocar los tests de la F1. No tenía tests propios: se sumaron dos (`use-single-action.test.tsx`).
-2. **`/configuracion` pasó a `routes/_sesion/configuracion/index.tsx`** (para colgar `sucursales/`), con el id de la ruta cambiado en
-   el mismo commit: Git lo toma como renombre; no se separó porque el commit del movimiento solo no compilaba.
-3. **"Inactivada" e "Inactivado" en lugar de "Inactiva" e "Inactivo"**, en las marcas y en el estado del detalle: el test de voseo
-   toma "Inactiva" por el imperativo de "inactivar" (como "Inactivada" en especies, 1.5). "Incluir las inactivas" no cambia.
-4. **El listado junta "Por defecto" e "Inactivada" en una columna "Estado"** (marcas), en lugar de dos columnas.
-5. **Playwright siguió el caso del pedido de la entrega** (alta con su depósito, edición, un depósito nuevo marcado por defecto, el
-   anterior inactivado y la sucursal inactivada) en lugar del del diseño (marcar la sucursal por defecto y volver a la original):
-   marcar la sucursal por defecto cambia la de toda la base de prueba y lo cubre Vitest. Se tocó también el caso "el administrador
-   entra a /configuracion" de `permisos.spec.ts`, que buscaba "En construcción", y se corrió junto con el nuevo.
-6. **Navegador: 5 controles**, no los cuatro temas del diseño: la página de entrada, el listado a 768 px, el diálogo de depósito
-   con el teclado (foco en "Cancelar", Tab dentro del diálogo, Escape y el foco de vuelta). "Inactivar la sucursal actual y ver el
-   aviso sin recargar" quedó en Vitest y en Playwright (no se inactiva nada en la demo).
-7. **El diálogo de depósito no se manda con Enter** (dos campos y el botón en el pie, como el del fallecimiento de la 1.3b).
-8. **Los diálogos de estado** (marcar por defecto, activar, inactivar) con un 422 o un error de negocio muestran solo el mensaje
-   de la API y "Cerrar" (sin repetir la pregunta), como la 1.5. Un 404 de un depósito (no tiene detalle): aviso y la sucursal se
-   vuelve a pedir.
-9. **`afterBranchChanged` invalida `['users']` y `['veterinarians']`**, que todavía no existen (llegan en la 2.2a y la 2.3): no hacen
-   nada hasta entonces.
-10. ~~En la edición de una sucursal **inactiva**, "Sucursal por defecto" queda habilitada: si se marca, el 422 de la API va al
-    campo.~~ **Cambiado en la revisión (decisión del usuario):** en la edición de una sucursal inactiva, la casilla queda sin
-    marcar y deshabilitada, con la explicación "Activá la sucursal para marcarla como la por defecto." (el cuerpo manda
-    `is_default: false`).
-
-Los desvíos 1 a 9, **aceptados por el usuario** en la revisión.
-
-**Revisión (2026-11-16)**, sobre `7de78f3`, `7e27822` y `626759b`, con el presupuesto por entrega.
-
-* **Sin hallazgos que cambien el comportamiento.** Revisado: `useSingleAction` movido sin cambios (el cuerpo es idéntico; pacientes
-  y especies la importan de `src/lib/hooks`); el diálogo de baja del paciente con `PATIENT_IN_USE`; la por defecto (la casilla
-  deshabilitada y `is_default: true` en el cuerpo, sin "Inactivar"; los 409 `*_DEFAULT_NOT_DEACTIVATABLE` y los 422 en el diálogo,
-  con solo "Cerrar"); el alta con su depósito (`warehouse_name` vacío en `null`); la paridad con `StoreBranchRequest`,
-  `UpdateBranchRequest`, los de depósitos y `BranchMessages` (el código con `trim` y mayúsculas solo ASCII, como `strtoupper`; el
-  establecimiento `^(?!000)\d{3}$`; los largos en caracteres; los mensajes, tal cual); la invalidación de `['me']` (y de las
-  consultas de la sucursal si cambió la actual) y el selector de la barra; los permisos (`branches.show`, `.store`, `.update` y
-  `warehouses.store`, `.update`, solo del administrador según `clinic-roles.json`); los diálogos de depósitos.
-* **Hallazgos menores, corregidos:**
-  1. El desvío 10, como lo decidió el usuario (`BranchForm.tsx`, prop `inactive`; `BranchFormPages.tsx`), con su test.
-  2. Faltaban tests de los diálogos: el doble clic en la confirmación de la sucursal, el doble clic en "Crear el depósito", el 404
-     en una acción de la sucursal (aviso y de vuelta al listado), el 404 de un depósito (aviso, diálogo cerrado y la sucursal pedida
-     de nuevo) y el teclado en el diálogo de depósito (el foco en "Cancelar", Escape sin pedido y el foco de vuelta en "Nuevo
-     depósito"). Seis tests nuevos en `BranchPages.test.tsx`.
-* **Mutaciones (3).** Antes de los tests nuevos sobrevivían las tres. Después: sin la guarda de un solo pedido en `StatusDialog`,
-  **detectada**; sin la vuelta al listado de `useBranchGone`, **detectada**; sin la guarda en `WarehouseDialog`, **sobrevive como
-  mutación equivalente en jsdom**: el clic llama a `setErrors`, React dibuja el botón en espera en el mismo evento y `Button` ignora
-  el segundo clic; la `ref` queda como segunda defensa (el test del doble clic queda igual, por el comportamiento).
-* **El depósito inactivo, como la sucursal (decisión del usuario, después de la revisión):** en su diálogo de edición,
-  "Depósito por defecto" queda sin marcar y deshabilitado, con "Activá el depósito para marcarlo como el por defecto." (el
-  cuerpo manda `is_default: false`; antes estaba habilitado y el 422 de la API iba al campo). En `BranchDialogs.tsx`, con su test
-  en `BranchPages.test.tsx`; verificado con `vitest related` de lo tocado (393 tests en 19 archivos, en verde) y ESLint de los dos
-  archivos, sin avisos. La corrida completa queda para `/cerrar-entrega`.
-* **Corrida final del frontend:** `typecheck`, `lint` y `build` sin errores ni avisos; Vitest, 909 tests en 46 archivos, en verde
-  (903 antes de la revisión). Playwright no se corrió: lo tocado (la edición de una sucursal inactiva) no está en sus casos.
-
-**Para `/cerrar-entrega`.** `frontend/CLAUDE.md` (§4: `/configuracion` con sus secciones y `features/branches`; §5: `useSingleAction`
-común en `src/lib/hooks` y el teléfono en `src/lib/phone.ts`), el "Resultado" de este documento con las cifras de la corrida final,
-el roadmap, `modulos.md` y el handoff.
-
-**Datos.** La demo (`syncvet.test`) quedó sin cambios: los controles en Edge solo ingresaron y miraron (el diálogo de depósito se
-cerró con Escape, sin mandar). La sucursal del caso de Playwright (`E2E-…`, con sus dos depósitos) quedó inactivada en
-`syncvet_e2e`, que se vacía en cada corrida. Capturas (fuera del repositorio, en la PC de la validación), en
-`%TEMP%\claude\…\scratchpad\capturas-2-1`: `01-configuracion.png`, `02-sucursales-768.png`, `03-detalle-768.png` y
-`04-dialogo-deposito-768.png`.
+Vacío: la entrega se cerró (R-075) y todo lo que había acá pasó a su [resultado](#entrega-21).
 
 ### 2.2a Usuarios: listado, detalle, alta y edición
 
@@ -616,4 +543,73 @@ Vacío.
 
 ## Resultado
 
-Todavía sin entregas.
+### Entrega 2.1
+
+Estado: **COMPLETADO** el 2026-11-16 (R-075). Sucursales y depósitos, la página de entrada de `/configuracion` y lo que quedaba de
+la tarea 3c, en `feature/front-2-1-sucursales` (desde `docs/front-f2-diseno` en `16aec1d`), sin integrar a `main` (se integra al
+cerrar la F2). Commits: `7de78f3` y `7e27822` (la tarea 3c), `626759b` (WIP de la implementación), `b30db49` (WIP de la
+revisión), `a31b6ef` (WIP del depósito inactivo) y el de este cierre (R-075: la documentación).
+
+**Implementación.**
+
+* **Tarea 3c, resuelta.** `useSingleAction` sale de `features/patients/use-patient-action.ts` a `src/lib/hooks/use-single-action.ts`
+  (`7de78f3`), sin cambiar su cuerpo y con dos tests propios; pacientes y especies la importan de ahí, y se borra la copia de
+  `features/species/CatalogDialogs.tsx` (desvío 6 de la 1.5). El diálogo de baja del paciente con `PATIENT_IN_USE` muestra solo el
+  mensaje de la API, sin "¿Querés eliminar…? No se puede deshacer." (`7e27822`; desvío 12 de la 1.5), con su test con y sin el
+  error.
+* **Pantallas** (todas del administrador): `/configuracion`, la página de entrada (`frontend/src/app/ConfigurationPage.tsx`), con una tarjeta por
+  sección que el usuario puede ver (Sucursales, por ahora); `/configuracion/sucursales` (`branches.show`), con la búsqueda por
+  código o nombre, "Incluir las inactivas" y la página en la URL, como `/clientes`; `/nueva` (`branches.store`), con el código y
+  el nombre del depósito por defecto (vacío, `null`: la API pone "Principal"); `/$id`, con los datos, el alta y la última
+  modificación y la tarjeta "Depósitos"; `/$id/editar` (`branches.update`). En `features/branches`. `PERMISSIONS` suma
+  `branchesShow`, `branchesStore`, `branchesUpdate`, `warehousesStore` y `warehousesUpdate`.
+* **Reglas.** Las de forma de `StoreBranchRequest`, `UpdateBranchRequest`, los de depósitos y `BranchMessages`, con sus mensajes
+  (`features/branches/form.ts`): los códigos sin los espacios de los extremos y en mayúsculas solo ASCII, como `strtoupper`;
+  el establecimiento de tres dígitos, de `001` a `999`; el teléfono con la regla de clientes, común en `src/lib/phone.ts`. La
+  sucursal y el depósito por defecto: la casilla marcada y deshabilitada, `is_default: true` en el cuerpo, sin "Inactivar"; los
+  409 `*_DEFAULT_NOT_DEACTIVATABLE` y los 422 en el diálogo, con solo "Cerrar". Una sucursal o un depósito inactivo: la casilla
+  sin marcar y deshabilitada, con "Activá la sucursal para marcarla como la por defecto." o "Activá el depósito para marcarlo
+  como el por defecto."; la sucursal inactiva, sin "Nuevo depósito". `BRANCH_ESTABLISHMENT_NOT_EDITABLE`, en su campo; un 404 en
+  una acción de la sucursal, aviso y de vuelta al listado; el de un depósito, aviso y la sucursal pedida de nuevo.
+* **Caché.** Cada cambio (`afterBranchChanged`) invalida `['branches']`, `['users']`, `['veterinarians']` y `['me']` (el selector
+  de la barra usa `me.branches`) y, si cambió la sucursal actual, las consultas de la sucursal: al inactivar la actual, el layout
+  pide elegir otra sin recargar.
+* **Pruebas.** Vitest: `form.test.ts`, `search.test.ts`, `BranchPages.test.tsx` (con los 6 tests de la revisión y el del depósito
+  inactivo), `use-single-action.test.tsx` y el diálogo del paciente. Playwright: `e2e/sucursales.spec.ts` (nuevo: alta con su
+  depósito, edición, un depósito nuevo marcado por defecto, el anterior inactivado y la sucursal inactivada) y el caso "el
+  administrador entra a /configuracion" de `permisos.spec.ts`, 2 de 2. Mutaciones de la implementación: 4 de 4 detectadas
+  (`is_default: false` en la por defecto, sin invalidar `['me']`, "Nuevo depósito" en una inactiva y el código sin pasar a
+  mayúsculas).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | `useSingleAction` no fue un movimiento de archivo: se sacó de `use-patient-action.ts` (donde sigue `usePatientGone`) en un commit propio, con dos tests nuevos | El hook no tenía archivo propio |
+| 2 | `/configuracion` pasó a `frontend/src/routes/_sesion/configuracion/index.tsx`, con el id de la ruta cambiado en el mismo commit | El movimiento solo no compilaba |
+| 3 | "Inactivada" e "Inactivado" en lugar de "Inactiva" e "Inactivo" | El test de voseo toma "Inactiva" por el imperativo de "inactivar" (como en especies, 1.5) |
+| 4 | El listado junta "Por defecto" e "Inactivada" en una columna "Estado" | Dos columnas de marcas casi vacías |
+| 5 | Playwright siguió el caso del pedido de la entrega, no el del diseño (marcar la sucursal por defecto y volver a la original); se tocó también el caso de `/configuracion` de `permisos.spec.ts` | Marcar la por defecto cambia la de toda la base de prueba; lo cubre Vitest |
+| 6 | Navegador: 5 controles, no los cuatro temas del diseño; "inactivar la sucursal actual" quedó en Vitest y Playwright | No se inactiva nada en la demo |
+| 7 | El diálogo de depósito no se manda con Enter | Dos campos y el botón en el pie, como el del fallecimiento (1.3b) |
+| 8 | Los diálogos de estado con un 422 o un error de negocio muestran solo el mensaje y "Cerrar"; el 404 de un depósito, aviso y la sucursal de nuevo | Como la 1.5; el depósito no tiene detalle |
+| 9 | `afterBranchChanged` invalida `['users']` y `['veterinarians']`, que todavía no existen | Llegan en la 2.2a y la 2.3 |
+| 10 | Cambiado en la revisión: en la edición de una sucursal inactiva, "Sucursal por defecto" queda sin marcar y deshabilitada, con su explicación (antes, habilitada, con el 422 de la API en el campo); la misma regla para el depósito inactivo | Decisión del usuario |
+
+**Revisión (2026-11-16).** Sobre `7de78f3`, `7e27822` y `626759b`, con el presupuesto por entrega: sin hallazgos que cambien el
+comportamiento (el movimiento de `useSingleAction`, el diálogo del paciente, la por defecto, el alta con su depósito, la paridad con
+la API, la invalidación de `me`, los permisos según `clinic-roles.json` y los diálogos). Hallazgos menores, corregidos en `b30db49`:
+el desvío 10 y seis tests que faltaban en `BranchPages.test.tsx` (el doble clic en la confirmación de la sucursal, el doble clic en
+"Crear el depósito", el 404 en una acción de la sucursal, el 404 de un depósito, el teclado en el diálogo de depósito y la edición
+de una sucursal inactiva). Mutaciones: antes de esos tests, las tres sobrevivían; después, sin la guarda de un solo pedido en
+`StatusDialog` y sin la vuelta al listado de `useBranchGone`, detectadas. **Sin la guarda de `WarehouseDialog`, sigue sin
+detectarse**: es una mutación equivalente en jsdom, porque el clic llama a `setErrors`, React dibuja el botón en espera en el mismo
+evento y `Button` ignora el segundo clic; la `ref` queda como segunda defensa. Después, en `a31b6ef`, la misma regla para el
+depósito inactivo, con su test (decisión del usuario).
+
+**Validación.** El usuario dio la entrega por validada con la revisión y sus correcciones, los desvíos 1 a 9 aceptados y el 10
+cambiado (R-075). Evidencia: Claude Code, 5 de 5 en Edge sin ventana contra `syncvet.test` (la demo quedó sin cambios); Playwright,
+`e2e/sucursales.spec.ts` y el caso de `/configuracion` de `permisos.spec.ts`, 2 de 2; desde `frontend/`, `typecheck`, `lint` y
+`build` sin errores ni avisos. La última corrida completa de `npm test` fue sobre `b30db49`; el test del depósito inactivo
+(`a31b6ef`) se verificó con `vitest related` (393 tests en 19 archivos, en verde) y ESLint de lo tocado. La sucursal `E2E-…` del caso
+de Playwright quedó inactivada en `syncvet_e2e`, que se vacía en cada corrida.
+
+Corrida de `npm test` del frontend (2026-11-16): 909 tests en 46 archivos, en verde.
