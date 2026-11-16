@@ -67,6 +67,22 @@ class MeTest extends TestCase
     }
 
     /**
+     * Entrega front-02: la ficha de veterinario pasó al listado de usuarios; me no cambia
+     * sus claves ni su orden.
+     */
+    public function test_the_keys_of_me_do_not_change(): void
+    {
+        $user = $this->userWithRole($this->createClinic(), 'recepcionista');
+
+        $response = $this->getWithToken($this->tokenFor($user), '/api/me')->assertOk();
+
+        $this->assertSame([
+            'id', 'first_name', 'last_name', 'name', 'email', 'clinic', 'current_branch', 'branches', 'roles', 'permissions',
+            'veterinarian',
+        ], array_keys($response->json('data')));
+    }
+
+    /**
      * El administrador pasa todo por Gate::before: /me le muestra todos los
      * permisos aunque a su rol le falte alguno.
      */

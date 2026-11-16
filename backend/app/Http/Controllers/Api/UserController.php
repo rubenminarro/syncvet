@@ -26,7 +26,7 @@ class UserController extends Controller implements HasMiddleware
 {
     use ApiResponse;
 
-    private const RELATIONS = ['roles', 'branches'];
+    private const RELATIONS = ['roles', 'branches', 'veterinarian'];
 
     public function __construct(
         protected UserService $userService

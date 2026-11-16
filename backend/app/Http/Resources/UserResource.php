@@ -8,7 +8,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Usuario en los listados (FASE 2, entrega 2.2a). Nunca password ni remember_token.
- * Los roles y las sucursales van cargados (with) para no consultar por fila.
+ * Los roles, las sucursales y la ficha de veterinario van cargados (with) para no
+ * consultar por fila. La ficha (id y código; null sin ficha o con la ficha eliminada)
+ * pasó del detalle al listado con la entrega front-02.
  */
 class UserResource extends JsonResource
 {
@@ -31,6 +33,10 @@ class UserResource extends JsonResource
             ]),
             'current_branch_id' => $this->current_branch_id,
             'is_active' => (bool) $this->is_active,
+            'veterinarian' => $this->veterinarian ? [
+                'id' => $this->veterinarian->id,
+                'code' => $this->veterinarian->code,
+            ] : null,
         ];
     }
 }

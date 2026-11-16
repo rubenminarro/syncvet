@@ -572,6 +572,9 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   (R-034); quitarle el rol a un administrador inactivo no cambia nada (200).
 * Listado paginado con `ListFilters`: los usuarios activos de la clínica (`inClinic()`), sin eliminados, salvo
   `include_inactive=1`; `search` en nombre, apellido y email; `role` y `branch_id` (una sucursal de la clínica, activa o no); orden por apellido, nombre e id.
+  Cada usuario trae su ficha de veterinario, `veterinarian` (`id`, `code`, o `null` sin ficha o con la ficha eliminada), en
+  `UserResource`, cargada con `UserController::RELATIONS`, sin N+1 (entrega front-02; `UserVeterinarianTest`). El detalle, el alta,
+  la edición y `me` conservan sus claves y su orden.
 * Concurrencia: el alta, la edición, la inactivación y la baja bloquean la clínica (`CatalogLock`) y, salvo el alta, después el
   usuario (`lockForUpdate`), antes de contar los administradores; la baja revisa el uso dentro de su transacción (§3).
 
@@ -603,8 +606,9 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   inactivalo." Al eliminar, `//deleted_<id>_<timestamp>` entero en la matrícula: la columna admite 60. La ficha eliminada cuenta
   como uso de su usuario (§6.5, `USER_IN_USE`).
 * Quitarle el rol `veterinario` (`users/{user}`) a un usuario con una ficha no eliminada → 409 `USER_IS_VETERINARIAN`, "El usuario
-  tiene una ficha de veterinario: eliminala antes de quitarle el rol."; con la ficha eliminada, se permite. `ShowUserResource`
-  muestra `veterinarian` (`id`, `code`), o `null` sin ficha o con la ficha eliminada.
+  tiene una ficha de veterinario: eliminala antes de quitarle el rol."; con la ficha eliminada, se permite. `UserResource` (el
+  listado, desde la entrega front-02, y el detalle) muestra `veterinarian` (`id`, `code`), o `null` sin ficha o con la ficha
+  eliminada.
 * Listado paginado con `ListFilters`: solo los activos; `status` filtra por un estado y manda; `include_inactive=1` sin `status`
   trae activos e inactivos (nunca los eliminados); `search` en el código, el nombre y el apellido del usuario y la matrícula; orden
   por código.

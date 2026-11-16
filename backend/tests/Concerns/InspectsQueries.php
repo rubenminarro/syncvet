@@ -33,6 +33,23 @@ trait InspectsQueries
     }
 
     /**
+     * Todas las consultas del pedido (sin N+1: la misma cantidad con una fila que con
+     * varias, después de un pedido que llene la caché de permisos). Entrega front-02; los
+     * tres tests de la deuda 21 todavía tienen su copia.
+     */
+    protected function countQueries(callable $request): int
+    {
+        $count = 0;
+        DB::listen(function () use (&$count) {
+            $count++;
+        });
+
+        $request();
+
+        return $count;
+    }
+
+    /**
      * La lectura de una fila por su id; en MySQL, con "for update".
      */
     protected function lockOf(string $table): callable

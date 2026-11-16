@@ -316,7 +316,28 @@ de la colección de usuarios.
 
 #### Pendiente para el cierre (front-02)
 
-Vacío.
+Implementada (WIP, 2026-11-16): `veterinarian` pasó de `ShowUserResource` a `UserResource` (en el mismo lugar de las claves) y
+`UserController::RELATIONS` suma `veterinarian`. Tests nuevos: `tests/Feature/Users/UserVeterinarianTest.php` (con y sin ficha, con
+la ficha eliminada, sin N+1 con 1 y 5 usuarios, y las claves del listado, el detalle, el alta y la edición) y, en `MeTest`, las
+claves de `me`. Mutaciones (3, todas detectadas): sin `veterinarian` en el `with` (6 → 10 consultas), la ficha cambiada en el detalle
+(el test de las claves) y la relación con `withTrashed()` (la ficha eliminada). Newman de usuarios: 54 pedidos y 138 aserciones,
+sin fallas (dos aserciones nuevas, pedidos 19 y 44). `composer test`: 1467 casos, 1450 pasan, 16 omitidos (solo MySQL) y **1 falla
+ajena a la entrega** (abajo).
+
+Desvíos y notas:
+
+* **`FictitiousDocumentsTest` falla en la rama desde la 2.1, no por front-02:** `frontend/src/features/branches/form.test.ts:95`
+  usa `'1234567'` (7 dígitos, el rango de las cédulas reales) como teléfono demasiado corto; llegó con `626759b` (WIP 2.1) y está
+  también en `feature/front-2-1-sucursales`, `feature/front-2-2a-usuarios` y `feature/front-2-2b-usuarios`. Las entregas del
+  frontend no corren la suite del backend, así que no se vio. **Decisión del usuario:** cambiar el caso del test del frontend (por
+  ejemplo, un teléfono corto con otra cantidad de dígitos, o uno con letras) en esta rama o en una aparte; no se tocó.
+* El test sin N+1 hace un pedido antes de contar: el primero llena la caché de permisos de Spatie (2 consultas más) y no es N+1;
+  igual que `AppointmentQueueTest`.
+* `countQueries` quedó como método del trait `Tests\Concerns\InspectsQueries` (el test nuevo lo usa); las tres copias privadas
+  de la deuda 21 siguen: se unifican cuando se toquen esos tests.
+* El alta y la edición ya respondían `veterinarian` (usan `ShowUserResource`): no cambian. `me` (`MeResource`) no se tocó.
+* Falta del cierre: el registro (R-…), el roadmap, el handoff, el estado del `CLAUDE.md` de la raíz y del de backend §1 (78 rutas,
+  sin cambios; los casos de la suite) y la validación del usuario.
 
 ### 2.3 Veterinarios
 
