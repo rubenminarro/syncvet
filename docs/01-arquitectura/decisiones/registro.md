@@ -1563,3 +1563,23 @@ Sexta entrega de pantallas de la F1 del frontend (R-064), en `feature/front-1-5-
 | Siguiente | El cierre de la F1: Playwright completo, la suite del backend completa en MySQL, Newman de todas las colecciones y la integración a `main` | Usuario |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP y colecciones.
+
+# R-072 Cierre de la F1 del frontend y merge a `main` (2026-11-16)
+
+Cierre de la F1 del frontend (clientes y pacientes), junto con la entrega de soporte del backend (front-01), con las siete entregas
+cerradas (R-065 a R-071). El detalle, en el [cierre de la F1](../../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Entregas | front-01 (R-065), 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071): COMPLETADO, cada una con su revisión, sus correcciones y su validación; las ramas de la cadena, en GitHub. El cierre de la 1.5 estaba escrito sin commitear: va en su propio commit (`7ef0a9e`), antes del de este cierre | Cierre |
+| F1 | COMPLETADO: el criterio de cierre se cumple, punto por punto en el cierre de la F1 (entregas cerradas; Vitest, Playwright, `typecheck`, `lint` y `build` en verde; el desvío 8 de la 0.1 verificado en la 1.3b; Newman de todas las colecciones sin fallas) | Usuario |
+| Regresión del backend | Desde `backend/`, en serie, sobre `7ef0a9e`: SQLite, 1463 casos (16 omitidos, solo de MySQL), 14274 aserciones; MySQL, 1463 casos sin omitidos, 14360 aserciones. Frente a la F0, 18 casos más. 78 rutas, 135 permisos y 36 migraciones, sin cambios. `composer audit`, sin avisos | Cierre |
+| Regresión del frontend | Desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 800 tests en 42 archivos; `npm run test:e2e`, 22 de 22 después de ajustar los tests (desvíos 1 y 2). `npm audit`: solo el aviso de `minimatch` de la deuda 19 (ahora en 9 paquetes) | Cierre |
+| Desvíos del cierre | 1: `e2e/permisos.spec.ts` esperaba el menú sin "Especies" (la 1.5 solo corrió su spec). 2: cuatro casos escribían en "Buscar clientes" y hacían clic sin esperar la URL; con la PC cargada, la búsqueda devolvía la página al listado. Ahora esperan `?buscar=…`. Solo en los tests | Cierre |
+| Postman | Newman, las 14 colecciones de `docs/05-pruebas/postman` (R-057), servidor en el puerto 8001: 483 pedidos y 1074 aserciones, sin fallas | Cierre |
+| Deudas | Abiertas en la F1: 21 (backend), 23 y 24 (frontend: el clic durante la espera de la búsqueda y el límite del test de voseo), de prioridad baja. Resuelta: 22. Abiertas: 2, 3, 5, 6, 15, 17 y 21 (backend); 19, 20, 23 y 24 (frontend) | Cierre |
+| Merge a `main` | Autorizado por el usuario el 2026-11-16: merge `--no-ff` desde `feature/front-1-5-especies`, que contiene `docs/front-f1-diseno` y las ramas de front-01 a la 1.4. Antes, `main` local adelantado a `origin/main` (`668eb48`, el merge de la F0) con `--ff-only`. Antes del push de `main`, en `main`: la suite del backend en serie (SQLite y MySQL) y `npm test` del frontend. Las ramas se conservan. El hash del merge se informa al usuario y se anota en el handoff al empezar lo siguiente | Usuario |
+| Siguiente | La entrega `chore/…` de las tareas 3b y 3c del handoff; después, el análisis y el diseño de la F2 del frontend (datos maestros), sobre la API de la FASE 2 | Usuario |
+
+**Qué no cambió.** Código de la aplicación, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre documenta y
+ajusta solo cinco tests de Playwright.

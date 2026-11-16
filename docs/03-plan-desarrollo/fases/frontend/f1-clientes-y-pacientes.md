@@ -1,6 +1,7 @@
 # F1 — Clientes y pacientes (frontend)
 
-Etapa: Datos de la clínica. Estado: **APROBADO** por el usuario el 2026-11-12 (R-064), en `docs/front-f1-diseno` (desde `main` en `668eb48`), con las
+Etapa: Datos de la clínica. Estado: **COMPLETADO** el 2026-11-16 (R-072; [cierre](#cierre-de-la-f1)) e integrado a `main`. Diseño
+**APROBADO** por el usuario el 2026-11-12 (R-064), en `docs/front-f1-diseno` (desde `main` en `668eb48`), con las
 [preguntas del diseño](#preguntas-del-diseño) respondidas: todas las recomendaciones, también la entrega front-01 del backend. El estado vigente de cada
 fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
@@ -1187,5 +1188,114 @@ desarrollo y quitar del diálogo de baja de un paciente (1.3b) la pregunta con `
 14 aceptados y el 11 corregido como H1 (R-071). Evidencia: Edge sin ventana, 6 de 6 de la implementación (primera sesión), 6
 controles de la segunda (con la repetición del 3) y 3 de 3 de las correcciones; Playwright de `e2e/especies.spec.ts`, 2 de 2
 después de las correcciones.
+
+Corrida de `npm test` del frontend (2026-11-16): 800 tests en 42 archivos, en verde.
+
+### Cierre de la F1
+
+**COMPLETADA el 2026-11-16 (R-072)**, con la entrega de soporte del backend (front-01). Las ramas se encadenaron
+(`docs/front-f1-diseno` → `feature/front-01-dueno-pacientes` → `feature/front-1-1-clientes` → `feature/front-1-2-clientes-abm` →
+`feature/front-1-3a-pacientes` → `feature/front-1-3b-pacientes` → `feature/front-1-4-foto` → `feature/front-1-5-especies`), todas en
+GitHub, y se integran a `main` con un merge `--no-ff` desde `feature/front-1-5-especies`, autorizado por el usuario (R-072). Las
+ramas se conservan.
+
+**Qué se construyó.** Las primeras pantallas de negocio, sobre la API de la FASE 1 del backend y con las convenciones de la F0:
+`/clientes` (listado con la búsqueda, el tipo y la página en la URL; detalle con sus pacientes; alta, edición y baja de persona y
+empresa, con el dígito verificador del RUC en el navegador y el cambio de tipo), `/pacientes` (listado con el dueño, la especie y los
+fallecidos en la URL; detalle; alta desde el cliente y edición; fallecimiento con su hora, corregirlo y anularlo; cambio de dueño y
+baja), la foto del paciente (verla como `Blob`, subirla con vista previa, reemplazarla y quitarla) y `/especies` (las especies con
+sus razas, "Común" o "Propia"; alta, cambio de nombre, activar o inactivar y baja de las propias). Componentes nuevos de
+`src/components/ui`: `SearchField`, `ConfirmDialog`, `SelectField`, `TextareaField`, `CheckboxField`, `RadioGroup`, `DateField`,
+`TimeField`, `FileField` y `BlobImage`; en el cliente de la API, `api.getBlob`. Sin paquetes nuevos. Del lado del backend: el dueño
+en `GET patients` (front-01) y dos correcciones en commits aparte, el choque con un índice único de `clients` (1.2) y el microchip
+repetido en dos pedidos simultáneos (deuda 22, 1.3a), los dos como 422 en su campo y nunca 500. En la cadena, contra `main`: 102
+archivos de `frontend/` (31 de tests de Vitest y de Playwright) y 10 de `backend/` (`PatientResource`, `ClientService`,
+`PatientService`, `backend/CLAUDE.md` y 6 de tests). Rutas, permisos y migraciones de la API sin cambios: 78, 135 y 36.
+
+| Entrega | Contenido | Commits | Al cerrar |
+|---|---|---|---|
+| Diseño | Análisis y diseño de la F1 y de front-01 | `125b023`, `fe69aad` (R-064) | — |
+| [front-01](#entrega-front-01) | El dueño en `GET patients` | `3e3e386` (cierre `6ee193a`) | Backend: 1451 casos; 14225 aserciones en SQLite y 14299 en MySQL |
+| [1.1](#entrega-11) | Clientes: listado y detalle | `3ea03b9`, `104aee1` (cierre `78e9657`) | Frontend: 357 tests en 25 archivos |
+| [1.2](#entrega-12) | Clientes: alta, edición y baja | `657100e`, `594ad20` (backend), `bb8cab5` (cierre `d36c37b`) | Frontend: 502 tests en 29 archivos; backend: 1458 casos (14262 y 14342 aserciones) |
+| [1.3a](#entrega-13a) | Pacientes: listado, detalle, alta y edición | `f12f3c7` (backend, deuda 22), `c68511c`, `150216e` (cierre `5f3aac7`) | Frontend: 642 tests en 35 archivos; backend: 1463 casos (14274 y 14360 aserciones) |
+| [1.3b](#entrega-13b) | Pacientes: fallecimiento, cambio de dueño y baja | `9bf37ba`, `c8ca294` (el hook de `cat`) (cierre `e20186e`) | Frontend: 694 tests en 37 archivos |
+| [1.4](#entrega-14) | Foto del paciente | `dde595a` (cierre `28c5eb5`) | Frontend: 746 tests en 39 archivos |
+| [1.5](#entrega-15) | Especies y razas | `8215039`, `dd15e51`, `26772d1` (cierre `7ef0a9e`) | Frontend: 800 tests en 42 archivos |
+
+**Regresión del cierre** (2026-11-16, en `feature/front-1-5-especies` sobre `7ef0a9e`, más los ajustes de Playwright de este
+cierre):
+
+* **Backend**, desde `backend/`, en serie: `composer test` (SQLite), 1463 casos, 1447 en verde y 16 omitidos (solo de MySQL), 14274
+  aserciones (6 min 37 s, con los controles del frontend corriendo a la vez); después `composer test:mysql` (`syncvet_test_mysql`),
+  1463 casos en verde, sin omitidos, 14360 aserciones (4 min 31 s). Son las cifras de la 1.3a: el backend no cambió después. Frente
+  a `main` antes de la F1 (cierre de la F0: 1445 casos; 14183 y 14257 aserciones), 18 casos más (front-01 y las dos correcciones).
+  `composer audit`: "No security vulnerability advisories found.".
+* **Frontend**, desde `frontend/`: `npm run typecheck`, `npm run lint` y `npm run build`, sin errores ni avisos; `npm test`, 800 de
+  800 en 42 archivos (60 s). Una primera corrida, con la suite del backend en paralelo, dio 799: el test de voseo
+  (`src/test/voseo.test.ts`, "los textos de src/ usan voseo") pasó el límite de 5 s (5,7 s; solo, tarda 0,5 s): deuda 24.
+  `npm run test:e2e` (Playwright, Edge, contra `syncvet_e2e`): la primera corrida, 18 de 22 (desvíos 1 y 2); con los tests
+  ajustados, 22 de 22 en 4,1 min. `npm audit`: 9 avisos moderados, todos el mismo, `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249;
+  [deuda 19](../../deuda-tecnica.md); npm lo cuenta ahora en 9 paquetes, no en 10).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | `e2e/permisos.spec.ts`: los tres casos del menú esperaban el menú sin "Especies"; se suma | La 1.5 agregó "Especies" al menú y, con el presupuesto por entrega, solo corrió `e2e/especies.spec.ts`: el caso de la F0 quedó viejo (Vitest ya lo tenía en `permissions.test.tsx`) |
+| 2 | `e2e/pacientes-estado.spec.ts` falló en la corrida completa y pasó solo: escribía el documento en "Buscar clientes" y hacía clic en "Laura Martínez" sin esperar la URL. Laura ya está en el listado sin filtrar; si la búsqueda (300 ms después) cambia la URL antes de que se dibuje el detalle, la página vuelve al listado. Los cuatro lugares con ese patrón (`pacientes-estado`, `pacientes`, `pacientes-foto` y `especies`) esperan ahora `?buscar=…` antes del clic, como `clientes.spec.ts` | Solo los tests; lo que eso muestra de la aplicación queda como deuda 23 |
+
+**Colecciones de Postman** (R-057: todas las de `docs/05-pruebas/postman`). Newman 6.2.3, desde la raíz, con el servidor levantado
+desde `backend/` en el puerto 8001 contra la base de desarrollo (detenido por su tarea, con el puerto libre después); una vuelta,
+sin fallas: 483 pedidos y 1074 aserciones (dos más que en la F0: la aserción del dueño de front-01 en pacientes).
+
+| Colección | Pedidos | Aserciones | Fallas |
+|---|---|---|---|
+| Clientes | 24 | 48 | 0 |
+| Especies | 41 | 93 | 0 |
+| Foto | 23 | 60 | 0 |
+| Pacientes | 30 | 63 | 0 |
+| Auditoría | 16 | 47 | 0 |
+| Configuración | 24 | 67 | 0 |
+| Servicios | 27 | 64 | 0 |
+| Sucursales | 44 | 123 | 0 |
+| Usuarios | 54 | 136 | 0 |
+| Veterinarios | 32 | 75 | 0 |
+| Agendas | 35 | 68 | 0 |
+| Disponibilidad | 50 | 81 | 0 |
+| Series | 25 | 42 | 0 |
+| Turnos | 58 | 107 | 0 |
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| Las entregas aprobadas cerradas | front-01, 1.1, 1.2, 1.3a, 1.3b, 1.4 y 1.5: R-065 a R-071, cada una con su revisión, sus correcciones y la validación del usuario ([Resultado](#resultado)) |
+| Vitest en verde | `npm test`, 800 de 800 en 42 archivos (corrida de este cierre) |
+| Playwright en verde | `npm run test:e2e`, 22 de 22, con los desvíos 1 y 2 de este cierre (solo en los tests) |
+| `typecheck`, `lint` y `build` sin errores ni avisos | Sin errores ni avisos (corridas de este cierre; `lint` y `typecheck`, repetidos sobre los tests de Playwright tocados) |
+| El desvío 8 de la 0.1 verificado contra la API real | VERIFICADO en la 1.3b (R-069; [resultado](#entrega-13b)): `deceased_at` sale como `…T10:30:00.000-03:00`, la API devuelve `13:30:00Z` y el detalle muestra 10:30 después de recargar (`e2e/pacientes-estado.spec.ts`, en verde en este cierre) |
+| Newman de todas las colecciones, sin fallas | Las 14: 483 pedidos y 1074 aserciones, sin fallas (tabla de arriba) |
+
+**Deudas** ([`deuda-tecnica.md`](../../deuda-tecnica.md)). Abiertas en la F1: 21 (`countQueries` copiado en tres tests del
+backend; front-01), 23 (un clic en el listado durante la espera de la búsqueda puede volver al listado; este cierre) y 24 (el límite
+de 5 s del test de voseo; este cierre), las tres de prioridad baja. Resuelta en la F1: 22 (el microchip repetido en dos pedidos
+simultáneos, 1.3a). Actualizada: 19 (npm cuenta el aviso de `minimatch` en 9 paquetes). Abiertas al cerrar: del backend, 2, 3, 5, 6,
+15, 17 y 21; del frontend, 19, 20, 23 y 24.
+
+**Decisiones de la fase.** R-064 (diseño de la F1 y de front-01, con las 13 preguntas respondidas con la recomendación), R-065
+(cierre de front-01), R-066 (cierre de la 1.1: la búsqueda en la URL), R-067 (cierre de la 1.2: `ConfirmDialog`, un solo envío por
+formulario y el índice único de `clients` como 422), R-068 (cierre de la 1.3a: la deuda 22 y el presupuesto por entrega), R-069
+(cierre de la 1.3b: el desvío 8 de la 0.1 verificado y el hook que bloquea `cat` sin entrada), R-070 (cierre de la 1.4: `api.getBlob`,
+`BlobImage` y el tipo de la foto por el contenido), R-071 (cierre de la 1.5) y R-072 (este cierre y el merge), en el
+[registro](../../../01-arquitectura/decisiones/registro.md).
+
+**Pendiente para la F2** (datos maestros, sobre la API de la FASE 2 del backend: sucursales y depósitos, usuarios, veterinarios,
+servicios, la configuración de la clínica con el logo y la consulta de la auditoría): antes, la entrega `chore/…` de las tareas 3b
+y 3c del [handoff](../../handoff.md#próximas-tareas) (Playwright que reutiliza `syncvet_e2e`; la colección de especies que borra lo
+que crea, la limpieza de "Hurón doméstico NNNNNN", la pregunta del diálogo de baja con `PATIENT_IN_USE` y `useSingleAction` en
+`src/lib/hooks`); después, el análisis y el diseño de la F2, con sus preguntas, antes de cualquier código. Lo que la F1 deja
+preparado: el modelo de listado (`/clientes`: búsqueda, filtros y página en la URL, `useSearchText`), el de formulario (`ClientForm`:
+las reglas de forma con los mensajes de la API, un solo envío y el 422 por campo), `ConfirmDialog` con el trato de `*_IN_USE`
+(inactivar desde el diálogo), la subida de un archivo con vista previa (para el logo de la clínica) y las descargas con token
+(`api.getBlob`). `/configuracion` sigue provisoria (solo el administrador) hasta la F2.
 
 Corrida de `npm test` del frontend (2026-11-16): 800 tests en 42 archivos, en verde.
