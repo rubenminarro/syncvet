@@ -557,6 +557,9 @@ describe('Eliminar el paciente', () => {
     fireEvent.click(dialogButton('Eliminar a Firulais') as HTMLElement);
 
     expect(await screen.findByText(message)).toBeInTheDocument();
+    // Solo el mensaje de la API: la pregunta de la baja ya no vale.
+    expect(dialog()).not.toHaveTextContent('¿Querés eliminar');
+    expect(dialog()).not.toHaveTextContent('No se puede deshacer.');
     fireEvent.click(dialogButton('Registrar el fallecimiento') as HTMLElement);
 
     expect(input('deceased_date')).not.toBeNull();
@@ -573,6 +576,7 @@ describe('Eliminar el paciente', () => {
     fireEvent.click(dialogButton('Eliminar a Firulais') as HTMLElement);
 
     expect(await screen.findByText('El paciente tiene consultas.')).toBeInTheDocument();
+    expect(dialog()).not.toHaveTextContent('¿Querés eliminar');
     expect(
       Array.from(dialog()?.querySelectorAll('button') ?? []).map((b) => b.textContent),
     ).toEqual(['Cerrar']);

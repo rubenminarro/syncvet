@@ -469,7 +469,12 @@ export function DeletePatientDialog({
       }}
       onClose={onClose}
     >
-      ¿Querés eliminar a <strong>{patient.name}</strong> ({patient.code})? No se puede deshacer.
+      {/* Con PATIENT_IN_USE ya no se elimina: queda solo el mensaje de la API (en la alerta), como la 1.5. */}
+      {inUse ? null : (
+        <>
+          ¿Querés eliminar a <strong>{patient.name}</strong> ({patient.code})? No se puede deshacer.
+        </>
+      )}
     </ConfirmDialog>
   );
 }
