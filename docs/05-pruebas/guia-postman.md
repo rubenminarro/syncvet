@@ -101,7 +101,7 @@ colecciones (R-021).
 |---|---|---|
 | [`postman/syncvet-fase-01-clientes.postman_collection.json`](postman/syncvet-fase-01-clientes.postman_collection.json) | 1.2 (R-018); repetible desde la 1.3 (R-020) | Alta de persona y de empresa, RUC con el dígito verificador equivocado, documento repetido como cédula, con un cero o como RUC, edición, cambio de tipo, email en minúsculas, búsqueda por mascota, aislamiento entre clínicas, filtros mal formados, baja con pacientes (409) y sin ellos, y el documento liberado |
 | [`postman/syncvet-fase-01-pacientes.postman_collection.json`](postman/syncvet-fase-01-pacientes.postman_collection.json) | 1.3 (R-020) | Alta bajo un cliente (el dueño sale de la URL, sin `custom_fields`), `code` prohibido, raza de otra especie, microchip repetido, peso, dueño en la edición, cambio de dueño (también de un fallecido y el 403 del veterinario), búsquedas (con el dueño en el listado, front-01), listado del cliente (sin el dueño), fallecimiento en UTC, edición de un fallecido, listados sin y con fallecidos, baja y microchip liberado |
-| [`postman/syncvet-fase-01-especies.postman_collection.json`](postman/syncvet-fase-01-especies.postman_collection.json) | 1.4 (R-023 y R-024) | Listado con y sin inactivas (forma de la respuesta e `is_global`), alta de especie propia, nombre repetido en mayúsculas y sin acento o de una global, nombre sin letras (422), alta inactiva, cambio de nombre, global no editable (403, también con un cuerpo inválido), razas propias en una especie propia y en una global (los espacios internos repetidos se juntan), nombre repetido dentro de la especie (también una global con dos espacios), raza de otra especie en la URL (404), `species_id` prohibido, el recepcionista lista pero no escribe, especie y raza en uso por un paciente (se inactivan, el paciente las sigue mostrando, un alta nueva no las acepta, la baja da 409), baja de una global (403), baja de una raza y de una especie sin uso con su raza, y el nombre liberado |
+| [`postman/syncvet-fase-01-especies.postman_collection.json`](postman/syncvet-fase-01-especies.postman_collection.json) | 1.4 (R-023 y R-024) | Listado con y sin inactivas (forma de la respuesta e `is_global`), alta de especie propia, nombre repetido en mayúsculas y sin acento o de una global, nombre sin letras (422), alta inactiva, cambio de nombre, global no editable (403, también con un cuerpo inválido), razas propias en una especie propia y en una global (los espacios internos repetidos se juntan), nombre repetido dentro de la especie (también una global con dos espacios), raza de otra especie en la URL (404), `species_id` prohibido, el recepcionista lista pero no escribe, especie y raza en uso por un paciente (se inactivan, el paciente las sigue mostrando, un alta nueva no las acepta, la baja da 409), baja de una global (403), baja de una raza y de una especie sin uso con su raza, el nombre liberado y, desde R-073, la limpieza: baja del paciente y de su dueña (administrador) y la especie usada por el paciente borrado, que sigue sin baja (409) y queda inactiva |
 | [`postman/syncvet-fase-01-foto.postman_collection.json`](postman/syncvet-fase-01-foto.postman_collection.json) | 1.5 (R-026) | Paciente sin foto (`has_photo` falso, ver la foto da 404), un texto con extensión `.jpg` (422), subida de un PNG, descarga por los tres roles con `Content-Type`, `nosniff`, `no-store` y el nombre con el código, reemplazo por el veterinario, `has_photo` en el detalle, borrado (y 404 al repetirlo), paciente de otra clínica (404 al ver y al subir), y un fallecido que sube y borra la foto |
 
 **Preparación.** Una base con el `DemoSeeder` y las migraciones al día (ver **Datos**, al comienzo): la primera vez, o después de
@@ -152,6 +152,14 @@ especies, de 400000 a 499998 (su documento queda en `994…`, y los nombres de e
 foto, de 000000 a 099998 (su documento queda en `990…`). Los
 logins guardan los tokens y los pasos guardan los ids que usan los siguientes: no hay que copiar nada a mano.
 
+**Especies: lo que deja cada corrida** (desde R-073). Al final, la colección borra lo que creó cuando la API lo permite: la raza
+Fila y la especie Erizo (pasos 31 y 33), la especie del nombre liberado (37) y, con el administrador (`{{token_admin}}`, paso 01c),
+el paciente y su dueña (38 y 39). La especie "Hurón doméstico {{run}}" y su raza Albino no se pueden borrar: un paciente las usó, y
+la baja de una especie o una raza cuenta también los pacientes borrados (`withTrashed`); quedan inactivas (pasos 24 y 25), fuera de
+los listados y de las altas, y el paso 40 lo comprueba (409 `SPECIES_IN_USE` después de borrar el paciente). Es lo único que deja.
+Las 20 especies "Hurón doméstico NNNNNN" de las corridas anteriores en la base de desarrollo (con sus pacientes y sus dueñas, que
+las corridas de antes no borraban) están en el mismo caso: la baja da 409 y quedan inactivas.
+
 Los emails nuevos usan `mailinator.com`: con `EMAIL_DNS_CHECK=true` (el valor del `.env`), la validación consulta el MX del dominio y
 rechaza `example.com` (tiene un MX nulo) y los dominios sin servidor de correo.
 
@@ -162,7 +170,7 @@ clínica B. Para probar algo a mano, no crear en la clínica A otro paciente lla
 encontrar un solo Firulais y ningún Toby en esa clínica.
 
 **Lo que no está en las colecciones.** `PATIENT_IN_USE` (409): la API todavía no crea consultas, aplicaciones ni turnos; lo prueba
-`PatientDeleteTest`. La baja de una especie usada solo por un paciente eliminado (409), la concurrencia de dos altas del mismo nombre y las altas
+`PatientDeleteTest`. La concurrencia de dos altas del mismo nombre y las altas
 masivas del builder: lo prueban `CatalogDeleteTest`, `CatalogLockTest` y `SharedCatalogInsertTest`. De la foto: un archivo de más
 de 5 MB (413 `PAYLOAD_TOO_LARGE`; no se versiona un archivo de ese tamaño), WEBP y JPG, un SVG o un GIF (422), que el reemplazo
 borre el archivo anterior del disco privado, un archivo perdido (404 con aviso en el log), la transacción que falla, la imagen vuelta a codificar sin EXIF

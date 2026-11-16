@@ -337,7 +337,9 @@ describe('voseo', () => {
     expect(isClassList('Ingresá a tu cuenta')).toBe(false);
   });
 
-  it('los textos de src/ usan voseo', () => {
+  // Recorre todo src/ con el parser de TypeScript: solo tarda 0,5 s, pero con la PC cargada pasó los 5 s de Vitest (5,7 s,
+  // deuda 24). 30 s alcanzan con margen y siguen cortando un recorrido que se cuelgue.
+  it('los textos de src/ usan voseo', { timeout: 30_000 }, () => {
     const files = sourceFiles(SRC);
     const found: string[] = [];
 

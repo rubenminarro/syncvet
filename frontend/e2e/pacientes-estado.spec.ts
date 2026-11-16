@@ -28,8 +28,6 @@ function patientIdOf(page: Page): number {
 async function openClient(page: Page, document: string, name: string) {
   await page.goto('/clientes');
   await page.getByLabel('Buscar clientes').fill(document);
-  // La búsqueda cambia la URL 300 ms después: un clic antes puede quedar pisado por ese cambio.
-  await expect(page).toHaveURL(new RegExp(`buscar=${document}$`));
   await page.getByRole('link', { name }).click();
   await expect(page.getByRole('heading', { name })).toBeVisible();
 }

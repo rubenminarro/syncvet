@@ -1,12 +1,30 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { E2E_DATABASE } from './support/database';
-import { BACKEND_URL, CREDENTIALS_FILE, PASSWORD_ENV } from './support/env';
+import { BACKEND_URL, CREDENTIALS_FILE, FINGERPRINT_FILE, PASSWORD_ENV } from './support/env';
+import { migrationsFingerprint } from './support/fingerprint';
 import { prepareE2eDatabase } from './support/prepare';
 
 const BACKEND_DIR = resolve(import.meta.dirname, '..', '..', 'backend');
+const MIGRATIONS_DIR = resolve(BACKEND_DIR, 'database', 'migrations');
+
+function readFingerprint(): string | null {
+  try {
+    return readFileSync(FINGERPRINT_FILE, 'utf8').trim();
+  } catch {
+    return null;
+  }
+}
+
+function writeFingerprint(fingerprint: string | null): void {
+  if (fingerprint === null) {
+    rmSync(FINGERPRINT_FILE, { force: true });
+  } else {
+    writeFileSync(FINGERPRINT_FILE, `${fingerprint}\n`);
+  }
+}
 
 interface Envelope<T> {
   success: boolean;
@@ -73,6 +91,11 @@ export default async function globalSetup(): Promise<void> {
     artisan,
     call,
     writeCredentials,
+    migrationsFingerprint: () => migrationsFingerprint(MIGRATIONS_DIR),
+    readFingerprint,
+    writeFingerprint,
+    // E2E_FRESH=1: recrear la base aunque las migraciones no hayan cambiado.
+    fresh: process.env.E2E_FRESH === '1',
   });
 
   process.env[PASSWORD_ENV] = password;

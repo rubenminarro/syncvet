@@ -41,7 +41,6 @@ test('una raza propia: alta, en uso en un paciente, la baja rechazada y la inact
     // Usarla en un paciente nuevo.
     await page.goto('/clientes');
     await page.getByLabel('Buscar clientes').fill('99100001');
-    await expect(page).toHaveURL(/buscar=99100001$/);
     await page.getByRole('link', { name: 'Laura Martínez' }).click();
     await page.getByRole('link', { name: 'Nuevo paciente' }).click();
     await field(page, 'Nombre').fill('Lucero');

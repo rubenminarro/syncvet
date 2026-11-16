@@ -5,7 +5,8 @@ import { BACKEND_PORT, BACKEND_URL, FRONTEND_PORT, FRONTEND_URL } from './e2e/su
 /**
  * Pruebas de punta a punta contra el backend real y la base syncvet_e2e (npm run test:e2e). Levanta el backend
  * (php artisan serve, con DB_DATABASE=syncvet_e2e; si ya hay uno en :8010, lo usa) y Vite con el proxy hacia él; la
- * preparación (e2e/global-setup.ts) recrea la base cada vez. En serie: la base es compartida.
+ * preparación (e2e/global-setup.ts) la reutiliza vaciando sus tablas si las migraciones no cambiaron y si no la recrea
+ * (E2E_FRESH=1 la recrea siempre). En serie: la base es compartida.
  */
 export default defineConfig({
   testDir: 'e2e',
