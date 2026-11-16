@@ -7,6 +7,7 @@ import { PERMISSIONS } from '../../lib/auth/permissions';
 import { todayInAppZone } from '../../lib/format/dates';
 import { SEARCH_DEBOUNCE_MS } from '../../lib/hooks/use-search-text';
 import { useDebouncedValue } from '../../lib/hooks/use-debounced-value';
+import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { normalizeSearchText } from '../../lib/search-text';
 import { useCan } from '../auth/permissions';
 import { clientOptionsQueryOptions } from '../clients/api';
@@ -26,7 +27,7 @@ import {
   type DeceasedFormValues,
 } from './deceased';
 import { usePatientListSearch } from './navigation';
-import { usePatientGone, useSingleAction } from './use-patient-action';
+import { usePatientGone } from './use-patient-action';
 import type { PatientDetail } from './types';
 
 /** Los diálogos del detalle del paciente (1.3b): uno abierto a la vez. */

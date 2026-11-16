@@ -3,32 +3,13 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ConfirmDialog, TextField, useToast } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import type { ApiSuccess } from '../../lib/api/types';
+import { useSingleAction } from '../../lib/hooks/use-single-action';
 import type { Breed, Species } from '../patients/types';
 import { afterCatalogChanged } from './api';
 import { NAME_MAX, parseCatalogName, type CatalogKind } from './name';
 
 /** Un registro del catálogo: una especie o una raza, con su tipo (los textos y los pedidos dependen de él). */
 export type CatalogItem = { kind: 'species'; item: Species } | { kind: 'breed'; item: Breed };
-
-/** Un solo pedido a la vez: un doble clic o dos Enter llegan antes de que el botón quede esperando (regla de la 1.2). */
-function useSingleAction() {
-  const inFlight = useRef(false);
-
-  return {
-    tryStart: () => {
-      if (inFlight.current) {
-        return false;
-      }
-
-      inFlight.current = true;
-
-      return true;
-    },
-    release: () => {
-      inFlight.current = false;
-    },
-  };
-}
 
 /**
  * Qué hace un diálogo con el error de su acción: un 404 (otra persona lo borró), aviso, el catálogo pedido de nuevo y el

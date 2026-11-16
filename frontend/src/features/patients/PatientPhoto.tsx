@@ -13,6 +13,7 @@ import {
 } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import { PERMISSIONS } from '../../lib/auth/permissions';
+import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { useCan } from '../auth/permissions';
 import {
   afterPhotoChanged,
@@ -22,7 +23,7 @@ import {
   patientPhotoQueryOptions,
   uploadPatientPhoto,
 } from './api';
-import { usePatientGone, useSingleAction } from './use-patient-action';
+import { usePatientGone } from './use-patient-action';
 import { PHOTO_ACCEPT, PHOTO_MESSAGES, photoFileError } from './photo';
 import type { PatientDetail } from './types';
 
