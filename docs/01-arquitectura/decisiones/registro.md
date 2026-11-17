@@ -1606,3 +1606,193 @@ usuario. Sin cambios en el backend ni en la API.
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP y contrato de respuesta. Las demás colecciones de
 Postman.
+
+# R-074 Aprobación del diseño de la F2 del frontend (datos maestros) (2026-11-16)
+
+El usuario aprueba el diseño de la F2 del frontend,
+[`f2-datos-maestros.md`](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md), en `docs/front-f2-diseno`
+(desde `main` en `1daee8c`, el merge de `chore/post-f1`, R-073), con las 13
+[preguntas del diseño](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#preguntas-del-diseño) respondidas con la
+recomendación.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Entregas | 2.1 (sucursales y depósitos, con lo que queda de la tarea 3c), 2.2a y 2.2b (usuarios), front-02 (backend), 2.3 (veterinarios), 2.4 (servicios), 2.5 (configuración y logo) y 2.6 (auditoría), en ramas encadenadas desde `docs/front-f2-diseno`; todo se integra a `main` al cerrar la F2 | Usuario |
+| Ficha de veterinario en los usuarios (pregunta 1) | Entrega de soporte del backend front-02, aditiva y antes de la 2.3: `veterinarian` (`id` y `code`, o `null`) en `GET users`, sin N+1 y sin cambiar otras respuestas | Usuario |
+| Navegación y pantallas (preguntas 2, 4, 5, 9 y 13) | Sucursales, usuarios, la clínica y la auditoría bajo `/configuracion/…`, con una página de entrada; "Veterinarios" y "Servicios" con su ítem para los tres roles; la pantalla de sucursales, solo para el administrador; los depósitos, en diálogos dentro del detalle de la sucursal; el logo también en la barra; activar, inactivar y eliminar como botones del detalle | Usuario |
+| Usuarios (preguntas 3, 6 y 7) | Dos entregas (2.2a y 2.2b); la contraseña de otro usuario detrás de "Cambiar la contraseña", con la repetición y el aviso de que se cierran sus sesiones, sin mandar `password` si no cambia; confirmación cuando el administrador se quita su propio rol de administrador | Usuario |
+| Servicios (pregunta 8) | El precio acepta los puntos de miles ("150.000") y se manda como texto de solo dígitos | Usuario |
+| Auditoría (preguntas 10 a 12) | "Hasta" con hora se manda con los segundos en 59; los campos del detalle, con su nombre de la API; el frontend también oculta contraseñas, tokens y rutas (`maskAuditValues`) | Usuario |
+| Rama de la 2.1 | `feature/front-2-1-sucursales`, creada desde `docs/front-f2-diseno` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos y colecciones: la aprobación solo documenta.
+
+# R-075 Cierre de la entrega 2.1 del frontend (sucursales y depósitos) (2026-11-16)
+
+Primera entrega de la F2 del frontend (R-074), en `feature/front-2-1-sucursales` (desde `docs/front-f2-diseno` en `16aec1d`), sin
+integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-21).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `/configuracion` como página de entrada (una tarjeta por sección), `/configuracion/sucursales` (listado, alta con su depósito por defecto, detalle con sus depósitos y edición) y los depósitos en diálogos del detalle, solo para el administrador; marcar por defecto, activar e inactivar, con la por defecto que no se desmarca ni se inactiva (409 y 422 en el diálogo); cada cambio invalida `['me']` (el selector de la barra). Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Tarea 3c | Resuelta: `useSingleAction` en `src/lib/hooks/use-single-action.ts`, sin cambios de comportamiento, con sus tests (desvío 6 de la 1.5); el diálogo de baja del paciente con `PATIENT_IN_USE` muestra solo el mensaje de la API (desvío 12 de la 1.5) | Usuario (pedido, R-074) |
+| Desvíos | Los 1 a 9, aceptados: entre ellos, `useSingleAction` sacado en un commit propio y no movido (el hook no tenía archivo propio), "Inactivada" e "Inactivado" por el test de voseo, Playwright con el caso del pedido de la entrega y 5 controles en Edge | Usuario |
+| Desvío 10 | Cambiado: en la edición de una sucursal inactiva, "Sucursal por defecto" queda sin marcar y deshabilitada, con "Activá la sucursal para marcarla como la por defecto." (antes, habilitada, con el 422 de la API en el campo). La misma regla para el depósito inactivo, con "Activá el depósito para marcarlo como el por defecto." | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `7de78f3`, `7e27822` y `626759b`: sin hallazgos que cambien el comportamiento. Corregidos en `b30db49`: el desvío 10 y 6 tests que faltaban (doble clic en la confirmación de la sucursal y en "Crear el depósito", 404 en una acción de la sucursal y de un depósito, el teclado en el diálogo de depósito y la sucursal inactiva) | Revisión |
+| Mutaciones de la revisión | 3: sin los tests nuevos, las tres sobrevivían; con ellos, sin la guarda de `StatusDialog` y sin la vuelta al listado de `useBranchGone`, detectadas. Sin la guarda de `WarehouseDialog`, sigue sin detectarse: es equivalente en jsdom (el clic llama a `setErrors`, React dibuja el botón en espera en el mismo evento y `Button` ignora el segundo clic); la `ref` queda como segunda defensa | Revisión |
+| Validación | El usuario dio la entrega por validada. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test`, con la demo sin cambios; Playwright, `e2e/sucursales.spec.ts` y el caso de `/configuracion` de `permisos.spec.ts`, 2 de 2. Desde `frontend/`: `npm test`, 909 tests en 46 archivos, en verde (sobre `b30db49`); `typecheck`, `lint` y `build` sin errores ni avisos; el test del depósito inactivo (`a31b6ef`), con `vitest related` (393 tests en 19 archivos) y ESLint de lo tocado | Usuario |
+| Siguiente | La entrega 2.2a (usuarios: listado, detalle, alta y edición), en `feature/front-2-2a-usuarios`, creada desde `feature/front-2-1-sucursales` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-076 Cierre de la entrega 2.2a del frontend (usuarios: listado, detalle, alta y edición) (2026-11-16)
+
+Segunda entrega de la F2 del frontend (R-074), en `feature/front-2-2a-usuarios` (desde `feature/front-2-1-sucursales`, en el
+cierre de la 2.1, `0f7b80b`), sin integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-22a).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Usuarios" en `/configuracion` y `/configuracion/usuarios` (listado con búsqueda, rol, sucursal e "Incluir los inactivos" en la URL; detalle; alta y edición con roles y sucursales en `CheckboxGroupField`), solo para el administrador. La contraseña: obligatoria en el alta, detrás de "Cambiar la contraseña" al editar a otro (sin la clave `password` si no se cambia) y ausente al editarse a sí mismo (el enlace a `/perfil`); fuera de la caché de mutaciones. Editarse invalida `['me']`; quitarse el rol de administrador pide confirmación y vuelve a `/`. Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Desvíos | Los 11, aceptados: entre ellos, Playwright con el caso del pedido de la entrega, "Inactivado" e "(inactivada)" por el test de voseo, `USER_IS_VETERINARIAN` con el código de la ficha sin enlace hasta la 2.3, los errores del alta y la edición en las opciones de `useMutation` (el `reset()` de `onSettled` descarta los callbacks de `mutate()`) y la regla de nombres de personas común en `src/lib/person-name.ts` | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `fff201c`: sin hallazgos que cambien el comportamiento. Corregido en `e8ecdeb` (menor): el 422 de `password` al editarse a sí mismo va a la alerta (caía en un campo que no se dibuja). 3 tests nuevos y una comprobación en uno existente: el 422 del alta y el de la contraseña filtrada de otro usuario con la contraseña fuera de la caché, el 422 de `password` propio en la alerta e `invalidateBranchQueries` al sacar la sucursal actual | Revisión |
+| Mutaciones de la revisión | 3 de 3 detectadas: sin `reset()` en la edición y sin `invalidateBranchQueries` (las dos, solo por los tests nuevos: sin ellos, sobrevivían) y las sucursales inactivas que el usuario ya tiene fuera de las opciones | Revisión |
+| Validación | El usuario aceptó los desvíos y pidió el cierre. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test` (el usuario temporal, borrado por la API); Playwright, `e2e/usuarios.spec.ts`, 1 de 1 (el usuario entra con la contraseña nueva en otro contexto y la anterior ya no sirve). Desde `frontend/`, sobre `e8ecdeb`: `npm test`, 982 tests en 49 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos | Usuario |
+| Siguiente | La entrega 2.2b (usuarios: inactivar, reactivar y baja), en `feature/front-2-2b-usuarios`, creada desde `feature/front-2-2a-usuarios` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-077 Cierre de la entrega 2.2b del frontend (usuarios: inactivar, reactivar y baja) (2026-11-16)
+
+Tercera entrega de la F2 del frontend (R-074), en `feature/front-2-2b-usuarios` (desde `feature/front-2-2a-usuarios`, en el
+cierre de la 2.2a, `0bf3ed0`), sin integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-22b).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | En el detalle de `/configuracion/usuarios/$id`, "Inactivar" o "Reactivar" (`users.update`, `PATCH users/{id}` con solo `{ is_active }`) y "Eliminar" (`users.destroy`), ocultos en el propio usuario; los avisos de las sesiones al inactivar y del nuevo ingreso al reactivar; `USER_LAST_ADMIN` y `USER_SELF_ACTION` en el diálogo con solo "Cerrar"; `USER_IN_USE` con "Inactivar" (si está activo), que abre el diálogo de inactivar; con el 200 de la baja, al listado. Invalida `['users']` y `['veterinarians']`. Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Desvíos | Los 8, aceptados: entre ellos, el detalle borrado sale de la caché con `removeQueries` al llegar al listado (no con `resetQueries`: lo volvería a pedir mientras está a la vista), `dialogError` repetido en `UserActions.tsx` y `BranchDialogs.tsx`, y Playwright con el cierre de la sesión abierta como 401 al recargar y `USER_INACTIVE` al volver a ingresar | Usuario |
+| Código común | La función que trata los errores en los diálogos (`dialogError`, desvío 2) pasa a código común en la 2.3, que la usa también en veterinarios (anotado en su diseño) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `2cd6dd4`: sin hallazgos que cambien el comportamiento. Corregido en `3265903` (solo tests): la baja con el 200 cuenta los pedidos del detalle (no se vuelve a pedir) y revisa `['veterinarians']` invalidado, con doble clic (un solo `DELETE`); test nuevo del paso de la baja con `USER_IN_USE` al diálogo de inactivar (el foco en "Cancelar"; Escape lo cierra sin pedido y el foco vuelve a "Eliminar") | Revisión |
+| Mutaciones de la revisión | 3 detectadas de 4 probadas: los errores de negocio con el botón para probar de nuevo, la baja sin invalidar `['veterinarians']` y la baja sin `useSingleAction`. No detectada: `resetQueries` del detalle antes de navegar (en jsdom no se vuelve a pedir); queda anotada, sin otro test | Revisión |
+| Validación | El usuario aceptó los desvíos y pidió el cierre. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test` (el usuario temporal, borrado por la API); Playwright, `e2e/usuarios-estado.spec.ts`, 1 de 1 (la sesión abierta termina al inactivar, el login responde `USER_INACTIVE`, la reactivación deja entrar de nuevo y la baja de `vet-a` ofrece inactivar). Desde `frontend/`, sobre `3265903`: `npm test`, 996 tests en 49 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos | Usuario |
+| Siguiente | La entrega front-02 del backend (la ficha del veterinario en `GET users`), en `feature/front-02-usuarios-veterinario` (el nombre de la rama lo eligió el usuario; el diseño decía `feature/front-02-ficha-en-usuarios`), creada desde `feature/front-2-2b-usuarios` y subida, sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-078 Cierre de la entrega front-02 del backend (la ficha de veterinario en el listado de usuarios) (2026-11-16)
+
+Entrega de soporte del backend pedida por la F2 del frontend (pregunta 1 de su diseño, R-074), en
+`feature/front-02-usuarios-veterinario` (desde `feature/front-2-2b-usuarios`, en el cierre de la 2.2b, `85ebf3a`), sin integrar a
+`main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-front-02).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `GET users` trae `veterinarian` (`id` y `code`, o `null` sin ficha o con la ficha eliminada): la clave pasó de `ShowUserResource` a `UserResource`, al final de sus claves, y `UserController::RELATIONS` suma `veterinarian` (sin N+1). El detalle, el alta, la edición y `me` conservan sus claves y su orden. Sin rutas, permisos ni migraciones (78, 135, 36); sin cambios en `error_code` ni códigos HTTP | Diseño (R-074) |
+| `FictitiousDocumentsTest` | Fallaba en la rama desde la 2.1 por `'1234567'` (7 dígitos, rango de cédulas reales) como teléfono corto en `frontend/src/features/branches/form.test.ts`; corregido en `f0218e6` con `'9'.repeat(7)`, armado en el código, sin cambiar lo que prueba | Usuario (pedido) |
+| Presupuesto por entrega | Las entregas del frontend corren también `php artisan test --filter=FictitiousDocumentsTest`, que revisa `frontend/src` y `frontend/e2e` ([`CLAUDE.md`](../../../CLAUDE.md) de la raíz, §2, `f0218e6`) | Usuario |
+| Desvíos | Aceptados: el test sin N+1 hace un pedido antes de contar (la caché de permisos de Spatie); `countQueries` quedó en el trait `Tests\Concerns\InspectsQueries` y las tres copias de la deuda 21 siguen; además, el desvío 1 del [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-front-02) (`FictitiousDocumentsTest`, abajo) | Usuario: aceptados |
+| Revisión | Sin hallazgos, en la misma sesión del cierre, sobre el WIP `bf98d8d` (diff con `85ebf3a`): la forma del diseño, sin N+1 (`with`), la ficha eliminada como `null` (`SoftDeletes`), `UserResource` usado solo en `UserController`, las claves del detalle y de `me` sin cambios, y los tests que fallarían con la regla rota (las 3 mutaciones de la implementación). `composer test:fast`: 1467 casos, 1451 pasan, 16 omitidos | Revisión |
+| Validación | El usuario dio la entrega por validada (`composer test` en SQLite, Newman de usuarios y la revisión) y pidió el cierre. Desde `backend/`, `composer test` en serie sobre `f0218e6`: 1467 casos, 1451 pasan, 16 omitidos (solo MySQL), 14303 aserciones. Newman de la colección de usuarios (en la implementación, sobre `bf98d8d`; el código del backend no cambió después): 54 pedidos y 138 aserciones, sin fallas. Desde `frontend/`, sobre `f0218e6`: `npm test`, 996 tests en 49 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos | Usuario |
+| Siguiente | La entrega 2.3 del frontend (veterinarios), en `feature/front-2-3-veterinarios`, creada desde `feature/front-02-usuarios-veterinario` (en el cierre de front-02) y subida, empezando por pasar `dialogError` a código común (R-077); sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Rutas, permisos, migraciones, `error_code`, códigos HTTP y las respuestas del detalle, el alta y la edición del
+usuario y de `me`.
+
+# R-079 Cierre de la entrega 2.3 del frontend (veterinarios) (2026-11-16)
+
+Cuarta entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-3-veterinarios` (desde
+`feature/front-02-usuarios-veterinario`, en el cierre de front-02, `0ab4dc7`), sin integrar a `main`: se integra al cerrar la F2.
+El detalle, en su [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-23).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | "Veterinarios" en el menú (los tres roles) y `/veterinarios` con búsqueda, estado (`?estado=inactivos\|todos`, traducido a `status=inactive` o `include_inactive=1`) y sucursal, sin la comisión ni las notas; el enlace al detalle y "Nuevo veterinario", solo para el administrador. `/veterinarios/$id` (la comisión "12,5 %", el usuario con su enlace; Editar, Inactivar o Activar y Eliminar), `/veterinarios/nuevo?usuario=` (los usuarios activos con el rol y sin ficha; la ficha eliminada vuelve con su código) y `/veterinarios/$id/editar` (sin `user_id`, `code` ni `status`). La matrícula en mayúsculas y recortada; la comisión con coma o punto, mandada como texto con punto. `VETERINARIAN_IN_USE` ofrece "Inactivar". En usuarios, el enlace a la ficha, "Crear la ficha de veterinario" y el enlace en la alerta de `USER_IS_VETERINARIAN`. Invalida `['veterinarians']`, `['users']` y `['me']` si la ficha es la propia. Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Código común | `dialogError` pasó a `src/lib/api/dialog-error.ts` (`fcf6667`), con sus tests; sucursales, usuarios y veterinarios la usan, sin cambiar el comportamiento | Usuario (R-077) |
+| Desvíos | Los 9, aceptados: entre ellos, el filtro de estado del diseño (`?estado=`) en lugar de "Incluir los inactivos", decidido al empezar la entrega; el estado se cambia solo con sus botones; el selector del alta pide 100 usuarios (`per_page` máximo); la ficha restaurada, con el mismo mensaje de la API que un alta; y el 7: la corrida final de la implementación dio 6 fallas en `lib/auth/permissions.test.ts` (el menú sin "Veterinarios"), corregidas y repetido solo ese archivo (12 de 12), con la cifra total para la revisión | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `fcf6667` y `72975a6` (diff con `0ab4dc7`): sin hallazgos que cambien el comportamiento. Antes de revisar, `npm test` completo: 1073 tests en 53 archivos, en verde (la cifra del desvío 7, ahora de una corrida). Corregido en `359b2d7` (solo tests): inactivar la ficha propia vuelve a pedir `me`; un 404 en una acción avisa y vuelve al listado; la comisión `1e1` se rechaza como decimal, como la API | Revisión |
+| Mutaciones de la revisión | 3 de 3 detectadas: sin volver a pedir `me` en la ficha propia, la matrícula sin pasar a mayúsculas y `VETERINARIAN_IN_USE` sin "Inactivar" | Revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test` (el usuario temporal, borrado por la API); Playwright, `e2e/veterinarios.spec.ts`, 1 de 1 (26 casos en total), con el recepcionista que ve el listado sin la comisión, sin enlaces ni "Nuevo veterinario". Desde `frontend/`, sobre `359b2d7`: `npm test`, 1076 tests en 53 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3 | Usuario |
+| Siguiente | La entrega 2.4 del frontend (servicios), en `feature/front-2-4-servicios`, creada desde `feature/front-2-3-veterinarios` (en este cierre) y subida; sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-080 Cierre de la entrega 2.4 del frontend (servicios) (2026-11-17)
+
+Quinta entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-4-servicios` (desde `feature/front-2-3-veterinarios`,
+en el cierre de la 2.3, `0743a72`), sin integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-24).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | "Servicios" en el menú (los tres roles, después de "Especies") y `/servicios` con búsqueda, categoría y estado (`?estado=inactivos\|todos`, traducido a `status=inactive` o `include_inactive=1`); el precio con `formatGuaranies`, la duración "30 min" y el IVA "10 %". `/servicios/$id` para los tres roles; Editar, Inactivar o Activar y Eliminar, y "Nuevo servicio", solo para el administrador. El formulario: el nombre con `ServiceMessages::NAME_REGEX`; el precio como texto con `inputMode="numeric"`, los puntos de miles sacados y mandado como texto de solo dígitos (`"150000"`), nunca como número, con el mensaje de `WholeAmount`; la duración de 5 a 720, múltiplo de 5; el IVA (0, 5 o 10) como número. `SERVICE_NAME_NOT_EDITABLE` al campo nombre; `SERVICE_IN_USE` ofrece "Inactivar". Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Proceso | El presupuesto por entrega del `CLAUDE.md` de la raíz suma una excepción: si `npm test` de la corrida final falla en un archivo, después de corregirlo se repite la suite completa (para que la cifra registrada sea de una corrida real) | Usuario |
+| Desvíos | Los 10, aceptados: entre ellos, el filtro de estado del diseño (`?estado=`) y el estado fuera del formulario, decididos al empezar la entrega; los puntos solo si agrupan miles y los ceros de adelante fuera de la cuenta, como `WholeAmount::normalize`; Playwright sin el cambio de nombre de un servicio usado (el `DemoSeeder` no tiene servicios ni turnos; está en Vitest); y el 10: a 375 px el menú horizontal de `SessionLayout` se sale de la pantalla (ya pasaba antes de la 2.4) | Usuario |
+| El menú en pantallas chicas | Se corrige en la 2.5, junto con el logo en la barra: el menú se pliega detrás de un botón, accesible con el teclado y con lector de pantalla, sin el JS de Tabler (anotado en el [diseño de la 2.5](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#25-configuración-de-la-clínica-y-logo)) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `0686f94` (diff con `0743a72`): sin hallazgos que cambien el comportamiento. Corregido en `b0bab2b` (solo tests): el listado y el detalle sin acciones, probados también con el veterinario (2 tests) | Revisión |
+| Mutaciones de la revisión | 3 de 3 detectadas: el nombre sin `(?!.*//)`, la duración sin el múltiplo de 5 y las acciones del detalle sin mirar el permiso | Revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 4 de 5 en Edge sin ventana contra `syncvet.test` (el control 1, explicado en el desvío 10; el servicio temporal, borrado por la API); Playwright, `e2e/servicios.spec.ts`, 1 de 1 (27 casos en total): el alta con "150.000" mandado como `"150000"` y "Gs. 150.000" después de recargar. Corrida del cierre, el 2026-11-17, en otra PC, sobre `b0bab2b`, desde `frontend/`: `npm test`, 1188 tests en 56 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3 | Usuario |
+| Siguiente | La entrega 2.5 del frontend (configuración de la clínica y logo, con el menú plegable), en `feature/front-2-5-configuracion`, que se crea desde el commit de este cierre; sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-081 Cierre de la entrega 2.5 del frontend (configuración de la clínica y logo) (2026-11-17)
+
+Sexta entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-5-configuracion` (desde `feature/front-2-4-servicios`,
+en el cierre de la 2.4, `37ac3cf`), sin integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-25).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Clínica" en `/configuracion` y `/configuracion/clinica` (`system-settings.update`): el nombre, la razón social, el correo, el teléfono, el sitio web y el pie de los documentos con las reglas y los mensajes de `UpdateSystemSettingsRequest`; el RUC solo para leer y nunca en el pedido; `PATCH system-settings` con el formulario completo y las claves vacías en `null`. El logo como la foto: vista previa, subir, reemplazar y quitar, 2 MB justos, el tipo por el contenido. El logo en la barra para los tres roles (`system-settings.show-logo`), con la misma clave de la caché: cambia sin recargar; sin logo o con un error, la marca SyncVet. El control de una imagen pasa a código común (`src/lib/files/image.ts`, con el límite como parámetro; la foto sigue con 5 MB). Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| El menú en pantallas chicas | Por debajo de 992 px, plegado detrás del botón "Menú" (`src/app/MainMenu.tsx`, con `useMediaQuery`), sin el JS de Tabler: `aria-expanded` y `aria-controls`, Escape lo cierra con el foco de vuelta en el botón, se cierra al navegar o al cambiar el ancho, y al plegarse con el foco en un ítem el foco pasa al botón | Usuario (desvío 10 de la 2.4, R-080); el cierre al navegar y el foco, de la revisión |
+| Desvíos | Los 10, aceptados: entre ellos, la pantalla solo para el administrador (como el diseño; los otros roles ven el logo en la barra), decidido al empezar la entrega; el menú plegado por debajo de 992 px y no de 768 px; con `has_logo` y el 404 al verlo, el lugar vacío con "Quitar el logo"; la marca SyncVet mientras baja el logo; y el ejemplo de RUC de los tests, el de la demo ("99999901-0") | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `11dabf4` (diff con `37ac3cf`), corregido en `26e4339`: el menú plegado quedaba abierto al navegar sin elegir un ítem y al volver a achicar la pantalla, y con el foco en un ítem al plegarse quedaba en un elemento oculto (2 tests nuevos); el test de reemplazar el logo no detectaba que se viera el viejo (ahora retiene la descarga nueva). El test de alta de `BranchPages.test.tsx` que falló una vez (desvío 9) esperaba un texto que el formulario del alta también tiene: ahora espera la URL y el encabezado del detalle (5 corridas seguidas del archivo, en verde) | Revisión |
+| Mutaciones de la revisión | 3: el sitio vacío mandado como `''` (detectada); reemplazar el logo con `invalidateQueries` (sobrevivió; detectada después de reforzar el test); el límite justo rechazado en `image.ts` (detectada, en el logo y en la foto) | Revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test` (un logo ancho y uno alto en la barra sin deformarse, el menú a 375 y 768 px sin desplazamiento horizontal; la demo como estaba); Playwright, `e2e/configuracion-clinica.spec.ts`, 1 de 1 (28 casos en total), en la implementación y después de la corrección del menú. Corrida del cierre, el 2026-11-17, sobre el código de `26e4339`, desde `frontend/`: `npm test`, 1251 tests en 60 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3 | Usuario |
+| Siguiente | La entrega 2.6 del frontend (auditoría), en `feature/front-2-6-auditoria`, que se crea desde el commit de este cierre; sin código hasta la autorización del usuario. Después, el cierre de la F2 | Diseño (R-074) |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-082 Cierre de la entrega 2.6 del frontend (auditoría) (2026-11-17)
+
+Séptima y última entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-6-auditoria` (desde
+`feature/front-2-5-configuracion`, en el cierre de la 2.5, `1af859b`), sin integrar a `main`: se integra al cerrar la F2. El detalle,
+en su [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-26).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Auditoría" en `/configuracion`, `/configuracion/auditoria` (`audit-logs.index`) y `/configuracion/auditoria/$id` (`audit-logs.show`), solo para el administrador y de solo lectura. El listado: fecha y hora en Asunción, el usuario y el registro como enlaces que filtran, el evento y la IP; los filtros en la URL (`?desde=&hasta=&usuario=&evento=&entidad=&registro=&buscar=&pagina=`), validados con todas sus claves. El detalle: la fecha con segundos (`formatDateTimeSeconds`), los datos, el navegador y los cambios antes y después, con el campo con el nombre de la API y cada valor como texto | Diseño (R-074) |
+| Fechas | En la URL, la hora de pared de Asunción sin zona; a la API, en UTC con `TZDate` (nunca la zona de la PC): la fecha sola como el día completo ("hasta", el comienzo del día siguiente menos un segundo, también en los días de 23 y 25 horas) y "hasta" con hora con los segundos en 59 (pregunta 10). Las fechas y el n.º de registro se aplican con "Filtrar", con las reglas y los mensajes de `IndexAuditLogRequest`, sin cambiar la URL ni pedir nada con un error | Diseño (R-074); la fecha sola como dos instantes en UTC y no tal cual, el usuario al empezar la entrega (desvíos 1 y 2) |
+| Lo que no se muestra | `maskAuditValues` (pregunta 12), además de la API: `********` en una clave con `password` o `token` (cualquier nivel, sin distinguir mayúsculas) y `"(archivo)"` en una clave `*_path` o un texto `clinics/{id}/…`; `null` queda `null` | Diseño (R-074); el alcance de las claves, desvío 6 |
+| `entidad` | El tipo del registro va en la URL como `entidad` y no como `tipo`, que ya es de `/clientes`: el router junta las búsquedas de todas las rutas en los enlaces sin `from` | Desvío 3, aceptado |
+| Desvíos | Los 10, aceptados: entre ellos, las fechas en UTC como dos instantes; `entidad`; "Filtrar" para las fechas y el registro; "hasta" anterior a "desde" en la URL descartado; "Quitar los filtros" y los usuarios inactivos marcados; Playwright sin el caso del alta de un usuario (lo cubren el test con MSW y el control 3 en Edge) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `120739f` (diff con `1af859b`), corregido en `9a17e41`: sin cambios de comportamiento. El texto de ejemplo de la búsqueda se cortaba a 1280 px (el campo deja 147 px): quedó "Nombre o email"; a 375 px, "Filtrar" quedaba alineado con la etiqueta del n.º de registro y no con el campo (el ajuste valía solo desde 768 px) | Revisión |
+| Mutaciones | De la implementación, 4 de 4 ("hasta" sin :59; la zona de la PC en lugar de `TZDate`; `maskAuditValues` sin recorrer lo anidado; el detalle sin `maskAuditValues`); de la revisión, 3 de 3 (las claves sensibles distinguiendo mayúsculas; `registro` sin `entidad` aceptado en la URL; "hasta" con fecha sola como las 23:59:59 de ese día, que falla en el día de 25 horas) | Implementación y revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 9 de 9 en Edge sin ventana contra `syncvet.test` en la implementación y 3 controles en la revisión, de solo lectura; Playwright, `e2e/auditoria.spec.ts`, 1 de 1 (29 casos en total). Corrida del cierre, sobre `9a17e41`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 tests en 64 archivos, en verde; `FictitiousDocumentsTest`, 3 de 3 | Usuario y Claude Code |
+| Siguiente | El cierre de la F2 del frontend, con su criterio de cierre (Playwright completo, la suite del backend en MySQL y en serie, Newman de todas las colecciones) y, después, la integración a `main`; sin empezar hasta la autorización del usuario | Diseño (R-074) |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-083 Cierre de la F2 del frontend y merge a `main` (2026-11-17)
+
+Cierre de la F2 del frontend (datos maestros), junto con la entrega de soporte del backend (front-02), con las ocho entregas
+cerradas (R-075 a R-082). El detalle, en el [cierre de la F2](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#cierre-de-la-f2).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Entregas | 2.1 (R-075), 2.2a (R-076), 2.2b (R-077), front-02 (R-078), 2.3 (R-079), 2.4 (R-080), 2.5 (R-081) y 2.6 (R-082): COMPLETADO, cada una con su revisión, sus correcciones y su validación; las ramas de la cadena, en GitHub | Cierre |
+| F2 | COMPLETADO: el criterio de cierre se cumple, punto por punto en el cierre de la F2 (entregas cerradas; Vitest, Playwright, `typecheck`, `lint` y `build` en verde; la suite del backend en SQLite y en MySQL, en serie, por front-02; Newman de todas las colecciones sin fallas) | Usuario |
+| Regresión del backend | Desde `backend/`, en serie, sobre `bbe6e20`, sin cambios de código: SQLite, 1467 casos (16 omitidos, solo de MySQL), 14303 aserciones; MySQL, 1467 casos sin omitidos, 14389 aserciones. Frente a la F1, 4 casos más (front-02). 78 rutas, 135 permisos y 36 migraciones, sin cambios. `composer audit`, sin avisos | Cierre |
+| Regresión del frontend | Desde `frontend/`: `npm test`, 1331 tests en 64 archivos; `typecheck`, `lint` y `build` sin errores ni avisos; `FictitiousDocumentsTest`, 3 de 3; `npm run test:e2e`, 26 de 29 en la primera corrida y 29 de 29 después de ajustar el test (desvío 1). `npm audit`: solo el aviso de `minimatch` de la deuda 19 (9 paquetes) | Cierre |
+| Desvíos del cierre | 1: `e2e/permisos.spec.ts` esperaba el menú sin "Servicios" y "Veterinarios" (la 2.3 y la 2.4 solo corrieron su spec, como en el cierre de la F1); se suman, solo en el test. 2: dos intentos fallidos del script de Newman (`base_url` sin `/api`, con todos los pedidos en 404 de ruta, y la carpeta de salida relativa) antes de la vuelta registrada | Cierre |
+| Postman | Newman, las 14 colecciones de `docs/05-pruebas/postman` (R-057), servidor en el puerto 8001: 487 pedidos y 1082 aserciones, sin fallas | Cierre |
+| Demo | El token que dejó abierto la revisión de la 2.6 (id 604, `admin-a`), borrado antes de la regresión, y los 36 que abrió Newman (ids 605 a 651), revocados después; `admin-a`, `recepcion-a` y `vet-a`, sin cambios | Usuario (pedido) |
+| Deudas | La F2 no abrió ni resolvió ninguna. Actualizadas: 19 (los mismos 9 avisos) y 21 (el trait `InspectsQueries` de front-02 ya tiene `countQueries`). Abiertas: 2, 3, 5, 6, 15, 17 y 21 (backend); 19 y 20 (frontend) | Cierre |
+| Merge a `main` | Autorizado por el usuario el 2026-11-17: merge `--no-ff` desde `feature/front-2-6-auditoria`, que contiene `docs/front-f2-diseno` y las ramas de la 2.1 a la 2.5 y de front-02. `main` es ancestro de la rama, así que el árbol del merge es el de la rama ya probada. Las ramas se conservan. El hash del merge se informa al usuario y se anota en el handoff, en la rama de la F3 | Usuario |
+| Siguiente | El análisis y el diseño de la F3 del frontend (agenda y turnos), sobre la API de la FASE 3, en `docs/front-f3-diseno` (desde `main` en el merge de la F2) | Usuario |
+
+**Qué no cambió.** Código de la aplicación, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre documenta y
+ajusta solo un test de Playwright.

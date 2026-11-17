@@ -8,7 +8,11 @@ export const USERS = {
   vet: { email: 'vet-a@example.com', name: 'Víctor Acosta' },
 } as const;
 
-export type User = (typeof USERS)[keyof typeof USERS];
+/** Un usuario para ingresar: los del DemoSeeder o uno creado en un caso (usuarios.spec.ts). */
+export interface User {
+  readonly email: string;
+  readonly name: string;
+}
 
 /** La contraseña de esta corrida (la generó la preparación). */
 export function demoPassword(): string {

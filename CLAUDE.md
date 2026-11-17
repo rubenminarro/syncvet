@@ -70,12 +70,16 @@ código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se
 alguna pide más corridas, vale esta.
 
 * **Durante la entrega**, solo los tests de lo tocado: `npx vitest related <archivos> --run` en el frontend;
-  `php artisan test --filter <test>` (sin Xdebug) en el backend.
+  `php artisan test --filter <test>` (sin Xdebug) en el backend. Las entregas del frontend corren además, desde `backend/`,
+  `php artisan test --filter=FictitiousDocumentsTest`: revisa `frontend/src` y `frontend/e2e` (ningún número de 7 a 9 dígitos con
+  forma de cédula o RUC real).
 * **Al final**, una sola corrida completa del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y `build`; en el backend,
   `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
   entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.
 * **Si la corrida final falla por un detalle** (un tipo, una regla de lint, un formato), se corrige y se repiten solo el paso que
-  falló y los tests del archivo tocado, no la corrida entera.
+  falló y los tests del archivo tocado, no la corrida entera. **Excepción, `npm test` del frontend:** si falla en un archivo, después
+  de corregirlo se repite la suite completa (`npm test`), no solo ese archivo, para que la cifra registrada sea siempre la de una
+  corrida real en verde (lo que pasó en la 2.3, desvío 7).
 * **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
 * **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
 * **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
@@ -127,7 +131,9 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 (base y login, R-063) y F1 (clientes y pacientes, R-072) completadas e integradas a `main`, con sus entregas de
-  soporte del backend (front-00 y front-01). La entrega `chore/post-f1` (R-073: Playwright más rápido, la colección de especies y las deudas 23 y 24) espera el merge; después, el análisis y el
-  diseño de la F2 (datos maestros); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0 (base y login, R-063), F1 (clientes y pacientes, R-072) y F2 (datos maestros: sucursales y depósitos,
+  usuarios, veterinarios, servicios, la configuración de la clínica con el logo y la auditoría, R-083) completadas e integradas a
+  `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
+  Sigue el análisis y el diseño de la F3 (agenda y turnos), en `docs/front-f3-diseno`; el detalle, en
+  [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

@@ -8,10 +8,10 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F1 (clientes y pacientes), COMPLETADA el 2026-11-16 (R-072) e integrada a `main`, con front-01 (R-065) y sus entregas 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1)). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
-| Entrega | `chore/post-f1` (R-073), sin integrar a `main`: la preparación de Playwright que reutiliza `syncvet_e2e` si las migraciones no cambiaron, la espera de la búsqueda que se cancela al navegar (deuda 23) y el límite propio del test de voseo (deuda 24). Antes, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
-| Siguiente | El merge de `chore/post-f1`; lo que queda de la tarea 3c del [handoff](../docs/03-plan-desarrollo/handoff.md#próximas-tareas) (el diálogo de baja con `PATIENT_IN_USE` y `useSingleAction` en `src/lib/hooks`), a decidir por el usuario; después, el análisis y el diseño de la F2 (datos maestros) |
-| Tests | Vitest: 808 tests en 42 archivos, en verde (corrida de `chore/post-f1`, el 2026-11-16, registrada en R-073 y en "Resultado" de `f1-clientes-y-pacientes.md`); Playwright: 22 casos contra `syncvet_e2e`, 22 de 22 en 3,9 min, reutilizando la base (4,1 min al cerrar la F1, recreándola) en la corrida completa de `chore/post-f1` |
+| Fase | F3 (agenda y turnos), PENDIENTE: sigue el análisis y el diseño, en `docs/front-f3-diseno` (desde `main` en el merge de la F2). Antes, F2 (datos maestros), COMPLETADA el 2026-11-17 (R-083) e integrada a `main`, con el diseño (R-074), front-02 (R-078) y sus entregas 2.1 (R-075), 2.2a (R-076), 2.2b (R-077), 2.3 (R-079), 2.4 (R-080), 2.5 (R-081) y 2.6 (R-082) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#cierre-de-la-f2)). Antes, F1 (clientes y pacientes), COMPLETADA el 2026-11-16 (R-072) e integrada a `main`, con front-01 (R-065) y sus entregas 1.1 (R-066), 1.2 (R-067), 1.3a (R-068), 1.3b (R-069), 1.4 (R-070) y 1.5 (R-071) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#cierre-de-la-f1)). Antes, F0 (base), en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md): COMPLETADA (R-063) e integrada a `main`, con sus entregas 0.1 (esqueleto, R-060), 0.2a (sesión, R-061) y 0.2b (permisos, sucursal, `/perfil` y Playwright, R-062) ([cierre](../docs/03-plan-desarrollo/fases/frontend/f0-base.md#cierre-de-la-f0)) |
+| Entrega | El cierre de la F2 (R-083): la regresión completa y el merge a `main`, con un solo ajuste de Playwright (`e2e/permisos.spec.ts`: el menú con "Servicios" y "Veterinarios") ([cierre](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#cierre-de-la-f2)). Antes, la 2.6 (auditoría), COMPLETADO (R-082) en `feature/front-2-6-auditoria`, integrada a `main` con la F2: la tarjeta "Auditoría" y `/configuracion/auditoria` con su detalle, solo para el administrador y de solo lectura; los filtros de fecha y hora en Asunción, mandados en UTC (`features/audit/dates.ts`); los valores de los cambios como texto y sin contraseñas, tokens ni rutas (`maskAuditValues`) ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-26)). Antes, la 2.5 (configuración de la clínica y logo), COMPLETADO (R-081) en `feature/front-2-5-configuracion`, integrada a `main` con la F2: la tarjeta "Clínica" y `/configuracion/clinica`, solo para el administrador (los datos, las claves y el logo; el RUC solo para leer y nunca en el pedido); el logo en la barra para los tres roles; el menú plegado detrás de "Menú" por debajo de 992 px (`src/app/MainMenu.tsx`); el control de una imagen, común a la foto y al logo (`src/lib/files/image.ts`) ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-25)). Antes, la 2.4 (servicios), COMPLETADO (R-080) en `feature/front-2-4-servicios`, integrada a `main` con la F2: "Servicios" en el menú y `/servicios` con el detalle para los tres roles; el alta, la edición, inactivar o activar y la baja, solo para el administrador; el precio en guaraníes, mandado como texto de solo dígitos ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-24)). Antes, la 2.3 (veterinarios), COMPLETADO (R-079) en `feature/front-2-3-veterinarios`, integrada a `main` con la F2: "Veterinarios" en el menú y `/veterinarios` para los tres roles, sin la comisión ni las notas; el detalle, el alta desde el usuario, la edición, inactivar o activar y la baja, solo para el administrador; `dialogError` en `src/lib/api/dialog-error.ts` ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-23)). Antes, la 2.2b (usuarios: inactivar, reactivar y baja), COMPLETADO (R-077) en `feature/front-2-2b-usuarios`, integrada a `main` con la F2: "Inactivar" o "Reactivar" y "Eliminar" en el detalle del usuario, ocultos en el propio, con `USER_IN_USE` que ofrece inactivar ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-22b)). Antes, la 2.2a (usuarios: listado, detalle, alta y edición), COMPLETADO (R-076) en `feature/front-2-2a-usuarios`, integrada a `main` con la F2: la tarjeta "Usuarios" y `/configuracion/usuarios`, solo para el administrador, con la contraseña de otro usuario detrás de "Cambiar la contraseña" y el propio usuario sin ella ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-22a)). Antes, la 2.1 (sucursales y depósitos, con la tarea 3c), COMPLETADO (R-075) en `feature/front-2-1-sucursales`, integrada a `main` con la F2: `/configuracion` como página de entrada y `/configuracion/sucursales`, solo para el administrador ([resultado](../docs/03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-21)). Antes, `chore/post-f1` (R-073), integrada a `main` en `1daee8c`: la preparación de Playwright que reutiliza `syncvet_e2e` si las migraciones no cambiaron, la espera de la búsqueda que se cancela al navegar (deuda 23) y el límite propio del test de voseo (deuda 24). Antes, la 1.5 (especies y razas: listado con "Incluir las inactivas", alta, cambio de nombre, activar o inactivar y baja), COMPLETADO (R-071): [resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-15). Las de la F1, en su [Resultado](../docs/03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#resultado) |
+| Siguiente | El análisis y el diseño de la F3 (agenda y turnos, sobre la API de la FASE 3 del backend), con sus preguntas, en `docs/front-f3-diseno`; sin código hasta la aprobación del usuario |
+| Tests | Vitest: 1331 tests en 64 archivos, en verde (corrida del cierre de la F2, el 2026-11-17, registrada en R-083 y en el cierre de `f2-datos-maestros.md`); Playwright: 29 casos contra `syncvet_e2e`, 29 de 29 en 7,2 min en la corrida completa del cierre de la F2 |
 
 El estado de cada fase está en el [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend).
 
@@ -65,16 +65,17 @@ frontend/
     ├── routeTree.gen.ts Generado por el plugin del router (se versiona; no se edita a mano)
     ├── routes/          Una ruta por archivo; el nombre es la URL en castellano
     ├── app/             Proveedores (App), router (con search-params.ts: la búsqueda escrita como texto), layouts, menú y páginas de error
-    ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts
+    ├── lib/api/         client.ts, types.ts (contrato), errors.ts (ApiError y la tabla de error_code), query.ts, form-errors.ts, dialog-error.ts
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
-    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, RadioGroup, SearchField, SelectField, DateField, TimeField, FileField, BlobImage, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4)
+    ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, CheckboxGroupField, RadioGroup, SearchField, SelectField, DateField, TimeField, FileField, BlobImage, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4; species, desde la 1.5; branches, desde la 2.1; users, desde la 2.2a; veterinarians, desde la 2.3; services, desde la 2.4; settings, desde la 2.5; audit, desde la 2.6)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 
 Rutas: los archivos con `_` adelante son layouts sin URL propia: `_publico` (`/ingresar`) y `_sesion` (`/`, `/perfil`,
-`/configuracion`, provisoria y solo para el administrador, `/clientes` y `/clientes/$id`, desde la 1.1, `/clientes/nuevo` y
+`/configuracion`, solo para el administrador: desde la 2.1, la página de entrada (`src/app/ConfigurationPage.tsx`, una tarjeta por
+sección que el usuario puede ver) con sus secciones debajo (`configuracion/index.tsx`, `configuracion/sucursales/…` y, desde la 2.2a, `configuracion/usuarios/…`), `/clientes` y `/clientes/$id`, desde la 1.1, `/clientes/nuevo` y
 `/clientes/$id/editar` (archivo `$id_.editar.tsx`: con `_`, no se dibuja dentro del detalle), desde la 1.2, y `/sin-permiso`; exige
 la sesión desde la 0.2a). Una URL desconocida muestra la página de no encontrado (`notFoundComponent` de la raíz). Las de los módulos
 siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/turnos`, `/configuracion`.
@@ -106,7 +107,10 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
     devuelve sobre la búsqueda cruda, así que una clave que falta deja pasar el valor de la URL.
   * **Lo escrito es siempre texto en la URL**: el router lee cada valor como JSON (`?buscar=1e3` sería el número 1000); las
     claves de `TEXT_SEARCH_PARAMS` (`src/app/search-params.ts`, el `parseSearch` y el `stringifySearch` del router) se leen y
-    se escriben tal cual. `buscar` ya está y vale para todos los listados; otro parámetro de texto se suma a esa lista.
+    se escriben tal cual. `buscar` ya está y vale para todos los listados; otro parámetro de texto se suma a esa lista (desde la 2.6, `desde` y
+    `hasta` de la auditoría). Un parámetro nuevo no reutiliza el nombre de otro listado con otros valores: el router junta las
+    búsquedas de todas las rutas en los enlaces sin `from` (por eso el tipo de la auditoría es `entidad` y no `tipo`, que es de
+    `/clientes`).
   * **El campo de búsqueda es local** (`SearchField`, con el hook común `useSearchText` de `src/lib/hooks/use-search-text.ts`, desde
     la 1.3a: lo usan `/clientes` y `/pacientes`) y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`,
     `src/lib/hooks/`, solo con primitivos), sin los espacios de los extremos, con `replace: true` y de vuelta en la página 1; el
@@ -126,7 +130,10 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   * Un **detalle** valida su id en el `loader` (sin llamar a la API si no es un entero positivo) y convierte el 404 de la API en
     `notFound()`, con el `notFoundComponent` de la ruta, dentro del layout.
 * **Contraseñas fuera de la caché de mutaciones** (0.2b): una mutación que manda una contraseña (`/ingresar`, `/perfil`) va con
-  `gcTime: 0` y `mutation.reset()` en `onSettled`, para que sus variables no queden en la caché de Query.
+  `gcTime: 0` y `mutation.reset()` en `onSettled`, para que sus variables no queden en la caché de Query. `reset()` descarta los
+  callbacks de `mutate()`: los errores se tratan en las opciones de `useMutation`, con lo que necesitan (el formulario) en las
+  variables (desde la 2.2a, `features/users/UserFormPages.tsx`); un test del error comprueba que la contraseña no quedó en la
+  caché (con un éxito que navega, la página se desmonta y la mutación se borra igual, así que no alcanza).
 * **Tipos escritos a mano** en el `types.ts` del módulo, con los nombres de la API (`snake_case`, también `meta.pagination`:
   `per_page`, `current_page`, `last_page`); no se traducen a `camelCase`.
 * **Formularios**: React Hook Form con Zod; un 422 se vuelca con `applyValidationErrors` (`src/lib/api/form-errors.ts`): cada clave
@@ -139,7 +146,13 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
     navegador no rechaza nada que la API acepta: el email, solo la forma mínima (`^[^\s@]+@[^\s@]+$`); el formato completo y el
     DNS, la API.
   * **Un solo envío**: Guardar se deshabilita con `formState.isSubmitting` y con la mutación pendiente, y una `ref` deja pasar un
-    solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido.
+    solo `mutate` a la vez (se suelta en `onSettled`): un doble clic o dos envíos del formulario mandan un solo pedido. Esa `ref`
+    es el hook común `useSingleAction` (`src/lib/hooks/use-single-action.ts`, desde la 2.1): `tryStart()` antes de `mutate` y
+    `release()` en `onSettled`; también en los diálogos con una acción.
+  * **El teléfono** (desde la 2.1): la regla de clientes es común (`src/lib/phone.ts`: `PHONE_PATTERN`, `PHONE_MESSAGE` y
+    `normalizePhone`, que quita los espacios y guiones escritos antes de validar y mandar); la usan clientes y sucursales.
+  * **Los nombres de personas** (desde la 2.2a): `PersonName` de la API es común (`src/lib/person-name.ts`:
+    `PERSON_NAME_PATTERN`); la usan clientes y usuarios.
   * **El largo en caracteres, como la API** (desde la 1.3a): los textos que admiten letras fuera del plano básico (`\p{L}`, o sin
     regla de caracteres) no llevan `maxLength` nativo, que cuenta unidades UTF-16 (un emoji es 2); el largo lo controla Zod con el
     mensaje de la API. Lo conservan los campos de solo caracteres de una unidad (documento, email, microchip).
@@ -154,7 +167,7 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   el foco a "Cancelar" si sale del diálogo o al terminar la espera y bloquea el desplazamiento del fondo; al cerrar, el foco vuelve
   al botón que lo abrió. Los botones inactivos del diálogo usan `aria-disabled` (`Button` con `focusableWhenInactive`): con
   `disabled`, el botón suelta el foco. El error de negocio (`*_IN_USE`) va dentro del diálogo, con la acción que corresponda o solo
-  "Cerrar" (`canConfirm={false}`). Desde la 1.3b: `tone` (`danger` por defecto; `primary` para lo que no borra), `size` (`md`, con
+  "Cerrar" (`canConfirm={false}`). Desde la 2.3, `dialogError` (`src/lib/api/dialog-error.ts`) decide qué hace un diálogo con el error de su acción: el 404, aviso y al listado; un 422 o un error de negocio, el mensaje y solo "Cerrar"; lo demás, el mensaje y el botón para probar de nuevo (lo usan sucursales, usuarios y veterinarios). Desde la 1.3b: `tone` (`danger` por defecto; `primary` para lo que no borra), `size` (`md`, con
   campos o una lista) y `confirmDisabled` (falta elegir algo); al terminar la espera con un error, el foco va al primer campo con
   error del diálogo (`aria-invalid`) o, si no hay, a "Cancelar".
 * **Caché después de borrar o mover un registro hijo** (desde la 1.2 y la 1.3b): los listados y los detalles que lo mostraban y no
@@ -162,7 +175,11 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   vieja: la baja de un paciente vacía el detalle de su dueño, y el cambio de dueño, los de los dos clientes (`resetClientDetails`).
 * **Fechas y dinero**: la API manda las fechas con hora en UTC (`Z`); se muestran con `formatDate`, `formatDateTime` y `formatTime`
   (`src/lib/format/dates.ts`, siempre en `America/Asuncion`, nunca con la zona de la PC); se mandan con `toApiDateTime` (la hora de
-  pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Una fecha sin
+  pared de Asunción con `TZDate(...).toISOString()`, con su desplazamiento `-03:00`); "hoy" es `todayInAppZone()`. Con segundos, `formatDateTimeSeconds` (desde la 2.6). Los filtros de fecha de la
+  auditoría (desde la 2.6, `features/audit/dates.ts`): en la URL, la hora de pared de Asunción sin zona (`2026-11-09` o
+  `2026-11-09T13:00`); a la API, en UTC con `TZDate`: la fecha sola es el día completo ("hasta", el comienzo del día siguiente
+  menos un segundo, también en un día de 23 o 25 horas) y "hasta" con hora lleva los segundos en 59; "hasta" antes de "desde" se
+  compara como texto de la hora de pared, sin pasar por `Date`. Una fecha sin
   hora (`birth_date`, `Y-m-d`) no es un instante: `formatDateOnly` solo cambia el formato del texto, sin pasar por `Date`
   (`formatDate` la reconoce y hace lo mismo). Guaraníes con `formatGuaranies` (`Intl.NumberFormat('es-PY')`, PYG, sin decimales):
   el texto decimal de la API se valida con una expresión regular y se formatea tal cual, sin pasar por un número de coma flotante.
@@ -200,8 +217,9 @@ siguen la misma regla: `/clientes`, `/clientes/$id`, `/pacientes`, `/agenda`, `/
   el nuevo, nunca se ve el viejo) o al borrarlo (`Query.reset()`, sin volver a pedirlo); salir de la sesión la borra con el resto
   (`queryClient.clear()`).
 * **Subir un archivo** (desde la 1.4; el modelo es `features/patients/PatientPhoto.tsx` y `photo.ts`): `FileField`, vista previa
-  con `BlobImage` y un botón para mandar (`FormData`). El navegador controla como la API, con sus mensajes: el tamaño primero (5 MB
-  justos pasan, como `max` de Laravel en kilobytes) y el tipo **por el contenido** (los primeros bytes de un JPG, un PNG o un WEBP;
+  con `BlobImage` y un botón para mandar (`FormData`). El navegador controla como la API, con sus mensajes: desde la 2.5, con el
+  control común de `src/lib/files/image.ts` (`imageFileError`, con el límite y los mensajes de cada uso: la foto, 5 MB; el logo, 2
+  MB). El tamaño primero (el límite justo pasa, como `max` de Laravel en kilobytes) y el tipo **por el contenido** (los primeros bytes de un JPG, un PNG o un WEBP;
   nunca por la extensión ni el tipo declarado, que la API ignora). Un 422 o 413 con `errors.<campo>` va al campo (con el foco al
   terminar la espera, por un pedido de foco propio y no por la vuelta de `isPending`); un 413 sin `errors`, a una alerta. La
   mutación lleva `gcTime: 0` y `reset()` en `onSettled`: el archivo no queda en la caché de mutaciones. En los tests, el `FormData`

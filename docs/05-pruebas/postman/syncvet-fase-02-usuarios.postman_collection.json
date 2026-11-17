@@ -1207,7 +1207,8 @@
                             "const json = pm.response.json();",
                             "pm.test('Uno', () => pm.expect(json.data).to.have.lengthOf(1));",
                             "pm.test('Paginado', () => pm.expect(json.meta.pagination.total).to.eql(1));",
-                            "pm.test('Es el usuario', () => pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('user_id'))));"
+                            "pm.test('Es el usuario', () => pm.expect(json.data[0].id).to.eql(Number(pm.collectionVariables.get('user_id'))));",
+                            "pm.test('Sin ficha de veterinario: null (front-02)', () => pm.expect(json.data[0].veterinarian).to.eql(null));"
                         ]
                     }
                 }
@@ -2602,6 +2603,7 @@
                             "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                             "const json = pm.response.json();",
                             "pm.test('Lo encuentra', () => pm.expect(json.data).to.have.lengthOf(1));",
+                            "pm.test('El listado trae su ficha de veterinario (front-02)', () => { pm.expect(json.data[0].veterinarian).to.have.all.keys('id', 'code'); pm.expect(json.data[0].veterinarian.code).to.match(/^VET-/); });",
                             "pm.collectionVariables.set('vet_user_id', json.data[0].id);"
                         ]
                     }

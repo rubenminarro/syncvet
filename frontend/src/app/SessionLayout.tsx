@@ -6,9 +6,10 @@ import { Alert, Button, Loading } from '../components/ui';
 import { authKeys, meQueryOptions } from '../features/auth/api';
 import { BranchSelector } from '../features/auth/BranchSelector';
 import type { Me } from '../features/auth/types';
-import { can } from '../lib/auth/permissions';
+import { can, PERMISSIONS } from '../lib/auth/permissions';
 import { useSessionManager, useSessionState } from '../lib/auth/use-session';
 import { Brand } from './Brand';
+import { MainMenu } from './MainMenu';
 import { MENU, visibleMenu } from './menu';
 
 function warningText(minutes: number): string {
@@ -27,8 +28,8 @@ function branchNotice(me: Me): string | null {
 }
 
 /**
- * Layout con sesión: barra con la clínica, el selector de la sucursal actual, el usuario (lleva a /perfil) y "Salir"; el
- * menú según los permisos; el aviso previo al vencimiento y el de elegir sucursal arriba del contenido. Si la sesión se cierra (salir, un 401, el vencimiento u
+ * Layout con sesión: barra con la clínica (su logo, desde la 2.5), el selector de la sucursal actual, el usuario (lleva a /perfil) y "Salir"; el
+ * menú según los permisos (plegado detrás de un botón en pantallas chicas, desde la 2.5); el aviso previo al vencimiento y el de elegir sucursal arriba del contenido. Si la sesión se cierra (salir, un 401, el vencimiento u
  * otra pestaña), va a /ingresar.
  */
 export function SessionLayout() {
@@ -86,7 +87,7 @@ export function SessionLayout() {
       <header className="navbar navbar-expand-md d-print-none">
         <div className="container-xl">
           <Link to="/" className="text-reset text-decoration-none">
-            <Brand />
+            <Brand clinic={me.clinic} canShowLogo={can(me, PERMISSIONS.settingsShowLogo)} />
           </Link>
           <div className="navbar-nav flex-row ms-auto align-items-center gap-3">
             <BranchSelector me={me} />
@@ -116,23 +117,7 @@ export function SessionLayout() {
       <header className="navbar-expand-md">
         <div className="navbar">
           <div className="container-xl">
-            <ul className="navbar-nav flex-row">
-              {visibleMenu(MENU, (permission) => can(me, permission)).map((item) => (
-                <li key={item.to} className="nav-item">
-                  <Link
-                    to={item.to}
-                    className="nav-link"
-                    activeProps={{ className: 'active' }}
-                    activeOptions={{ exact: item.to === '/' }}
-                  >
-                    <span className="nav-link-icon">
-                      <item.icon size={20} stroke={1.5} aria-hidden="true" />
-                    </span>
-                    <span className="nav-link-title">{item.label}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <MainMenu items={visibleMenu(MENU, (permission) => can(me, permission))} />
           </div>
         </div>
       </header>

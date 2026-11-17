@@ -41,8 +41,63 @@ export const PERMISSIONS = {
   speciesUpdate: 'species.update',
   /** La baja de especies y razas propias (F1, entrega 1.5): administrador y veterinario. */
   speciesDestroy: 'species.destroy',
-  /** /configuracion (provisoria en la F0; solo el administrador). */
+  /**
+   * /configuracion, la página de entrada (F2, entrega 2.1; provisoria en la F0), y /configuracion/clinica con Guardar (F2,
+   * entrega 2.5): solo el administrador.
+   */
   settingsUpdate: 'system-settings.update',
+  /** Ver el logo de la clínica, en la barra y en la configuración (F2, entrega 2.5): los tres roles. */
+  settingsShowLogo: 'system-settings.show-logo',
+  /** Subir o reemplazar el logo (F2, entrega 2.5): solo el administrador. */
+  settingsUploadLogo: 'system-settings.upload-logo',
+  /** Quitar el logo (F2, entrega 2.5): solo el administrador. */
+  settingsDeleteLogo: 'system-settings.delete-logo',
+  /** /configuracion/sucursales y su detalle (F2, entrega 2.1): solo el administrador (`branches.index` lo tienen los tres). */
+  branchesShow: 'branches.show',
+  /** /configuracion/sucursales/nueva (F2, entrega 2.1): solo el administrador. */
+  branchesStore: 'branches.store',
+  /** Editar, marcar por defecto, activar e inactivar una sucursal (F2, entrega 2.1): solo el administrador. */
+  branchesUpdate: 'branches.update',
+  /** "Nuevo depósito" en el detalle de la sucursal (F2, entrega 2.1): solo el administrador. */
+  warehousesStore: 'warehouses.store',
+  /** Editar, marcar por defecto, activar e inactivar un depósito (F2, entrega 2.1): solo el administrador. */
+  warehousesUpdate: 'warehouses.update',
+  /** /configuracion/usuarios (F2, entrega 2.2a): solo el administrador. */
+  usersIndex: 'users.index',
+  /** /configuracion/usuarios/$id (F2, entrega 2.2a): solo el administrador. */
+  usersShow: 'users.show',
+  /** /configuracion/usuarios/nuevo (F2, entrega 2.2a): solo el administrador. */
+  usersStore: 'users.store',
+  /** /configuracion/usuarios/$id/editar (F2, entrega 2.2a): solo el administrador. */
+  usersUpdate: 'users.update',
+  /** Eliminar un usuario desde su detalle (F2, entrega 2.2b): solo el administrador. */
+  usersDestroy: 'users.destroy',
+  /** /veterinarios (F2, entrega 2.3): los tres roles. */
+  veterinariansIndex: 'veterinarians.index',
+  /** /veterinarios/$id, con la comisión y las notas (F2, entrega 2.3): solo el administrador. */
+  veterinariansShow: 'veterinarians.show',
+  /** /veterinarios/nuevo y "Crear la ficha de veterinario" (F2, entrega 2.3): solo el administrador. */
+  veterinariansStore: 'veterinarians.store',
+  /** /veterinarios/$id/editar, activar e inactivar (F2, entrega 2.3): solo el administrador. */
+  veterinariansUpdate: 'veterinarians.update',
+  /** Eliminar la ficha desde su detalle (F2, entrega 2.3): solo el administrador. */
+  veterinariansDestroy: 'veterinarians.destroy',
+  /** /servicios (F2, entrega 2.4): los tres roles. */
+  servicesIndex: 'services.index',
+  /** /servicios/$id (F2, entrega 2.4): los tres roles; las acciones, solo el administrador. */
+  servicesShow: 'services.show',
+  /** /servicios/nuevo (F2, entrega 2.4): solo el administrador. */
+  servicesStore: 'services.store',
+  /** /servicios/$id/editar, activar e inactivar (F2, entrega 2.4): solo el administrador. */
+  servicesUpdate: 'services.update',
+  /** Eliminar el servicio desde su detalle (F2, entrega 2.4): solo el administrador. */
+  servicesDestroy: 'services.destroy',
+  /** /configuracion/auditoria (F2, entrega 2.6): solo el administrador. */
+  auditLogsIndex: 'audit-logs.index',
+  /** /configuracion/auditoria/$id (F2, entrega 2.6): solo el administrador. */
+  auditLogsShow: 'audit-logs.show',
+  /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
+  rolesIndex: 'roles.index',
 } as const;
 
 export interface WithPermissions {
