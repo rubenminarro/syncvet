@@ -138,4 +138,56 @@ describe('el menú principal (2.5)', () => {
     expect(toggle()).toBeNull();
     expect(list()).not.toHaveAttribute('hidden');
   });
+
+  it('abierto, se cierra al navegar sin elegir un ítem (el enlace de la marca o "Atrás") (revisión de la 2.5)', async () => {
+    useScreen(true);
+    const { history } = await openHome();
+    const button = toggle();
+
+    if (button === null) {
+      throw new Error('Sin el botón del menú');
+    }
+
+    act(() => {
+      history.push('/configuracion');
+    });
+    await screen.findByText('Configuración', { selector: 'h2' });
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    act(() => {
+      history.back();
+    });
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/');
+    });
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(list()).toHaveAttribute('hidden');
+  });
+
+  it('al plegarse con el foco en un ítem, el foco pasa al botón; al volver a ensanchar y achicar, cerrado (revisión de la 2.5)', async () => {
+    useScreen(false);
+    await openHome();
+
+    menuLink('Configuración').closest('a')?.focus();
+    resize(true);
+
+    const button = toggle();
+
+    if (button === null) {
+      throw new Error('Sin el botón del menú');
+    }
+
+    expect(button).toHaveFocus();
+    expect(list()).toHaveAttribute('hidden');
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    resize(false);
+    resize(true);
+
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(list()).toHaveAttribute('hidden');
+  });
 });

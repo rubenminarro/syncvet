@@ -486,17 +486,45 @@ describe('/configuracion/clinica: el logo (2.5)', () => {
       expect(cardLogo()).not.toBeNull();
     });
     expect(api.logoCalls).toEqual(['logo-1']);
+    const oldUrl = cardLogo()?.getAttribute('src');
+
+    // La descarga del logo nuevo queda retenida hasta soltarla: mientras tanto, ni la tarjeta ni la barra muestran el viejo
+    // (revisión de la 2.5: con invalidateQueries en lugar de resetQueries, el viejo se seguía viendo y ningún test fallaba).
+    let releaseDownload: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      releaseDownload = resolve;
+    });
+    server.use(
+      http.get(LOGO_URL, async () => {
+        await held;
+        api.logoCalls.push('logo-2');
+
+        return new HttpResponse(new TextEncoder().encode('logo-2'), {
+          headers: { 'Content-Type': 'image/png' },
+        });
+      }),
+    );
 
     choose(png());
     await uploadChosen();
 
     await screen.findByText('Logo de la clínica actualizado correctamente.');
     await waitFor(() => {
+      expect(cardLogo()).toBeNull();
+    });
+    expect(barLogo()).toBeNull();
+    expect(revoked).toContain(oldUrl);
+
+    releaseDownload();
+
+    await waitFor(() => {
       expect(api.logoCalls).toEqual(['logo-1', 'logo-2']);
     });
     await waitFor(() => {
       expect(barLogo()).not.toBeNull();
     });
+    expect(cardLogo()).not.toBeNull();
+    expect(cardLogo()?.getAttribute('src')).not.toBe(oldUrl);
   });
 
   it('quitar: con confirmación, la barra vuelve a la marca SyncVet sin volver a pedir el logo', async () => {

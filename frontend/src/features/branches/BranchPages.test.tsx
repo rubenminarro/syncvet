@@ -199,7 +199,14 @@ describe('/configuracion/sucursales/nueva: alta', () => {
     type('Código del depósito', 'sur-dep');
     fireEvent.click(screen.getByText('Guardar', { selector: 'button' }));
 
-    expect(await screen.findByText('Datos de la sucursal')).toBeInTheDocument();
+    // El alta también tiene la tarjeta "Datos de la sucursal": se espera la URL y el encabezado del detalle, no ese texto
+    // (que se encontraba antes de mandar el pedido; revisión de la 2.5, desvío 9).
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/configuracion/sucursales/12');
+    });
+    expect(
+      await screen.findByText('Sucursal Sur', { selector: 'h2', exact: false }),
+    ).toBeInTheDocument();
     expect(store.bodies).toEqual([
       {
         code: 'SUR-1',
@@ -212,7 +219,6 @@ describe('/configuracion/sucursales/nueva: alta', () => {
         warehouse_name: null,
       },
     ]);
-    expect(history.location.pathname).toBe('/configuracion/sucursales/12');
     expect(screen.getByText('Sucursal creada correctamente.')).toBeInTheDocument();
   });
 

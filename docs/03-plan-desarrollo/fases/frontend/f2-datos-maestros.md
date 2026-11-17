@@ -534,6 +534,41 @@ la validación (`%TEMP%\claude\…\scratchpad\capturas-2-5`: `01-configuracion-c
 `05-tablet-configuracion.png`, `05b-tablet-menu-abierto.png`). En la captura 04b, el botón "Menú" se ve gris: es el estilo de
 foco de `btn-ghost-secondary` de Tabler, no un botón deshabilitado.
 
+**Revisión** (2026-11-17, sobre `11dabf4`, con el presupuesto por entrega). El usuario aceptó los 10 desvíos.
+
+* **Sin cambios.** El RUC nunca va en el pedido (`settingsFormToPayload` arma el cuerpo con `name`, `legal_name` y las cuatro
+  claves; el RUC es un campo de solo lectura sin `register`). Las claves vacías van en `null`, y las reglas y los mensajes son los
+  de `UpdateSystemSettingsRequest` y `SystemSettingKey::rules()` (los largos con `Array.from` sobre el texto sin espacios en los
+  extremos, como `TrimStrings` y `mb_strlen`; el correo en minúsculas antes del largo, como `prepareForValidation`; `https://`
+  sin distinguir mayúsculas, como `url:https`). `src/lib/files/image.ts` conserva el comportamiento de la foto: la misma firma de
+  bytes, el tamaño antes que el contenido y el límite con `>`; `photo.ts` conserva sus exportaciones y sus tests no cambiaron. El
+  logo: 2 MB justos pasan; el 413 o el 422 con `errors.logo`, al campo con el foco; el 413 sin `errors`, a la alerta;
+  `CLINIC_LOGO_NOT_FOUND` al verlo, el lugar vacío; al quitarlo, aviso y la configuración pedida de nuevo; `BlobImage` libera la URL
+  de objeto. La barra: el logo con `system-settings.show-logo` (los tres roles) y la misma clave de la caché. Los permisos: la ruta
+  con `system-settings.update`; subir y quitar, cada uno con su permiso.
+* **Hallazgo 1 (menor, corregido): el menú plegado quedaba abierto al navegar sin elegir un ítem** (el enlace de la marca, el
+  usuario a `/perfil`, "Atrás"), y al ensanchar la pantalla con el menú abierto y volver a achicarla, reaparecía abierto. Con el foco
+  en un ítem de la barra ancha, achicar la ventana dejaba el foco en un elemento oculto. `MainMenu.tsx`: el menú se cierra al
+  cambiar la ruta (`useRouterState`) o el ancho (el estado se ajusta durante el render) y, al plegarse con el foco en la lista, el
+  foco pasa al botón (`useLayoutEffect`). Dos tests nuevos en `MainMenu.test.tsx`, que fallan con el menú original.
+* **Hallazgo 2 (menor, corregido): el test de reemplazar el logo no comprobaba que no se viera el viejo.** La mutación
+  "`invalidateQueries` en lugar de `resetQueries` al reemplazarlo" (el viejo se ve mientras baja el nuevo) sobrevivía. El test
+  ahora retiene la descarga nueva y comprueba que, mientras tanto, ni la tarjeta ni la barra muestran un logo y que la URL vieja se
+  liberó; con la mutación, falla.
+* **Desvío 9, la causa (el test era frágil, corregido).** "Los códigos en mayúsculas…; al detalle de la nueva"
+  (`BranchPages.test.tsx`) esperaba `findByText('Datos de la sucursal')`, pero el formulario del alta tiene una tarjeta con ese
+  mismo título: la espera se cumplía en el acto, antes del `POST`, y el test pasaba solo si el pedido y la navegación terminaban en
+  los pocos ciclos que siguen (con la PC cargada, no). No era el reloj ni el orden: era una espera que no esperaba nada. Ahora espera
+  la URL del detalle y su encabezado (`h2` con el nombre). Comprobado con el `POST` demorado 500 ms a mano: el test viejo falla
+  ("…/nueva") y el nuevo pasa. El archivo, 5 corridas seguidas: 26 de 26 en cada una.
+* **Mutaciones** (3, cada una con sus tests relacionados y revertida con `git checkout`): el sitio vacío mandado como `''` en lugar
+  de `null` (1 falla); reemplazar el logo con `invalidateQueries` (sobrevivió; detectada después del hallazgo 2, 1 falla); el límite
+  justo rechazado (`>=` en `image.ts`: 6 fallas, del logo y de la foto).
+* **Corrida final**, desde `frontend/`: `typecheck` y `build` sin errores ni avisos; `lint` marcó una aserción de tipo en
+  `MainMenu.test.tsx`, corregida, y se repitieron `lint` y ese archivo (7 de 7); `npm test`, 1251 de 1251 en 60 archivos, en verde;
+  desde `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright (el menú a 375 px está en su caso):
+  `e2e/configuracion-clinica.spec.ts`, 1 de 1.
+
 ### 2.6 Auditoría
 
 **Pantallas.**

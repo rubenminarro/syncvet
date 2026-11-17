@@ -1,6 +1,6 @@
 import { IconMenu2, IconX } from '@tabler/icons-react';
-import { Link } from '@tanstack/react-router';
-import { useId, useRef, useState } from 'react';
+import { Link, useRouterState } from '@tanstack/react-router';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useMediaQuery } from '../lib/hooks/use-media-query';
 import type { MenuItem } from './menu';
 
@@ -14,14 +14,33 @@ export const COLLAPSED_MENU_QUERY = '(max-width: 991.98px)';
  * El menú principal (2.5, desvío 10 de la 2.4): en pantallas anchas, la barra horizontal de siempre; en las chicas, plegado
  * detrás del botón "Menú", sin el JS de Tabler. El botón dice si está abierto (`aria-expanded`) y qué abre
  * (`aria-controls`); se abre con Enter o Espacio (es un `<button>`), Escape lo cierra con el foco de vuelta en el botón, y
- * elegir un ítem lo cierra.
+ * elegir un ítem lo cierra. También se cierra con cualquier otra navegación (la marca, el perfil, "Atrás") y al cambiar el
+ * ancho; si se pliega con el foco en un ítem, el foco pasa al botón y no queda en un elemento oculto (revisión de la 2.5).
  */
 export function MainMenu({ items }: { items: readonly MenuItem[] }) {
   const collapsed = useMediaQuery(COLLAPSED_MENU_QUERY);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // Lo que cierra el menú sin un clic en él: otra ruta u otro ancho (el estado se ajusta durante el render, sin un efecto).
+  const [seen, setSeen] = useState({ pathname, collapsed });
+
+  if (seen.pathname !== pathname || seen.collapsed !== collapsed) {
+    setSeen({ pathname, collapsed });
+    setOpen(false);
+  }
+
   const expanded = collapsed && open;
+
+  // Al plegarse con el foco en un ítem de la barra (achicar la ventana), la lista queda oculta: el foco pasa al botón. En el
+  // efecto de layout, antes de que el navegador lo suelte en el body.
+  useLayoutEffect(() => {
+    if (collapsed && listRef.current?.contains(document.activeElement) === true) {
+      buttonRef.current?.focus();
+    }
+  }, [collapsed]);
 
   return (
     <nav
@@ -55,6 +74,7 @@ export function MainMenu({ items }: { items: readonly MenuItem[] }) {
         </button>
       ) : null}
       <ul
+        ref={listRef}
         id={listId}
         className={`navbar-nav main-menu-list ${collapsed ? 'flex-column' : 'flex-row'}`}
         hidden={collapsed && !open}
