@@ -237,7 +237,7 @@ export function AuditListPage() {
             <SearchField
               className="col-lg-3"
               label="Buscar en la auditoría"
-              placeholder="Buscá por el nombre o el email del usuario"
+              placeholder="Nombre o email"
               value={text}
               onChange={setText}
               maxLength={SEARCH_MAX_LENGTH}

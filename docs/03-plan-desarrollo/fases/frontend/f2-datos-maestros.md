@@ -584,7 +584,36 @@ repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-
 `01b-listado-escritorio.png`, `02-listado-con-hora.png`, `03-detalle-sensibles.png`, `04-detalle-lista.png`,
 `05-celular-listado.png`, `05b-celular-detalle.png`).
 
-Para el cierre: la revisión, la documentación de la entrega (`frontend/CLAUDE.md`: los filtros de fecha de la auditoría, el
+**Revisión** (el 2026-11-17, sobre el WIP `120739f`, diff con `1af859b`; el usuario aceptó los 10 desvíos). Se revisaron las
+fechas (la fecha sola como día completo de Asunción, "hasta" con :59, los días de 23 y 25 horas, todo con `TZDate` y nunca con la
+zona de la PC), que una fecha inválida o "desde" posterior a "hasta" no llegue a la API (ni desde el formulario ni desde la URL),
+`maskAuditValues` (claves sensibles en cualquier nivel y en listas, sin distinguir mayúsculas; en los modelos de hoy, ninguna clave
+no sensible tiene `password`, `token` o `_path`: las únicas son `password`, `remember_token`, `token`, `photo_path`, `kude_path`,
+`pdf_path` y `xml_path`), que todo valor se muestre como texto (React lo escapa; JSON en `<pre>`), los filtros en la URL (recarga,
+"Atrás" con el formulario vuelto a montar por `key`, página fuera de rango, la espera de la búsqueda con `useSearchText`, que se
+cancela al navegar a otra página), `entidad` sin chocar con `tipo` de `/clientes`, los permisos (las dos rutas con
+`requirePermission`, la tarjeta con `audit-logs.index`, el ítem "Configuración" del menú solo para el administrador) y 375 px.
+Ningún hallazgo cambia el comportamiento.
+
+* **Corregido.** (1) Desvío 10, el texto de ejemplo de la búsqueda: "Buscá por el nombre o el email del usuario" se cortaba; a
+  1280 px el campo deja 147 px de texto, y "Buscá por nombre o email" (163 px) también se cortaba, así que quedó
+  **"Nombre o email"** (101 px a 1280 y 115 de 203 a 375; la etiqueta accesible sigue "Buscar en la auditoría"). (2) A 375 px,
+  "Filtrar" quedaba alineado con la etiqueta del n.º de registro y no con el campo (el ajuste de `.audit-filter-submit` era solo
+  desde 768 px; en un celular comparte la fila con ese campo): ahora vale en todos los anchos (`styles.css`).
+* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): las claves sensibles distinguiendo mayúsculas (`mask.test.ts`,
+  1 falla); `registro` sin `entidad` aceptado en la URL (`search.test.ts`, 4 fallas); "hasta" con fecha sola como las 23:59:59 de
+  ese día en lugar del comienzo del siguiente menos un segundo (`dates.test.ts`, 4 fallas: el día de 25 horas).
+* **En Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID; 3 controles): el texto de ejemplo
+  medido a 1280 y a 375 px, sin desplazamiento horizontal de la página, y "Filtrar" alineado a 375 px. Cada control ingresó y
+  salió como `admin-a` (quedan en la auditoría); el primer intento falló por el script (esperaba visible el nombre de la barra,
+  oculto a ese ancho) antes de salir, así que ese token queda hasta su vencimiento (12 horas). Capturas fuera del repositorio
+  (`%TEMP%\claude\…\scratchpad`: `revision-buscador-1280.png`, `revision-buscador-375.png`).
+* **Pruebas.** `vitest related` de `AuditListPage.tsx` y `styles.css`: 531 de 531 en 25 archivos. Corrida final, desde
+  `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 de 1331 en 64 archivos, en verde; desde
+  `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright no se corrió: `auditoria.spec.ts` no usa el texto de ejemplo y corre a
+  ancho de escritorio.
+
+Para el cierre: la documentación de la entrega (`frontend/CLAUDE.md`: los filtros de fecha de la auditoría, el
 parámetro `entidad`, `formatDateTimeSeconds`; el roadmap, `modulos.md` y el handoff) y, después, el cierre de la F2.
 
 ## Documentación por entrega

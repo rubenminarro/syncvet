@@ -44,9 +44,8 @@
   font-size: 0.8125rem;
 }
 
-/* "Filtrar", alineado con los campos de la auditoría (que tienen la etiqueta arriba). */
-@media (min-width: 768px) {
-  .audit-filter-submit {
-    padding-top: 1.75rem;
-  }
+/* "Filtrar", alineado con los campos de la auditoría (que tienen la etiqueta arriba), en todos los anchos: en un celular
+   comparte la fila con el n.º de registro. */
+.audit-filter-submit {
+  padding-top: 1.75rem;
 }
