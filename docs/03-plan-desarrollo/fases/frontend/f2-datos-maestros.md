@@ -138,7 +138,7 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 | 2.2a | Usuarios: listado, detalle, alta y edición (roles, sucursales, la contraseña de otro usuario, el propio usuario) | No | `feature/front-2-2a-usuarios`, desde `feature/front-2-1-sucursales` | COMPLETADO (R-076, [resultado](#entrega-22a)) |
 | 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios`, desde `feature/front-2-2a-usuarios` | COMPLETADO (R-077, [resultado](#entrega-22b)) |
 | front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-usuarios-veterinario`, desde `feature/front-2-2b-usuarios` (el nombre, del usuario en R-077) | COMPLETADO (R-078, [resultado](#entrega-front-02)) |
-| 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios`, desde `feature/front-02-usuarios-veterinario` (creada y subida en el cierre de front-02, R-078) | APROBADA (R-074) |
+| 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios`, desde `feature/front-02-usuarios-veterinario` (creada y subida en el cierre de front-02, R-078) | COMPLETADO (R-079, [resultado](#entrega-23)) |
 | 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios` | APROBADA (R-074) |
 | 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra) | No | `feature/front-2-5-configuracion` | APROBADA (R-074) |
 | 2.6 | Auditoría: listado con filtros (fechas con y sin hora en Asunción) y detalle de los cambios | No | `feature/front-2-6-auditoria` | APROBADA (R-074) |
@@ -369,79 +369,7 @@ recepcionista.
 
 #### Pendiente para el cierre (2.3)
 
-Implementación (2026-11-16) en `feature/front-2-3-veterinarios`: `fcf6667` (`dialogError` a `src/lib/api/dialog-error.ts`, con
-sus tests; sucursales y usuarios la importan sin cambiar su comportamiento: sus tests siguieron en verde sin tocarlos) y el WIP de
-la entrega.
-
-* **Hecho.** `features/veterinarians` (nuevo): el menú "Veterinarios" (`veterinarians.index`, después de "Especies"), `/veterinarios`
-  (búsqueda, `?estado=inactivos|todos` traducido a `status=inactive` o `include_inactive=1`, `?sucursal=`; el enlace al detalle y
-  "Nuevo veterinario" solo para el administrador; sin la comisión ni las notas), `/veterinarios/$id` (la comisión "12,5 %", el
-  usuario con su enlace, "Usuario inactivo"; Editar, Inactivar o Activar y Eliminar), `/veterinarios/nuevo?usuario=` (el usuario
-  entre los activos con el rol veterinario y `veterinarian === null`, de `['users', 'options', { role, include_inactive }]`) y
-  `/veterinarios/$id/editar` (el código y el usuario solo para leer; sin `user_id`, `code` ni `status` en el cuerpo). La matrícula
-  en mayúsculas y recortada; la comisión con coma o punto, mandada con punto (vacía, `"0"`). La baja con `VETERINARIAN_IN_USE`: el
-  mensaje y "Inactivar" (en una inactiva, solo "Cerrar"). Crear, editar, activar o inactivar invalidan `['veterinarians']` y
-  `['users']` (el detalle toma la respuesta) y `['me']` si la ficha es del usuario de la sesión; la baja, igual, con los listados
-  vaciados y el detalle fuera de la caché al llegar al listado. En usuarios: `User` suma `veterinarian` (front-02); el detalle
-  enlaza a la ficha o muestra "Crear la ficha de veterinario" (activo, con el rol y sin ficha); la alerta de `USER_IS_VETERINARIAN`
-  enlaza a la ficha. `PERMISSIONS` suma los cinco de `veterinarians.*`.
-* **Pruebas.** Vitest: `dialog-error.test.ts` (8), `veterinarians/search.test.ts` y `form.test.ts` (44, cada regla en su borde) y
-  `VeterinarianPages.test.tsx` (25: listado de los dos roles, estado y sucursal en la URL y en el pedido, `/sin-permiso`, el
-  selector sin los usuarios con ficha y con `?usuario=`, la ficha restaurada con su código, 422 de la matrícula, la edición sin
-  `user_id`, inactivar, activar, la baja con el 200 y con `VETERINARIAN_IN_USE`, el detalle del usuario). Mutaciones: 4 de 4
-  detectadas (el selector con los usuarios con ficha; `user_id` en la edición; el enlace al detalle para el recepcionista; sin
-  invalidar `['users']`). Playwright: `e2e/veterinarios.spec.ts` (nuevo), 1 de 1 en 50,4 s. Desde `backend/`,
-  `FictitiousDocumentsTest`, 3 de 3.
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | El filtro del listado es el del diseño (`?estado=activos\|inactivos\|todos` y `?sucursal=`), no "Incluir los inactivos" (`?inactivos=1`) del pedido de la entrega | Lo decidió el usuario al empezar la entrega ("Todos" incluye a los inactivos) |
-| 2 | El estado no es un campo del formulario de edición: se cambia con "Inactivar" o "Activar" en el detalle | El diseño (pregunta 13): activar e inactivar son botones con su confirmación |
-| 3 | En el alta con `?usuario=`, "Cancelar" vuelve al detalle de ese usuario (sin `?usuario=`, al listado). Un `?usuario=` que no se puede elegir (con ficha, sin el rol, inactivo) no queda elegido | Se vuelve a donde se vino; el selector solo ofrece lo que la API acepta |
-| 4 | El selector del alta pide 100 usuarios (`per_page` máximo de la API): con más de 100 usuarios con el rol veterinario, los que pasan de la primera página no se ofrecen | Una clínica no llega a eso; si hiciera falta, una búsqueda en el selector |
-| 5 | La ficha restaurada muestra el mensaje de la API ("Veterinario creado correctamente.", el mismo 201 del alta) y el detalle con su código de siempre; no hay un aviso propio de "restaurada" | La API no distingue la restauración en la respuesta; el mensaje se muestra tal cual |
-| 6 | Tests tocados por la entrega (no por el commit de `dialogError`): el menú con "Veterinarios" en `app/permissions.test.tsx` y `lib/auth/permissions.test.ts`; en `UserPages.test.tsx`, el código de la ficha ahora es un enlace (2 tests) | Cambios de comportamiento de la 2.3 |
-| 7 | La corrida final de `npm test` dio 6 fallas en `lib/auth/permissions.test.ts` (el menú sin "Veterinarios"); se corrigió y se repitió solo ese archivo, 12 de 12. La cifra total, 1073 tests en 53 archivos (996 más 77 nuevos), sale de la cuenta, no de una corrida completa en verde: queda para la revisión o el cierre | El presupuesto por entrega: se repite solo el paso que falló |
-| 8 | Después de la validación en Edge, el selector del usuario sumó `className="mb-3"` (la pista quedaba pegada a "Matrícula", como los selectores del paciente); `typecheck`, `lint` y sus tests relacionados (455) en verde, sin repetir Edge ni el build | Solo un margen |
-| 9 | Edge: la primera corrida del control 5 falló al crear el usuario temporal con `@example.com` (422: la demo valida el DNS, como el desvío 10 de la 2.2a), sin cambiar la demo; se repitió solo ese control con `@mailinator.com` (usuario 39, borrado por la API, `DELETE users/39`, 200). `VETERINARIAN_IN_USE` se simuló interceptando el `DELETE` de `vet-a` (nunca llegó a la API); la ficha de `vet-a` solo se leyó (igual antes y después) | La demo queda como estaba; la baja real está en Playwright contra `syncvet_e2e` |
-
-**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 5 de 5. (1) El listado con
-"Todos" y al ancho de tablet, sin desplazamiento horizontal; (2) el detalle de `vet-a` ("0 %"); (3) la edición con la comisión con
-coma ("0,00") y el código y el usuario solo para leer, sin guardar; (4) la baja con `VETERINARIAN_IN_USE` simulado: el mensaje y
-"Inactivar", sin confirmar; (5) del usuario temporal a "Crear la ficha de veterinario", con el usuario elegido, y "Cancelar" de
-vuelta al usuario, sin guardar. Capturas fuera del repositorio, en la PC de la validación
-(`%TEMP%\claude\…\scratchpad\capturas-2-3`: `01-listado.png`, `02-listado-tablet.png`, `03-detalle.png`, `04-edicion.png`,
-`05-baja-en-uso.png`, `06-usuario-sin-ficha.png`, `07-alta.png`).
-
-**Revisión** (2026-11-16, sobre `fcf6667` y `72975a6`, contra `0ab4dc7`; el usuario aceptó los 9 desvíos). Antes de revisar,
-`npm test` completo: 1073 tests en 53 archivos, en verde (la cifra del desvío 7 queda confirmada por una corrida).
-
-* **Revisado, sin hallazgos.** El listado no muestra la comisión ni las notas: el tipo `Veterinarian` no las tiene, las columnas
-  son fijas y la caché guarda solo lo que manda `VeterinarianResource` (sin `commission_percentage` ni `notes`, R-037); el único
-  `setQueryData` es el del detalle (`afterVeterinarianChanged`), que solo el administrador pide; el recepcionista y el veterinario
-  no piden el detalle (`requirePermission` antes del `loader`, con test) y salir de la sesión vacía la caché. La matrícula,
-  recortada y en mayúsculas antes de validar y de mandar, como `VeterinarianMessages::normalizeLicense` ("sin espacios" es en los
-  extremos, como la API). La comisión, texto de punta a punta (`Number` solo para el rango): coma o punto, `numeric`,
-  `min`/`max` y `decimal:0,2` en el orden y con los mensajes de la API, también el exponente (`1e1`: numérico, pero no decimal).
-  El alta ofrece solo usuarios activos con el rol y `veterinarian === null`; `?usuario=` que no se puede elegir no queda elegido;
-  la restauración muestra el código de siempre. `VETERINARIAN_IN_USE` ofrece "Inactivar" (solo en una activa). La alerta de
-  `USER_IS_VETERINARIAN` enlaza a la ficha. Las invalidaciones son las del diseño (`['veterinarians']`, `['users']` y `['me']` si
-  es la propia; usuarios y sucursales ya invalidaban `['veterinarians']`). `dialogError` se movió sin cambios (el cuerpo es
-  idéntico en las dos copias borradas y en `src/lib/api/dialog-error.ts`). Permisos: las cuatro rutas con su permiso; el enlace al
-  detalle, "Nuevo veterinario", Editar, Inactivar y Eliminar con `useCan()`.
-* **Corregido (tests que faltaban).** En `VeterinarianPages.test.tsx`, 2 tests: inactivar la ficha propia (un administrador que
-  también es veterinario) vuelve a pedir `me`; inactivar una ficha que otra pestaña eliminó (404) avisa y vuelve al listado
-  (`useVeterinarianGone`, sin test hasta ahora). En `form.test.ts`, el caso `1e1` (paridad con `decimal:0,2`).
-* **Notas, sin cambio.** El test "el recepcionista: … sin la comisión" es débil (la respuesta simulada nunca la trae): la protección
-  real es la API, y en el frontend, el tipo y las columnas fijas. Con un 404 en una acción, `useVeterinarianGone` no vuelve a pedir
-  `me` si la ficha era la propia; `SessionLayout` lo vuelve a pedir al volver a la pestaña, y el caso (la propia ficha borrada en
-  otra pestaña) no cambia permisos.
-* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): sin volver a pedir `me` en la ficha propia (lo detecta el test
-  nuevo); la matrícula sin pasar a mayúsculas (3 tests); `VETERINARIAN_IN_USE` sin "Inactivar" (1 test).
-* **Cifras.** Tests tocados (`vitest run` de los dos archivos): 55 de 55. Corrida final: `typecheck` y `lint` sin errores ni avisos; `npm test`,
-  1076 tests en 53 archivos, en verde (1073 más los 3 nuevos); `build` sin errores; desde `backend/`, `FictitiousDocumentsTest`,
-  3 de 3. Playwright no se
-  repitió: los cambios son solo de tests de Vitest.
+Vacío: la entrega se cerró (R-079) y todo lo que había acá pasó a su [resultado](#entrega-23).
 
 ### 2.4 Servicios
 
@@ -869,3 +797,90 @@ pedidos y 138 aserciones, sin fallas (en la implementación, sobre `bf98d8d`; el
 `frontend/`, sobre `f0218e6`, `typecheck`, `lint` y `build` sin errores ni avisos.
 
 Corrida de `npm test` del frontend (2026-11-16): 996 tests en 49 archivos, en verde.
+
+### Entrega 2.3
+
+Estado: **COMPLETADO** el 2026-11-16 (R-079). Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición,
+inactivar y baja, en `feature/front-2-3-veterinarios` (desde `feature/front-02-usuarios-veterinario`, en el cierre de front-02,
+`0ab4dc7`), sin integrar a `main` (se integra al cerrar la F2). Commits: `fcf6667` (`dialogError` a código común), `72975a6` (WIP
+de la implementación), `359b2d7` (WIP de la revisión) y el de este cierre (R-079: la documentación).
+
+**Implementación** (el 2026-11-16). Primero, `fcf6667`: `dialogError` pasó a `src/lib/api/dialog-error.ts`, con sus tests;
+sucursales y usuarios la importan sin cambiar su comportamiento (sus tests siguieron en verde sin tocarlos).
+
+* **Hecho.** `features/veterinarians` (nuevo): el menú "Veterinarios" (`veterinarians.index`, después de "Especies"), `/veterinarios`
+  (búsqueda, `?estado=inactivos|todos` traducido a `status=inactive` o `include_inactive=1`, `?sucursal=`; el enlace al detalle y
+  "Nuevo veterinario" solo para el administrador; sin la comisión ni las notas), `/veterinarios/$id` (la comisión "12,5 %", el
+  usuario con su enlace, "Usuario inactivo"; Editar, Inactivar o Activar y Eliminar), `/veterinarios/nuevo?usuario=` (el usuario
+  entre los activos con el rol veterinario y `veterinarian === null`, de `['users', 'options', { role, include_inactive }]`) y
+  `/veterinarios/$id/editar` (el código y el usuario solo para leer; sin `user_id`, `code` ni `status` en el cuerpo). La matrícula
+  en mayúsculas y recortada; la comisión con coma o punto, mandada con punto (vacía, `"0"`). La baja con `VETERINARIAN_IN_USE`: el
+  mensaje y "Inactivar" (en una inactiva, solo "Cerrar"). Crear, editar, activar o inactivar invalidan `['veterinarians']` y
+  `['users']` (el detalle toma la respuesta) y `['me']` si la ficha es del usuario de la sesión; la baja, igual, con los listados
+  vaciados y el detalle fuera de la caché al llegar al listado. En usuarios: `User` suma `veterinarian` (front-02); el detalle
+  enlaza a la ficha o muestra "Crear la ficha de veterinario" (activo, con el rol y sin ficha); la alerta de `USER_IS_VETERINARIAN`
+  enlaza a la ficha. `PERMISSIONS` suma los cinco de `veterinarians.*`.
+* **Pruebas.** Vitest: `dialog-error.test.ts` (8), `veterinarians/search.test.ts` y `form.test.ts` (44, cada regla en su borde) y
+  `VeterinarianPages.test.tsx` (25: listado de los dos roles, estado y sucursal en la URL y en el pedido, `/sin-permiso`, el
+  selector sin los usuarios con ficha y con `?usuario=`, la ficha restaurada con su código, 422 de la matrícula, la edición sin
+  `user_id`, inactivar, activar, la baja con el 200 y con `VETERINARIAN_IN_USE`, el detalle del usuario). Mutaciones: 4 de 4
+  detectadas (el selector con los usuarios con ficha; `user_id` en la edición; el enlace al detalle para el recepcionista; sin
+  invalidar `['users']`). Playwright: `e2e/veterinarios.spec.ts` (nuevo), 1 de 1 en 50,4 s. Desde `backend/`,
+  `FictitiousDocumentsTest`, 3 de 3.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El filtro del listado es el del diseño (`?estado=activos\|inactivos\|todos` y `?sucursal=`), no "Incluir los inactivos" (`?inactivos=1`) del pedido de la entrega | Lo decidió el usuario al empezar la entrega ("Todos" incluye a los inactivos) |
+| 2 | El estado no es un campo del formulario de edición: se cambia con "Inactivar" o "Activar" en el detalle | El diseño (pregunta 13): activar e inactivar son botones con su confirmación |
+| 3 | En el alta con `?usuario=`, "Cancelar" vuelve al detalle de ese usuario (sin `?usuario=`, al listado). Un `?usuario=` que no se puede elegir (con ficha, sin el rol, inactivo) no queda elegido | Se vuelve a donde se vino; el selector solo ofrece lo que la API acepta |
+| 4 | El selector del alta pide 100 usuarios (`per_page` máximo de la API): con más de 100 usuarios con el rol veterinario, los que pasan de la primera página no se ofrecen | Una clínica no llega a eso; si hiciera falta, una búsqueda en el selector |
+| 5 | La ficha restaurada muestra el mensaje de la API ("Veterinario creado correctamente.", el mismo 201 del alta) y el detalle con su código de siempre; no hay un aviso propio de "restaurada" | La API no distingue la restauración en la respuesta; el mensaje se muestra tal cual |
+| 6 | Tests tocados por la entrega (no por el commit de `dialogError`): el menú con "Veterinarios" en `frontend/src/app/permissions.test.tsx` y `frontend/src/lib/auth/permissions.test.ts`; en `UserPages.test.tsx`, el código de la ficha ahora es un enlace (2 tests) | Cambios de comportamiento de la 2.3 |
+| 7 | La corrida final de `npm test` dio 6 fallas en `frontend/src/lib/auth/permissions.test.ts` (el menú sin "Veterinarios"); se corrigió y se repitió solo ese archivo, 12 de 12. La cifra total, 1073 tests en 53 archivos (996 más 77 nuevos), sale de la cuenta, no de una corrida completa en verde: queda para la revisión o el cierre | El presupuesto por entrega: se repite solo el paso que falló |
+| 8 | Después de la validación en Edge, el selector del usuario sumó `className="mb-3"` (la pista quedaba pegada a "Matrícula", como los selectores del paciente); `typecheck`, `lint` y sus tests relacionados (455) en verde, sin repetir Edge ni el build | Solo un margen |
+| 9 | Edge: la primera corrida del control 5 falló al crear el usuario temporal con `@example.com` (422: la demo valida el DNS, como el desvío 10 de la 2.2a), sin cambiar la demo; se repitió solo ese control con `@mailinator.com` (usuario 39, borrado por la API, `DELETE users/39`, 200). `VETERINARIAN_IN_USE` se simuló interceptando el `DELETE` de `vet-a` (nunca llegó a la API); la ficha de `vet-a` solo se leyó (igual antes y después) | La demo queda como estaba; la baja real está en Playwright contra `syncvet_e2e` |
+
+**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 5 de 5. (1) El listado con
+"Todos" y al ancho de tablet, sin desplazamiento horizontal; (2) el detalle de `vet-a` ("0 %"); (3) la edición con la comisión con
+coma ("0,00") y el código y el usuario solo para leer, sin guardar; (4) la baja con `VETERINARIAN_IN_USE` simulado: el mensaje y
+"Inactivar", sin confirmar; (5) del usuario temporal a "Crear la ficha de veterinario", con el usuario elegido, y "Cancelar" de
+vuelta al usuario, sin guardar. Capturas fuera del repositorio, en la PC de la validación
+(`%TEMP%\claude\…\scratchpad\capturas-2-3`: `01-listado.png`, `02-listado-tablet.png`, `03-detalle.png`, `04-edicion.png`,
+`05-baja-en-uso.png`, `06-usuario-sin-ficha.png`, `07-alta.png`).
+
+**Revisión** (2026-11-16, sobre `fcf6667` y `72975a6`, contra `0ab4dc7`; el usuario aceptó los 9 desvíos). Antes de revisar,
+`npm test` completo: 1073 tests en 53 archivos, en verde (la cifra del desvío 7 queda confirmada por una corrida).
+
+* **Revisado, sin hallazgos.** El listado no muestra la comisión ni las notas: el tipo `Veterinarian` no las tiene, las columnas
+  son fijas y la caché guarda solo lo que manda `VeterinarianResource` (sin `commission_percentage` ni `notes`, R-037); el único
+  `setQueryData` es el del detalle (`afterVeterinarianChanged`), que solo el administrador pide; el recepcionista y el veterinario
+  no piden el detalle (`requirePermission` antes del `loader`, con test) y salir de la sesión vacía la caché. La matrícula,
+  recortada y en mayúsculas antes de validar y de mandar, como `VeterinarianMessages::normalizeLicense` ("sin espacios" es en los
+  extremos, como la API). La comisión, texto de punta a punta (`Number` solo para el rango): coma o punto, `numeric`,
+  `min`/`max` y `decimal:0,2` en el orden y con los mensajes de la API, también el exponente (`1e1`: numérico, pero no decimal).
+  El alta ofrece solo usuarios activos con el rol y `veterinarian === null`; `?usuario=` que no se puede elegir no queda elegido;
+  la restauración muestra el código de siempre. `VETERINARIAN_IN_USE` ofrece "Inactivar" (solo en una activa). La alerta de
+  `USER_IS_VETERINARIAN` enlaza a la ficha. Las invalidaciones son las del diseño (`['veterinarians']`, `['users']` y `['me']` si
+  es la propia; usuarios y sucursales ya invalidaban `['veterinarians']`). `dialogError` se movió sin cambios (el cuerpo es
+  idéntico en las dos copias borradas y en `src/lib/api/dialog-error.ts`). Permisos: las cuatro rutas con su permiso; el enlace al
+  detalle, "Nuevo veterinario", Editar, Inactivar y Eliminar con `useCan()`.
+* **Corregido (tests que faltaban).** En `VeterinarianPages.test.tsx`, 2 tests: inactivar la ficha propia (un administrador que
+  también es veterinario) vuelve a pedir `me`; inactivar una ficha que otra pestaña eliminó (404) avisa y vuelve al listado
+  (`useVeterinarianGone`, sin test hasta ahora). En `form.test.ts`, el caso `1e1` (paridad con `decimal:0,2`).
+* **Notas, sin cambio.** El test "el recepcionista: … sin la comisión" es débil (la respuesta simulada nunca la trae): la protección
+  real es la API, y en el frontend, el tipo y las columnas fijas. Con un 404 en una acción, `useVeterinarianGone` no vuelve a pedir
+  `me` si la ficha era la propia; `SessionLayout` lo vuelve a pedir al volver a la pestaña, y el caso (la propia ficha borrada en
+  otra pestaña) no cambia permisos.
+* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): sin volver a pedir `me` en la ficha propia (lo detecta el test
+  nuevo); la matrícula sin pasar a mayúsculas (3 tests); `VETERINARIAN_IN_USE` sin "Inactivar" (1 test).
+* **Cifras.** Tests tocados (`vitest run` de los dos archivos): 55 de 55. Corrida final: `typecheck` y `lint` sin errores ni avisos; `npm test`,
+  1076 tests en 53 archivos, en verde (1073 más los 3 nuevos); `build` sin errores; desde `backend/`, `FictitiousDocumentsTest`,
+  3 de 3. Playwright no se repitió: los cambios son solo de tests de Vitest.
+
+**Validación.** El usuario aceptó los 9 desvíos, pidió la revisión y, con ella, el cierre (R-079). Evidencia: Claude Code, 5 de 5
+en Edge sin ventana contra `syncvet.test` (arriba; el usuario temporal, borrado por la API, `DELETE users/39`, 200;
+`VETERINARIAN_IN_USE` simulado, desvío 9); Playwright, `e2e/veterinarios.spec.ts`, 1 de 1 (en la implementación; la revisión no
+tocó su caso; 26 casos en total), con el recepcionista que ve el listado sin la comisión, sin enlaces ni "Nuevo veterinario"; desde `frontend/`, sobre `359b2d7`, `typecheck`, `lint` y `build` sin errores ni avisos; desde
+`backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+Corrida de `npm test` del frontend (2026-11-16): 1076 tests en 53 archivos, en verde.

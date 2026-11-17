@@ -1700,3 +1700,21 @@ Entrega de soporte del backend pedida por la F2 del frontend (pregunta 1 de su d
 
 **Qué no cambió.** Rutas, permisos, migraciones, `error_code`, códigos HTTP y las respuestas del detalle, el alta y la edición del
 usuario y de `me`.
+
+# R-079 Cierre de la entrega 2.3 del frontend (veterinarios) (2026-11-16)
+
+Cuarta entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-3-veterinarios` (desde
+`feature/front-02-usuarios-veterinario`, en el cierre de front-02, `0ab4dc7`), sin integrar a `main`: se integra al cerrar la F2.
+El detalle, en su [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-23).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | "Veterinarios" en el menú (los tres roles) y `/veterinarios` con búsqueda, estado (`?estado=inactivos\|todos`, traducido a `status=inactive` o `include_inactive=1`) y sucursal, sin la comisión ni las notas; el enlace al detalle y "Nuevo veterinario", solo para el administrador. `/veterinarios/$id` (la comisión "12,5 %", el usuario con su enlace; Editar, Inactivar o Activar y Eliminar), `/veterinarios/nuevo?usuario=` (los usuarios activos con el rol y sin ficha; la ficha eliminada vuelve con su código) y `/veterinarios/$id/editar` (sin `user_id`, `code` ni `status`). La matrícula en mayúsculas y recortada; la comisión con coma o punto, mandada como texto con punto. `VETERINARIAN_IN_USE` ofrece "Inactivar". En usuarios, el enlace a la ficha, "Crear la ficha de veterinario" y el enlace en la alerta de `USER_IS_VETERINARIAN`. Invalida `['veterinarians']`, `['users']` y `['me']` si la ficha es la propia. Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Código común | `dialogError` pasó a `src/lib/api/dialog-error.ts` (`fcf6667`), con sus tests; sucursales, usuarios y veterinarios la usan, sin cambiar el comportamiento | Usuario (R-077) |
+| Desvíos | Los 9, aceptados: entre ellos, el filtro de estado del diseño (`?estado=`) en lugar de "Incluir los inactivos", decidido al empezar la entrega; el estado se cambia solo con sus botones; el selector del alta pide 100 usuarios (`per_page` máximo); la ficha restaurada, con el mismo mensaje de la API que un alta; y el 7: la corrida final de la implementación dio 6 fallas en `lib/auth/permissions.test.ts` (el menú sin "Veterinarios"), corregidas y repetido solo ese archivo (12 de 12), con la cifra total para la revisión | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `fcf6667` y `72975a6` (diff con `0ab4dc7`): sin hallazgos que cambien el comportamiento. Antes de revisar, `npm test` completo: 1073 tests en 53 archivos, en verde (la cifra del desvío 7, ahora de una corrida). Corregido en `359b2d7` (solo tests): inactivar la ficha propia vuelve a pedir `me`; un 404 en una acción avisa y vuelve al listado; la comisión `1e1` se rechaza como decimal, como la API | Revisión |
+| Mutaciones de la revisión | 3 de 3 detectadas: sin volver a pedir `me` en la ficha propia, la matrícula sin pasar a mayúsculas y `VETERINARIAN_IN_USE` sin "Inactivar" | Revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 5 de 5 en Edge sin ventana contra `syncvet.test` (el usuario temporal, borrado por la API); Playwright, `e2e/veterinarios.spec.ts`, 1 de 1 (26 casos en total), con el recepcionista que ve el listado sin la comisión, sin enlaces ni "Nuevo veterinario". Desde `frontend/`, sobre `359b2d7`: `npm test`, 1076 tests en 53 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3 | Usuario |
+| Siguiente | La entrega 2.4 del frontend (servicios), en `feature/front-2-4-servicios`, creada desde `feature/front-2-3-veterinarios` (en este cierre) y subida; sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
