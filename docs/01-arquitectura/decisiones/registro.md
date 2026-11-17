@@ -1796,3 +1796,17 @@ cerradas (R-075 a R-082). El detalle, en el [cierre de la F2](../../03-plan-desa
 
 **Qué no cambió.** Código de la aplicación, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre documenta y
 ajusta solo un test de Playwright.
+
+# R-084 `e2e/permisos.spec.ts` en toda entrega que cambie el menú o los permisos de una ruta (2026-11-17)
+
+En el cierre de la F2 (R-083, desvío 1), `e2e/permisos.spec.ts` falló porque esperaba el menú sin "Servicios" y "Veterinarios": la 2.3
+y la 2.4 sumaron esos ítems, pero cada una corrió solo su propio spec, como manda el presupuesto por entrega. El error se vio recién en
+la corrida completa del cierre.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Regla | Toda entrega del frontend que cambie el menú (`src/app/menu.ts`) o el permiso de una ruta (un `requirePermission`, o un permiso de `PERMISSIONS` que use una ruta) corre también `e2e/permisos.spec.ts`, además de su propio spec. No cuenta como corrida completa de Playwright: el resto sigue para el cierre de la fase | Usuario |
+| Dónde | El [Presupuesto por entrega](../../../CLAUDE.md#presupuesto-por-entrega) del `CLAUDE.md` de la raíz y [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md) §8 (Velocidad) | Usuario |
+| Primera aplicación | La F3 (agenda y turnos): sus entregas que suman "Agenda" y "Turnos" al menú lo anotan en sus casos de Playwright ([`f3-agenda.md`](../../03-plan-desarrollo/fases/frontend/f3-agenda.md)) | Diseño |
+
+**Qué no cambió.** Código, tests, rutas, permisos y colecciones: solo cambia el proceso.

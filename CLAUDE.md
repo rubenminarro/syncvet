@@ -80,7 +80,10 @@ alguna pide más corridas, vale esta.
   falló y los tests del archivo tocado, no la corrida entera. **Excepción, `npm test` del frontend:** si falla en un archivo, después
   de corregirlo se repite la suite completa (`npm test`), no solo ese archivo, para que la cifra registrada sea siempre la de una
   corrida real en verde (lo que pasó en la 2.3, desvío 7).
-* **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
+* **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase. **Toda entrega que
+  cambie el menú o el permiso de una ruta** (`src/app/menu.ts`, un `requirePermission` o un permiso de `PERMISSIONS`) corre
+  también `e2e/permisos.spec.ts`, además de su propio spec (R-084: en la F2, la 2.3 y la 2.4 sumaron ítems al menú y ese spec
+  recién falló en el cierre de la fase).
 * **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
 * **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
   cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales).
@@ -134,6 +137,6 @@ de una PC.
 * **Frontend:** F0 (base y login, R-063), F1 (clientes y pacientes, R-072) y F2 (datos maestros: sucursales y depósitos,
   usuarios, veterinarios, servicios, la configuración de la clínica con el logo y la auditoría, R-083) completadas e integradas a
   `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
-  Sigue el análisis y el diseño de la F3 (agenda y turnos), en `docs/front-f3-diseno`; el detalle, en
+  Sigue la F3 (agenda y turnos): el diseño propuesto, con sus preguntas abiertas, en `docs/front-f3-diseno`; el detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).
