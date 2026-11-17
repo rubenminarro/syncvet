@@ -1,9 +1,10 @@
 # F3 — Agenda y turnos (frontend)
 
-Etapa: Atención. Estado: **PENDIENTE DE APROBACIÓN**. Diseño propuesto el 2026-11-17 en `docs/front-f3-diseno` (desde `main` en
-`2651337`, el merge de la F2), con las [preguntas del diseño](#preguntas-del-diseño) abiertas: el usuario elige; nada de lo que
-cambia el comportamiento se decide sin su respuesta. Ninguna entrega empieza sin su autorización. El estado vigente de cada fase está
-en [`docs/03-plan-desarrollo/README.md`](../../README.md).
+Etapa: Atención. Estado: **EN CURSO**. Diseño propuesto el 2026-11-17 en `docs/front-f3-diseno` (desde `main` en `2651337`, el
+merge de la F2) y **aprobado por el usuario el 2026-11-17 (R-085)**, con las 15 [preguntas del diseño](#preguntas-del-diseño)
+respondidas (todas con la recomendación; la 1, la 9, la 13 y la 14, con precisiones) y las diferencias D1 a D5 corregidas en los
+documentos. Ninguna entrega empieza sin su autorización. El estado vigente de cada fase está en
+[`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 ## Objetivo
 
@@ -84,8 +85,8 @@ un paciente fallecido (`patient_id`, en el diálogo).
 
 ## Diferencias entre los documentos y el código
 
-Manda el código. Ninguna cambia el contrato; se registran para corregir los documentos en esta rama (las de la tabla de errores del
-frontend, en la entrega que las toca).
+Manda el código. Ninguna cambia el contrato. Corregidas en los documentos con la aprobación del diseño (R-085): D1 y D5 en el
+documento de la FASE 3 del backend (como precisiones, sin reescribir lo aprobado) y D2 a D4 en `frontend/CLAUDE.md` §5 y §6.
 
 | # | Documento | Dice | El código | Propuesta |
 |---|---|---|---|---|
@@ -156,7 +157,8 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
   sucursal, `refetchType: 'active'`), su detalle (con la respuesta del 200, `setQueryData`) y la disponibilidad de la agenda de origen
   y la de destino; una agenda → `['schedules']`; un bloqueo → sus bloqueos, el detalle de la agenda y la disponibilidad.
 * **Actualización** ([pregunta 9](#preguntas-del-diseño)): `staleTime` de 30 s en la agenda y la cola; al volver a la pestaña (ya lo
-  hace Query) y, si se aprueba, cada 60 s mientras la pestaña está visible (`refetchInterval`, sin correr en segundo plano). Una
+  hace Query) y cada 60 s mientras la pestaña está visible (`refetchInterval`, sin correr en segundo plano), en pausa mientras hay un
+  formulario o un diálogo abierto (pregunta 9). Una
   respuesta vieja no pisa la nueva (`placeholderData: keepPreviousData` al cambiar de día).
 * **Fechas** (H9, H10). Todo en `America/Asuncion` con `@date-fns/tz`, nunca con la zona de la PC: un módulo puro
   `features/appointments/dates.ts`, con sus tests corridos en UTC, como `features/audit/dates.ts`:
@@ -179,9 +181,9 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 * **Permisos.** Cada ruta con `requirePermission`; los botones con `useCan()`; `PERMISSIONS` suma los de la fase con los nombres de la
   API. Los tests, con `meFor(rol)` de los tres roles reales.
 * **Rendimiento** (H1, [pregunta 1](#preguntas-del-diseño)). La agenda hace **un pedido por día o por semana** de la sucursal
-  (`per_page` según la pregunta 1), más el detalle y los bloqueos de cada agenda que se ve (en caché). Si la respuesta dice que hay más
-  páginas (`last_page > 1`), la grilla avisa "Hay más turnos de los que se muestran: usá la lista." en lugar de mostrar una semana
-  incompleta sin decirlo. La lista pagina de a 20, como los demás listados. La cola, un pedido (hasta 200, con el aviso de
+  (`per_page=500`, front-03, pregunta 1), más el detalle y los bloqueos de cada agenda que se ve (en caché). Si `meta.pagination.total`
+  supera lo traído, la grilla avisa "Hay más turnos de los que se muestran: usá la lista." en lugar de mostrar una semana incompleta
+  sin decirlo: nunca corta en silencio. La lista pagina de a 20, como los demás listados. La cola, un pedido (hasta 200, con el aviso de
   `meta.truncated`).
 * **Celular, 375 px** ([pregunta 4](#preguntas-del-diseño) para la semana). Sin desplazamiento horizontal de la página. "Día" muestra
   **una agenda por vez** (un selector arriba, con la primera de la vista por defecto) y la grilla en una columna; "Semana" se ve como
@@ -215,15 +217,15 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 3.1a | Agendas: listado, detalle, alta y edición con el horario semanal, inactivar y baja (`/configuracion/agendas`) | No | `feature/front-3-1a-agendas`, desde `docs/front-f3-diseno` | PROPUESTA |
-| 3.1b | Bloqueos de una agenda: listar, crear (con los turnos afectados) y eliminar | No | `feature/front-3-1b-bloqueos`, desde la 3.1a | PROPUESTA |
-| front-03 | Soporte del backend: `per_page` hasta 500 en `GET appointments` (solo si se elige en la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-03-turnos-por-pagina`, desde la 3.1b | PROPUESTA |
-| 3.2 | La agenda del día: grilla por agenda, filtros, la sucursal actual, el teclado y "Agenda" en el menú (solo lectura) | front-03, si se aprueba | `feature/front-3-2-agenda-dia`, desde front-03 (o la 3.1b) | PROPUESTA |
-| 3.3 | La semana y la lista de turnos (`/turnos`, con los filtros de la API y las listas en la URL) | No | `feature/front-3-3-semana-lista`, desde la 3.2 | PROPUESTA |
-| 3.4 | El turno: detalle, alta (paciente, cliente o contacto; servicio y duración; horario con la disponibilidad; sobreturno), edición y reprogramación | No | `feature/front-3-4-turnos`, desde la 3.3 | PROPUESTA |
-| 3.5 | Los estados: confirmar, fichar, atendido, ausente y deshacerlo, cancelar con motivo | No | `feature/front-3-5-estados`, desde la 3.4 | PROPUESTA |
-| 3.6 | Las series: el alta con repetición, los conflictos de la serie y cancelar con alcance | No | `feature/front-3-6-series`, desde la 3.5 | PROPUESTA |
-| 3.7 | La cola del día (`/agenda/cola`), con fichar y atendido desde ahí ([pregunta 11](#preguntas-del-diseño)) | No | `feature/front-3-7-cola`, desde la 3.6 | PROPUESTA |
+| 3.1a | Agendas: listado, detalle, alta y edición con el horario semanal, inactivar y baja (`/configuracion/agendas`) | No | `feature/front-3-1a-agendas`, desde `docs/front-f3-diseno` | APROBADA |
+| 3.1b | Bloqueos de una agenda: listar, crear (con los turnos afectados) y eliminar | No | `feature/front-3-1b-bloqueos`, desde la 3.1a | APROBADA |
+| front-03 | Soporte del backend: `per_page` hasta 500 en `GET appointments` ([pregunta 1](#preguntas-del-diseño)) | — | `feature/front-03-turnos-por-pagina`, desde la 3.1b | APROBADA |
+| 3.2 | La agenda del día: grilla por agenda, filtros, la sucursal actual, el teclado y "Agenda" en el menú (solo lectura) | front-03 | `feature/front-3-2-agenda-dia`, desde front-03 | APROBADA |
+| 3.3 | La semana y la lista de turnos (`/turnos`, con los filtros de la API y las listas en la URL) | No | `feature/front-3-3-semana-lista`, desde la 3.2 | APROBADA |
+| 3.4 | El turno: detalle, alta (paciente, cliente o contacto; servicio y duración; horario con la disponibilidad; sobreturno), edición y reprogramación | No | `feature/front-3-4-turnos`, desde la 3.3 | APROBADA |
+| 3.5 | Los estados: confirmar, fichar, atendido, ausente y deshacerlo, cancelar con motivo | No | `feature/front-3-5-estados`, desde la 3.4 | APROBADA |
+| 3.6 | Las series: el alta con repetición, los conflictos de la serie y cancelar con alcance | No | `feature/front-3-6-series`, desde la 3.5 | APROBADA |
+| 3.7 | La cola del día (`/agenda/cola`), con fichar y atendido desde ahí ([pregunta 11](#preguntas-del-diseño)) | No | `feature/front-3-7-cola`, desde la 3.6 | APROBADA |
 
 Cada rama sale de la anterior, como en la F2, y todo se integra a `main` al cerrar la F3. Las agendas van primero: sin ellas no hay
 dónde dar un turno desde la interfaz. El turno va en tres entregas (3.4, 3.5 y 3.6): juntas serían el triple que las demás. Cada
@@ -312,7 +314,7 @@ Vacío.
 
 ### front-03 Soporte del backend: más turnos por página en el listado
 
-**Solo si se elige la opción (a) de la [pregunta 1](#preguntas-del-diseño).** `IndexAppointmentRequest` acepta `per_page` de 1 a 500
+**Aprobada con la opción (a) de la [pregunta 1](#preguntas-del-diseño).** `IndexAppointmentRequest` acepta `per_page` de 1 a 500
 (el resto de los listados sigue hasta 100, `ListFilters`), con su mensaje. Sin rutas, permisos, migraciones ni `error_code` nuevos;
 aditivo (con `per_page` de hasta 100 responde lo mismo que hoy). Tests: 500 pasa y 501 → 422; la cantidad de consultas fija con 1 y
 con 300 turnos (sin N+1, `InspectsQueries`). Postman: un pedido de la colección de turnos con `per_page=500`. `backend/CLAUDE.md`
@@ -551,26 +553,26 @@ Cada una cambia el comportamiento: el usuario elige. La recomendación, en negri
 
 | # | Pregunta | Opciones | Recomendación | Respuesta |
 |---|---|---|---|---|
-| 1 | ¿Cómo trae la agenda una semana con más de 100 turnos? (H1) | (a) Entrega de soporte **front-03**: `GET appointments` acepta `per_page` hasta 500, solo ese listado; (b) el frontend pide todas las páginas de a 100 en paralelo; (c) la semana muestra una sola agenda y se acepta el aviso "Hay más turnos…" si pasa de 100 | **(a)**: un pedido, sin páginas que cambian entre un pedido y otro (con (b), un turno nuevo corre el resto y uno puede repetirse o faltar); es aditiva y el rango ya tiene tope (31 días) | Abierta |
-| 2 | ¿De qué sucursal es la agenda? | (a) La sucursal actual de la barra (para ver otra, se cambia ahí); (b) un filtro propio entre las sucursales del usuario, sin cambiar la actual | **(a)**: la cola del día ya funciona así, `branchKey` se invalida al cambiarla y no hay dos sucursales "actuales" en pantalla | Abierta |
-| 3 | ¿Qué ve el veterinario al entrar a la agenda? (H12) | (a) Por defecto, sus agendas y las de las agendas sin veterinario de la sucursal, con "Ver toda la sucursal" (como la cola); (b) toda la sucursal; (c) solo los suyos, sin la opción (la API igual le da todos) | **(a)**: es lo que decidió el backend para la cola (pregunta 25 y D1 de la 3.4) y no oculta lo que la API le permite ver | Abierta |
-| 4 | ¿Qué muestra la semana? | (a) Una agenda por vez, en siete columnas; (b) todas las agendas, con los turnos de cada día apilados | **(a)**: con varias agendas, una semana apilada no se lee y no entra en una tablet | Abierta |
-| 5 | ¿Los cancelados y los ausentes en la grilla? | (a) Cancelados ocultos con "Mostrar los cancelados" y ausentes atenuados; (b) todos visibles igual; (c) cancelados ocultos sin opción | **(a)**: un cancelado libera el horario y en la grilla confunde; la lista los muestra siempre | Abierta |
-| 6 | ¿Alta rápida de cliente y paciente desde el turno? | (a) No: la primera vez va con nombre y teléfono de contacto (lo previsto por la API, P4) y el paciente se carga antes de fichar; (b) un diálogo con los campos obligatorios del cliente (documento, email…) y del paciente dentro del formulario del turno; (c) un enlace a "Nuevo cliente" que vuelve al turno | **(a)**: el alta de un cliente pide documento y email, que por teléfono no siempre se tienen, y (b) duplica dos formularios grandes; el contacto existe para eso | Abierta |
-| 7 | ¿Cómo se elige el horario? (H7) | (a) Los horarios libres de la disponibilidad como botones, y "Otra hora" a mano (la API decide); (b) solo la hora a mano; (c) solo los libres | **(a)**: lo común es un clic y lo raro (el que llegó sin turno a una hora ya empezada) sigue siendo posible | Abierta |
-| 8 | ¿Cómo se da un sobreturno? | (a) Después del 409 `APPOINTMENT_OVERLAP`, "Dar como sobreturno" con confirmación, solo con `appointments.overbook`; (b) además, una casilla "Sobreturno" en el formulario; (c) solo la casilla | **(a)**: es lo que sugiere el mensaje de la API y nadie da un sobreturno sin saber que el horario estaba tomado | Abierta |
-| 9 | ¿La agenda se actualiza sola? | (a) Al volver a la pestaña, después de cada cambio propio y cada 60 s con la pestaña visible; (b) sin el intervalo | **(a)**: la recepción trabaja en varias PC a la vez; 60 s es un pedido por minuto y por pestaña visible | Abierta |
-| 10 | ¿El alta y el detalle del turno, en páginas o en un diálogo sobre la grilla? | (a) Páginas (`/turnos/nuevo`, `/turnos/$id`), como el resto; (b) un diálogo o panel lateral | **(a)**: funciona igual en el celular, tiene URL (se comparte y "Atrás" vuelve a la agenda) y reutiliza los patrones de formulario | Abierta |
-| 11 | ¿La cola del día va en la F3? | (a) Sí, como la 3.7; (b) se deja para la FASE 4, junto con la consulta | **(a)**: es la pantalla del veterinario y de la recepción para fichar y marcar atendido, y la API ya está; la FASE 4 le suma "Abrir la consulta" | Abierta |
-| 12 | ¿Las agendas (con el horario y los bloqueos) se administran desde el frontend en la F3? | (a) Sí, en `/configuracion/agendas` (3.1a y 3.1b); (b) no, por ahora con Postman | **(a)**: sin ellas no hay agenda que mostrar en una clínica nueva | Abierta |
-| 13 | ¿De dónde salen la agenda y el servicio de Playwright? (H6) | (a) Un ayudante de `e2e/support` que los crea por la API con el administrador antes de cada spec; (b) el `DemoSeeder` suma una agenda y un servicio (cambia el backend y los datos de demostración) | **(a)**: no toca el backend ni la demo, y cada spec arma lo que necesita (también un turno ya empezado para el ausente) | Abierta |
-| 14 | Las acciones que la API rechazaría por una regla que el navegador conoce (un turno ajeno para el veterinario, fichar otro día o sin paciente, ausente antes del inicio) | (a) Ocultas las de un turno ajeno; deshabilitadas, con el motivo, las de hora y de paciente; (b) todas visibles y que responda la API | **(a)**: el motivo a la vista evita el error; la API vuelve a controlar todo | Abierta |
-| 15 | ¿Se puede arrastrar un turno en la grilla para reprogramarlo? | (a) No en la F3: "Reprogramar" lleva al formulario; (b) arrastrar y soltar, además del formulario | **(a)**: arrastrar no es accesible con el teclado sin un mecanismo aparte, y el formulario ya resuelve agenda, día y hora; se puede sumar después | Abierta |
+| 1 | ¿Cómo trae la agenda una semana con más de 100 turnos? (H1) | (a) Entrega de soporte **front-03**: `GET appointments` acepta `per_page` hasta 500, solo ese listado; (b) el frontend pide todas las páginas de a 100 en paralelo; (c) la semana muestra una sola agenda y se acepta el aviso "Hay más turnos…" si pasa de 100 | **(a)**: un pedido, sin páginas que cambian entre un pedido y otro (con (b), un turno nuevo corre el resto y uno puede repetirse o faltar); es aditiva y el rango ya tiene tope (31 días) | **(a)**, aprobada (usuario): front-03, con `per_page` hasta 500 solo en `GET appointments`. Si `total` supera lo traído, la pantalla avisa que faltan turnos; nunca corta en silencio |
+| 2 | ¿De qué sucursal es la agenda? | (a) La sucursal actual de la barra (para ver otra, se cambia ahí); (b) un filtro propio entre las sucursales del usuario, sin cambiar la actual | **(a)**: la cola del día ya funciona así, `branchKey` se invalida al cambiarla y no hay dos sucursales "actuales" en pantalla | **(a)**, aprobada (usuario): la sucursal actual de la barra |
+| 3 | ¿Qué ve el veterinario al entrar a la agenda? (H12) | (a) Por defecto, sus agendas y las de las agendas sin veterinario de la sucursal, con "Ver toda la sucursal" (como la cola); (b) toda la sucursal; (c) solo los suyos, sin la opción (la API igual le da todos) | **(a)**: es lo que decidió el backend para la cola (pregunta 25 y D1 de la 3.4) y no oculta lo que la API le permite ver | **(a)**, aprobada (usuario): sus turnos y los de las agendas sin veterinario, con "Ver toda la sucursal" |
+| 4 | ¿Qué muestra la semana? | (a) Una agenda por vez, en siete columnas; (b) todas las agendas, con los turnos de cada día apilados | **(a)**: con varias agendas, una semana apilada no se lee y no entra en una tablet | **(a)**, aprobada (usuario): una agenda por vez, con el selector |
+| 5 | ¿Los cancelados y los ausentes en la grilla? | (a) Cancelados ocultos con "Mostrar los cancelados" y ausentes atenuados; (b) todos visibles igual; (c) cancelados ocultos sin opción | **(a)**: un cancelado libera el horario y en la grilla confunde; la lista los muestra siempre | **(a)**, aprobada (usuario): cancelados ocultos con "Mostrar los cancelados" y ausentes atenuados |
+| 6 | ¿Alta rápida de cliente y paciente desde el turno? | (a) No: la primera vez va con nombre y teléfono de contacto (lo previsto por la API, P4) y el paciente se carga antes de fichar; (b) un diálogo con los campos obligatorios del cliente (documento, email…) y del paciente dentro del formulario del turno; (c) un enlace a "Nuevo cliente" que vuelve al turno | **(a)**: el alta de un cliente pide documento y email, que por teléfono no siempre se tienen, y (b) duplica dos formularios grandes; el contacto existe para eso | **(a)**, aprobada (usuario): sin alta rápida; la primera vez, con nombre y teléfono de contacto |
+| 7 | ¿Cómo se elige el horario? (H7) | (a) Los horarios libres de la disponibilidad como botones, y "Otra hora" a mano (la API decide); (b) solo la hora a mano; (c) solo los libres | **(a)**: lo común es un clic y lo raro (el que llegó sin turno a una hora ya empezada) sigue siendo posible | **(a)**, aprobada (usuario): los horarios libres como botones y "Otra hora" |
+| 8 | ¿Cómo se da un sobreturno? | (a) Después del 409 `APPOINTMENT_OVERLAP`, "Dar como sobreturno" con confirmación, solo con `appointments.overbook`; (b) además, una casilla "Sobreturno" en el formulario; (c) solo la casilla | **(a)**: es lo que sugiere el mensaje de la API y nadie da un sobreturno sin saber que el horario estaba tomado | **(a)**, aprobada (usuario): el sobreturno solo después del 409 |
+| 9 | ¿La agenda se actualiza sola? | (a) Al volver a la pestaña, después de cada cambio propio y cada 60 s con la pestaña visible; (b) sin el intervalo | **(a)**: la recepción trabaja en varias PC a la vez; 60 s es un pedido por minuto y por pestaña visible | **(a)**, aprobada (usuario), con una precisión: cada 60 s, en pausa mientras hay un formulario o un diálogo abierto y con la pestaña oculta |
+| 10 | ¿El alta y el detalle del turno, en páginas o en un diálogo sobre la grilla? | (a) Páginas (`/turnos/nuevo`, `/turnos/$id`), como el resto; (b) un diálogo o panel lateral | **(a)**: funciona igual en el celular, tiene URL (se comparte y "Atrás" vuelve a la agenda) y reutiliza los patrones de formulario | **(a)**, aprobada (usuario): el alta y el detalle, en páginas |
+| 11 | ¿La cola del día va en la F3? | (a) Sí, como la 3.7; (b) se deja para la FASE 4, junto con la consulta | **(a)**: es la pantalla del veterinario y de la recepción para fichar y marcar atendido, y la API ya está; la FASE 4 le suma "Abrir la consulta" | **(a)**, aprobada (usuario): la cola del día en la F3, como última entrega (3.7) |
+| 12 | ¿Las agendas (con el horario y los bloqueos) se administran desde el frontend en la F3? | (a) Sí, en `/configuracion/agendas` (3.1a y 3.1b); (b) no, por ahora con Postman | **(a)**: sin ellas no hay agenda que mostrar en una clínica nueva | **(a)**, aprobada (usuario): las agendas se administran desde el frontend |
+| 13 | ¿De dónde salen la agenda y el servicio de Playwright? (H6) | (a) Un ayudante de `e2e/support` que los crea por la API con el administrador antes de cada spec; (b) el `DemoSeeder` suma una agenda y un servicio (cambia el backend y los datos de demostración) | **(a)**: no toca el backend ni la demo, y cada spec arma lo que necesita (también un turno ya empezado para el ausente) | **(a)**, aprobada (usuario): el ayudante de `e2e/support` crea por la API, en `syncvet_e2e`, lo que cada spec necesita (agendas, servicios y turnos) y lo limpia; la demo no se toca |
+| 14 | Las acciones que la API rechazaría por una regla que el navegador conoce (un turno ajeno para el veterinario, fichar otro día o sin paciente, ausente antes del inicio) | (a) Ocultas las de un turno ajeno; deshabilitadas, con el motivo, las de hora y de paciente; (b) todas visibles y que responda la API | **(a)**: el motivo a la vista evita el error; la API vuelve a controlar todo | **(a)**, aprobada (usuario), con una precisión: ocultas o deshabilitadas con el motivo y, además, el 403 y el 422 de la API tratados en el diálogo (la API vuelve a controlar todo) |
+| 15 | ¿Se puede arrastrar un turno en la grilla para reprogramarlo? | (a) No en la F3: "Reprogramar" lleva al formulario; (b) arrastrar y soltar, además del formulario | **(a)**: arrastrar no es accesible con el teclado sin un mecanismo aparte, y el formulario ya resuelve agenda, día y hora; se puede sumar después | **(a)**, aprobada (usuario): sin arrastrar en la F3 |
 
 ## Criterio de cierre
 
 * Las entregas aprobadas cerradas, con Vitest y Playwright en verde, `typecheck`, `lint` y `build` sin errores ni avisos.
-* Por front-03 (si se aprueba): `composer test` y la suite del backend completa en MySQL y en serie, al cerrar la fase.
+* Por front-03: `composer test` y la suite del backend completa en MySQL y en serie, al cerrar la fase.
 * Newman de **todas** las colecciones de `docs/05-pruebas/postman` desde la raíz (R-057), sin fallas.
 
 ## Resultado

@@ -137,6 +137,6 @@ de una PC.
 * **Frontend:** F0 (base y login, R-063), F1 (clientes y pacientes, R-072) y F2 (datos maestros: sucursales y depósitos,
   usuarios, veterinarios, servicios, la configuración de la clínica con el logo y la auditoría, R-083) completadas e integradas a
   `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
-  Sigue la F3 (agenda y turnos): el diseño propuesto, con sus preguntas abiertas, en `docs/front-f3-diseno`; el detalle, en
+  Sigue la F3 (agenda y turnos): el diseño aprobado (R-085), en `docs/front-f3-diseno`, y la entrega 3.1a; el detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

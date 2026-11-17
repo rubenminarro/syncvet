@@ -1810,3 +1810,23 @@ la corrida completa del cierre.
 | Primera aplicación | La F3 (agenda y turnos): sus entregas que suman "Agenda" y "Turnos" al menú lo anotan en sus casos de Playwright ([`f3-agenda.md`](../../03-plan-desarrollo/fases/frontend/f3-agenda.md)) | Diseño |
 
 **Qué no cambió.** Código, tests, rutas, permisos y colecciones: solo cambia el proceso.
+
+# R-085 Diseño de la F3 del frontend aprobado (2026-11-17)
+
+El usuario aprobó el diseño de la F3 del frontend, agenda y turnos ([`f3-agenda.md`](../../03-plan-desarrollo/fases/frontend/f3-agenda.md)),
+en `docs/front-f3-diseno`, con las 15 preguntas respondidas: todas con la recomendación (a), cuatro con precisiones.
+
+| Tema | Decisión | Quién |
+|---|---|---|
+| Volumen de la semana (1) | La entrega de soporte front-03: `GET appointments` acepta `per_page` hasta 500 (solo ese listado). Si `total` supera lo traído, la pantalla avisa que faltan turnos; nunca corta en silencio | Usuario |
+| Sucursal (2), veterinario (3) y semana (4) | La sucursal actual de la barra; el veterinario ve los suyos y los de las agendas sin veterinario, con "Ver toda la sucursal"; la semana, una agenda por vez con el selector | Usuario |
+| Grilla (5, 15) | Cancelados ocultos con "Mostrar los cancelados" y ausentes atenuados; sin arrastrar en la F3 | Usuario |
+| El turno (6, 7, 8, 10) | Sin alta rápida (la primera vez, con nombre y teléfono de contacto); los horarios libres como botones más "Otra hora"; el sobreturno solo después del 409; el alta y el detalle, en páginas | Usuario |
+| Actualización (9) | Cada 60 s, en pausa con un formulario o un diálogo abierto y con la pestaña oculta | Usuario |
+| Alcance (11, 12) | La cola del día en la F3, como última entrega (3.7); las agendas se administran desde el frontend (3.1a y 3.1b) | Usuario |
+| Playwright (13) | Un ayudante de `e2e/support` crea por la API, en `syncvet_e2e`, las agendas, los servicios y los turnos que cada spec necesita, y los limpia; la demo no se toca | Usuario |
+| Acciones (14) | Ocultas o deshabilitadas con el motivo, y además el 403 y el 422 de la API tratados en el diálogo | Usuario |
+| Documentos (D1 a D5) | Manda el código. D1 (el cliente en el orden de bloqueo) y D5 (fichar, solo los turnos propios del veterinario, 403 `APPOINTMENT_NOT_YOURS`), como precisiones en el documento de la FASE 3 del backend; D2 (el veterinario o el servicio inactivo y el día pasado, 422 `VALIDATION_ERROR` en su campo), D3 (solo la cola usa la sucursal actual en la API) y D4 (la clave de la cola con sus filtros), en `frontend/CLAUDE.md` §5 y §6 | Usuario |
+| Siguiente | La entrega 3.1a (agendas), en `feature/front-3-1a-agendas` desde `docs/front-f3-diseno` | Usuario |
+
+**Qué no cambió.** Código, tests, rutas, permisos, `error_code` y colecciones: solo documentación.

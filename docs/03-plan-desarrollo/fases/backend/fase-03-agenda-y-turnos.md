@@ -89,7 +89,7 @@ Análisis con [`docs/00-vision/principios.md`](../../../00-vision/principios.md)
 | Deuda 2 | Cada entrega revisa las relaciones y los casts de los modelos que usa (`Schedule`, `ScheduleHour`, `ScheduleBlock` en la 3.1; `Appointment` en la 3.2a) y lo anota en su resultado |
 | Deuda 5 | Sin claves foráneas compuestas: cada referencia (agenda, veterinario, servicio, sucursal, paciente, cliente) se valida por clínica y tiene su test de aislamiento (`tests/Feature/Tenancy`) |
 | Excepciones | `ScheduleException` (nueva) para agendas y bloqueos; `AppointmentException` (existe, vacía) para turnos. Los verbos nuevos de los mensajes (elegir, cargar, marcar, inactivar, crear…) se suman a la lista de `VoseoTest` |
-| Orden de bloqueo | Uno solo para toda la fase, en el [orden de bloqueo](#orden-de-bloqueo): clínica → veterinario → servicio → agenda → paciente → turno. Se suma a `CLAUDE.md` §3 |
+| Orden de bloqueo | Uno solo para toda la fase, en el [orden de bloqueo](#orden-de-bloqueo): clínica → veterinario → servicio → agenda → paciente → turno. Se suma a `CLAUDE.md` §3. Precisión (R-085, D1 del diseño de la F3 del frontend): desde la 3.2a (R-051, desvío 1) el alta y la edición de un turno toman también el **cliente** (`sharedLock`) después del paciente; la fuente vigente es `backend/CLAUDE.md` §3 |
 
 ### Permisos por rol
 
@@ -102,10 +102,10 @@ Análisis con [`docs/00-vision/principios.md`](../../../00-vision/principios.md)
 | `schedules.availability` (nuevo) | Sí | Sí | Sí |
 | `appointments.index`, `appointments.show` (existen) | Sí | Sí | Sí |
 | `appointments.store`, `appointments.update`, `appointments.confirm`, `appointments.cancel` (existen) | Sí | Sí | — |
-| `appointments.check-in` (existe) | Sí | Sí | Sí |
+| `appointments.check-in` (existe) | Sí | Sí | Sí (desde la 3.2b, R-053: solo los turnos de su ficha y de agendas sin veterinario; si no, 403 `APPOINTMENT_NOT_YOURS`. Precisión de R-085, D5 del diseño de la F3 del frontend) |
 | `appointments.overbook` (nuevo) | Sí | Sí | — |
 | `appointments.no-show` (nuevo) | Sí | Sí | — |
-| `appointments.attend` (nuevo) | Sí | — | Sí |
+| `appointments.attend` (nuevo) | Sí | — | Sí (solo los turnos de su ficha y de agendas sin veterinario; si no, 403 `APPOINTMENT_NOT_YOURS`) |
 | `appointments.queue` (nuevo) | Sí | Sí | Sí |
 
 El administrador pasa todo por `Gate::before`; los tests usan un rol propio.
@@ -129,6 +129,10 @@ Pregunta 15 (R-048): la superposición por veterinario se controla con su fila b
 **antes** que la de la agenda. Para que ninguna operación tome dos filas en sentido contrario, toda la fase usa un solo orden:
 
 **clínica → veterinario → servicio → agenda → paciente → turno**
+
+> Precisión (R-085, D1 del diseño de la F3 del frontend): el código toma también el **cliente** (`sharedLock`) después del
+> paciente (clínica → veterinario → servicio → agenda → paciente → cliente → turno), desde la 3.2a (R-051, desvío 1). La fuente
+> vigente es `backend/CLAUDE.md` §3.
 
 Ninguna operación bloquea un veterinario o un servicio después de una agenda, ni una agenda después de un turno. Con varias filas del
 mismo tipo, por id ascendente.
@@ -402,8 +406,8 @@ sirve para consultas de negocio ([pregunta 20](#preguntas-del-diseño)).
 | Transición | Ruta | Desde | Reglas | Fija |
 |---|---|---|---|---|
 | Confirmar | `POST appointments/{appointment}/confirm` | A confirmar | — | `status`, `confirmed_at` |
-| Fichar | `POST appointments/{appointment}/check-in` | A confirmar, confirmado | El turno tiene paciente (si no, 422 `APPOINTMENT_PATIENT_REQUIRED`), no fallecido; solo el día del turno en Asunción (si no, 422 `APPOINTMENT_CHECK_IN_NOT_TODAY`) | `status`, `checked_in_at` |
-| Atendido | `POST appointments/{appointment}/attend` | Fichado | Un usuario con ficha de veterinario y sin `appointments.update` marca solo los turnos de su ficha o de agendas sin veterinario (si no, 403; [pregunta 18](#preguntas-del-diseño)) | `status`, `attended_at` |
+| Fichar | `POST appointments/{appointment}/check-in` | A confirmar, confirmado | El turno tiene paciente (si no, 422 `APPOINTMENT_PATIENT_REQUIRED`), no fallecido; solo el día del turno en Asunción (si no, 422 `APPOINTMENT_CHECK_IN_NOT_TODAY`). Desde la 3.2b (R-053; precisión de R-085, D5): el veterinario sin `appointments.update` ficha solo los turnos de su ficha o de agendas sin veterinario (si no, 403 `APPOINTMENT_NOT_YOURS`) | `status`, `checked_in_at` |
+| Atendido | `POST appointments/{appointment}/attend` | Fichado | Un usuario con ficha de veterinario y sin `appointments.update` marca solo los turnos de su ficha o de agendas sin veterinario (si no, 403 `APPOINTMENT_NOT_YOURS`; [pregunta 18](#preguntas-del-diseño)) | `status`, `attended_at` |
 | Ausente (P12) | `POST appointments/{appointment}/no-show` | A confirmar, confirmado | Solo cuando llegó la hora del turno (`starts_at <= now`; si no, 422 `APPOINTMENT_NO_SHOW_TOO_EARLY`) | `status`, `no_show_at` |
 | Deshacer el ausente (pregunta 19) | `POST appointments/{appointment}/undo-no-show` | Ausente | Solo el día del turno en Asunción (si no, 422 `APPOINTMENT_NO_SHOW_NOT_UNDOABLE`). Vuelve a ocupar el horario: se revisa la superposición como en un alta, sin contarse a sí mismo (ocupado → 409 `APPOINTMENT_OVERLAP`, salvo un sobreturno, `is_overbooked`, que se recalcula); el horario y los bloqueos no se vuelven a revisar. Queda en la auditoría (`updated`, de ausente a confirmado) | `status` (confirmado) y `no_show_at` en `null`; `confirmed_at`, la hora actual si no tenía |
 | Cancelar (P3) | `POST appointments/{appointment}/cancel` | A confirmar, confirmado, fichado | `cancellation_reason` obligatorio, de 3 a 500; sin límite de anticipación | `status`, `cancelled_at`, `cancelled_by`, `cancellation_reason` |
@@ -416,8 +420,8 @@ Otra transición (también repetir la misma: confirmar un confirmado) → 422 `A
 | Método | Ruta | Nombre y permiso | Request | Errores |
 |---|---|---|---|---|
 | POST | `appointments/{appointment}/confirm` | `appointments.confirm` (existe) | — | 404; 422 `APPOINTMENT_INVALID_TRANSITION` |
-| POST | `appointments/{appointment}/check-in` | `appointments.check-in` (existe) | — | 404; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_PATIENT_REQUIRED`, `APPOINTMENT_CHECK_IN_NOT_TODAY` |
-| POST | `appointments/{appointment}/attend` | `appointments.attend` (nuevo) | — | 403; 404; 422 `APPOINTMENT_INVALID_TRANSITION` |
+| POST | `appointments/{appointment}/check-in` | `appointments.check-in` (existe) | — | 403 `APPOINTMENT_NOT_YOURS` (desde la 3.2b; R-085, D5); 404; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_PATIENT_REQUIRED`, `APPOINTMENT_CHECK_IN_NOT_TODAY` |
+| POST | `appointments/{appointment}/attend` | `appointments.attend` (nuevo) | — | 403 `APPOINTMENT_NOT_YOURS`; 404; 422 `APPOINTMENT_INVALID_TRANSITION` |
 | POST | `appointments/{appointment}/no-show` | `appointments.no-show` (nuevo) | — | 404; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_NO_SHOW_TOO_EARLY` |
 | POST | `appointments/{appointment}/undo-no-show` | `appointments.undo-no-show` → `appointments.no-show` | — | 404; 409 `APPOINTMENT_OVERLAP`; 422 `APPOINTMENT_INVALID_TRANSITION`, `APPOINTMENT_NO_SHOW_NOT_UNDOABLE` |
 | POST | `appointments/{appointment}/cancel` | `appointments.cancel` (existe) | `CancelAppointmentRequest`: `cancellation_reason` (y `scope` en la 3.3) | 404; 422 `APPOINTMENT_INVALID_TRANSITION`; 422 |
