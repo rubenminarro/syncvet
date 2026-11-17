@@ -41,8 +41,17 @@ export const PERMISSIONS = {
   speciesUpdate: 'species.update',
   /** La baja de especies y razas propias (F1, entrega 1.5): administrador y veterinario. */
   speciesDestroy: 'species.destroy',
-  /** /configuracion, la página de entrada (F2, entrega 2.1; provisoria en la F0): solo el administrador. */
+  /**
+   * /configuracion, la página de entrada (F2, entrega 2.1; provisoria en la F0), y /configuracion/clinica con Guardar (F2,
+   * entrega 2.5): solo el administrador.
+   */
   settingsUpdate: 'system-settings.update',
+  /** Ver el logo de la clínica, en la barra y en la configuración (F2, entrega 2.5): los tres roles. */
+  settingsShowLogo: 'system-settings.show-logo',
+  /** Subir o reemplazar el logo (F2, entrega 2.5): solo el administrador. */
+  settingsUploadLogo: 'system-settings.upload-logo',
+  /** Quitar el logo (F2, entrega 2.5): solo el administrador. */
+  settingsDeleteLogo: 'system-settings.delete-logo',
   /** /configuracion/sucursales y su detalle (F2, entrega 2.1): solo el administrador (`branches.index` lo tienen los tres). */
   branchesShow: 'branches.show',
   /** /configuracion/sucursales/nueva (F2, entrega 2.1): solo el administrador. */

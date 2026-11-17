@@ -2,3 +2,30 @@
 .toast-container {
   z-index: 1090;
 }
+
+/* El logo de la clínica en la barra (2.5): 32 px de alto, el ancho según la imagen, sin deformarse (uno muy ancho se achica
+   dentro de su caja, sin salirse en un celular). */
+.brand-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+  max-width: min(12rem, 40vw);
+  object-fit: contain;
+}
+
+/* El logo en /configuracion/clinica: hasta 8 rem de alto, sin deformarse. */
+.clinic-logo-image {
+  display: block;
+  max-width: 100%;
+  max-height: 8rem;
+  object-fit: contain;
+}
+
+/* El menú (2.5): ocupa el ancho de la barra; plegado, la lista va debajo del botón, en columna. */
+.main-menu {
+  width: 100%;
+}
+
+.main-menu-collapsed .main-menu-list {
+  padding-top: 0.5rem;
+}

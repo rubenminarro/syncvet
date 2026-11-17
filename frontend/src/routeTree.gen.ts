@@ -20,6 +20,7 @@ import { Route as SesionClientesIndexRouteImport } from './routes/_sesion/client
 import { Route as SesionClientesIdRouteImport } from './routes/_sesion/clientes/$id'
 import { Route as SesionClientesNuevoRouteImport } from './routes/_sesion/clientes/nuevo'
 import { Route as SesionConfiguracionIndexRouteImport } from './routes/_sesion/configuracion/index'
+import { Route as SesionConfiguracionClinicaRouteImport } from './routes/_sesion/configuracion/clinica'
 import { Route as SesionPacientesIndexRouteImport } from './routes/_sesion/pacientes/index'
 import { Route as SesionPacientesIdRouteImport } from './routes/_sesion/pacientes/$id'
 import { Route as SesionServiciosIndexRouteImport } from './routes/_sesion/servicios/index'
@@ -94,6 +95,12 @@ const SesionConfiguracionIndexRoute =
   SesionConfiguracionIndexRouteImport.update({
     id: '/configuracion/',
     path: '/configuracion/',
+    getParentRoute: () => SesionRoute,
+  } as any)
+const SesionConfiguracionClinicaRoute =
+  SesionConfiguracionClinicaRouteImport.update({
+    id: '/configuracion/clinica',
+    path: '/configuracion/clinica',
     getParentRoute: () => SesionRoute,
   } as any)
 const SesionPacientesIndexRoute = SesionPacientesIndexRouteImport.update({
@@ -220,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/sin-permiso': typeof SesionSinPermisoRoute
   '/clientes/$id': typeof SesionClientesIdRoute
   '/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/configuracion/clinica': typeof SesionConfiguracionClinicaRoute
   '/pacientes/$id': typeof SesionPacientesIdRoute
   '/servicios/$id': typeof SesionServiciosIdRoute
   '/servicios/nuevo': typeof SesionServiciosNuevoRoute
@@ -252,6 +260,7 @@ export interface FileRoutesByTo {
   '/sin-permiso': typeof SesionSinPermisoRoute
   '/clientes/$id': typeof SesionClientesIdRoute
   '/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/configuracion/clinica': typeof SesionConfiguracionClinicaRoute
   '/pacientes/$id': typeof SesionPacientesIdRoute
   '/servicios/$id': typeof SesionServiciosIdRoute
   '/servicios/nuevo': typeof SesionServiciosNuevoRoute
@@ -287,6 +296,7 @@ export interface FileRoutesById {
   '/_sesion/': typeof SesionIndexRoute
   '/_sesion/clientes/$id': typeof SesionClientesIdRoute
   '/_sesion/clientes/nuevo': typeof SesionClientesNuevoRoute
+  '/_sesion/configuracion/clinica': typeof SesionConfiguracionClinicaRoute
   '/_sesion/pacientes/$id': typeof SesionPacientesIdRoute
   '/_sesion/servicios/$id': typeof SesionServiciosIdRoute
   '/_sesion/servicios/nuevo': typeof SesionServiciosNuevoRoute
@@ -321,6 +331,7 @@ export interface FileRouteTypes {
     | '/sin-permiso'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/configuracion/clinica'
     | '/pacientes/$id'
     | '/servicios/$id'
     | '/servicios/nuevo'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/sin-permiso'
     | '/clientes/$id'
     | '/clientes/nuevo'
+    | '/configuracion/clinica'
     | '/pacientes/$id'
     | '/servicios/$id'
     | '/servicios/nuevo'
@@ -387,6 +399,7 @@ export interface FileRouteTypes {
     | '/_sesion/'
     | '/_sesion/clientes/$id'
     | '/_sesion/clientes/nuevo'
+    | '/_sesion/configuracion/clinica'
     | '/_sesion/pacientes/$id'
     | '/_sesion/servicios/$id'
     | '/_sesion/servicios/nuevo'
@@ -494,6 +507,13 @@ declare module '@tanstack/react-router' {
       path: '/configuracion'
       fullPath: '/configuracion/'
       preLoaderRoute: typeof SesionConfiguracionIndexRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/configuracion/clinica': {
+      id: '/_sesion/configuracion/clinica'
+      path: '/configuracion/clinica'
+      fullPath: '/configuracion/clinica'
+      preLoaderRoute: typeof SesionConfiguracionClinicaRouteImport
       parentRoute: typeof SesionRoute
     }
     '/_sesion/pacientes/': {
@@ -664,6 +684,7 @@ interface SesionRouteChildren {
   SesionIndexRoute: typeof SesionIndexRoute
   SesionClientesIdRoute: typeof SesionClientesIdRoute
   SesionClientesNuevoRoute: typeof SesionClientesNuevoRoute
+  SesionConfiguracionClinicaRoute: typeof SesionConfiguracionClinicaRoute
   SesionPacientesIdRoute: typeof SesionPacientesIdRoute
   SesionServiciosIdRoute: typeof SesionServiciosIdRoute
   SesionServiciosNuevoRoute: typeof SesionServiciosNuevoRoute
@@ -696,6 +717,7 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionIndexRoute: SesionIndexRoute,
   SesionClientesIdRoute: SesionClientesIdRoute,
   SesionClientesNuevoRoute: SesionClientesNuevoRoute,
+  SesionConfiguracionClinicaRoute: SesionConfiguracionClinicaRoute,
   SesionPacientesIdRoute: SesionPacientesIdRoute,
   SesionServiciosIdRoute: SesionServiciosIdRoute,
   SesionServiciosNuevoRoute: SesionServiciosNuevoRoute,

@@ -468,7 +468,71 @@ del logo vaciada al reemplazarlo y al borrarlo.
 
 #### Pendiente para el cierre (2.5)
 
-Vacío.
+Implementación (2026-11-17) en `feature/front-2-5-configuracion` (creada desde el cierre de la 2.4, `37ac3cf`).
+
+* **Hecho.** `src/lib/files/image.ts` (nuevo, H8): el control de una imagen (el tipo por el contenido y el tamaño primero) con el
+  límite y los mensajes como parámetros; `features/patients/photo.ts` lo usa con 5 MB y conserva sus exportaciones (sus tests no
+  cambiaron). `features/settings` (nuevo): `/configuracion/clinica` (`system-settings.update`) con su tarjeta "Clínica" en
+  `/configuracion`; el formulario (nombre, razón social, correo, teléfono, sitio web y pie) con las reglas y los mensajes de
+  `UpdateSystemSettingsRequest`, el RUC (`ruc`-`ruc_dv`) solo para leer y fuera del formulario, `PATCH system-settings` con el
+  formulario completo (sin `ruc` ni `ruc_dv`, las claves vacías en `null`, el correo en minúsculas, el teléfono sin espacios ni
+  guiones), un solo pedido con `useSingleAction`, la respuesta en `['settings']` y `['me']` invalidado (el nombre en la barra). La
+  tarjeta del logo, como la foto: vista previa, "Subir el logo", reemplazar y "Quitar el logo" con `ConfirmDialog`; 2 MB justos
+  pasan (`logo.ts`, con los mensajes de `UploadClinicLogoRequest`); el 413 o el 422 con `errors.logo`, al campo con el foco; el 413
+  sin `errors`, a la alerta; `CLINIC_LOGO_NOT_FOUND` al ver, el lugar vacío; al quitar, aviso y la configuración pedida de nuevo. La
+  mutación con `gcTime: 0` y `reset()`. `Brand` muestra el logo (32 px de alto, `object-fit: contain`, el nombre de la clínica en
+  `alt`) si `me.clinic.has_logo` y `system-settings.show-logo` (los tres roles), con la clave `['settings', 'logo']` de la
+  configuración: subir o quitar lo cambia sin recargar; sin logo, mientras llega o con un error, la marca SyncVet. El menú
+  plegable: `src/app/MainMenu.tsx` (nuevo) con `useMediaQuery` (`src/lib/hooks/use-media-query.ts`, nuevo); en pantallas chicas,
+  el botón "Menú" con `aria-expanded` y `aria-controls`, la lista con `hidden` y en columna; Enter o Espacio lo abren, Escape lo
+  cierra con el foco de vuelta en el botón, elegir un ítem lo cierra. `PERMISSIONS` suma `system-settings.show-logo`,
+  `.upload-logo` y `.delete-logo`.
+* **Pruebas.** Vitest: `lib/files/image.test.ts` (10: el límite como parámetro en su borde, el tipo por el contenido y el logo de 2
+  MB justos y de un byte más), `settings/form.test.ts` (21: cada regla en su borde, el sitio con `http://`, sin protocolo, `ftp://`
+  o con un espacio rechazado y `HTTPS://` aceptado, el cuerpo sin `ruc`, las claves vacías en `null` y las claves comparadas con
+  `app/Enums/SystemSettingKey.php`), `settings/ClinicSettingsPage.test.tsx` (25: la tarjeta, el recepcionista y el veterinario a
+  `/sin-permiso`, el RUC solo para leer, el cuerpo completo y `me` pedido de nuevo, borrar una clave, `http://` sin pedido, el 422 de
+  `settings.website` a su campo con el foco, el doble clic; el logo: sin logo sin descarga, subir con la vista previa y el
+  multipart con `logo`, 2 MB justos y uno más, un texto con extensión de imagen, el 413 con y sin `errors`, el 422, reemplazar con
+  una descarga nueva, quitar sin volver a pedirlo y con `me` pedido de nuevo, quitar con `CLINIC_LOGO_NOT_FOUND`, el 404 al verlo;
+  la barra con el logo para los tres roles y con un 500) y `app/MainMenu.test.tsx` (5: ancho sin botón; al ancho de un celular
+  plegado con `aria-expanded` y `aria-controls`; abrir con Enter y con Espacio, Escape desde un ítem y desde el botón con el foco de
+  vuelta; elegir un ítem; ensanchar la pantalla). Ningún test existente se tocó. Mutaciones: 4 de 4 detectadas, revertidas desde
+  una copia fuera del repositorio (los archivos son nuevos): `ruc` mandado en el cuerpo (1 falla); el límite de 5 MB en el logo (1
+  falla, la del límite; después, el test de la página usa los 2 MB escritos y no la constante, y también falla); `me` sin
+  invalidar después de subir o quitar el logo (1 falla, la de subir; después, el test de quitar también comprueba que `me` se
+  vuelve a pedir); Escape sin devolver el foco al botón (1 falla). Playwright: `e2e/configuracion-clinica.spec.ts` (nuevo), 1 de 1
+  en 18 s (28 casos en total): el teléfono con espacios y guiones mandado sin ellos y visto después de recargar, el cuerpo sin
+  `ruc`, subir `logo-clinica.png`, verlo en la barra después de recargar, reemplazarlo por `logo-clinica.webp` y quitarlo, y el
+  menú a 375 px (plegado, abierto con Enter, Escape con el foco de vuelta, elegir un ítem, sin desplazamiento horizontal); lo
+  guardado al empezar se restaura por la API. Corrida final, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos;
+  `npm test`, 1249 de 1249 en 60 archivos, en verde (en la segunda corrida completa, ver el desvío 9); desde `backend/`,
+  `FictitiousDocumentsTest`, 3 de 3 (en la segunda corrida, ver el desvío 8).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El pedido de la entrega decía que la pantalla "la ven los tres roles; solo el administrador la edita"; se siguió el diseño: `/configuracion/clinica` solo para el administrador (`system-settings.update`). El recepcionista y el veterinario ven el logo en la barra | Lo decidió el usuario al empezar la entrega (la pregunta, con el diseño como recomendación) |
+| 2 | El menú se pliega por debajo de 992 px (el `lg` de Tabler), no de 768 px (`md`) | La barra del administrador mide unos 820 px: a 768 px tampoco entra. En Edge, a 768 px, plegado y sin desplazamiento horizontal |
+| 3 | Plegado o no lo decide `matchMedia` en React (`useMediaQuery`, nuevo en `src/lib/hooks`), no una clase de CSS; sin `matchMedia`, la barra ancha | Así jsdom lo prueba (el test simula el ancho con `matchMedia`) y el estado de `aria-expanded` sigue al ancho real |
+| 4 | Con `has_logo` y el 404 `CLINIC_LOGO_NOT_FOUND` al verlo, el lugar queda vacío pero se sigue ofreciendo "Quitar el logo" (la foto, en ese caso, pasa a "sin foto") | Quitar limpia la referencia en la API (§6.8); si responde el 404, el aviso y la configuración pedida de nuevo |
+| 5 | Mientras se descarga el logo, la barra muestra la marca SyncVet (un instante, al entrar o al reemplazarlo) | Nunca un hueco ni una imagen rota; el diseño pide la marca "sin logo o con un error" |
+| 6 | Guardar los datos pone la respuesta en `['settings']` (`setQueryData`) en lugar de invalidarla; `['me']` sí se invalida | La respuesta del `PATCH` ya es la configuración completa: es lo mismo sin un pedido más |
+| 7 | Los valores del formulario van anidados como el cuerpo (`settings.website`); el teléfono se manda sin espacios ni guiones (`normalizePhone`, como clientes y sucursales), aunque esta API no los quita; el sitio acepta `https://` en mayúsculas (como `url:https` de Laravel) y `new URL()` decide el resto | `applyValidationErrors` lleva cada clave de la API a su campo sin traducirla (una clave que no es un campo, a la alerta); el navegador no rechaza nada que la API acepta |
+| 8 | `FictitiousDocumentsTest` tomó "99400001-1", el RUC de ejemplo del test de la página, como un RUC real (el dígito no es el de un 999999xx); los tests usan el de la demo, "99999901-0" | Ningún número con forma de cédula o RUC real en el código del frontend |
+| 9 | La primera corrida completa de `npm test` falló en un test de `BranchPages.test.tsx` (el alta de una sucursal, por tiempo con la PC cargada: pasó aislado y la entrega no toca sucursales); después de corregir el desvío 8 se repitió la suite completa, en verde | La regla del presupuesto: la cifra es la de una corrida completa real |
+| 10 | La corrida final de `lint` marcó dos detalles (`isLogoMissing` exportado desde un componente y una aserción en `MainMenu.test.tsx`); se corrigieron y se repitieron `lint`, esos tests y `typecheck` | La regla del presupuesto: solo el paso que falló y los tests del archivo tocado |
+
+**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 5 de 5. (1)
+`/configuracion/clinica` en escritorio: el RUC "99999901-0" solo para leer, sin desplazamiento horizontal; (2) un logo ancho (600 ×
+100, generado en el navegador) en la barra: 192 × 32, sin deformarse; (3) uno alto (100 × 300): 11 × 32, sin deformarse; (4) a 375
+px, con el logo ancho: el menú plegado detrás de "Menú" (`aria-expanded="false"`), abierto con los 7 ítems, Escape con el foco de
+vuelta, sin desplazamiento horizontal; (5) a 768 px: el menú plegado, cerrado y abierto, sin desplazamiento horizontal. La consola,
+sin errores. La demo quedó como estaba: los datos y las claves guardados al empezar se restauraron por la API (`PATCH`, 200; iguales
+a los de antes) y el logo, que no había, se quitó (`DELETE system-settings/logo`, 200). Capturas fuera del repositorio, en la PC de
+la validación (`%TEMP%\claude\…\scratchpad\capturas-2-5`: `01-configuracion-clinica.png`, `02-barra-logo-ancho.png`,
+`02b-configuracion-con-logo.png`, `03-barra-logo-alto.png`, `04-celular-menu-cerrado.png`, `04b-celular-menu-abierto.png`,
+`05-tablet-configuracion.png`, `05b-tablet-menu-abierto.png`). En la captura 04b, el botón "Menú" se ve gris: es el estilo de
+foco de `btn-ghost-secondary` de Tabler, no un botón deshabilitado.
 
 ### 2.6 Auditoría
 
