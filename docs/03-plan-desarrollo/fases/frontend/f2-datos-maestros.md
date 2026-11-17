@@ -1,6 +1,7 @@
 # F2 — Datos maestros (frontend)
 
-Etapa: Datos de la clínica. Estado: **APROBADO** por el usuario el 2026-11-16 (R-074), en `docs/front-f2-diseno` (desde `main` en `1daee8c`, el merge de
+Etapa: Datos de la clínica. Estado: **COMPLETADO** el 2026-11-17 (R-083; [cierre](#cierre-de-la-f2)) e integrado a `main`. Diseño
+**APROBADO** por el usuario el 2026-11-16 (R-074), en `docs/front-f2-diseno` (desde `main` en `1daee8c`, el merge de
 `chore/post-f1`), con las [preguntas del diseño](#preguntas-del-diseño) respondidas: todas las recomendaciones, también la entrega
 front-02 del backend antes de la 2.3. Cada entrega empieza con la autorización del usuario. El estado vigente de cada fase está en [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
@@ -1206,5 +1207,129 @@ Ningún hallazgo cambia el comportamiento.
 y las salidas quedan en la auditoría); Playwright, `e2e/auditoria.spec.ts`, 1 de 1 en la implementación (29 casos en total; la revisión no tocó lo que cubre).
 Corrida del cierre (2026-11-17, en la revisión, sobre el código de `9a17e41`), desde `frontend/`: `typecheck`, `lint` y `build`
 sin errores ni avisos; `npm test`, 1331 tests en 64 archivos, en verde; desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+Corrida de `npm test` del frontend (2026-11-17): 1331 tests en 64 archivos, en verde.
+
+### Cierre de la F2
+
+**COMPLETADA el 2026-11-17 (R-083)**, con la entrega de soporte del backend (front-02). Las ramas se encadenaron
+(`docs/front-f2-diseno` → `feature/front-2-1-sucursales` → `feature/front-2-2a-usuarios` → `feature/front-2-2b-usuarios` →
+`feature/front-02-usuarios-veterinario` → `feature/front-2-3-veterinarios` → `feature/front-2-4-servicios` →
+`feature/front-2-5-configuracion` → `feature/front-2-6-auditoria`), todas en GitHub, y se integran a `main` con un merge `--no-ff`
+desde `feature/front-2-6-auditoria`, autorizado por el usuario (R-083); el hash del merge, en el
+[handoff](../../handoff.md#punto-de-continuidad). Las ramas se conservan.
+
+**Qué se construyó.** Las pantallas de administración de la clínica, sobre la API de la FASE 2 del backend y con las convenciones de
+la F0 y la F1: `/configuracion` como página de entrada, con una tarjeta por sección, solo para el administrador; sucursales y sus
+depósitos (2.1); usuarios, con sus roles, sus sucursales y la contraseña de otro usuario (2.2a), y su inactivación, reactivación y
+baja (2.2b); `/veterinarios` (2.3) y `/servicios` (2.4) en el menú de los tres roles, con las acciones del administrador; la
+configuración de la clínica con el logo, el logo en la barra y el menú plegado por debajo de 992 px (2.5); la consulta de la
+auditoría con los filtros de fecha en Asunción y el detalle de los cambios (2.6). Código común nuevo: `useSingleAction`
+(`src/lib/hooks`), `dialogError` (`src/lib/api/dialog-error.ts`), `CheckboxGroupField`, `src/lib/phone.ts`,
+`src/lib/person-name.ts`, `src/lib/files/image.ts`, `MainMenu` y `formatDateTimeSeconds`. Sin paquetes nuevos. Del lado del
+backend, solo front-02 (la ficha de veterinario en `GET users`, sin N+1). En la cadena, contra `main`: 154 archivos de `frontend/`
+(33 de tests de Vitest y de Playwright) y 7 de `backend/` (`UserController`, `UserResource`, `ShowUserResource`, `backend/CLAUDE.md`
+y 3 de tests). Rutas, permisos y migraciones de la API sin cambios: 78, 135 y 36.
+
+| Entrega | Contenido | Commits | Al cerrar |
+|---|---|---|---|
+| Diseño | Análisis y diseño de la F2 y de front-02 | `beaa2c4`, `16aec1d` (R-074) | — |
+| [2.1](#entrega-21) | Sucursales y depósitos, con la tarea 3c | `7de78f3`, `7e27822` (3c), `626759b`, `b30db49`, `a31b6ef` (cierre `0f7b80b`) | Frontend: 909 tests en 46 archivos |
+| [2.2a](#entrega-22a) | Usuarios: listado, detalle, alta y edición | `fff201c`, `e8ecdeb` (cierre `0bf3ed0`) | Frontend: 982 tests en 49 archivos |
+| [2.2b](#entrega-22b) | Usuarios: inactivar, reactivar y baja | `2cd6dd4`, `3265903` (cierre `85ebf3a`) | Frontend: 996 tests en 49 archivos |
+| [front-02](#entrega-front-02) | La ficha de veterinario en `GET users` | `bf98d8d`, `f0218e6` (cierre `0ab4dc7`) | Backend: 1467 casos; 14303 aserciones en SQLite |
+| [2.3](#entrega-23) | Veterinarios | `fcf6667` (`dialogError`), `72975a6`, `359b2d7` (cierre `0743a72`) | Frontend: 1076 tests en 53 archivos |
+| [2.4](#entrega-24) | Servicios | `0686f94`, `b0bab2b` (cierre `37ac3cf`) | Frontend: 1188 tests en 56 archivos |
+| [2.5](#entrega-25) | Configuración de la clínica y logo, con el menú plegable | `11dabf4`, `26e4339` (cierre `1af859b`) | Frontend: 1251 tests en 60 archivos |
+| [2.6](#entrega-26) | Auditoría | `120739f`, `9a17e41` (cierre `bbe6e20`) | Frontend: 1331 tests en 64 archivos |
+
+**Regresión del cierre** (2026-11-17, en `feature/front-2-6-auditoria` sobre `bbe6e20`, más el ajuste de Playwright de este
+cierre), una vez cada paso y en este orden:
+
+* **Backend**, desde `backend/`, en serie y sin cambios de código: `composer test` (SQLite), 1467 casos, 1451 en verde y 16
+  omitidos (solo de MySQL), 14303 aserciones (5 min 27 s); después `composer test:mysql` (`syncvet_test_mysql`), 1467 casos en
+  verde, sin omitidos, 14389 aserciones (6 min 36 s). Frente al cierre de la F1 (1463 casos; 14274 y 14360 aserciones), 4 casos
+  más, los de front-02.
+* **Newman** 6.2.3, desde la raíz, las 14 colecciones de `docs/05-pruebas/postman` (R-057), con el servidor levantado desde
+  `backend/` en el puerto 8001 contra la base de desarrollo (detenido por su tarea, con el puerto libre después): 487 pedidos y
+  1082 aserciones, sin fallas (tabla de abajo; desvío 2).
+* **Frontend**, desde `frontend/`: `npm test`, 1331 de 1331 en 64 archivos (74 s); `npm run typecheck`, `npm run lint` y
+  `npm run build`, sin errores ni avisos; desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+* **Playwright** (`npm run test:e2e`, Edge, contra `syncvet_e2e`): la primera corrida, 26 de 29 (desvío 1); con el test
+  ajustado, 29 de 29 en 7,2 min, y `typecheck`, `prettier` y `eslint` del archivo tocado, sin errores.
+* **Dependencias**: `composer audit`, "No security vulnerability advisories found."; `npm audit`, 9 avisos moderados, todos el
+  mismo, `minimatch` (GHSA-g3hv-75wg-m249; [deuda 19](../../deuda-tecnica.md), sin cambios).
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | `e2e/permisos.spec.ts`: los tres casos del menú esperaban el menú sin "Servicios" y "Veterinarios"; se suman, en el orden de `src/app/menu.ts` (el de `permissions.test.tsx` de Vitest) | La 2.3 y la 2.4 sumaron los ítems al menú y, con el presupuesto por entrega, solo corrieron su spec: el caso de la F0 quedó viejo, como el desvío 1 del cierre de la F1. Solo el test |
+| 2 | Newman: dos intentos fallidos del script de la corrida antes de la vuelta válida. El primero, con `base_url` sin `/api`: todos los pedidos respondieron 404 de ruta, sin cambiar nada; el segundo no llegó a correr Newman (la carpeta de salida era relativa). La vuelta registrada es la tercera, completa | Error del script, no de la API ni de las colecciones |
+
+| Colección | Pedidos | Aserciones | Fallas |
+|---|---|---|---|
+| Clientes | 24 | 48 | 0 |
+| Especies | 45 | 99 | 0 |
+| Foto | 23 | 60 | 0 |
+| Pacientes | 30 | 63 | 0 |
+| Auditoría | 16 | 47 | 0 |
+| Configuración | 24 | 67 | 0 |
+| Servicios | 27 | 64 | 0 |
+| Sucursales | 44 | 123 | 0 |
+| Usuarios | 54 | 138 | 0 |
+| Veterinarios | 32 | 75 | 0 |
+| Agendas | 35 | 68 | 0 |
+| Disponibilidad | 50 | 81 | 0 |
+| Series | 25 | 42 | 0 |
+| Turnos | 58 | 107 | 0 |
+
+Frente al cierre de la F1 (483 pedidos y 1074 aserciones): especies, 4 pedidos y 6 aserciones más (la limpieza de
+`chore/post-f1`, R-073), y usuarios, 2 aserciones más (la ficha de veterinario de front-02).
+
+**Datos de la demo.** Antes de la regresión se borró el token que dejó abierto la revisión de la 2.6 (id 604, `admin-a`, creado el
+2026-11-17 a las 11:20:34 y sin usar), solo ese. Después de Newman se revocaron los 36 tokens que abrió esa corrida (ids 605 a
+651); las colecciones dejan, como siempre, sus usuarios temporales inactivos o dados de baja. `admin-a`, `recepcion-a` y `vet-a`,
+sin cambios (la misma contraseña y la misma fecha de modificación).
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| Las entregas aprobadas cerradas | 2.1, 2.2a, 2.2b, front-02, 2.3, 2.4, 2.5 y 2.6: R-075 a R-082, cada una con su revisión, sus correcciones y la validación del usuario ([Resultado](#resultado)) |
+| Vitest en verde | `npm test`, 1331 de 1331 en 64 archivos (corrida de este cierre) |
+| Playwright en verde | `npm run test:e2e`, 29 de 29, con el desvío 1 de este cierre (solo en el test) |
+| `typecheck`, `lint` y `build` sin errores ni avisos | Sin errores ni avisos (corridas de este cierre; `typecheck` repetido con el test de Playwright tocado) |
+| Por front-02: `composer test` y la suite en MySQL, en serie | SQLite, 1467 casos y 14303 aserciones; MySQL, 1467 casos y 14389 aserciones |
+| Newman de todas las colecciones, sin fallas | Las 14: 487 pedidos y 1082 aserciones, sin fallas |
+
+**Deudas** ([`deuda-tecnica.md`](../../deuda-tecnica.md)). La F2 no abrió ni resolvió ninguna; la 21 sigue (front-02 llevó
+`countQueries` a `Tests\Concerns\InspectsQueries`, pero las tres copias privadas siguen). Abiertas al cerrar: del backend, 2, 3, 5,
+6, 15, 17 y 21; del frontend, 19 y 20.
+
+**Decisiones de la fase.** R-074 (diseño de la F2 y de front-02, con las 13 preguntas respondidas con la recomendación), R-075 a
+R-082 (el cierre de cada entrega) y R-083 (este cierre y el merge), en el
+[registro](../../../01-arquitectura/decisiones/registro.md).
+
+**Pendiente para la F3** (agenda y turnos, sobre la API de la FASE 3 del backend: agendas con su horario semanal y sus bloqueos,
+turnos únicos y en series, sus estados, la disponibilidad y la cola del día): el análisis y el diseño, con sus preguntas, antes de
+cualquier código, en `docs/front-f3-diseno` (desde `main` en el merge de la F2). Lo que la F2 deja preparado: las consultas de
+sucursales, veterinarios y servicios (el `api.ts` de `features/branches`, `features/veterinarians` y `features/services`), para los
+selectores de la agenda y del turno; las claves de la sucursal actual (`branchKey`, `src/lib/api/query-keys.ts`); los filtros de
+fecha y hora en Asunción (`features/audit/dates.ts`) y `dialogError` para las acciones con 409.
+
+Corrida de `composer test` del backend (2026-11-17): 1467 casos, 1451 pasan y 16 omitidos, 14303 aserciones, en verde.
+
+Corrida de `composer test:mysql` del backend (2026-11-17): 1467 casos, 1467 pasan, 14389 aserciones, en verde.
+
+Corrida de Newman (2026-11-17): 14 colecciones, 487 pedidos y 1082 aserciones, sin fallas.
+
+Corrida de `typecheck`, `lint` y `build` del frontend (2026-11-17): sin errores ni avisos.
+
+Corrida de `FictitiousDocumentsTest` (2026-11-17): 3 de 3, en verde.
+
+Corrida de Playwright (2026-11-17): 29 de 29, en verde.
+
+Corrida de `composer audit` (2026-11-17): sin avisos.
+
+Corrida de `npm audit` (2026-11-17): 9 avisos moderados, todos de `minimatch` (deuda 19).
 
 Corrida de `npm test` del frontend (2026-11-17): 1331 tests en 64 archivos, en verde.

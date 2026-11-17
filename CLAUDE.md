@@ -131,15 +131,9 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 (base y login, R-063) y F1 (clientes y pacientes, R-072) completadas e integradas a `main`, con sus entregas de
-  soporte del backend (front-00 y front-01), y la entrega `chore/post-f1` (R-073), integrada a `main` en `1daee8c`. El diseño
-  de la F2 (datos maestros) está aprobado (R-074), en `docs/front-f2-diseno`; la entrega 2.1 (sucursales y depósitos) está
-  cerrada (R-075) en `feature/front-2-1-sucursales`, la 2.2a (usuarios: listado, detalle, alta y edición), cerrada (R-076) en
-  `feature/front-2-2a-usuarios`, la 2.2b (usuarios: inactivar, reactivar y baja), cerrada (R-077) en
-  `feature/front-2-2b-usuarios`, front-02 (soporte del backend: la ficha del veterinario en `GET users`), cerrada (R-078) en
-  `feature/front-02-usuarios-veterinario`, la 2.3 (veterinarios), cerrada (R-079) en `feature/front-2-3-veterinarios`, la 2.4
-  (servicios), cerrada (R-080) en `feature/front-2-4-servicios`, la 2.5 (configuración de la clínica y logo, con el menú
-  plegable), cerrada (R-081) en `feature/front-2-5-configuracion`, y la 2.6 (auditoría), cerrada (R-082) en
-  `feature/front-2-6-auditoria`, las ocho sin integrar a `main`; sigue el cierre de la F2; el detalle, en
+* **Frontend:** F0 (base y login, R-063), F1 (clientes y pacientes, R-072) y F2 (datos maestros: sucursales y depósitos,
+  usuarios, veterinarios, servicios, la configuración de la clínica con el logo y la auditoría, R-083) completadas e integradas a
+  `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
+  Sigue el análisis y el diseño de la F3 (agenda y turnos), en `docs/front-f3-diseno`; el detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

@@ -1775,3 +1775,24 @@ en su [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#e
 | Siguiente | El cierre de la F2 del frontend, con su criterio de cierre (Playwright completo, la suite del backend en MySQL y en serie, Newman de todas las colecciones) y, después, la integración a `main`; sin empezar hasta la autorización del usuario | Diseño (R-074) |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-083 Cierre de la F2 del frontend y merge a `main` (2026-11-17)
+
+Cierre de la F2 del frontend (datos maestros), junto con la entrega de soporte del backend (front-02), con las ocho entregas
+cerradas (R-075 a R-082). El detalle, en el [cierre de la F2](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#cierre-de-la-f2).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Entregas | 2.1 (R-075), 2.2a (R-076), 2.2b (R-077), front-02 (R-078), 2.3 (R-079), 2.4 (R-080), 2.5 (R-081) y 2.6 (R-082): COMPLETADO, cada una con su revisión, sus correcciones y su validación; las ramas de la cadena, en GitHub | Cierre |
+| F2 | COMPLETADO: el criterio de cierre se cumple, punto por punto en el cierre de la F2 (entregas cerradas; Vitest, Playwright, `typecheck`, `lint` y `build` en verde; la suite del backend en SQLite y en MySQL, en serie, por front-02; Newman de todas las colecciones sin fallas) | Usuario |
+| Regresión del backend | Desde `backend/`, en serie, sobre `bbe6e20`, sin cambios de código: SQLite, 1467 casos (16 omitidos, solo de MySQL), 14303 aserciones; MySQL, 1467 casos sin omitidos, 14389 aserciones. Frente a la F1, 4 casos más (front-02). 78 rutas, 135 permisos y 36 migraciones, sin cambios. `composer audit`, sin avisos | Cierre |
+| Regresión del frontend | Desde `frontend/`: `npm test`, 1331 tests en 64 archivos; `typecheck`, `lint` y `build` sin errores ni avisos; `FictitiousDocumentsTest`, 3 de 3; `npm run test:e2e`, 26 de 29 en la primera corrida y 29 de 29 después de ajustar el test (desvío 1). `npm audit`: solo el aviso de `minimatch` de la deuda 19 (9 paquetes) | Cierre |
+| Desvíos del cierre | 1: `e2e/permisos.spec.ts` esperaba el menú sin "Servicios" y "Veterinarios" (la 2.3 y la 2.4 solo corrieron su spec, como en el cierre de la F1); se suman, solo en el test. 2: dos intentos fallidos del script de Newman (`base_url` sin `/api`, con todos los pedidos en 404 de ruta, y la carpeta de salida relativa) antes de la vuelta registrada | Cierre |
+| Postman | Newman, las 14 colecciones de `docs/05-pruebas/postman` (R-057), servidor en el puerto 8001: 487 pedidos y 1082 aserciones, sin fallas | Cierre |
+| Demo | El token que dejó abierto la revisión de la 2.6 (id 604, `admin-a`), borrado antes de la regresión, y los 36 que abrió Newman (ids 605 a 651), revocados después; `admin-a`, `recepcion-a` y `vet-a`, sin cambios | Usuario (pedido) |
+| Deudas | La F2 no abrió ni resolvió ninguna. Actualizadas: 19 (los mismos 9 avisos) y 21 (el trait `InspectsQueries` de front-02 ya tiene `countQueries`). Abiertas: 2, 3, 5, 6, 15, 17 y 21 (backend); 19 y 20 (frontend) | Cierre |
+| Merge a `main` | Autorizado por el usuario el 2026-11-17: merge `--no-ff` desde `feature/front-2-6-auditoria`, que contiene `docs/front-f2-diseno` y las ramas de la 2.1 a la 2.5 y de front-02. `main` es ancestro de la rama, así que el árbol del merge es el de la rama ya probada. Las ramas se conservan. El hash del merge se informa al usuario y se anota en el handoff, en la rama de la F3 | Usuario |
+| Siguiente | El análisis y el diseño de la F3 del frontend (agenda y turnos), sobre la API de la FASE 3, en `docs/front-f3-diseno` (desde `main` en el merge de la F2) | Usuario |
+
+**Qué no cambió.** Código de la aplicación, rutas, permisos, `error_code`, contrato de respuesta y colecciones: el cierre documenta y
+ajusta solo un test de Playwright.

@@ -46,11 +46,10 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   frontend) está cerrada (R-065) e integrada a `main` con la F1 del frontend (R-072). La entrega 1.2 del frontend (R-067) cambió el
   backend en un commit aparte: el choque con un índice único de `clients` responde 422 en su campo, nunca 500 (§6.1); la 1.3a
   (R-068), lo mismo con el microchip de `patients` (deuda 22, §6.2). La entrega de soporte front-02 (la ficha de veterinario en
-  `GET users`, pedida por la F2 del frontend) está cerrada (R-078), sin integrar a `main` (se integra al cerrar la F2). Sigue el
-  frontend (F2 y F3, R-058) y, después de la F3, la
-  FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de front-02, 1467 casos (14303
-  aserciones en SQLite, 16 omitidos de MySQL); la del cierre de la F1 del frontend, 1463 casos
-  (14274 aserciones en SQLite y 14360 en MySQL).
+  `GET users`, pedida por la F2 del frontend) está cerrada (R-078) e integrada a `main` con la F2 del frontend (R-083). Sigue el
+  frontend (F3, R-058) y, después de la F3, la
+  FASE 4 (historia clínica). Hoy: 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F2 del frontend, 1467 casos
+  (14303 aserciones en SQLite, 16 omitidos de MySQL, y 14389 en MySQL).
 * **Tests:** suite de PHPUnit en SQLite y en MySQL (`syncvet_test_mysql`), con el acceso por rol de cada ruta
   (`tests/Feature/Access`), los mensajes en español y con voseo (`tests/Feature/Localization`, `VoseoTest`) y cada regla de
   clientes, de pacientes, del catálogo, de sucursales y depósitos, de usuarios, de veterinarios, de servicios, de la configuración,
@@ -87,8 +86,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   *scheduler*, FASE 10).
 * **Pendientes con esquema listo:** historia clínica, aplicaciones, documentos, recordatorios, inventario, caja, facturación SIFEN y pagos.
 * **Frontend:** en `frontend/` del mismo repositorio (monorepo, R-057), React 19 + TypeScript + Vite + Tabler; la F0 (esqueleto,
-  sesión contra esta API y permisos) y la F1 (clientes, pacientes, la foto y las especies) completadas e integradas a `main` (R-063
-  y R-072); sigue la F2, datos maestros. Su estado y sus reglas, en
+  sesión contra esta API y permisos), la F1 (clientes, pacientes, la foto y las especies) y la F2 (datos maestros) completadas e
+  integradas a `main` (R-063, R-072 y R-083); sigue la F3, agenda y turnos. Su estado y sus reglas, en
   [`frontend/CLAUDE.md`](../frontend/CLAUDE.md).
 
 ---
