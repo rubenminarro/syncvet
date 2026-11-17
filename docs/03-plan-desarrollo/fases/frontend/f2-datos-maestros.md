@@ -470,6 +470,31 @@ precio, sin guardar. El servicio temporal (`SRV-000031`) se borró por la API al
 quedó como estaba. Capturas fuera del repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-4`:
 `01-alta-celular.png`, `02-detalle.png`, `03-listado.png`, `04-listado-tablet.png`, `05-edicion.png`).
 
+**Revisión** (2026-11-16, sobre `0686f94`, contra el cierre de la 2.3, `0743a72`). El usuario aceptó los 10 desvíos; el 10 (el
+menú que se sale de la pantalla a 375 px) se corrige en la 2.5, junto con el logo en la barra: anotado en el
+[diseño de la 2.5](#25-configuración-de-la-clínica-y-logo) y en el handoff (el menú se pliega detrás de un botón en pantallas
+chicas, accesible con el teclado y con lector de pantalla, sin el JS de Tabler).
+
+* **Revisado, sin hallazgos que cambien el comportamiento.** El precio: los puntos se sacan solo si agrupan miles; se valida y se
+  manda como texto de solo dígitos (`wholeAmount`, sin `Number`, `parseFloat` ni decimales en ningún paso), de 0 a
+  999.999.999.999 con los ceros de adelante fuera de la cuenta, como `WholeAmount::normalize`; `"150000.00"` vuelve "150.000" por
+  una expresión regular y se muestra con `formatGuaranies` desde el texto. La duración: entero (con el signo de `integer`), de 5 a
+  720 y múltiplo de 5, en el orden de la API, mandada como número. El nombre: `SERVICE_NAME_PATTERN` es `ServiceMessages::NAME_REGEX`
+  con `u` y `s` (PHP compila `/u` con UCP: `\s`, `\pL` y `\pN` son de Unicode en los dos), de 2 a 120 caracteres sin los espacios de
+  los extremos. `SERVICE_NAME_NOT_EDITABLE` va al campo nombre con el foco. `SERVICE_IN_USE` ofrece "Inactivar" solo en uno activo.
+  El IVA va como número. Las acciones del detalle y "Nuevo servicio" dependen de `useCan()`; las rutas de alta y edición, de
+  `requirePermission`. Los diálogos usan `dialogError` común; las dos rutas del detalle llevan `key={id}`.
+* **Corregido (tests que faltaban).** En `ServicePages.test.tsx`, el listado y el detalle sin acciones se probaban solo con el
+  recepcionista: ahora con `it.each` del recepcionista y del veterinario (2 tests más).
+* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): el nombre sin `(?!.*//)` (2 fallas: `a//b` en `form.test.ts`
+  y en el alta); la duración sin el múltiplo de 5 (2 fallas); las acciones del detalle sin mirar el permiso (2 fallas, el
+  recepcionista y el veterinario). La primera necesitó tres intentos: dos veces `sed` y `perl` no cambiaron la expresión (las
+  barras escapadas) y los tests pasaron sin la mutación aplicada; se aplicó con un script de Node fuera del repositorio y ahí
+  falló, como debía.
+* **Cifras.** `npm test` completo, una sola corrida, en verde a la primera: 1188 de 1188 en 56 archivos (los 1186 de la
+  implementación y los 2 nuevos); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright no se repitió (solo cambiaron
+  tests de Vitest).
+
 ### 2.5 Configuración de la clínica y logo
 
 **Pantalla.** `/configuracion/clinica` (`system-settings.update`), con su tarjeta en `/configuracion`:
@@ -492,6 +517,13 @@ vuelve a pedir la configuración. La mutación con `gcTime: 0` y `reset()`.
 clínica) si `me.clinic.has_logo`, para los tres roles (`system-settings.show-logo`), con la misma clave `['settings', 'logo']`: subir
 o quitar el logo lo cambia en la barra sin recargar. Sin logo o con un error, la marca de siempre (nunca una imagen rota). Otra
 pestaña ve el logo nuevo al recargar (la caché del archivo es de cada pestaña).
+
+**El menú en pantallas chicas** (decisión del usuario en la revisión de la 2.4, desvío 10). Con "Servicios" y "Veterinarios", la
+barra de menú horizontal de `SessionLayout` mide unos 820 px y a 375 px se sale de la pantalla (ya pasaba antes de la 2.4, con
+unos 700 px). En la 2.5, junto con el logo en la barra: en pantallas chicas, el menú se pliega detrás de un botón, accesible con
+el teclado y con lector de pantalla (`aria-expanded`, `aria-controls` y un nombre accesible; Escape lo cierra y el foco vuelve al
+botón), sin el JS de Tabler (un componente de React). Tests: el botón y el menú plegado al ancho de un celular, abrir y cerrar con
+el teclado; en el navegador, 375 px sin desplazamiento horizontal de la página.
 
 **Tests (Vitest).** `image.ts` con el límite como parámetro (la foto sigue con 5 MB: sus tests no cambian); el logo de 2 MB justos
 y de un byte más; el tipo por el contenido; el formulario: `ruc` fuera del cuerpo, las claves vacías en `null`, el email en

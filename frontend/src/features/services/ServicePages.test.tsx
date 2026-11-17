@@ -148,13 +148,16 @@ describe('/servicios: listado', () => {
     expect(urls.at(-1)?.searchParams.has('status')).toBe(false);
   });
 
-  it('el recepcionista: el listado con el enlace al detalle y sin "Nuevo servicio"', async () => {
-    server.use(meHandler(RECEPTION), listHandler());
-    renderApp('/servicios', { session: sessionFor() });
+  it.each(['recepcionista', 'veterinario'] as const)(
+    '%s: el listado con el enlace al detalle y sin "Nuevo servicio"',
+    async (role) => {
+      server.use(meHandler(meFor(role)), listHandler());
+      renderApp('/servicios', { session: sessionFor() });
 
-    expect(await screen.findByText('Vacuna 5+1', { selector: 'a' })).toBeInTheDocument();
-    expect(screen.queryByText('Nuevo servicio')).toBeNull();
-  });
+      expect(await screen.findByText('Vacuna 5+1', { selector: 'a' })).toBeInTheDocument();
+      expect(screen.queryByText('Nuevo servicio')).toBeNull();
+    },
+  );
 
   it('una categoría o un estado desconocidos en la URL se descartan', async () => {
     const urls: URL[] = [];
@@ -178,14 +181,17 @@ describe('/servicios/$id: detalle', () => {
     expect(required('.service-delete').textContent).toBe('Eliminar');
   });
 
-  it('el recepcionista ve el detalle sin acciones', async () => {
-    await openDetail(VACCINE, [], RECEPTION);
+  it.each(['recepcionista', 'veterinario'] as const)(
+    '%s ve el detalle sin acciones',
+    async (role) => {
+      await openDetail(VACCINE, [], meFor(role));
 
-    expect(screen.getByText('Vacunación', { selector: 'dd' })).toBeInTheDocument();
-    expect(document.querySelector('.service-edit')).toBeNull();
-    expect(document.querySelector('.service-status-action')).toBeNull();
-    expect(document.querySelector('.service-delete')).toBeNull();
-  });
+      expect(screen.getByText('Vacunación', { selector: 'dd' })).toBeInTheDocument();
+      expect(document.querySelector('.service-edit')).toBeNull();
+      expect(document.querySelector('.service-status-action')).toBeNull();
+      expect(document.querySelector('.service-delete')).toBeNull();
+    },
+  );
 
   it('un id que no existe: la página de no encontrado', async () => {
     server.use(

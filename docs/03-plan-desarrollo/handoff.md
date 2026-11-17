@@ -54,6 +54,7 @@ datos maestros, está en curso: diseño aprobado (R-074), la 2.1, sucursales y d
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
 | 2 | **Siguiente.** La entrega 2.4 del frontend (servicios: listado y detalle para los tres roles, alta, edición, inactivar y baja; el precio en guaraníes), en `feature/front-2-4-servicios`, creada desde `feature/front-2-3-veterinarios` (en el cierre de la 2.3) y subida ([diseño](fases/frontend/f2-datos-maestros.md#24-servicios), aprobado en R-074) | La autorización del usuario para implementar |
+| 2b | En la 2.5, junto con el logo en la barra: el menú se pliega detrás de un botón en pantallas chicas (a 375 px hoy se sale de la pantalla), accesible con el teclado y con lector de pantalla, sin el JS de Tabler (decisión del usuario sobre el desvío 10 de la 2.4; [diseño de la 2.5](fases/frontend/f2-datos-maestros.md#25-configuración-de-la-clínica-y-logo)) | La 2.5 |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |
 | 5 | Opcional: verificar el desvío 16 de la 1.1 (dos pedidos iguales al entrar a `/clientes?buscar=…` con `npm run dev`; probablemente el doble efecto del `StrictMode` de React en desarrollo) con `npm run build` y `npm run preview` | Ninguno |
