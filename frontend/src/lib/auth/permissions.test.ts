@@ -35,9 +35,12 @@ describe('visibleMenu', () => {
     visibleMenu(MENU, (permission) => can(meOf(role), permission)).map((item) => item.label);
 
   it.each([
-    ['administrador', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Configuración']],
-    ['recepcionista', ['Inicio', 'Clientes', 'Pacientes', 'Especies']],
-    ['veterinario', ['Inicio', 'Clientes', 'Pacientes', 'Especies']],
+    [
+      'administrador',
+      ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Veterinarios', 'Configuración'],
+    ],
+    ['recepcionista', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Veterinarios']],
+    ['veterinario', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Veterinarios']],
   ] as const)('%s ve %j', (role, expected) => {
     expect(labels(role)).toEqual(expected);
   });
@@ -51,6 +54,7 @@ describe('el menú sin clients.index', () => {
       'Inicio',
       'Pacientes',
       'Especies',
+      'Veterinarios',
       'Configuración',
     ]);
   });
@@ -64,6 +68,7 @@ describe('el menú sin patients.index', () => {
       'Inicio',
       'Clientes',
       'Especies',
+      'Veterinarios',
       'Configuración',
     ]);
   });
@@ -77,6 +82,7 @@ describe('el menú sin species.index', () => {
       'Inicio',
       'Clientes',
       'Pacientes',
+      'Veterinarios',
       'Configuración',
     ]);
   });

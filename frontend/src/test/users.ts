@@ -68,7 +68,7 @@ export const VET_USER: UserDetail = {
 
 export { role as testRole };
 
-/** Un usuario del listado (UserResource): sin la ficha ni las fechas. */
+/** Un usuario del listado (UserResource): con la ficha (front-02), sin las fechas. */
 export function userListItem(user: UserDetail): User {
   return {
     id: user.id,
@@ -80,5 +80,6 @@ export function userListItem(user: UserDetail): User {
     branches: user.branches,
     current_branch_id: user.current_branch_id,
     is_active: user.is_active,
+    veterinarian: user.veterinarian,
   };
 }

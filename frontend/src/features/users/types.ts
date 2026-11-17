@@ -8,6 +8,9 @@ export type RoleName = (typeof ROLE_NAMES)[number];
 /** El rol de la sesión que se pierde al quitárselo a uno mismo (pregunta 7 del diseño de la F2). */
 export const ADMIN_ROLE: RoleName = 'administrador';
 
+/** El rol que puede tener ficha de veterinario (backend/CLAUDE.md §6.6). */
+export const VETERINARIAN_ROLE: RoleName = 'veterinario';
+
 /** Un ítem de GET roles y de `roles` del usuario (RoleResource): el nombre y su etiqueta en castellano. */
 export interface Role {
   name: RoleName;
@@ -21,7 +24,13 @@ export interface UserBranch {
   name: string;
 }
 
-/** Un ítem de GET users (UserResource). */
+/** La ficha de veterinario del usuario: null sin ficha o con la ficha eliminada. */
+export interface UserVeterinarian {
+  id: number;
+  code: string;
+}
+
+/** Un ítem de GET users (UserResource); desde front-02, con la ficha de veterinario. */
 export interface User {
   id: number;
   first_name: string;
@@ -32,11 +41,11 @@ export interface User {
   branches: UserBranch[];
   current_branch_id: number | null;
   is_active: boolean;
+  veterinarian: UserVeterinarian | null;
 }
 
-/** GET users/{id} (ShowUserResource): suma la ficha de veterinario (null sin ficha o con la ficha eliminada) y las fechas. */
+/** GET users/{id} (ShowUserResource): suma las fechas. */
 export interface UserDetail extends User {
-  veterinarian: { id: number; code: string } | null;
   created_at: string | null;
   updated_at: string | null;
 }

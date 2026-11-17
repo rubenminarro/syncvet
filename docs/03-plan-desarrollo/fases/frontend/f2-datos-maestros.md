@@ -369,7 +369,49 @@ recepcionista.
 
 #### Pendiente para el cierre (2.3)
 
-Vacío.
+Implementación (2026-11-16) en `feature/front-2-3-veterinarios`: `fcf6667` (`dialogError` a `src/lib/api/dialog-error.ts`, con
+sus tests; sucursales y usuarios la importan sin cambiar su comportamiento: sus tests siguieron en verde sin tocarlos) y el WIP de
+la entrega.
+
+* **Hecho.** `features/veterinarians` (nuevo): el menú "Veterinarios" (`veterinarians.index`, después de "Especies"), `/veterinarios`
+  (búsqueda, `?estado=inactivos|todos` traducido a `status=inactive` o `include_inactive=1`, `?sucursal=`; el enlace al detalle y
+  "Nuevo veterinario" solo para el administrador; sin la comisión ni las notas), `/veterinarios/$id` (la comisión "12,5 %", el
+  usuario con su enlace, "Usuario inactivo"; Editar, Inactivar o Activar y Eliminar), `/veterinarios/nuevo?usuario=` (el usuario
+  entre los activos con el rol veterinario y `veterinarian === null`, de `['users', 'options', { role, include_inactive }]`) y
+  `/veterinarios/$id/editar` (el código y el usuario solo para leer; sin `user_id`, `code` ni `status` en el cuerpo). La matrícula
+  en mayúsculas y recortada; la comisión con coma o punto, mandada con punto (vacía, `"0"`). La baja con `VETERINARIAN_IN_USE`: el
+  mensaje y "Inactivar" (en una inactiva, solo "Cerrar"). Crear, editar, activar o inactivar invalidan `['veterinarians']` y
+  `['users']` (el detalle toma la respuesta) y `['me']` si la ficha es del usuario de la sesión; la baja, igual, con los listados
+  vaciados y el detalle fuera de la caché al llegar al listado. En usuarios: `User` suma `veterinarian` (front-02); el detalle
+  enlaza a la ficha o muestra "Crear la ficha de veterinario" (activo, con el rol y sin ficha); la alerta de `USER_IS_VETERINARIAN`
+  enlaza a la ficha. `PERMISSIONS` suma los cinco de `veterinarians.*`.
+* **Pruebas.** Vitest: `dialog-error.test.ts` (8), `veterinarians/search.test.ts` y `form.test.ts` (44, cada regla en su borde) y
+  `VeterinarianPages.test.tsx` (25: listado de los dos roles, estado y sucursal en la URL y en el pedido, `/sin-permiso`, el
+  selector sin los usuarios con ficha y con `?usuario=`, la ficha restaurada con su código, 422 de la matrícula, la edición sin
+  `user_id`, inactivar, activar, la baja con el 200 y con `VETERINARIAN_IN_USE`, el detalle del usuario). Mutaciones: 4 de 4
+  detectadas (el selector con los usuarios con ficha; `user_id` en la edición; el enlace al detalle para el recepcionista; sin
+  invalidar `['users']`). Playwright: `e2e/veterinarios.spec.ts` (nuevo), 1 de 1 en 50,4 s. Desde `backend/`,
+  `FictitiousDocumentsTest`, 3 de 3.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El filtro del listado es el del diseño (`?estado=activos\|inactivos\|todos` y `?sucursal=`), no "Incluir los inactivos" (`?inactivos=1`) del pedido de la entrega | Lo decidió el usuario al empezar la entrega ("Todos" incluye a los inactivos) |
+| 2 | El estado no es un campo del formulario de edición: se cambia con "Inactivar" o "Activar" en el detalle | El diseño (pregunta 13): activar e inactivar son botones con su confirmación |
+| 3 | En el alta con `?usuario=`, "Cancelar" vuelve al detalle de ese usuario (sin `?usuario=`, al listado). Un `?usuario=` que no se puede elegir (con ficha, sin el rol, inactivo) no queda elegido | Se vuelve a donde se vino; el selector solo ofrece lo que la API acepta |
+| 4 | El selector del alta pide 100 usuarios (`per_page` máximo de la API): con más de 100 usuarios con el rol veterinario, los que pasan de la primera página no se ofrecen | Una clínica no llega a eso; si hiciera falta, una búsqueda en el selector |
+| 5 | La ficha restaurada muestra el mensaje de la API ("Veterinario creado correctamente.", el mismo 201 del alta) y el detalle con su código de siempre; no hay un aviso propio de "restaurada" | La API no distingue la restauración en la respuesta; el mensaje se muestra tal cual |
+| 6 | Tests tocados por la entrega (no por el commit de `dialogError`): el menú con "Veterinarios" en `app/permissions.test.tsx` y `lib/auth/permissions.test.ts`; en `UserPages.test.tsx`, el código de la ficha ahora es un enlace (2 tests) | Cambios de comportamiento de la 2.3 |
+| 7 | La corrida final de `npm test` dio 6 fallas en `lib/auth/permissions.test.ts` (el menú sin "Veterinarios"); se corrigió y se repitió solo ese archivo, 12 de 12. La cifra total, 1073 tests en 53 archivos (996 más 77 nuevos), sale de la cuenta, no de una corrida completa en verde: queda para la revisión o el cierre | El presupuesto por entrega: se repite solo el paso que falló |
+| 8 | Después de la validación en Edge, el selector del usuario sumó `className="mb-3"` (la pista quedaba pegada a "Matrícula", como los selectores del paciente); `typecheck`, `lint` y sus tests relacionados (455) en verde, sin repetir Edge ni el build | Solo un margen |
+| 9 | Edge: la primera corrida del control 5 falló al crear el usuario temporal con `@example.com` (422: la demo valida el DNS, como el desvío 10 de la 2.2a), sin cambiar la demo; se repitió solo ese control con `@mailinator.com` (usuario 39, borrado por la API, `DELETE users/39`, 200). `VETERINARIAN_IN_USE` se simuló interceptando el `DELETE` de `vet-a` (nunca llegó a la API); la ficha de `vet-a` solo se leyó (igual antes y después) | La demo queda como estaba; la baja real está en Playwright contra `syncvet_e2e` |
+
+**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 5 de 5. (1) El listado con
+"Todos" y al ancho de tablet, sin desplazamiento horizontal; (2) el detalle de `vet-a` ("0 %"); (3) la edición con la comisión con
+coma ("0,00") y el código y el usuario solo para leer, sin guardar; (4) la baja con `VETERINARIAN_IN_USE` simulado: el mensaje y
+"Inactivar", sin confirmar; (5) del usuario temporal a "Crear la ficha de veterinario", con el usuario elegido, y "Cancelar" de
+vuelta al usuario, sin guardar. Capturas fuera del repositorio, en la PC de la validación
+(`%TEMP%\claude\…\scratchpad\capturas-2-3`: `01-listado.png`, `02-listado-tablet.png`, `03-detalle.png`, `04-edicion.png`,
+`05-baja-en-uso.png`, `06-usuario-sin-ficha.png`, `07-alta.png`).
 
 ### 2.4 Servicios
 

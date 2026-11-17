@@ -269,7 +269,8 @@ describe('/configuracion/usuarios/$id: detalle', () => {
     );
     renderApp('/configuracion/usuarios/8', { session: sessionFor() });
 
-    expect(await screen.findByText('VET-0001', { selector: 'dd' })).toBeInTheDocument();
+    // Desde la 2.3, el código enlaza a la ficha.
+    expect(await screen.findByText('VET-0001', { selector: 'dd a' })).toBeInTheDocument();
     expect(screen.queryByText('(vos)')).toBeNull();
   });
 
@@ -508,7 +509,7 @@ describe('/configuracion/usuarios/$id/editar: otro usuario', () => {
     });
   });
 
-  it('USER_IS_VETERINARIAN: la alerta con el mensaje y el código de la ficha', async () => {
+  it('USER_IS_VETERINARIAN: la alerta con el mensaje y el enlace a la ficha (2.3)', async () => {
     const message =
       'El usuario tiene una ficha de veterinario: eliminala antes de quitarle el rol.';
     await openEdit(VET_USER, ADMIN, [
@@ -520,7 +521,9 @@ describe('/configuracion/usuarios/$id/editar: otro usuario', () => {
     save();
 
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.getByText('Ficha de veterinario: VET-0001.')).toBeInTheDocument();
+    expect(
+      screen.getByText('VET-0001', { selector: '.user-veterinarian-alert-link' }),
+    ).toHaveAttribute('href', '/veterinarios/4');
   });
 
   it('un 404 al guardar: el aviso y de vuelta al listado', async () => {

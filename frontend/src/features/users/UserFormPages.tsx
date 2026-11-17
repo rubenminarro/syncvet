@@ -5,8 +5,10 @@ import type { UseFormReturn } from 'react-hook-form';
 import { ConfirmDialog, useToast, type CheckboxOption } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import { applyValidationErrors } from '../../lib/api/form-errors';
+import { PERMISSIONS } from '../../lib/auth/permissions';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { meQueryOptions } from '../auth/api';
+import { useCan } from '../auth/permissions';
 import { branchOptionsQueryOptions } from '../branches/api';
 import type { Branch } from '../branches/types';
 import {
@@ -49,6 +51,8 @@ interface SaveErrorContext {
   setAlert: (alert: FormAlert) => void;
   /** La ficha del usuario editado, para la alerta de USER_IS_VETERINARIAN. */
   veterinarian?: UserDetail['veterinarian'];
+  /** ¿El enlace a la ficha? (`veterinarians.show`). */
+  canShowVeterinarian?: boolean;
   onGone?: (message: string) => void;
   onConflict?: () => void;
 }
@@ -62,10 +66,31 @@ function handleSaveError(error: unknown, context: SaveErrorContext) {
   }
 
   if (error.errorCode === USER_IS_VETERINARIAN) {
-    const code = context.veterinarian?.code;
+    // Desde la 2.3, el código enlaza a la ficha (para eliminarla); sin `veterinarians.show`, solo el código.
+    const veterinarian = context.veterinarian ?? null;
     context.setAlert({
       title: error.message,
-      ...(code === undefined ? {} : { detail: `Ficha de veterinario: ${code}.` }),
+      ...(veterinarian === null
+        ? {}
+        : {
+            detail: (
+              <>
+                Ficha de veterinario:{' '}
+                {context.canShowVeterinarian ? (
+                  <Link
+                    to="/veterinarios/$id"
+                    params={{ id: String(veterinarian.id) }}
+                    className="user-veterinarian-alert-link"
+                  >
+                    {veterinarian.code}
+                  </Link>
+                ) : (
+                  veterinarian.code
+                )}
+                .
+              </>
+            ),
+          }),
     });
 
     return;
@@ -222,6 +247,7 @@ export function UserEditPage({ id }: { id: number }) {
   const listSearch = useUserListSearch();
   const single = useSingleAction();
   const onGone = useUserGone(id);
+  const can = useCan();
   const { data: user } = useSuspenseQuery(userDetailQueryOptions(id));
   const { data: roles } = useSuspenseQuery(rolesQueryOptions());
   const { data: me } = useQuery({ ...meQueryOptions(), enabled: false });
@@ -250,6 +276,7 @@ export function UserEditPage({ id }: { id: number }) {
             : USER_FORM_FIELDS,
         setAlert,
         veterinarian: user.veterinarian,
+        canShowVeterinarian: can(PERMISSIONS.veterinariansShow),
         onGone,
         onConflict: () => {
           void queryClient.invalidateQueries({ queryKey: userKeys.detail(id) });

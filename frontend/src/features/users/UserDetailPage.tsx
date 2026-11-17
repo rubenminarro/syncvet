@@ -9,14 +9,15 @@ import { meQueryOptions } from '../auth/api';
 import { useCan } from '../auth/permissions';
 import { userDetailQueryOptions } from './api';
 import { useUserListSearch, withUserList } from './navigation';
-import type { UserDetail } from './types';
+import { VETERINARIAN_ROLE, type UserDetail } from './types';
 import { UserActions } from './UserActions';
 import { UserInactiveBadge } from './UserInactiveBadge';
 
 /**
  * /configuracion/usuarios/$id (2.2a): los datos, los roles, las sucursales (con la actual marcada), la ficha de
  * veterinario y "Editar". "(vos)" junto al nombre del usuario de la sesión. Desde la 2.2b, inactivar o reactivar y
- * eliminar (`UserActions`), salvo en el propio usuario; el enlace a la ficha y "Crear la ficha de veterinario", en la 2.3.
+ * eliminar (`UserActions`), salvo en el propio usuario. Desde la 2.3, el enlace a la ficha de veterinario y, con el rol y
+ * sin ficha, "Crear la ficha de veterinario" (`/veterinarios/nuevo?usuario=`).
  */
 export function UserDetailPage({ id }: { id: number }) {
   const { data: user } = useSuspenseQuery(userDetailQueryOptions(id));
@@ -99,12 +100,57 @@ function UserData({ user }: { user: UserDetail }) {
           ['Apellido', user.last_name],
           ['Email', user.email],
           ['Estado', user.is_active ? 'Activo' : 'Inactivado'],
-          ['Ficha de veterinario', user.veterinarian?.code ?? 'Sin ficha'],
+          ['Ficha de veterinario', <VeterinarianRecord user={user} />],
           ['Alta', orDash(formatDateTime(user.created_at))],
           ['Última modificación', orDash(formatDateTime(user.updated_at))],
         ]}
       />
     </Card>
+  );
+}
+
+/**
+ * La ficha de veterinario (2.3): el código, con el enlace a su detalle (`veterinarians.show`); sin ficha, "Sin ficha" y,
+ * si el usuario está activo y tiene el rol veterinario, "Crear la ficha de veterinario" (`veterinarians.store`).
+ */
+function VeterinarianRecord({ user }: { user: UserDetail }) {
+  const can = useCan();
+  const { veterinarian } = user;
+
+  if (veterinarian !== null) {
+    return can(PERMISSIONS.veterinariansShow) ? (
+      <Link
+        to="/veterinarios/$id"
+        params={{ id: String(veterinarian.id) }}
+        className="user-veterinarian-link"
+      >
+        {veterinarian.code}
+      </Link>
+    ) : (
+      veterinarian.code
+    );
+  }
+
+  const canCreate =
+    user.is_active &&
+    user.roles.some((role) => role.name === VETERINARIAN_ROLE) &&
+    can(PERMISSIONS.veterinariansStore);
+
+  if (!canCreate) {
+    return 'Sin ficha';
+  }
+
+  return (
+    <span className="d-flex flex-wrap gap-2 align-items-center">
+      Sin ficha
+      <Link
+        to="/veterinarios/nuevo"
+        search={{ usuario: user.id }}
+        className="btn btn-sm btn-outline-primary user-create-veterinarian"
+      >
+        Crear la ficha de veterinario
+      </Link>
+    </span>
   );
 }
 

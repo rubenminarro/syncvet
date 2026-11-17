@@ -6,6 +6,7 @@ import type { Me } from '../auth/types';
 import type {
   CreateUserPayload,
   Role,
+  RoleName,
   User,
   UserDetail,
   UserListFilters,
@@ -24,6 +25,7 @@ export const userKeys = {
   lists: ['users', 'list'] as const,
   list: (filters: UserListFilters) => ['users', 'list', filters] as const,
   detail: (id: number) => ['users', 'detail', id] as const,
+  options: (filters: UserOptionsFilters) => ['users', 'options', filters] as const,
   roles: ['roles'] as const,
 };
 
@@ -44,6 +46,33 @@ export function userListQueryOptions(filters: UserListFilters) {
         },
       }),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Usuarios en un selector: 100, el máximo de la API (una sola página). */
+export const USER_OPTIONS_PER_PAGE = 100;
+
+/** Los filtros de las opciones de usuarios (el usuario del veterinario en la 2.3; el filtro de la auditoría en la 2.6). */
+export interface UserOptionsFilters {
+  role: RoleName | null;
+  include_inactive: boolean;
+}
+
+/** GET users?role=&include_inactive=&per_page=100: los usuarios de un selector, con su ficha de veterinario (front-02). */
+export function userOptionsQueryOptions(filters: UserOptionsFilters) {
+  return queryOptions({
+    queryKey: userKeys.options(filters),
+    queryFn: async ({ signal }) =>
+      (
+        await getPage<User>('users', {
+          signal,
+          query: {
+            role: filters.role ?? undefined,
+            include_inactive: filters.include_inactive ? 1 : undefined,
+            per_page: USER_OPTIONS_PER_PAGE,
+          },
+        })
+      ).items,
   });
 }
 
