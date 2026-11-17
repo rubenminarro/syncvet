@@ -73,6 +73,16 @@ export const PERMISSIONS = {
   veterinariansUpdate: 'veterinarians.update',
   /** Eliminar la ficha desde su detalle (F2, entrega 2.3): solo el administrador. */
   veterinariansDestroy: 'veterinarians.destroy',
+  /** /servicios (F2, entrega 2.4): los tres roles. */
+  servicesIndex: 'services.index',
+  /** /servicios/$id (F2, entrega 2.4): los tres roles; las acciones, solo el administrador. */
+  servicesShow: 'services.show',
+  /** /servicios/nuevo (F2, entrega 2.4): solo el administrador. */
+  servicesStore: 'services.store',
+  /** /servicios/$id/editar, activar e inactivar (F2, entrega 2.4): solo el administrador. */
+  servicesUpdate: 'services.update',
+  /** Eliminar el servicio desde su detalle (F2, entrega 2.4): solo el administrador. */
+  servicesDestroy: 'services.destroy',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

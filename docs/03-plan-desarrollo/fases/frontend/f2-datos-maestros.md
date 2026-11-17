@@ -421,7 +421,54 @@ alta.
 
 #### Pendiente para el cierre (2.4)
 
-Vacío.
+Implementación (2026-11-16) en `feature/front-2-4-servicios` (creada desde el cierre de la 2.3, `0743a72`). Antes, en la misma
+rama, el `CLAUDE.md` de la raíz suma al presupuesto por entrega (pedido del usuario): si `npm test` de la corrida final falla en un
+archivo, después de corregirlo se repite la suite completa, para que la cifra registrada sea siempre la de una corrida real.
+
+* **Hecho.** `features/services` (nuevo): el menú "Servicios" (`services.index`, después de "Especies"), `/servicios` (búsqueda,
+  categoría con las etiquetas de `ServiceCategory`, `?estado=inactivos|todos` traducido a `status=inactive` o `include_inactive=1`;
+  el precio con `formatGuaranies`, la duración "30 min" y el IVA "10 %"; el enlace al detalle con `services.show` y "Nuevo
+  servicio" con `services.store`), `/servicios/$id` (los tres roles, con `key={id}`; Editar, Inactivar o Activar y Eliminar solo
+  para el administrador), `/servicios/nuevo` y `/servicios/$id/editar` (el código solo para leer). El formulario: nombre con
+  `ServiceMessages::NAME_REGEX` (acepta `/ , + ( ) . - ' %`, rechaza `//`), categoría, precio (texto con `inputMode="numeric"`:
+  "150.000" se manda `"150000"`; la coma, los decimales, el signo, el exponente y más de 12 dígitos, con el mensaje de
+  `WholeAmount` y sin pedido; `"150000.00"` de la API vuelve "150.000"), duración (5 a 720, múltiplo de 5; 30 por defecto), IVA
+  (`RadioGroup` 0, 5 o 10; 10 por defecto, número en el cuerpo) y descripción. `SERVICE_NAME_NOT_EDITABLE` al campo nombre (con el
+  foco); la baja con `SERVICE_IN_USE`: el mensaje y "Inactivar" (en uno inactivo, solo "Cerrar"); los errores de los diálogos con
+  `dialogError`; un solo pedido con `useSingleAction`. Crear, editar, activar o inactivar invalidan `['services']` (el detalle toma
+  la respuesta); la baja y el 404 vacían los listados y sacan el detalle de la caché al llegar al listado. `PERMISSIONS` suma los
+  cinco de `services.*`.
+* **Pruebas.** Vitest: `services/form.test.ts` y `search.test.ts` (87: cada regla en su borde, el precio con sus casos del diseño,
+  la duración 4, 5, 720 y 722, y las categorías leídas de `app/Enums/ServiceCategory.php`, H2) y `ServicePages.test.tsx` (23:
+  listado de los dos roles, categoría y estado en la URL y en el pedido, el detalle sin acciones para el recepcionista,
+  `/sin-permiso`, el alta con "150.000" y doble clic, los precios rechazados sin pedido, el nombre con `//`, 422 del nombre,
+  la edición con "150.000" y el cuerpo sin `code` ni `status`, `SERVICE_NAME_NOT_EDITABLE`, inactivar, activar, la baja con el
+  200, con `SERVICE_IN_USE` en uno activo y en uno inactivo, y el 404 en una acción). Mutaciones: 4 de 4 detectadas (el precio
+  mandado como número, 11 fallas; los puntos de miles sin sacar, 10; el IVA como texto, 3; `SERVICE_NAME_NOT_EDITABLE` fuera del
+  campo, 1). Playwright: `e2e/servicios.spec.ts` (nuevo), 1 de 1 en 1,5 min (27 casos en total). Corrida final, desde `frontend/`:
+  `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1186 de 1186 en 56 archivos, en verde (sin fallas, en la primera
+  corrida); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El filtro del listado es el del diseño (`?estado=activos\|inactivos\|todos`), no "Incluir los inactivos" (`?inactivos=1`) del pedido de la entrega | Lo decidió el usuario al empezar la entrega, como en la 2.3 |
+| 2 | El estado no es un campo del formulario: se cambia con "Inactivar" o "Activar" en el detalle y el alta queda `active` | Lo decidió el usuario al empezar la entrega (el diseño, pregunta 13) |
+| 3 | `formatGs` del pedido es `formatGuaranies` (`src/lib/format/money.ts`) | Es el nombre de la función común |
+| 4 | Los puntos se sacan solo si agrupan miles ("150.000", "12.500.000.000"); "1500.00" se rechaza (no es "150000"). Los ceros de adelante no cuentan para los 12 dígitos y no se mandan ("007" → `"7"`), como `WholeAmount::normalize` | Paridad con la API sin adivinar lo escrito |
+| 5 | La duración es un campo de texto con `inputMode="numeric"` (no `type="number"`, como el precio) y acepta el signo como `integer` de Laravel ("+30") | Paridad con la API; el teclado numérico en el celular |
+| 6 | Playwright: el caso del pedido (crear con "150.000", el cuerpo con `"150000"`, "Gs. 150.000" después de recargar, editar, el recepcionista sin acciones, inactivar y borrar), con el precio con coma rechazado sin pedido; no el cambio de nombre de un servicio usado | El `DemoSeeder` no crea servicios ni turnos: no hay un servicio usado. `SERVICE_NAME_NOT_EDITABLE` está en Vitest |
+| 7 | Tests tocados por la entrega: el menú con "Servicios" en `frontend/src/app/permissions.test.tsx` y `frontend/src/lib/auth/permissions.test.ts` | Cambio de comportamiento de la 2.4 |
+| 8 | `FictitiousDocumentsTest` tomó "1.000.000" (7 dígitos) de `form.test.ts` y de un comentario de `form.ts` como una cédula; los ejemplos pasaron a "12.500.000.000" | Ningún número con forma de cédula en el código del frontend |
+| 9 | Edge: la primera corrida del script falló al ingresar (la etiqueta "Contraseña" también es la del botón para mostrarla), sin crear nada; se repitió entera con la etiqueta exacta | Un detalle del script, fuera del repositorio |
+| 10 | Edge, control 1: el script lo marcó MAL por dos motivos. El campo del precio no tiene el atributo `type` (`null`: un `<input>` sin `type` es de texto, lo que se quería; el criterio del script era estricto). Y a 375 px la barra del menú se sale de la pantalla (la página mide unos 820 px): **hallazgo anterior a la entrega**, el menú horizontal de `SessionLayout` ya medía unos 700 px sin "Servicios"; no se corrigió (es el layout común) | **Decisión del usuario pendiente:** corregirlo en una entrega aparte o registrarlo como deuda |
+
+**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 4 de 5 según el script, con
+el control 1 explicado en el desvío 10. (1) El alta al ancho de un celular: el precio y la duración con `inputmode="numeric"`; el
+menú desborda a 375 px; (2) el detalle con "Gs. 999.999.999.999" (el 201 del alta); (3) el listado con el precio largo en una
+sola línea; (4) el listado a 768 px sin desplazamiento horizontal de la página; (5) la edición con "999.999.999.999" en el
+precio, sin guardar. El servicio temporal (`SRV-000031`) se borró por la API al terminar (`DELETE services/31`, 200); la demo
+quedó como estaba. Capturas fuera del repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-4`:
+`01-alta-celular.png`, `02-detalle.png`, `03-listado.png`, `04-listado-tablet.png`, `05-edicion.png`).
 
 ### 2.5 Configuración de la clínica y logo
 

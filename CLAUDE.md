@@ -77,7 +77,9 @@ alguna pide más corridas, vale esta.
   `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
   entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.
 * **Si la corrida final falla por un detalle** (un tipo, una regla de lint, un formato), se corrige y se repiten solo el paso que
-  falló y los tests del archivo tocado, no la corrida entera.
+  falló y los tests del archivo tocado, no la corrida entera. **Excepción, `npm test` del frontend:** si falla en un archivo, después
+  de corregirlo se repite la suite completa (`npm test`), no solo ese archivo, para que la cifra registrada sea siempre la de una
+  corrida real en verde (lo que pasó en la 2.3, desvío 7).
 * **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
 * **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
 * **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya

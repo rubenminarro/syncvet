@@ -37,10 +37,10 @@ describe('visibleMenu', () => {
   it.each([
     [
       'administrador',
-      ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Veterinarios', 'Configuración'],
+      ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios', 'Configuración'],
     ],
-    ['recepcionista', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Veterinarios']],
-    ['veterinario', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Veterinarios']],
+    ['recepcionista', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios']],
+    ['veterinario', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios']],
   ] as const)('%s ve %j', (role, expected) => {
     expect(labels(role)).toEqual(expected);
   });
@@ -54,6 +54,7 @@ describe('el menú sin clients.index', () => {
       'Inicio',
       'Pacientes',
       'Especies',
+      'Servicios',
       'Veterinarios',
       'Configuración',
     ]);
@@ -68,6 +69,7 @@ describe('el menú sin patients.index', () => {
       'Inicio',
       'Clientes',
       'Especies',
+      'Servicios',
       'Veterinarios',
       'Configuración',
     ]);
@@ -82,6 +84,7 @@ describe('el menú sin species.index', () => {
       'Inicio',
       'Clientes',
       'Pacientes',
+      'Servicios',
       'Veterinarios',
       'Configuración',
     ]);
