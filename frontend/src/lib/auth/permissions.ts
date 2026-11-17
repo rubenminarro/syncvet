@@ -92,6 +92,10 @@ export const PERMISSIONS = {
   servicesUpdate: 'services.update',
   /** Eliminar el servicio desde su detalle (F2, entrega 2.4): solo el administrador. */
   servicesDestroy: 'services.destroy',
+  /** /configuracion/auditoria (F2, entrega 2.6): solo el administrador. */
+  auditLogsIndex: 'audit-logs.index',
+  /** /configuracion/auditoria/$id (F2, entrega 2.6): solo el administrador. */
+  auditLogsShow: 'audit-logs.show',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

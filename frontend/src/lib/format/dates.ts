@@ -71,6 +71,11 @@ export function formatDateTime(value: DateInput | null | undefined): string {
   return formatInstant(value, 'dd/MM/yyyy HH:mm');
 }
 
+/** 31/12/2026 09:00:05 (el detalle de la auditoría, desde la 2.6) */
+export function formatDateTimeSeconds(value: DateInput | null | undefined): string {
+  return formatInstant(value, 'dd/MM/yyyy HH:mm:ss');
+}
+
 /** 09:00 */
 export function formatTime(value: DateInput | null | undefined): string {
   return formatInstant(value, 'HH:mm');

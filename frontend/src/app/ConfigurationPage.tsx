@@ -1,6 +1,7 @@
 import {
   IconBuildingHospital,
   IconBuildingStore,
+  IconHistory,
   IconUsersGroup,
   type Icon,
 } from '@tabler/icons-react';
@@ -10,7 +11,11 @@ import { useCan } from '../features/auth/permissions';
 import { PERMISSIONS } from '../lib/auth/permissions';
 
 interface Section {
-  to: '/configuracion/sucursales' | '/configuracion/usuarios' | '/configuracion/clinica';
+  to:
+    | '/configuracion/sucursales'
+    | '/configuracion/usuarios'
+    | '/configuracion/clinica'
+    | '/configuracion/auditoria';
   title: string;
   description: string;
   icon: Icon;
@@ -19,7 +24,7 @@ interface Section {
 
 /**
  * Las secciones de la administración (pregunta 2 del diseño de la F2): cada una llega en su entrega (Sucursales en la 2.1;
- * Usuarios en la 2.2a; la Clínica en la 2.5; la Auditoría, después).
+ * Usuarios en la 2.2a; la Clínica en la 2.5; la Auditoría en la 2.6).
  */
 const SECTIONS: readonly Section[] = [
   {
@@ -42,6 +47,14 @@ const SECTIONS: readonly Section[] = [
     description: 'El nombre, la razón social, el contacto, el pie de los documentos y el logo.',
     icon: IconBuildingHospital,
     permission: PERMISSIONS.settingsUpdate,
+  },
+  {
+    to: '/configuracion/auditoria',
+    title: 'Auditoría',
+    description:
+      'Quién cambió qué y cuándo: los cambios de los datos y los ingresos, con su detalle.',
+    icon: IconHistory,
+    permission: PERMISSIONS.auditLogsIndex,
   },
 ];
 

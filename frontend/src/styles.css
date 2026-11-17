@@ -29,3 +29,24 @@
 .main-menu-collapsed .main-menu-list {
   padding-top: 0.5rem;
 }
+
+/* Los valores de un cambio en la auditoría (2.6): un texto largo o con saltos de línea se ve entero y corta las palabras
+   largas; una lista o un objeto, su JSON con sangría, sin salirse de la tarjeta en un celular. */
+.audit-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.audit-json {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: 0.8125rem;
+}
+
+/* "Filtrar", alineado con los campos de la auditoría (que tienen la etiqueta arriba). */
+@media (min-width: 768px) {
+  .audit-filter-submit {
+    padding-top: 1.75rem;
+  }
+}
