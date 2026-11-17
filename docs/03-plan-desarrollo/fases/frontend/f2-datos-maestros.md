@@ -413,6 +413,36 @@ vuelta al usuario, sin guardar. Capturas fuera del repositorio, en la PC de la v
 (`%TEMP%\claude\…\scratchpad\capturas-2-3`: `01-listado.png`, `02-listado-tablet.png`, `03-detalle.png`, `04-edicion.png`,
 `05-baja-en-uso.png`, `06-usuario-sin-ficha.png`, `07-alta.png`).
 
+**Revisión** (2026-11-16, sobre `fcf6667` y `72975a6`, contra `0ab4dc7`; el usuario aceptó los 9 desvíos). Antes de revisar,
+`npm test` completo: 1073 tests en 53 archivos, en verde (la cifra del desvío 7 queda confirmada por una corrida).
+
+* **Revisado, sin hallazgos.** El listado no muestra la comisión ni las notas: el tipo `Veterinarian` no las tiene, las columnas
+  son fijas y la caché guarda solo lo que manda `VeterinarianResource` (sin `commission_percentage` ni `notes`, R-037); el único
+  `setQueryData` es el del detalle (`afterVeterinarianChanged`), que solo el administrador pide; el recepcionista y el veterinario
+  no piden el detalle (`requirePermission` antes del `loader`, con test) y salir de la sesión vacía la caché. La matrícula,
+  recortada y en mayúsculas antes de validar y de mandar, como `VeterinarianMessages::normalizeLicense` ("sin espacios" es en los
+  extremos, como la API). La comisión, texto de punta a punta (`Number` solo para el rango): coma o punto, `numeric`,
+  `min`/`max` y `decimal:0,2` en el orden y con los mensajes de la API, también el exponente (`1e1`: numérico, pero no decimal).
+  El alta ofrece solo usuarios activos con el rol y `veterinarian === null`; `?usuario=` que no se puede elegir no queda elegido;
+  la restauración muestra el código de siempre. `VETERINARIAN_IN_USE` ofrece "Inactivar" (solo en una activa). La alerta de
+  `USER_IS_VETERINARIAN` enlaza a la ficha. Las invalidaciones son las del diseño (`['veterinarians']`, `['users']` y `['me']` si
+  es la propia; usuarios y sucursales ya invalidaban `['veterinarians']`). `dialogError` se movió sin cambios (el cuerpo es
+  idéntico en las dos copias borradas y en `src/lib/api/dialog-error.ts`). Permisos: las cuatro rutas con su permiso; el enlace al
+  detalle, "Nuevo veterinario", Editar, Inactivar y Eliminar con `useCan()`.
+* **Corregido (tests que faltaban).** En `VeterinarianPages.test.tsx`, 2 tests: inactivar la ficha propia (un administrador que
+  también es veterinario) vuelve a pedir `me`; inactivar una ficha que otra pestaña eliminó (404) avisa y vuelve al listado
+  (`useVeterinarianGone`, sin test hasta ahora). En `form.test.ts`, el caso `1e1` (paridad con `decimal:0,2`).
+* **Notas, sin cambio.** El test "el recepcionista: … sin la comisión" es débil (la respuesta simulada nunca la trae): la protección
+  real es la API, y en el frontend, el tipo y las columnas fijas. Con un 404 en una acción, `useVeterinarianGone` no vuelve a pedir
+  `me` si la ficha era la propia; `SessionLayout` lo vuelve a pedir al volver a la pestaña, y el caso (la propia ficha borrada en
+  otra pestaña) no cambia permisos.
+* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): sin volver a pedir `me` en la ficha propia (lo detecta el test
+  nuevo); la matrícula sin pasar a mayúsculas (3 tests); `VETERINARIAN_IN_USE` sin "Inactivar" (1 test).
+* **Cifras.** Tests tocados (`vitest run` de los dos archivos): 55 de 55. Corrida final: `typecheck` y `lint` sin errores ni avisos; `npm test`,
+  1076 tests en 53 archivos, en verde (1073 más los 3 nuevos); `build` sin errores; desde `backend/`, `FictitiousDocumentsTest`,
+  3 de 3. Playwright no se
+  repitió: los cambios son solo de tests de Vitest.
+
 ### 2.4 Servicios
 
 **Pantallas.**

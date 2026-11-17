@@ -528,6 +528,50 @@ describe('/veterinarios/$id: inactivar, activar y eliminar', () => {
     });
   });
 
+  it('inactivar la ficha propia (un administrador que también es veterinario): `me` se vuelve a pedir', async () => {
+    const meCalls: number[] = [];
+    const own = meFor('administrador', { id: VET_DETAIL.user.id });
+    await openDetail(
+      VET_DETAIL,
+      [
+        statusHandler([], VET_DETAIL),
+        http.get('/api/me', () => {
+          meCalls.push(1);
+
+          return success(own);
+        }),
+      ],
+      own,
+    );
+    const before = meCalls.length;
+
+    fireEvent.click(required('.veterinarian-status-action'));
+    fireEvent.click(await findDialogButton('Inactivar a Víctor Acosta'));
+
+    await waitFor(() => {
+      expect(meCalls.length).toBeGreaterThan(before);
+    });
+  });
+
+  it('inactivar una ficha que otra pestaña eliminó (404): el aviso y de vuelta al listado', async () => {
+    const { history } = await openDetail(VET_DETAIL, [
+      http.patch('/api/veterinarians/:id', () =>
+        failure(404, 'RESOURCE_NOT_FOUND', 'El recurso no existe.'),
+      ),
+      branchesHandler(),
+      listHandler([], [OTHER_VET_DETAIL]),
+    ]);
+
+    fireEvent.click(required('.veterinarian-status-action'));
+    fireEvent.click(await findDialogButton('Inactivar a Víctor Acosta'));
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/veterinarios');
+    });
+    expect(await screen.findByText('El recurso no existe.')).toBeInTheDocument();
+    expect(dialog()).toBeNull();
+  });
+
   it('eliminar con el 200: al listado, con el aviso', async () => {
     const calls: string[] = [];
     const { history } = await openDetail(VET_DETAIL, [

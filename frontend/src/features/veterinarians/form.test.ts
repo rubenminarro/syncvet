@@ -58,6 +58,8 @@ describe('las reglas de VeterinarianMessages, en su borde', () => {
     ['12,555', M.commission_percentage.decimal],
     ['doce', M.commission_percentage.numeric],
     ['12,5,1', M.commission_percentage.numeric],
+    // Como la API: is_numeric acepta el exponente, pero `decimal:0,2` lo rechaza.
+    ['1e1', M.commission_percentage.decimal],
   ])('la comisión %s: %s', (commission, message) => {
     expect(errorsOf({ commission_percentage: commission }).commission_percentage).toBe(message);
   });
