@@ -1755,3 +1755,23 @@ en el cierre de la 2.4, `37ac3cf`), sin integrar a `main`: se integra al cerrar 
 | Siguiente | La entrega 2.6 del frontend (auditoría), en `feature/front-2-6-auditoria`, que se crea desde el commit de este cierre; sin código hasta la autorización del usuario. Después, el cierre de la F2 | Diseño (R-074) |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-082 Cierre de la entrega 2.6 del frontend (auditoría) (2026-11-17)
+
+Séptima y última entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-6-auditoria` (desde
+`feature/front-2-5-configuracion`, en el cierre de la 2.5, `1af859b`), sin integrar a `main`: se integra al cerrar la F2. El detalle,
+en su [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-26).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Auditoría" en `/configuracion`, `/configuracion/auditoria` (`audit-logs.index`) y `/configuracion/auditoria/$id` (`audit-logs.show`), solo para el administrador y de solo lectura. El listado: fecha y hora en Asunción, el usuario y el registro como enlaces que filtran, el evento y la IP; los filtros en la URL (`?desde=&hasta=&usuario=&evento=&entidad=&registro=&buscar=&pagina=`), validados con todas sus claves. El detalle: la fecha con segundos (`formatDateTimeSeconds`), los datos, el navegador y los cambios antes y después, con el campo con el nombre de la API y cada valor como texto | Diseño (R-074) |
+| Fechas | En la URL, la hora de pared de Asunción sin zona; a la API, en UTC con `TZDate` (nunca la zona de la PC): la fecha sola como el día completo ("hasta", el comienzo del día siguiente menos un segundo, también en los días de 23 y 25 horas) y "hasta" con hora con los segundos en 59 (pregunta 10). Las fechas y el n.º de registro se aplican con "Filtrar", con las reglas y los mensajes de `IndexAuditLogRequest`, sin cambiar la URL ni pedir nada con un error | Diseño (R-074); la fecha sola como dos instantes en UTC y no tal cual, el usuario al empezar la entrega (desvíos 1 y 2) |
+| Lo que no se muestra | `maskAuditValues` (pregunta 12), además de la API: `********` en una clave con `password` o `token` (cualquier nivel, sin distinguir mayúsculas) y `"(archivo)"` en una clave `*_path` o un texto `clinics/{id}/…`; `null` queda `null` | Diseño (R-074); el alcance de las claves, desvío 6 |
+| `entidad` | El tipo del registro va en la URL como `entidad` y no como `tipo`, que ya es de `/clientes`: el router junta las búsquedas de todas las rutas en los enlaces sin `from` | Desvío 3, aceptado |
+| Desvíos | Los 10, aceptados: entre ellos, las fechas en UTC como dos instantes; `entidad`; "Filtrar" para las fechas y el registro; "hasta" anterior a "desde" en la URL descartado; "Quitar los filtros" y los usuarios inactivos marcados; Playwright sin el caso del alta de un usuario (lo cubren el test con MSW y el control 3 en Edge) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `120739f` (diff con `1af859b`), corregido en `9a17e41`: sin cambios de comportamiento. El texto de ejemplo de la búsqueda se cortaba a 1280 px (el campo deja 147 px): quedó "Nombre o email"; a 375 px, "Filtrar" quedaba alineado con la etiqueta del n.º de registro y no con el campo (el ajuste valía solo desde 768 px) | Revisión |
+| Mutaciones | De la implementación, 4 de 4 ("hasta" sin :59; la zona de la PC en lugar de `TZDate`; `maskAuditValues` sin recorrer lo anidado; el detalle sin `maskAuditValues`); de la revisión, 3 de 3 (las claves sensibles distinguiendo mayúsculas; `registro` sin `entidad` aceptado en la URL; "hasta" con fecha sola como las 23:59:59 de ese día, que falla en el día de 25 horas) | Implementación y revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 9 de 9 en Edge sin ventana contra `syncvet.test` en la implementación y 3 controles en la revisión, de solo lectura; Playwright, `e2e/auditoria.spec.ts`, 1 de 1 (29 casos en total). Corrida del cierre, sobre `9a17e41`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 tests en 64 archivos, en verde; `FictitiousDocumentsTest`, 3 de 3 | Usuario y Claude Code |
+| Siguiente | El cierre de la F2 del frontend, con su criterio de cierre (Playwright completo, la suite del backend en MySQL y en serie, Newman de todas las colecciones) y, después, la integración a `main`; sin empezar hasta la autorización del usuario | Diseño (R-074) |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.

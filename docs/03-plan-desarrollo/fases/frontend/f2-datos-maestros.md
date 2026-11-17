@@ -520,101 +520,7 @@ con filtros recargada.
 
 #### Pendiente para el cierre (2.6)
 
-**Implementación** (el 2026-11-17, en `feature/front-2-6-auditoria`, desde el cierre de la 2.5, `1af859b`). Antes de empezar se
-comparó el diseño con la API real (`IndexAuditLogRequest`, `ApiDateTime::FILTER_FORMAT`, `AuditLogResource`,
-`ShowAuditLogResource`, `AuditEvent`, `AuditLog::AUDITABLE_TYPES`, `AuditLogger::MASKED` y los permisos): coinciden.
-
-* **Hecho.** `features/audit` (nuevo): `/configuracion/auditoria` (`audit-logs.index`) con su tarjeta "Auditoría" en
-  `/configuracion`, y `/configuracion/auditoria/$id` (`audit-logs.show`, con `loader`, `notFound()` y `key={id}`); solo lectura.
-  El listado: fecha y hora en Asunción (`formatDateTime`, enlace al detalle), el usuario (enlace que filtra por él; "—" sin
-  usuario), el evento, el registro ("Cliente n.º 12", enlace que filtra por el tipo y el número) y la IP; los filtros en la URL
-  (`?desde=&hasta=&usuario=&evento=&entidad=&registro=&buscar=&pagina=`), validados en `validateAuditListSearch` con todas sus
-  claves; `desde` y `hasta` suman a `TEXT_SEARCH_PARAMS`; la búsqueda con `useSearchText` (300 ms); el usuario con
-  `GET users?include_inactive=1` y uno que la lista no trae como "Usuario n.º …"; "Esta página no existe." fuera de rango. Las
-  fechas (`features/audit/dates.ts`): en la URL, la hora de pared de Asunción (`2026-11-09` o `2026-11-09T13:00`); a la API, en
-  UTC con `TZDate` (nunca la zona de la PC): la fecha sola es el día completo ("desde" a las 00:00:00 y "hasta" a las 23:59:59, el
-  comienzo del día siguiente menos un segundo, así también en un día de 23 o 25 horas) y con hora, "desde" con :00 y "hasta" con
-  :59. "Desde", "Hasta" (con su hora) y el n.º de registro se aplican con "Filtrar" (`filters.ts`: las reglas de la API con sus
-  mensajes, en el campo y con el foco, sin cambiar la URL ni pedir con un error). El detalle: la fecha con segundos
-  (`formatDateTimeSeconds`, nuevo en `lib/format/dates.ts`), el usuario, el evento, el registro, la IP, el navegador y los cambios
-  (el campo con el nombre de la API; "antes" y "después" según los lados que manda la API; `null` y `''`, "(vacío)"; una lista o
-  un objeto, su JSON en un `<pre>`; todo como texto). `maskAuditValues` (`features/audit/mask.ts`) cambia por `********` el valor
-  de una clave con `password` o `token` y por `"(archivo)"` el de una clave `*_path` o un texto `clinics/{id}/…`, en cualquier
-  nivel. `PERMISSIONS` suma `audit-logs.index` y `.show`.
-* **Pruebas.** Vitest: `audit/dates.test.ts` (31: el día completo, con hora, "hasta" con :59, el invierno de 2024 en UTC-4, el
-  día de 25 horas del 23/03/2024 y el de 23 horas del 01/10/2023, las formas inválidas y la comparación de la hora de pared),
-  `audit/mask.test.ts` (8), `audit/search.test.ts` (24: `validateSearch`, el pedido, el formulario con los mensajes comparados con
-  `IndexAuditLogRequest.php` y las listas de eventos y tipos comparadas con `AuditEvent.php` y `AuditLog.php`) y
-  `audit/AuditPages.test.tsx` (17, con MSW: la tarjeta, el recepcionista y el veterinario a `/sin-permiso` sin pedir la
-  auditoría, la fila en Asunción, el pedido con la fecha sola y con hora, "hasta" antes de "desde" sin pedido, el registro sin el
-  tipo, los filtros de la URL, los enlaces de la fila, la espera de 299 y 300 ms con `?buscar=1e3`, la página fuera de rango y el
-  detalle de `updated`, `created` (con contraseña, token, ruta y HTML que la API dejara pasar), `deleted`, un ingreso, el 404 y la
-  vuelta al listado con los filtros). Ningún test existente se tocó. Mutaciones: 4 de 4 detectadas, revertidas desde una copia
-  fuera del repositorio (los archivos son nuevos): "hasta" sin :59 (4 fallas); la conversión con la zona de la PC (`new Date`
-  local en lugar de `TZDate`: 12 fallas); `maskAuditValues` sin recorrer lo anidado (2 fallas); el detalle sin `maskAuditValues`
-  (1 falla). Playwright: `e2e/auditoria.spec.ts` (nuevo), 1 de 1 en 30,5 s (29 casos en total): cambiar las notas de Carlos Duarte,
-  filtrar la auditoría por hoy (solo fecha, el pedido en UTC de 03:00:00Z a 02:59:59Z), el tipo cliente y su n.º, abrir el detalle
-  con las notas antes y después, volver con los filtros y, con "desde" un minuto después del cambio, la lista vacía; las notas
-  quedan como estaban. Corrida final, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 de
-  1331 en 64 archivos, en verde (en la primera corrida completa); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | La fecha sola no se manda tal cual (`2026-11-09`): el frontend arma el día completo de Asunción con `TZDate` y lo manda como dos instantes | Lo pidió el usuario al empezar la entrega; la API da el mismo resultado (en Edge, el 16/11: 445 registros en la pantalla y 445 contados por su `created_at` en Asunción) |
-| 2 | Las fechas con hora van en UTC (`2026-11-09T16:00:00.000Z`), no con `toApiDateTime` (`-03:00`) | El mismo instante; el pedido de la entrega decía "la conversión a UTC". `toApiDateTime` no cambió |
-| 3 | El tipo del registro va en la URL como `entidad`, no como `tipo` | `tipo` ya es de `/clientes` (`persona`, `empresa`) y el router junta las búsquedas de todas las rutas en los enlaces sin `from`: con `tipo`, `typecheck` fallaba en `ClientListPage.tsx`. `entidad` no toca otros módulos |
-| 4 | "Desde", "Hasta", sus horas y el n.º de registro se aplican con "Filtrar"; la búsqueda, el usuario, el evento y el tipo cambian la URL en el acto | Una fecha a medio elegir no es un filtro, y así las reglas (la forma, "hasta" antes de "desde", el registro sin el tipo) se muestran antes de cambiar la URL y sin pedir nada |
-| 5 | Con la URL editada, "hasta" anterior a "desde" se descarta en `validateSearch` (queda "desde"), sin un mensaje | La regla de los listados: un valor inválido de la URL vuelve al valor por defecto |
-| 6 | `maskAuditValues`: `null` queda `null` ("(vacío)"); una clave con `password` o `token` en cualquier parte del nombre y sin distinguir mayúsculas (`api_token`, `password_confirmation`); una lista o un objeto bajo esa clave se tapa entero | Un valor vacío no tiene nada que ocultar; el resto, para tapar también lo que la API no lista hoy |
-| 7 | Sumados: "Quitar los filtros" (con algún filtro) y los usuarios inactivos marcados "(inactivo)" en el selector. Los nombres de los tipos en castellano son del frontend (la API manda solo el tipo corto): el test compara con el PHP solo los valores | Comodidad del listado; sin endpoint de tipos (H2) |
-| 8 | Playwright no tiene el caso "el alta de un usuario en la auditoría sin su contraseña" del diseño | El pedido de la entrega era un caso; lo cubren el test de la página con MSW (una contraseña, un token y una ruta que la API dejara pasar) y el control 3 en Edge (un registro real con `password` en `********`) |
-| 9 | En Edge, el control 1 falló en la primera corrida por el script (bajó los 2000 registros más recientes y eligió un día del que tenía solo una parte: 159 de 1016); se corrigió el script para elegir un día completo y se repitió entero, 8 de 8 | Una falla del script, no de la pantalla |
-| 10 | Después de la corrida final, en Edge, "Todos los eventos" se veía cortado a 1280 px: los selectores pasaron a `col-lg-3` y se repitieron Prettier, ESLint y los tests relacionados de `AuditListPage.tsx` (531 de 531 en 25 archivos), más un control en Edge (el 9). A 1280 px, el texto de ejemplo de la búsqueda queda cortado al final ("…o el emai"); la etiqueta accesible está completa | La regla del presupuesto: solo el paso y los tests del archivo tocado |
-
-**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 9 de 9, de solo lectura. (1)
-fecha sola en el borde del día: el 16/11, 445 registros en la API y 445 contados por su `created_at` en Asunción, pedido de
-`2026-11-16T03:00:00.000Z` a `2026-11-17T02:59:59.000Z`; (2) con hora: "desde" y "hasta" a las 10:52, el registro de las
-10:52:58 incluido (`to` con :59); (3) un detalle con `password` en `********`, sin un hash en la página; (4) un detalle con
-`roles` (listas) en `<pre>`, sin desbordes; (5) a 375 px, el listado y el detalle sin desplazamiento horizontal de la página (la
-tabla se desplaza dentro de su tarjeta, como los demás listados); (6) la URL con filtros recargada: los campos con lo de la URL;
-(7) la consola sin errores; (8) el recepcionista: el listado y el detalle a `/sin-permiso`; (9) los selectores sin cortar a 1280 px,
-después del desvío 10. La demo no cambió: no se escribió nada (los ingresos y salidas del script quedan en la auditoría, como en
-las validaciones anteriores; su token de la API se revocó); `admin-a`, `recepcion-a` y `vet-a`, sin tocar. Capturas fuera del
-repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-6`: `01-listado-fecha-sola.png`,
-`01b-listado-escritorio.png`, `02-listado-con-hora.png`, `03-detalle-sensibles.png`, `04-detalle-lista.png`,
-`05-celular-listado.png`, `05b-celular-detalle.png`).
-
-**Revisión** (el 2026-11-17, sobre el WIP `120739f`, diff con `1af859b`; el usuario aceptó los 10 desvíos). Se revisaron las
-fechas (la fecha sola como día completo de Asunción, "hasta" con :59, los días de 23 y 25 horas, todo con `TZDate` y nunca con la
-zona de la PC), que una fecha inválida o "desde" posterior a "hasta" no llegue a la API (ni desde el formulario ni desde la URL),
-`maskAuditValues` (claves sensibles en cualquier nivel y en listas, sin distinguir mayúsculas; en los modelos de hoy, ninguna clave
-no sensible tiene `password`, `token` o `_path`: las únicas son `password`, `remember_token`, `token`, `photo_path`, `kude_path`,
-`pdf_path` y `xml_path`), que todo valor se muestre como texto (React lo escapa; JSON en `<pre>`), los filtros en la URL (recarga,
-"Atrás" con el formulario vuelto a montar por `key`, página fuera de rango, la espera de la búsqueda con `useSearchText`, que se
-cancela al navegar a otra página), `entidad` sin chocar con `tipo` de `/clientes`, los permisos (las dos rutas con
-`requirePermission`, la tarjeta con `audit-logs.index`, el ítem "Configuración" del menú solo para el administrador) y 375 px.
-Ningún hallazgo cambia el comportamiento.
-
-* **Corregido.** (1) Desvío 10, el texto de ejemplo de la búsqueda: "Buscá por el nombre o el email del usuario" se cortaba; a
-  1280 px el campo deja 147 px de texto, y "Buscá por nombre o email" (163 px) también se cortaba, así que quedó
-  **"Nombre o email"** (101 px a 1280 y 115 de 203 a 375; la etiqueta accesible sigue "Buscar en la auditoría"). (2) A 375 px,
-  "Filtrar" quedaba alineado con la etiqueta del n.º de registro y no con el campo (el ajuste de `.audit-filter-submit` era solo
-  desde 768 px; en un celular comparte la fila con ese campo): ahora vale en todos los anchos (`styles.css`).
-* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): las claves sensibles distinguiendo mayúsculas (`mask.test.ts`,
-  1 falla); `registro` sin `entidad` aceptado en la URL (`search.test.ts`, 4 fallas); "hasta" con fecha sola como las 23:59:59 de
-  ese día en lugar del comienzo del siguiente menos un segundo (`dates.test.ts`, 4 fallas: el día de 25 horas).
-* **En Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID; 3 controles): el texto de ejemplo
-  medido a 1280 y a 375 px, sin desplazamiento horizontal de la página, y "Filtrar" alineado a 375 px. Cada control ingresó y
-  salió como `admin-a` (quedan en la auditoría); el primer intento falló por el script (esperaba visible el nombre de la barra,
-  oculto a ese ancho) antes de salir, así que ese token queda hasta su vencimiento (12 horas). Capturas fuera del repositorio
-  (`%TEMP%\claude\…\scratchpad`: `revision-buscador-1280.png`, `revision-buscador-375.png`).
-* **Pruebas.** `vitest related` de `AuditListPage.tsx` y `styles.css`: 531 de 531 en 25 archivos. Corrida final, desde
-  `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 de 1331 en 64 archivos, en verde; desde
-  `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright no se corrió: `auditoria.spec.ts` no usa el texto de ejemplo y corre a
-  ancho de escritorio.
-
-Para el cierre: la documentación de la entrega (`frontend/CLAUDE.md`: los filtros de fecha de la auditoría, el
-parámetro `entidad`, `formatDateTimeSeconds`; el roadmap, `modulos.md` y el handoff) y, después, el cierre de la F2.
+Vacío: la entrega se cerró (R-082) y todo lo que había acá pasó a su [resultado](#entrega-26).
 
 ## Documentación por entrega
 
@@ -1194,3 +1100,111 @@ quitado, y el menú a 375 px). Corrida del cierre (2026-11-17, en la revisión, 
 archivo); `npm test`, 1251 tests en 60 archivos, en verde; desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
 
 Corrida de `npm test` del frontend (2026-11-17): 1251 tests en 60 archivos, en verde.
+
+### Entrega 2.6
+
+Estado: **COMPLETADO** el 2026-11-17 (R-082). La auditoría (listado con los filtros de fecha en Asunción y el detalle de los
+cambios), solo para el administrador y de solo lectura, en `feature/front-2-6-auditoria` (desde `feature/front-2-5-configuracion`,
+en el cierre de la 2.5, `1af859b`), sin integrar a `main` (se integra al cerrar la F2). Commits: `120739f` (WIP de la
+implementación), `9a17e41` (WIP de la revisión) y el de este cierre (R-082: la documentación).
+
+**Implementación** (el 2026-11-17). Antes de empezar se
+comparó el diseño con la API real (`IndexAuditLogRequest`, `ApiDateTime::FILTER_FORMAT`, `AuditLogResource`,
+`ShowAuditLogResource`, `AuditEvent`, `AuditLog::AUDITABLE_TYPES`, `AuditLogger::MASKED` y los permisos): coinciden.
+
+* **Hecho.** `features/audit` (nuevo): `/configuracion/auditoria` (`audit-logs.index`) con su tarjeta "Auditoría" en
+  `/configuracion`, y `/configuracion/auditoria/$id` (`audit-logs.show`, con `loader`, `notFound()` y `key={id}`); solo lectura.
+  El listado: fecha y hora en Asunción (`formatDateTime`, enlace al detalle), el usuario (enlace que filtra por él; "—" sin
+  usuario), el evento, el registro ("Cliente n.º 12", enlace que filtra por el tipo y el número) y la IP; los filtros en la URL
+  (`?desde=&hasta=&usuario=&evento=&entidad=&registro=&buscar=&pagina=`), validados en `validateAuditListSearch` con todas sus
+  claves; `desde` y `hasta` suman a `TEXT_SEARCH_PARAMS`; la búsqueda con `useSearchText` (300 ms); el usuario con
+  `GET users?include_inactive=1` y uno que la lista no trae como "Usuario n.º …"; "Esta página no existe." fuera de rango. Las
+  fechas (`features/audit/dates.ts`): en la URL, la hora de pared de Asunción (`2026-11-09` o `2026-11-09T13:00`); a la API, en
+  UTC con `TZDate` (nunca la zona de la PC): la fecha sola es el día completo ("desde" a las 00:00:00 y "hasta" a las 23:59:59, el
+  comienzo del día siguiente menos un segundo, así también en un día de 23 o 25 horas) y con hora, "desde" con :00 y "hasta" con
+  :59. "Desde", "Hasta" (con su hora) y el n.º de registro se aplican con "Filtrar" (`filters.ts`: las reglas de la API con sus
+  mensajes, en el campo y con el foco, sin cambiar la URL ni pedir con un error). El detalle: la fecha con segundos
+  (`formatDateTimeSeconds`, nuevo en `lib/format/dates.ts`), el usuario, el evento, el registro, la IP, el navegador y los cambios
+  (el campo con el nombre de la API; "antes" y "después" según los lados que manda la API; `null` y `''`, "(vacío)"; una lista o
+  un objeto, su JSON en un `<pre>`; todo como texto). `maskAuditValues` (`features/audit/mask.ts`) cambia por `********` el valor
+  de una clave con `password` o `token` y por `"(archivo)"` el de una clave `*_path` o un texto `clinics/{id}/…`, en cualquier
+  nivel. `PERMISSIONS` suma `audit-logs.index` y `.show`.
+* **Pruebas.** Vitest: `audit/dates.test.ts` (31: el día completo, con hora, "hasta" con :59, el invierno de 2024 en UTC-4, el
+  día de 25 horas del 23/03/2024 y el de 23 horas del 01/10/2023, las formas inválidas y la comparación de la hora de pared),
+  `audit/mask.test.ts` (8), `audit/search.test.ts` (24: `validateSearch`, el pedido, el formulario con los mensajes comparados con
+  `IndexAuditLogRequest.php` y las listas de eventos y tipos comparadas con `AuditEvent.php` y `AuditLog.php`) y
+  `audit/AuditPages.test.tsx` (17, con MSW: la tarjeta, el recepcionista y el veterinario a `/sin-permiso` sin pedir la
+  auditoría, la fila en Asunción, el pedido con la fecha sola y con hora, "hasta" antes de "desde" sin pedido, el registro sin el
+  tipo, los filtros de la URL, los enlaces de la fila, la espera de 299 y 300 ms con `?buscar=1e3`, la página fuera de rango y el
+  detalle de `updated`, `created` (con contraseña, token, ruta y HTML que la API dejara pasar), `deleted`, un ingreso, el 404 y la
+  vuelta al listado con los filtros). Ningún test existente se tocó. Mutaciones: 4 de 4 detectadas, revertidas desde una copia
+  fuera del repositorio (los archivos son nuevos): "hasta" sin :59 (4 fallas); la conversión con la zona de la PC (`new Date`
+  local en lugar de `TZDate`: 12 fallas); `maskAuditValues` sin recorrer lo anidado (2 fallas); el detalle sin `maskAuditValues`
+  (1 falla). Playwright: `e2e/auditoria.spec.ts` (nuevo), 1 de 1 en 30,5 s (29 casos en total): cambiar las notas de Carlos Duarte,
+  filtrar la auditoría por hoy (solo fecha, el pedido en UTC de 03:00:00Z a 02:59:59Z), el tipo cliente y su n.º, abrir el detalle
+  con las notas antes y después, volver con los filtros y, con "desde" un minuto después del cambio, la lista vacía; las notas
+  quedan como estaban. Corrida final, desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 de
+  1331 en 64 archivos, en verde (en la primera corrida completa); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | La fecha sola no se manda tal cual (`2026-11-09`): el frontend arma el día completo de Asunción con `TZDate` y lo manda como dos instantes | Lo pidió el usuario al empezar la entrega; la API da el mismo resultado (en Edge, el 16/11: 445 registros en la pantalla y 445 contados por su `created_at` en Asunción) |
+| 2 | Las fechas con hora van en UTC (`2026-11-09T16:00:00.000Z`), no con `toApiDateTime` (`-03:00`) | El mismo instante; el pedido de la entrega decía "la conversión a UTC". `toApiDateTime` no cambió |
+| 3 | El tipo del registro va en la URL como `entidad`, no como `tipo` | `tipo` ya es de `/clientes` (`persona`, `empresa`) y el router junta las búsquedas de todas las rutas en los enlaces sin `from`: con `tipo`, `typecheck` fallaba en `ClientListPage.tsx`. `entidad` no toca otros módulos |
+| 4 | "Desde", "Hasta", sus horas y el n.º de registro se aplican con "Filtrar"; la búsqueda, el usuario, el evento y el tipo cambian la URL en el acto | Una fecha a medio elegir no es un filtro, y así las reglas (la forma, "hasta" antes de "desde", el registro sin el tipo) se muestran antes de cambiar la URL y sin pedir nada |
+| 5 | Con la URL editada, "hasta" anterior a "desde" se descarta en `validateSearch` (queda "desde"), sin un mensaje | La regla de los listados: un valor inválido de la URL vuelve al valor por defecto |
+| 6 | `maskAuditValues`: `null` queda `null` ("(vacío)"); una clave con `password` o `token` en cualquier parte del nombre y sin distinguir mayúsculas (`api_token`, `password_confirmation`); una lista o un objeto bajo esa clave se tapa entero | Un valor vacío no tiene nada que ocultar; el resto, para tapar también lo que la API no lista hoy |
+| 7 | Sumados: "Quitar los filtros" (con algún filtro) y los usuarios inactivos marcados "(inactivo)" en el selector. Los nombres de los tipos en castellano son del frontend (la API manda solo el tipo corto): el test compara con el PHP solo los valores | Comodidad del listado; sin endpoint de tipos (H2) |
+| 8 | Playwright no tiene el caso "el alta de un usuario en la auditoría sin su contraseña" del diseño | El pedido de la entrega era un caso; lo cubren el test de la página con MSW (una contraseña, un token y una ruta que la API dejara pasar) y el control 3 en Edge (un registro real con `password` en `********`) |
+| 9 | En Edge, el control 1 falló en la primera corrida por el script (bajó los 2000 registros más recientes y eligió un día del que tenía solo una parte: 159 de 1016); se corrigió el script para elegir un día completo y se repitió entero, 8 de 8 | Una falla del script, no de la pantalla |
+| 10 | Después de la corrida final, en Edge, "Todos los eventos" se veía cortado a 1280 px: los selectores pasaron a `col-lg-3` y se repitieron Prettier, ESLint y los tests relacionados de `AuditListPage.tsx` (531 de 531 en 25 archivos), más un control en Edge (el 9). A 1280 px, el texto de ejemplo de la búsqueda queda cortado al final ("…o el emai"); la etiqueta accesible está completa | La regla del presupuesto: solo el paso y los tests del archivo tocado |
+
+**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 9 de 9, de solo lectura. (1)
+fecha sola en el borde del día: el 16/11, 445 registros en la API y 445 contados por su `created_at` en Asunción, pedido de
+`2026-11-16T03:00:00.000Z` a `2026-11-17T02:59:59.000Z`; (2) con hora: "desde" y "hasta" a las 10:52, el registro de las
+10:52:58 incluido (`to` con :59); (3) un detalle con `password` en `********`, sin un hash en la página; (4) un detalle con
+`roles` (listas) en `<pre>`, sin desbordes; (5) a 375 px, el listado y el detalle sin desplazamiento horizontal de la página (la
+tabla se desplaza dentro de su tarjeta, como los demás listados); (6) la URL con filtros recargada: los campos con lo de la URL;
+(7) la consola sin errores; (8) el recepcionista: el listado y el detalle a `/sin-permiso`; (9) los selectores sin cortar a 1280 px,
+después del desvío 10. La demo no cambió: no se escribió nada (los ingresos y salidas del script quedan en la auditoría, como en
+las validaciones anteriores; su token de la API se revocó); `admin-a`, `recepcion-a` y `vet-a`, sin tocar. Capturas fuera del
+repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-6`: `01-listado-fecha-sola.png`,
+`01b-listado-escritorio.png`, `02-listado-con-hora.png`, `03-detalle-sensibles.png`, `04-detalle-lista.png`,
+`05-celular-listado.png`, `05b-celular-detalle.png`).
+
+**Revisión** (el 2026-11-17, sobre el WIP `120739f`, diff con `1af859b`; el usuario aceptó los 10 desvíos). Se revisaron las
+fechas (la fecha sola como día completo de Asunción, "hasta" con :59, los días de 23 y 25 horas, todo con `TZDate` y nunca con la
+zona de la PC), que una fecha inválida o "desde" posterior a "hasta" no llegue a la API (ni desde el formulario ni desde la URL),
+`maskAuditValues` (claves sensibles en cualquier nivel y en listas, sin distinguir mayúsculas; en los modelos de hoy, ninguna clave
+no sensible tiene `password`, `token` o `_path`: las únicas son `password`, `remember_token`, `token`, `photo_path`, `kude_path`,
+`pdf_path` y `xml_path`), que todo valor se muestre como texto (React lo escapa; JSON en `<pre>`), los filtros en la URL (recarga,
+"Atrás" con el formulario vuelto a montar por `key`, página fuera de rango, la espera de la búsqueda con `useSearchText`, que se
+cancela al navegar a otra página), `entidad` sin chocar con `tipo` de `/clientes`, los permisos (las dos rutas con
+`requirePermission`, la tarjeta con `audit-logs.index`, el ítem "Configuración" del menú solo para el administrador) y 375 px.
+Ningún hallazgo cambia el comportamiento.
+
+* **Corregido.** (1) Desvío 10, el texto de ejemplo de la búsqueda: "Buscá por el nombre o el email del usuario" se cortaba; a
+  1280 px el campo deja 147 px de texto, y "Buscá por nombre o email" (163 px) también se cortaba, así que quedó
+  **"Nombre o email"** (101 px a 1280 y 115 de 203 a 375; la etiqueta accesible sigue "Buscar en la auditoría"). (2) A 375 px,
+  "Filtrar" quedaba alineado con la etiqueta del n.º de registro y no con el campo (el ajuste de `.audit-filter-submit` era solo
+  desde 768 px; en un celular comparte la fila con ese campo): ahora vale en todos los anchos (`styles.css`).
+* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): las claves sensibles distinguiendo mayúsculas (`mask.test.ts`,
+  1 falla); `registro` sin `entidad` aceptado en la URL (`search.test.ts`, 4 fallas); "hasta" con fecha sola como las 23:59:59 de
+  ese día en lugar del comienzo del siguiente menos un segundo (`dates.test.ts`, 4 fallas: el día de 25 horas).
+* **En Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID; 3 controles): el texto de ejemplo
+  medido a 1280 y a 375 px, sin desplazamiento horizontal de la página, y "Filtrar" alineado a 375 px. Cada control ingresó y
+  salió como `admin-a` (quedan en la auditoría); el primer intento falló por el script (esperaba visible el nombre de la barra,
+  oculto a ese ancho) antes de salir, así que ese token queda hasta su vencimiento (12 horas). Capturas fuera del repositorio
+  (`%TEMP%\claude\…\scratchpad`: `revision-buscador-1280.png`, `revision-buscador-375.png`).
+* **Pruebas.** `vitest related` de `AuditListPage.tsx` y `styles.css`: 531 de 531 en 25 archivos. Corrida final, desde
+  `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1331 de 1331 en 64 archivos, en verde; desde
+  `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright no se corrió: `auditoria.spec.ts` no usa el texto de ejemplo y corre a
+  ancho de escritorio.
+
+**Validación.** El usuario aceptó los 10 desvíos, pidió la revisión y, con ella, el cierre (R-082). Evidencia: Claude Code, 9 de
+9 en Edge sin ventana contra `syncvet.test` en la implementación y 3 controles en la revisión (de solo lectura; solo los ingresos
+y las salidas quedan en la auditoría); Playwright, `e2e/auditoria.spec.ts`, 1 de 1 en la implementación (29 casos en total; la revisión no tocó lo que cubre).
+Corrida del cierre (2026-11-17, en la revisión, sobre el código de `9a17e41`), desde `frontend/`: `typecheck`, `lint` y `build`
+sin errores ni avisos; `npm test`, 1331 tests en 64 archivos, en verde; desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+Corrida de `npm test` del frontend (2026-11-17): 1331 tests en 64 archivos, en verde.

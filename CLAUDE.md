@@ -138,8 +138,8 @@ de una PC.
   `feature/front-2-2a-usuarios`, la 2.2b (usuarios: inactivar, reactivar y baja), cerrada (R-077) en
   `feature/front-2-2b-usuarios`, front-02 (soporte del backend: la ficha del veterinario en `GET users`), cerrada (R-078) en
   `feature/front-02-usuarios-veterinario`, la 2.3 (veterinarios), cerrada (R-079) en `feature/front-2-3-veterinarios`, la 2.4
-  (servicios), cerrada (R-080) en `feature/front-2-4-servicios`, y la 2.5 (configuración de la clínica y logo, con el menú
-  plegable), cerrada (R-081) en `feature/front-2-5-configuracion`, las siete sin integrar a `main`; sigue la 2.6 (auditoría) en
-  `feature/front-2-6-auditoria` (se crea desde el cierre de la 2.5); el detalle, en
+  (servicios), cerrada (R-080) en `feature/front-2-4-servicios`, la 2.5 (configuración de la clínica y logo, con el menú
+  plegable), cerrada (R-081) en `feature/front-2-5-configuracion`, y la 2.6 (auditoría), cerrada (R-082) en
+  `feature/front-2-6-auditoria`, las ocho sin integrar a `main`; sigue el cierre de la F2; el detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).
