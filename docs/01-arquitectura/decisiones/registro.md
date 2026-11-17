@@ -1718,3 +1718,22 @@ El detalle, en su [resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-m
 | Siguiente | La entrega 2.4 del frontend (servicios), en `feature/front-2-4-servicios`, creada desde `feature/front-2-3-veterinarios` (en este cierre) y subida; sin código hasta la autorización del usuario | Usuario |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.
+
+# R-080 Cierre de la entrega 2.4 del frontend (servicios) (2026-11-17)
+
+Quinta entrega de pantallas de la F2 del frontend (R-074), en `feature/front-2-4-servicios` (desde `feature/front-2-3-veterinarios`,
+en el cierre de la 2.3, `0743a72`), sin integrar a `main`: se integra al cerrar la F2. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#entrega-24).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | "Servicios" en el menú (los tres roles, después de "Especies") y `/servicios` con búsqueda, categoría y estado (`?estado=inactivos\|todos`, traducido a `status=inactive` o `include_inactive=1`); el precio con `formatGuaranies`, la duración "30 min" y el IVA "10 %". `/servicios/$id` para los tres roles; Editar, Inactivar o Activar y Eliminar, y "Nuevo servicio", solo para el administrador. El formulario: el nombre con `ServiceMessages::NAME_REGEX`; el precio como texto con `inputMode="numeric"`, los puntos de miles sacados y mandado como texto de solo dígitos (`"150000"`), nunca como número, con el mensaje de `WholeAmount`; la duración de 5 a 720, múltiplo de 5; el IVA (0, 5 o 10) como número. `SERVICE_NAME_NOT_EDITABLE` al campo nombre; `SERVICE_IN_USE` ofrece "Inactivar". Sin paquetes nuevos y sin cambios en la API | Diseño (R-074) |
+| Proceso | El presupuesto por entrega del `CLAUDE.md` de la raíz suma una excepción: si `npm test` de la corrida final falla en un archivo, después de corregirlo se repite la suite completa (para que la cifra registrada sea de una corrida real) | Usuario |
+| Desvíos | Los 10, aceptados: entre ellos, el filtro de estado del diseño (`?estado=`) y el estado fuera del formulario, decididos al empezar la entrega; los puntos solo si agrupan miles y los ceros de adelante fuera de la cuenta, como `WholeAmount::normalize`; Playwright sin el cambio de nombre de un servicio usado (el `DemoSeeder` no tiene servicios ni turnos; está en Vitest); y el 10: a 375 px el menú horizontal de `SessionLayout` se sale de la pantalla (ya pasaba antes de la 2.4) | Usuario |
+| El menú en pantallas chicas | Se corrige en la 2.5, junto con el logo en la barra: el menú se pliega detrás de un botón, accesible con el teclado y con lector de pantalla, sin el JS de Tabler (anotado en el [diseño de la 2.5](../../03-plan-desarrollo/fases/frontend/f2-datos-maestros.md#25-configuración-de-la-clínica-y-logo)) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `0686f94` (diff con `0743a72`): sin hallazgos que cambien el comportamiento. Corregido en `b0bab2b` (solo tests): el listado y el detalle sin acciones, probados también con el veterinario (2 tests) | Revisión |
+| Mutaciones de la revisión | 3 de 3 detectadas: el nombre sin `(?!.*//)`, la duración sin el múltiplo de 5 y las acciones del detalle sin mirar el permiso | Revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 4 de 5 en Edge sin ventana contra `syncvet.test` (el control 1, explicado en el desvío 10; el servicio temporal, borrado por la API); Playwright, `e2e/servicios.spec.ts`, 1 de 1 (27 casos en total): el alta con "150.000" mandado como `"150000"` y "Gs. 150.000" después de recargar. Corrida del cierre, el 2026-11-17, en otra PC, sobre `b0bab2b`, desde `frontend/`: `npm test`, 1188 tests en 56 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3 | Usuario |
+| Siguiente | La entrega 2.5 del frontend (configuración de la clínica y logo, con el menú plegable), en `feature/front-2-5-configuracion`, que se crea desde el commit de este cierre; sin código hasta la autorización del usuario | Usuario |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta y colecciones.

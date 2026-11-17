@@ -139,8 +139,8 @@ la sucursal actual: las claves empiezan con su módulo, sin `branchKey`.
 | 2.2b | Usuarios: inactivar y reactivar, baja, el último administrador y "Incluir los inactivos" | No | `feature/front-2-2b-usuarios`, desde `feature/front-2-2a-usuarios` | COMPLETADO (R-077, [resultado](#entrega-22b)) |
 | front-02 | Soporte del backend: la ficha de veterinario en `GET users` (aprobada con la [pregunta 1](#preguntas-del-diseño)) | — | `feature/front-02-usuarios-veterinario`, desde `feature/front-2-2b-usuarios` (el nombre, del usuario en R-077) | COMPLETADO (R-078, [resultado](#entrega-front-02)) |
 | 2.3 | Veterinarios: listado (los tres roles), detalle, alta desde el usuario, edición, inactivar y baja | front-02 | `feature/front-2-3-veterinarios`, desde `feature/front-02-usuarios-veterinario` (creada y subida en el cierre de front-02, R-078) | COMPLETADO (R-079, [resultado](#entrega-23)) |
-| 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios` | APROBADA (R-074) |
-| 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra) | No | `feature/front-2-5-configuracion` | APROBADA (R-074) |
+| 2.4 | Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja; el precio en guaraníes | No | `feature/front-2-4-servicios`, desde `feature/front-2-3-veterinarios` (creada y subida en el cierre de la 2.3, R-079) | COMPLETADO (R-080, [resultado](#entrega-24)) |
+| 2.5 | Configuración de la clínica: datos, claves y logo (y el logo en la barra; el menú plegable en pantallas chicas, del desvío 10 de la 2.4) | No | `feature/front-2-5-configuracion`, desde `feature/front-2-4-servicios` (en el cierre de la 2.4, R-080) | APROBADA (R-074) |
 | 2.6 | Auditoría: listado con filtros (fechas con y sin hora en Asunción) y detalle de los cambios | No | `feature/front-2-6-auditoria` | APROBADA (R-074) |
 
 Cada rama sale de la anterior, como en la F1, y todo se integra a `main` al cerrar la F2. Los usuarios van en dos entregas
@@ -421,79 +421,7 @@ alta.
 
 #### Pendiente para el cierre (2.4)
 
-Implementación (2026-11-16) en `feature/front-2-4-servicios` (creada desde el cierre de la 2.3, `0743a72`). Antes, en la misma
-rama, el `CLAUDE.md` de la raíz suma al presupuesto por entrega (pedido del usuario): si `npm test` de la corrida final falla en un
-archivo, después de corregirlo se repite la suite completa, para que la cifra registrada sea siempre la de una corrida real.
-
-* **Hecho.** `features/services` (nuevo): el menú "Servicios" (`services.index`, después de "Especies"), `/servicios` (búsqueda,
-  categoría con las etiquetas de `ServiceCategory`, `?estado=inactivos|todos` traducido a `status=inactive` o `include_inactive=1`;
-  el precio con `formatGuaranies`, la duración "30 min" y el IVA "10 %"; el enlace al detalle con `services.show` y "Nuevo
-  servicio" con `services.store`), `/servicios/$id` (los tres roles, con `key={id}`; Editar, Inactivar o Activar y Eliminar solo
-  para el administrador), `/servicios/nuevo` y `/servicios/$id/editar` (el código solo para leer). El formulario: nombre con
-  `ServiceMessages::NAME_REGEX` (acepta `/ , + ( ) . - ' %`, rechaza `//`), categoría, precio (texto con `inputMode="numeric"`:
-  "150.000" se manda `"150000"`; la coma, los decimales, el signo, el exponente y más de 12 dígitos, con el mensaje de
-  `WholeAmount` y sin pedido; `"150000.00"` de la API vuelve "150.000"), duración (5 a 720, múltiplo de 5; 30 por defecto), IVA
-  (`RadioGroup` 0, 5 o 10; 10 por defecto, número en el cuerpo) y descripción. `SERVICE_NAME_NOT_EDITABLE` al campo nombre (con el
-  foco); la baja con `SERVICE_IN_USE`: el mensaje y "Inactivar" (en uno inactivo, solo "Cerrar"); los errores de los diálogos con
-  `dialogError`; un solo pedido con `useSingleAction`. Crear, editar, activar o inactivar invalidan `['services']` (el detalle toma
-  la respuesta); la baja y el 404 vacían los listados y sacan el detalle de la caché al llegar al listado. `PERMISSIONS` suma los
-  cinco de `services.*`.
-* **Pruebas.** Vitest: `services/form.test.ts` y `search.test.ts` (87: cada regla en su borde, el precio con sus casos del diseño,
-  la duración 4, 5, 720 y 722, y las categorías leídas de `app/Enums/ServiceCategory.php`, H2) y `ServicePages.test.tsx` (23:
-  listado de los dos roles, categoría y estado en la URL y en el pedido, el detalle sin acciones para el recepcionista,
-  `/sin-permiso`, el alta con "150.000" y doble clic, los precios rechazados sin pedido, el nombre con `//`, 422 del nombre,
-  la edición con "150.000" y el cuerpo sin `code` ni `status`, `SERVICE_NAME_NOT_EDITABLE`, inactivar, activar, la baja con el
-  200, con `SERVICE_IN_USE` en uno activo y en uno inactivo, y el 404 en una acción). Mutaciones: 4 de 4 detectadas (el precio
-  mandado como número, 11 fallas; los puntos de miles sin sacar, 10; el IVA como texto, 3; `SERVICE_NAME_NOT_EDITABLE` fuera del
-  campo, 1). Playwright: `e2e/servicios.spec.ts` (nuevo), 1 de 1 en 1,5 min (27 casos en total). Corrida final, desde `frontend/`:
-  `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1186 de 1186 en 56 archivos, en verde (sin fallas, en la primera
-  corrida); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | El filtro del listado es el del diseño (`?estado=activos\|inactivos\|todos`), no "Incluir los inactivos" (`?inactivos=1`) del pedido de la entrega | Lo decidió el usuario al empezar la entrega, como en la 2.3 |
-| 2 | El estado no es un campo del formulario: se cambia con "Inactivar" o "Activar" en el detalle y el alta queda `active` | Lo decidió el usuario al empezar la entrega (el diseño, pregunta 13) |
-| 3 | `formatGs` del pedido es `formatGuaranies` (`src/lib/format/money.ts`) | Es el nombre de la función común |
-| 4 | Los puntos se sacan solo si agrupan miles ("150.000", "12.500.000.000"); "1500.00" se rechaza (no es "150000"). Los ceros de adelante no cuentan para los 12 dígitos y no se mandan ("007" → `"7"`), como `WholeAmount::normalize` | Paridad con la API sin adivinar lo escrito |
-| 5 | La duración es un campo de texto con `inputMode="numeric"` (no `type="number"`, como el precio) y acepta el signo como `integer` de Laravel ("+30") | Paridad con la API; el teclado numérico en el celular |
-| 6 | Playwright: el caso del pedido (crear con "150.000", el cuerpo con `"150000"`, "Gs. 150.000" después de recargar, editar, el recepcionista sin acciones, inactivar y borrar), con el precio con coma rechazado sin pedido; no el cambio de nombre de un servicio usado | El `DemoSeeder` no crea servicios ni turnos: no hay un servicio usado. `SERVICE_NAME_NOT_EDITABLE` está en Vitest |
-| 7 | Tests tocados por la entrega: el menú con "Servicios" en `frontend/src/app/permissions.test.tsx` y `frontend/src/lib/auth/permissions.test.ts` | Cambio de comportamiento de la 2.4 |
-| 8 | `FictitiousDocumentsTest` tomó "1.000.000" (7 dígitos) de `form.test.ts` y de un comentario de `form.ts` como una cédula; los ejemplos pasaron a "12.500.000.000" | Ningún número con forma de cédula en el código del frontend |
-| 9 | Edge: la primera corrida del script falló al ingresar (la etiqueta "Contraseña" también es la del botón para mostrarla), sin crear nada; se repitió entera con la etiqueta exacta | Un detalle del script, fuera del repositorio |
-| 10 | Edge, control 1: el script lo marcó MAL por dos motivos. El campo del precio no tiene el atributo `type` (`null`: un `<input>` sin `type` es de texto, lo que se quería; el criterio del script era estricto). Y a 375 px la barra del menú se sale de la pantalla (la página mide unos 820 px): **hallazgo anterior a la entrega**, el menú horizontal de `SessionLayout` ya medía unos 700 px sin "Servicios"; no se corrigió (es el layout común) | **Decisión del usuario pendiente:** corregirlo en una entrega aparte o registrarlo como deuda |
-
-**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 4 de 5 según el script, con
-el control 1 explicado en el desvío 10. (1) El alta al ancho de un celular: el precio y la duración con `inputmode="numeric"`; el
-menú desborda a 375 px; (2) el detalle con "Gs. 999.999.999.999" (el 201 del alta); (3) el listado con el precio largo en una
-sola línea; (4) el listado a 768 px sin desplazamiento horizontal de la página; (5) la edición con "999.999.999.999" en el
-precio, sin guardar. El servicio temporal (`SRV-000031`) se borró por la API al terminar (`DELETE services/31`, 200); la demo
-quedó como estaba. Capturas fuera del repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-4`:
-`01-alta-celular.png`, `02-detalle.png`, `03-listado.png`, `04-listado-tablet.png`, `05-edicion.png`).
-
-**Revisión** (2026-11-16, sobre `0686f94`, contra el cierre de la 2.3, `0743a72`). El usuario aceptó los 10 desvíos; el 10 (el
-menú que se sale de la pantalla a 375 px) se corrige en la 2.5, junto con el logo en la barra: anotado en el
-[diseño de la 2.5](#25-configuración-de-la-clínica-y-logo) y en el handoff (el menú se pliega detrás de un botón en pantallas
-chicas, accesible con el teclado y con lector de pantalla, sin el JS de Tabler).
-
-* **Revisado, sin hallazgos que cambien el comportamiento.** El precio: los puntos se sacan solo si agrupan miles; se valida y se
-  manda como texto de solo dígitos (`wholeAmount`, sin `Number`, `parseFloat` ni decimales en ningún paso), de 0 a
-  999.999.999.999 con los ceros de adelante fuera de la cuenta, como `WholeAmount::normalize`; `"150000.00"` vuelve "150.000" por
-  una expresión regular y se muestra con `formatGuaranies` desde el texto. La duración: entero (con el signo de `integer`), de 5 a
-  720 y múltiplo de 5, en el orden de la API, mandada como número. El nombre: `SERVICE_NAME_PATTERN` es `ServiceMessages::NAME_REGEX`
-  con `u` y `s` (PHP compila `/u` con UCP: `\s`, `\pL` y `\pN` son de Unicode en los dos), de 2 a 120 caracteres sin los espacios de
-  los extremos. `SERVICE_NAME_NOT_EDITABLE` va al campo nombre con el foco. `SERVICE_IN_USE` ofrece "Inactivar" solo en uno activo.
-  El IVA va como número. Las acciones del detalle y "Nuevo servicio" dependen de `useCan()`; las rutas de alta y edición, de
-  `requirePermission`. Los diálogos usan `dialogError` común; las dos rutas del detalle llevan `key={id}`.
-* **Corregido (tests que faltaban).** En `ServicePages.test.tsx`, el listado y el detalle sin acciones se probaban solo con el
-  recepcionista: ahora con `it.each` del recepcionista y del veterinario (2 tests más).
-* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): el nombre sin `(?!.*//)` (2 fallas: `a//b` en `form.test.ts`
-  y en el alta); la duración sin el múltiplo de 5 (2 fallas); las acciones del detalle sin mirar el permiso (2 fallas, el
-  recepcionista y el veterinario). La primera necesitó tres intentos: dos veces `sed` y `perl` no cambiaron la expresión (las
-  barras escapadas) y los tests pasaron sin la mutación aplicada; se aplicó con un script de Node fuera del repositorio y ahí
-  falló, como debía.
-* **Cifras.** `npm test` completo, una sola corrida, en verde a la primera: 1188 de 1188 en 56 archivos (los 1186 de la
-  implementación y los 2 nuevos); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright no se repitió (solo cambiaron
-  tests de Vitest).
+Vacío: la entrega se cerró (R-080) y todo lo que había acá pasó a su [resultado](#entrega-24).
 
 ### 2.5 Configuración de la clínica y logo
 
@@ -963,3 +891,94 @@ tocó su caso; 26 casos en total), con el recepcionista que ve el listado sin la
 `backend/`, `FictitiousDocumentsTest`, 3 de 3.
 
 Corrida de `npm test` del frontend (2026-11-16): 1076 tests en 53 archivos, en verde.
+
+### Entrega 2.4
+
+Estado: **COMPLETADO** el 2026-11-17 (R-080). Servicios: listado y detalle (los tres roles), alta, edición, inactivar y baja, con el
+precio en guaraníes, en `feature/front-2-4-servicios` (desde `feature/front-2-3-veterinarios`, en el cierre de la 2.3, `0743a72`),
+sin integrar a `main` (se integra al cerrar la F2). Commits: `0686f94` (WIP de la implementación), `b0bab2b` (WIP de la revisión) y
+el de este cierre (R-080: la documentación).
+
+**Implementación** (el 2026-11-16). Antes, en la misma
+rama, el `CLAUDE.md` de la raíz suma al presupuesto por entrega (pedido del usuario): si `npm test` de la corrida final falla en un
+archivo, después de corregirlo se repite la suite completa, para que la cifra registrada sea siempre la de una corrida real.
+
+* **Hecho.** `features/services` (nuevo): el menú "Servicios" (`services.index`, después de "Especies"), `/servicios` (búsqueda,
+  categoría con las etiquetas de `ServiceCategory`, `?estado=inactivos|todos` traducido a `status=inactive` o `include_inactive=1`;
+  el precio con `formatGuaranies`, la duración "30 min" y el IVA "10 %"; el enlace al detalle con `services.show` y "Nuevo
+  servicio" con `services.store`), `/servicios/$id` (los tres roles, con `key={id}`; Editar, Inactivar o Activar y Eliminar solo
+  para el administrador), `/servicios/nuevo` y `/servicios/$id/editar` (el código solo para leer). El formulario: nombre con
+  `ServiceMessages::NAME_REGEX` (acepta `/ , + ( ) . - ' %`, rechaza `//`), categoría, precio (texto con `inputMode="numeric"`:
+  "150.000" se manda `"150000"`; la coma, los decimales, el signo, el exponente y más de 12 dígitos, con el mensaje de
+  `WholeAmount` y sin pedido; `"150000.00"` de la API vuelve "150.000"), duración (5 a 720, múltiplo de 5; 30 por defecto), IVA
+  (`RadioGroup` 0, 5 o 10; 10 por defecto, número en el cuerpo) y descripción. `SERVICE_NAME_NOT_EDITABLE` al campo nombre (con el
+  foco); la baja con `SERVICE_IN_USE`: el mensaje y "Inactivar" (en uno inactivo, solo "Cerrar"); los errores de los diálogos con
+  `dialogError`; un solo pedido con `useSingleAction`. Crear, editar, activar o inactivar invalidan `['services']` (el detalle toma
+  la respuesta); la baja y el 404 vacían los listados y sacan el detalle de la caché al llegar al listado. `PERMISSIONS` suma los
+  cinco de `services.*`.
+* **Pruebas.** Vitest: `services/form.test.ts` y `search.test.ts` (87: cada regla en su borde, el precio con sus casos del diseño,
+  la duración 4, 5, 720 y 722, y las categorías leídas de `app/Enums/ServiceCategory.php`, H2) y `ServicePages.test.tsx` (23:
+  listado de los dos roles, categoría y estado en la URL y en el pedido, el detalle sin acciones para el recepcionista,
+  `/sin-permiso`, el alta con "150.000" y doble clic, los precios rechazados sin pedido, el nombre con `//`, 422 del nombre,
+  la edición con "150.000" y el cuerpo sin `code` ni `status`, `SERVICE_NAME_NOT_EDITABLE`, inactivar, activar, la baja con el
+  200, con `SERVICE_IN_USE` en uno activo y en uno inactivo, y el 404 en una acción). Mutaciones: 4 de 4 detectadas (el precio
+  mandado como número, 11 fallas; los puntos de miles sin sacar, 10; el IVA como texto, 3; `SERVICE_NAME_NOT_EDITABLE` fuera del
+  campo, 1). Playwright: `e2e/servicios.spec.ts` (nuevo), 1 de 1 en 1,5 min (27 casos en total). Corrida final, desde `frontend/`:
+  `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1186 de 1186 en 56 archivos, en verde (sin fallas, en la primera
+  corrida); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El filtro del listado es el del diseño (`?estado=activos\|inactivos\|todos`), no "Incluir los inactivos" (`?inactivos=1`) del pedido de la entrega | Lo decidió el usuario al empezar la entrega, como en la 2.3 |
+| 2 | El estado no es un campo del formulario: se cambia con "Inactivar" o "Activar" en el detalle y el alta queda `active` | Lo decidió el usuario al empezar la entrega (el diseño, pregunta 13) |
+| 3 | `formatGs` del pedido es `formatGuaranies` (`src/lib/format/money.ts`) | Es el nombre de la función común |
+| 4 | Los puntos se sacan solo si agrupan miles ("150.000", "12.500.000.000"); "1500.00" se rechaza (no es "150000"). Los ceros de adelante no cuentan para los 12 dígitos y no se mandan ("007" → `"7"`), como `WholeAmount::normalize` | Paridad con la API sin adivinar lo escrito |
+| 5 | La duración es un campo de texto con `inputMode="numeric"` (no `type="number"`, como el precio) y acepta el signo como `integer` de Laravel ("+30") | Paridad con la API; el teclado numérico en el celular |
+| 6 | Playwright: el caso del pedido (crear con "150.000", el cuerpo con `"150000"`, "Gs. 150.000" después de recargar, editar, el recepcionista sin acciones, inactivar y borrar), con el precio con coma rechazado sin pedido; no el cambio de nombre de un servicio usado | El `DemoSeeder` no crea servicios ni turnos: no hay un servicio usado. `SERVICE_NAME_NOT_EDITABLE` está en Vitest |
+| 7 | Tests tocados por la entrega: el menú con "Servicios" en `frontend/src/app/permissions.test.tsx` y `frontend/src/lib/auth/permissions.test.ts` | Cambio de comportamiento de la 2.4 |
+| 8 | `FictitiousDocumentsTest` tomó "1.000.000" (7 dígitos) de `form.test.ts` y de un comentario de `form.ts` como una cédula; los ejemplos pasaron a "12.500.000.000" | Ningún número con forma de cédula en el código del frontend |
+| 9 | Edge: la primera corrida del script falló al ingresar (la etiqueta "Contraseña" también es la del botón para mostrarla), sin crear nada; se repitió entera con la etiqueta exacta | Un detalle del script, fuera del repositorio |
+| 10 | Edge, control 1: el script lo marcó MAL por dos motivos. El campo del precio no tiene el atributo `type` (`null`: un `<input>` sin `type` es de texto, lo que se quería; el criterio del script era estricto). Y a 375 px la barra del menú se sale de la pantalla (la página mide unos 820 px): **hallazgo anterior a la entrega**, el menú horizontal de `SessionLayout` ya medía unos 700 px sin "Servicios"; no se corrigió (es el layout común) | **Decisión del usuario pendiente:** corregirlo en una entrega aparte o registrarlo como deuda |
+
+**Validación en Edge** (sin ventana, contra `syncvet.test` con Vite en `:5180`, detenido por su PID): 4 de 5 según el script, con
+el control 1 explicado en el desvío 10. (1) El alta al ancho de un celular: el precio y la duración con `inputmode="numeric"`; el
+menú desborda a 375 px; (2) el detalle con "Gs. 999.999.999.999" (el 201 del alta); (3) el listado con el precio largo en una
+sola línea; (4) el listado a 768 px sin desplazamiento horizontal de la página; (5) la edición con "999.999.999.999" en el
+precio, sin guardar. El servicio temporal (`SRV-000031`) se borró por la API al terminar (`DELETE services/31`, 200); la demo
+quedó como estaba. Capturas fuera del repositorio, en la PC de la validación (`%TEMP%\claude\…\scratchpad\capturas-2-4`:
+`01-alta-celular.png`, `02-detalle.png`, `03-listado.png`, `04-listado-tablet.png`, `05-edicion.png`).
+
+**Revisión** (2026-11-16, sobre `0686f94`, contra el cierre de la 2.3, `0743a72`). El usuario aceptó los 10 desvíos; el 10 (el
+menú que se sale de la pantalla a 375 px) se corrige en la 2.5, junto con el logo en la barra: anotado en el
+[diseño de la 2.5](#25-configuración-de-la-clínica-y-logo) y en el handoff (el menú se pliega detrás de un botón en pantallas
+chicas, accesible con el teclado y con lector de pantalla, sin el JS de Tabler).
+
+* **Revisado, sin hallazgos que cambien el comportamiento.** El precio: los puntos se sacan solo si agrupan miles; se valida y se
+  manda como texto de solo dígitos (`wholeAmount`, sin `Number`, `parseFloat` ni decimales en ningún paso), de 0 a
+  999.999.999.999 con los ceros de adelante fuera de la cuenta, como `WholeAmount::normalize`; `"150000.00"` vuelve "150.000" por
+  una expresión regular y se muestra con `formatGuaranies` desde el texto. La duración: entero (con el signo de `integer`), de 5 a
+  720 y múltiplo de 5, en el orden de la API, mandada como número. El nombre: `SERVICE_NAME_PATTERN` es `ServiceMessages::NAME_REGEX`
+  con `u` y `s` (PHP compila `/u` con UCP: `\s`, `\pL` y `\pN` son de Unicode en los dos), de 2 a 120 caracteres sin los espacios de
+  los extremos. `SERVICE_NAME_NOT_EDITABLE` va al campo nombre con el foco. `SERVICE_IN_USE` ofrece "Inactivar" solo en uno activo.
+  El IVA va como número. Las acciones del detalle y "Nuevo servicio" dependen de `useCan()`; las rutas de alta y edición, de
+  `requirePermission`. Los diálogos usan `dialogError` común; las dos rutas del detalle llevan `key={id}`.
+* **Corregido (tests que faltaban).** En `ServicePages.test.tsx`, el listado y el detalle sin acciones se probaban solo con el
+  recepcionista: ahora con `it.each` del recepcionista y del veterinario (2 tests más).
+* **Mutaciones** (3 de 3 detectadas, revertidas con `git checkout`): el nombre sin `(?!.*//)` (2 fallas: `a//b` en `form.test.ts`
+  y en el alta); la duración sin el múltiplo de 5 (2 fallas); las acciones del detalle sin mirar el permiso (2 fallas, el
+  recepcionista y el veterinario). La primera necesitó tres intentos: dos veces `sed` y `perl` no cambiaron la expresión (las
+  barras escapadas) y los tests pasaron sin la mutación aplicada; se aplicó con un script de Node fuera del repositorio y ahí
+  falló, como debía.
+* **Cifras.** `npm test` completo, una sola corrida, en verde a la primera: 1188 de 1188 en 56 archivos (los 1186 de la
+  implementación y los 2 nuevos); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3. Playwright no se repitió (solo cambiaron
+  tests de Vitest).
+
+**Validación.** El usuario aceptó los 10 desvíos (el 10, el menú que se sale de la pantalla a 375 px, se corrige en la 2.5), pidió la
+revisión y, con ella, el cierre (R-080). Evidencia: Claude Code, 4 de 5 en Edge sin ventana contra `syncvet.test` (arriba; el control
+1, explicado en el desvío 10; el servicio temporal, borrado por la API, `DELETE services/31`, 200); Playwright, `e2e/servicios.spec.ts`,
+1 de 1 (en la implementación; la revisión no tocó su caso; 27 casos en total: "150.000" se manda `"150000"` y se ve
+"Gs. 150.000" después de recargar). Corrida del cierre (2026-11-17, en otra PC, sobre
+`b0bab2b`), desde `frontend/`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1188 tests en 56 archivos, en verde
+(la misma cifra que la revisión); desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+Corrida de `npm test` del frontend (2026-11-17): 1188 tests en 56 archivos, en verde.
