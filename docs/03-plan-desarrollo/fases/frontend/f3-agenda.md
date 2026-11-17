@@ -217,7 +217,7 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
-| 3.1a | Agendas: listado, detalle, alta y edición con el horario semanal, inactivar y baja (`/configuracion/agendas`) | No | `feature/front-3-1a-agendas`, desde `docs/front-f3-diseno` | APROBADA |
+| 3.1a | Agendas: listado, detalle, alta y edición con el horario semanal, inactivar y baja (`/configuracion/agendas`) | No | `feature/front-3-1a-agendas`, desde `docs/front-f3-diseno` | EN CURSO (implementación en WIP) |
 | 3.1b | Bloqueos de una agenda: listar, crear (con los turnos afectados) y eliminar | No | `feature/front-3-1b-bloqueos`, desde la 3.1a | APROBADA |
 | front-03 | Soporte del backend: `per_page` hasta 500 en `GET appointments` ([pregunta 1](#preguntas-del-diseño)) | — | `feature/front-03-turnos-por-pagina`, desde la 3.1b | APROBADA |
 | 3.2 | La agenda del día: grilla por agenda, filtros, la sucursal actual, el teclado y "Agenda" en el menú (solo lectura) | front-03 | `feature/front-3-2-agenda-dia`, desde front-03 | APROBADA |
@@ -282,7 +282,43 @@ controlar en Zod; el tramo de 23:55 rechazado.
 
 #### Pendiente para el cierre (3.1a)
 
-Vacío.
+Implementación del 2026-11-17 en `feature/front-3-1a-agendas` (desde `docs/front-f3-diseno` en `df2588a`), commit WIP; falta la
+revisión y el cierre (registro, Resultado, roadmap, `modulos.md`, handoff). Sin cambios en el backend ni paquetes nuevos.
+
+**Hecho.** `features/schedules` (tipos, API, búsqueda, reglas del formulario, listado, detalle, formulario con el horario semanal,
+inactivar o activar y baja), las cuatro rutas de `/configuracion/agendas` con `requirePermission` (`schedules.update`, `.store`;
+la baja con `schedules.destroy`), la tarjeta "Agendas" en `/configuracion`, tres permisos en `PERMISSIONS`, el ayudante de
+Playwright `e2e/support/api.ts` (sesión por la API en `syncvet_e2e` y limpieza de las agendas de un spec) y `e2e/agendas.spec.ts`;
+`e2e/permisos.spec.ts` suma la tarjeta y el caso del recepcionista y el veterinario en `/configuracion/agendas` (R-084).
+
+**Desvíos** (para que el usuario los acepte o los cambie):
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El error de un día del horario (tramos superpuestos, más de 6) va en el tramo que lo provoca (su "Desde"), no en una clave `hours` del día | Así el foco y el mensaje quedan en el tramo a corregir; la clave `hours` que mande la API (y `hours.N.weekday`) va a la alerta de arriba, porque no hay un campo del día |
+| 2 | El color tiene una casilla "Con color en la agenda" | `<input type="color">` no puede quedar vacío; sin la casilla el color va en `null` |
+| 3 | El veterinario se elige entre los activos de la clínica de un solo pedido (`GET veterinarians?per_page=100`, `['veterinarians', 'options']`), filtrados en el navegador por la sucursal elegida y el usuario activo; cambiar la sucursal suelta el veterinario que no trabaja en ella | El diseño decía `GET veterinarians?branch_id=`: así no hay un pedido por cada cambio de sucursal. Los servicios, igual (`['services', 'options']`). En la edición, el veterinario o el servicio que ya no está activo se muestra con "(actual)" |
+| 4 | "Copiar el lunes a los días hábiles" queda deshabilitado si el lunes no tiene tramos | Copiar un lunes vacío borraría los tramos del martes al viernes sin aviso |
+| 5 | La mutación 4 (no soltar el veterinario al cambiar de sucursal) pasó la primera vez: el test miraba el `<select>`, que se ve vacío sin la opción aunque el formulario conserve el valor | Se reforzó el test para mirar el cuerpo del `PATCH` (`veterinarian_id: null`); con eso la mutación falla |
+| 6 | El control 2 en Edge encontró que "Sumar un tramo" no llevaba el foco al "Desde" del tramo nuevo | Corregido: el tramo se dibuja desde `fields` (antes, desde `useWatch`, un render más tarde) y el foco se mueve con `setFocus` después del render; test nuevo en `SchedulePages.test.tsx` |
+| 7 | En la edición recién cargada, el veterinario se veía "(actual)" mientras la lista de veterinarios todavía no había llegado | Corregido: "(actual)" solo con la lista cargada. La captura `05-formulario-375.png` es de antes de la corrección |
+| 8 | Durante los controles en Edge, el PHP de Laragon dejó de responder (`syncvet.test` daba 502 y no quedó ningún `php-cgi`) | No se tocó Laragon: los controles siguieron con un `php artisan serve` propio en `:8020` sobre la misma base de la demo y Vite en `:5180`, los dos detenidos por su PID. **El usuario tiene que volver a levantar PHP en Laragon** |
+| 9 | Playwright, la primera corrida de `agendas.spec.ts` falló por el script: `getByLabel('Sucursal')` también encontraba el selector "Sucursal actual" de la barra | `exact: true` en las etiquetas; 1 de 1 después |
+
+**Mutaciones** (4 de 4 detectadas, revertidas): el horario vacío sin la clave `hours` (2 fallas); la superposición sin controlar en
+el navegador (3 fallas); 23:55 rechazado (2 fallas); el veterinario sin soltar al cambiar de sucursal (1 falla, con el test del
+desvío 5).
+
+**En Edge** (sin ventana, `es-PY`, contra la demo con el backend propio del desvío 8; 8 de 8): (1) la tarjeta lleva al listado; (2)
+"Sumar un tramo" con Enter deja el foco en "Desde" y las horas se escriben con el teclado; (2b) "Quitar" con Enter devuelve el foco
+a "Sumar un tramo al lunes"; (3) el color deshabilitado sin la casilla, mandado `#E8590C` y mostrado en el detalle; (3b) "Copiar el
+lunes": cinco tramos de lunes a viernes; (4) a 375 px, el detalle, el formulario y el listado sin desplazamiento horizontal; (5) la
+agenda temporal ("Control Edge …") eliminada por la interfaz (0 en la base después); (6) la consola sin errores. Cada corrida
+ingresó y salió como `admin-a` (sus tokens revocados; los ingresos quedan en la auditoría, como en la F2); `admin-a`, `recepcion-a`
+y `vet-a` sin cambios. Capturas fuera del repositorio (scratchpad de la sesión, `capturas-3-1a`).
+
+**Pruebas.** Vitest de lo tocado: 70 de 70 en `features/schedules` (3 archivos) y `vitest related` del permiso y la tarjeta, 600
+de 600 en 28 archivos. Playwright: `agendas.spec.ts` 1 de 1 (repetido después de las correcciones de los desvíos 6 y 7, 1 de 1 en 1,1 min) y `permisos.spec.ts` 7 de 7. Corrida final, el 2026-11-17, desde `frontend/`: `npm test`, 1401 tests en 67 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos; desde `backend/`, `FictitiousDocumentsTest`, 3 de 3. La línea de la corrida para `/validar-docs` se registra en el Resultado, al cerrar la entrega.
 
 ### 3.1b Bloqueos de una agenda
 

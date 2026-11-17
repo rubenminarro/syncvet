@@ -69,7 +69,7 @@ frontend/
     ├── lib/auth/        La sesión: storage.ts, channel.ts (entre pestañas), session.ts (SessionManager), redirect.ts, use-session.ts; permissions.ts (can)
     ├── lib/format/      dates.ts (America/Asuncion) y money.ts (guaraníes)
     ├── components/ui/   Capa propia sobre Tabler: Button, TextField, TextareaField, CheckboxField, CheckboxGroupField, RadioGroup, SearchField, SelectField, DateField, TimeField, FileField, BlobImage, Alert, Card, DataTable, ConfirmDialog, ErrorPage, Loading, avisos
-    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4; species, desde la 1.5; branches, desde la 2.1; users, desde la 2.2a; veterinarians, desde la 2.3; services, desde la 2.4; settings, desde la 2.5; audit, desde la 2.6)
+    ├── features/<m>/    api.ts, types.ts, componentes y páginas de cada módulo (auth; clients, desde la 1.1; patients, desde la 1.3a, con la foto desde la 1.4; species, desde la 1.5; branches, desde la 2.1; users, desde la 2.2a; veterinarians, desde la 2.3; services, desde la 2.4; settings, desde la 2.5; audit, desde la 2.6; schedules, desde la 3.1a de la F3)
     └── test/            Configuración de Vitest, el servidor de MSW, respuestas del contrato y el test de voseo
 ```
 

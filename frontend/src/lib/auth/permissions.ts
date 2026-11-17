@@ -96,6 +96,15 @@ export const PERMISSIONS = {
   auditLogsIndex: 'audit-logs.index',
   /** /configuracion/auditoria/$id (F2, entrega 2.6): solo el administrador. */
   auditLogsShow: 'audit-logs.show',
+  /**
+   * /configuracion/agendas, su detalle y su edición, e inactivar o activar (F3, entrega 3.1a): solo el administrador
+   * (`schedules.index` y `.show` los tienen los tres; la pantalla es de la administración, como la tarjeta).
+   */
+  schedulesUpdate: 'schedules.update',
+  /** /configuracion/agendas/nueva (F3, entrega 3.1a): solo el administrador. */
+  schedulesStore: 'schedules.store',
+  /** Eliminar la agenda desde su detalle (F3, entrega 3.1a): solo el administrador. */
+  schedulesDestroy: 'schedules.destroy',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;
