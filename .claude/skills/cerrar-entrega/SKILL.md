@@ -51,11 +51,15 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 |---|---|
 | No inventar | Ningún estado, fase, decisión, fecha ni resultado que no esté respaldado por el código, los tests o el usuario |
 | Sin certeza sobre un dato | Usar `PENDIENTE DE VERIFICACIÓN`, o preguntar |
-| Numeración | Mantener las fases. La sección nueva toma el número siguiente al último `R-NNN` de `docs/01-arquitectura/decisiones/registro.md` (correlativo, no es el número de la entrega) |
+| Qué leer | Solo lo de la entrega: el handoff (corto), las últimas líneas del índice del registro (`docs/01-arquitectura/decisiones/registro.md`) y la sección de la entrega en el diseño de su fase, con su "Pendiente para el cierre". Ni el historial del handoff ni los resultados de otras entregas |
+| Numeración | Mantener las fases. La sección nueva toma el número siguiente a la última `R-NNN` del índice del registro (correlativo, no es el número de la entrega) |
+| Decisión nueva | Su sección `# R-NNN Título (AAAA-MM-DD)` va al final del archivo de su rango, `docs/01-arquitectura/decisiones/registro/R-051-100.md` (de 50 en 50; el siguiente, `R-101-150.md`, se crea con la misma cabecera), y su línea al final de la tabla del índice: ``| [R-NNN](registro/R-051-100.md#ancla) | AAAA-MM-DD | Título |``, con el ancla del título (`/validar-docs` comprueba número, archivo, ancla, fecha y título) |
+| Resultado | El de la entrega va en el `…-resultados.md` de su fase (`fases/frontend/f3-resultados.md`, `fases/backend/fase-03-resultados.md`), no en el diseño |
+| Handoff | Se **reemplazan** el punto de continuidad y las próximas tareas con el estado nuevo, en líneas cortas: no se le agrega historial ("Antes, …"). Lo que cerró la entrega queda en su resultado y en su R |
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |
-| Historial | `docs/01-arquitectura/decisiones/registro.md` solo crece: no se corrigen secciones viejas |
-| `backend/CLAUDE.md` y `frontend/CLAUDE.md` | La sección 1 (**Estado actual**) del proyecto de la entrega se actualiza en cada cierre, con el estado de la fase y de la entrega; la del otro, solo si la entrega lo cambió (una entrega del backend pedida por el frontend, por ejemplo). El resto, solo si cambió una regla, y solo esa regla. Las cifras de tests de cada uno salen de su suite: las del frontend, de la corrida de `npm test` del cierre, que se registra en "Resultado" de la fase con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (de ahí la toma `/validar-docs`) |
+| Historial | El registro solo crece: no se corrigen secciones viejas |
+| `backend/CLAUDE.md` y `frontend/CLAUDE.md` | La sección 1 (**Estado actual**) del proyecto de la entrega se **reemplaza** en cada cierre con el estado de la fase y de la entrega, en pocas líneas y sin historial; la del otro, solo si la entrega lo cambió (una entrega del backend pedida por el frontend, por ejemplo). El resto, solo si cambió una regla, y solo esa regla: las reglas de negocio, en su archivo de `docs/02-requisitos/reglas/`; el detalle de una convención del frontend, en `docs/04-desarrollo/frontend-convenciones.md`. Las cifras de tests de cada uno salen de su suite: las del frontend, de la corrida de `npm test` del cierre, que se registra en "Resultado" del `fN-resultados.md` de la fase con la línea ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (de ahí la toma `/validar-docs`) |
 | Roadmap | Solo cambia el estado de lo entregado. Sin fases nuevas sin aprobación |
 
 ## 5. Verificar

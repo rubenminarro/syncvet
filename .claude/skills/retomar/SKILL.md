@@ -26,6 +26,15 @@ Leer el [`CLAUDE.md`](../../../CLAUDE.md) de la raíz, [`backend/CLAUDE.md`](../
 [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md), al menos la sección 1 (**Estado actual**) de cada uno: Claude Code no carga solo
 el de una subcarpeta hasta leer un archivo de ella. El informe da el estado de los dos proyectos.
 
+**Leer solo lo necesario** (R-091):
+
+* El handoff entero (es corto: el punto de continuidad y las próximas tareas). Su historial hasta R-090
+  (`docs/03-plan-desarrollo/historial-handoff.md`) no se lee.
+* Del índice del registro (`docs/01-arquitectura/decisiones/registro.md`), solo las últimas líneas de la tabla: la última `R-NNN` da el
+  número siguiente. Las decisiones (`registro/R-…md`) se leen solo si una tarea cita una.
+* De la fase en curso, solo la entrega en curso: su sección en el diseño (`### N.N …` de `fases/…/fN-*.md`, con su "Pendiente para el
+  cierre") y las decisiones comunes que cite. Los `…-resultados.md` y las otras entregas, no.
+
 ## 2. Último commit y último checkpoint validado
 
 Son dos datos distintos y hay que informar los dos:
@@ -62,6 +71,7 @@ Estado de Git     Rama, cambios sin commitear y diferencia con origin/main
 Backend           Fase y entrega vigentes, según backend/CLAUDE.md §1 y el roadmap
 Frontend          Fase y entrega vigentes, según frontend/CLAUDE.md §1 y el roadmap
 Último commit     Hash y mensaje
+Registro          La última R del índice y el número de la siguiente
 Checkpoint        Último commit validado, con fecha y tests registrados
 Desde entonces    Commits posteriores: solo documentación, o con código sin validar
 Próximas tareas   Las del handoff, con su bloqueo vigente

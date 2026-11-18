@@ -20,6 +20,11 @@ php .claude/skills/validar-docs/scripts/check-docs.php --detalle
 El script revisa enlaces y anclas (también de los `CLAUDE.md` y `README.md` de la raíz, `backend/` y `frontend/`), documentos huérfanos desde `docs/README.md`, rutas citadas que no existen (`docs/…` desde la raíz; `app/…`, `tests/…` y las demás carpetas de Laravel, desde `backend/`) y las cifras de los documentos
 vivos contra el código. Código de salida 1 si hay hallazgos.
 
+También revisa la organización de R-091: el **registro partido** (cada `R-NNN` una sola vez, en orden y sin huecos, en el archivo de
+su rango de `docs/01-arquitectura/decisiones/registro/`, y una línea por R en el índice `registro.md`, con el mismo archivo, ancla,
+fecha y título; ninguna decisión escrita en el índice) y los **resultados aparte** (si una fase tiene su `…-resultados.md`, su
+diseño no tiene una sección "Resultado"). El resumen dice cuántas decisiones y cuántas líneas del índice contó.
+
 Toda cifra se compara salvo una marca explícita en su misma cláusula: datos históricos, ejemplos o diferencias. Tampoco se
 comparan las cifras de la sección "Resultado" de una entrega ya cerrada (el bloque de su título dice `COMPLETADO` o `COMPLETADA`):
 son las de ese momento. La cifra de una clase de test se valida contra esa clase. **Revisar la lista de excluidas de `--detalle`:** una exclusión equivocada es un hallazgo.
@@ -29,7 +34,7 @@ Las cifras de los dos proyectos se cuentan y se validan por separado (el resumen
 | Proyecto | Qué cifras | Contra qué |
 |---|---|---|
 | Backend | tests, rutas, controllers, services, migraciones y permisos; `` `LoginTest` (9 tests) `` | Los `test_` de `backend/tests`, `route:list`, las carpetas de `backend/app` y el seeder de permisos |
-| Frontend | "N tests" en una cláusula que nombra al frontend (o a Vitest) sin nombrar al backend, o en un documento de `frontend/` | La última corrida registrada en "Resultado" de una fase de `docs/03-plan-desarrollo/fases/frontend/`, con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (la de fecha más reciente). Los tests no se cuentan en el código: `.each` y los bucles generan casos |
+| Frontend | "N tests" en una cláusula que nombra al frontend (o a Vitest) sin nombrar al backend, o en un documento de `frontend/` | La última corrida registrada en "Resultado" de una fase de `docs/03-plan-desarrollo/fases/frontend/` (su `fN-resultados.md`), con la línea de formato fijo ``Corrida de `npm test` del frontend (AAAA-MM-DD): N tests en M archivos, en verde.`` (la de fecha más reciente). Los tests no se cuentan en el código: `.each` y los bucles generan casos |
 
 Una cifra del frontend que no es de tests ("5 rutas del frontend"), la de un archivo de test (`` `client.test.ts` (12 tests) ``) y las líneas de las corridas registradas no se comparan: se listan como excluidas. Si la cantidad de archivos de test de `frontend/src` no coincide con la de la última corrida, o no hay ninguna corrida registrada, se informa: hay que registrar la corrida nueva.
 
@@ -42,8 +47,9 @@ Lo que un script no puede juzgar. Comparar según las fuentes de verdad de `docs
   código. Buscar en rutas, modelos y tests; no fiarse de otro documento.
 * `backend/CLAUDE.md`, sección 7, contra `docs/03-plan-desarrollo/deuda-tecnica.md`: las mismas deudas abiertas.
 
-`docs/01-arquitectura/decisiones/registro.md` es registro histórico: su contenido viejo no es un hallazgo, salvo que un documento vivo se apoye en él. La
-excepción son los enlaces, que sí deben funcionar.
+El registro de decisiones (`docs/01-arquitectura/decisiones/registro/`), los `…-resultados.md` de las fases y
+`docs/03-plan-desarrollo/historial-handoff.md` son historia: su contenido viejo no es un hallazgo, salvo que un documento vivo se apoye
+en él. La excepción son los enlaces, que sí deben funcionar.
 
 ## 3. Informe
 

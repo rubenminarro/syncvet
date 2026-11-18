@@ -67,7 +67,7 @@ function fixture(array $live): string
 {
     $root = sys_get_temp_dir() . '/check-docs-' . uniqid();
 
-    foreach (['backend/app/Services', 'backend/app/Http/Controllers/Api', 'backend/tests/Feature/Auth', 'backend/tests/Unit', 'frontend', 'docs/00-vision', 'docs/01-arquitectura/decisiones', 'docs/02-requisitos', 'docs/03-plan-desarrollo', 'docs/03-plan-desarrollo/fases/frontend', 'docs/04-desarrollo', 'docs/05-pruebas'] as $dir) {
+    foreach (['backend/app/Services', 'backend/app/Http/Controllers/Api', 'backend/tests/Feature/Auth', 'backend/tests/Unit', 'frontend', 'docs/00-vision', 'docs/01-arquitectura/decisiones', 'docs/01-arquitectura/decisiones/registro', 'docs/02-requisitos', 'docs/03-plan-desarrollo', 'docs/03-plan-desarrollo/fases/frontend', 'docs/04-desarrollo', 'docs/05-pruebas'] as $dir) {
         mkdir("$root/$dir", 0777, true);
     }
 
@@ -274,6 +274,57 @@ check('no compara las cifras de una entrega cerrada', ! str_contains($output, '-
 check('compara las de una entrega sin cerrar', str_contains($output, 'f0.md:9: dice 4 tests del frontend; la última corrida registrada tiene 5'), $output);
 check('compara las de fuera de "Resultado", antes y después', str_contains($output, 'f0.md:2: dice 3 tests del frontend') && str_contains($output, 'f0.md:12: dice 6 tests del frontend'), $output);
 check('sigue tomando la corrida de la entrega cerrada como dato', str_contains($output, 'Frontend: 5 tests en 2 archivos (corrida del 2026-11-13, docs/03-plan-desarrollo/fases/frontend/f0.md:10).'), $output);
+remove($root);
+
+echo "\nCaso 10: el registro partido en un índice y archivos de 50 (R-091)\n";
+$row = fn (int $n, string $file = 'R-001-050.md', string $date = '2026-11-04') => sprintf('| [R-%03d](registro/%s#r-%03d-decisión-%d-%s) | %s | Decisión %d |', $n, $file, $n, $n, $date, $date, $n);
+$section = fn (int $n, string $date = '2026-11-04') => sprintf("# R-%03d Decisión %d (%s)\n\nTexto.\n", $n, $n, $date);
+$register = fn (array $rows) => "# Registro de decisiones\n\n| R | Fecha | Decisión |\n|---|---|---|\n" . implode("\n", $rows) . "\n";
+$root = fixture([
+    'docs/01-arquitectura/decisiones/registro.md' => $register([$row(1), $row(2), $row(51, 'R-051-100.md')]),
+    'docs/01-arquitectura/decisiones/registro/R-001-050.md' => "# Registro: R-001 a R-050\n\n" . $section(1) . "\n```text\n# R-099 no es un título\n```\n\n" . $section(2),
+    'docs/01-arquitectura/decisiones/registro/R-051-100.md' => "# Registro: R-051 a R-100\n\n" . $section(51),
+]);
+[$output, $code] = run($root);
+check('un hueco en la numeración se informa', str_contains($output, 'R-051 fuera de orden, repetida o después de un hueco (se esperaba R-003)'), $output);
+remove($root);
+
+$sections = implode("\n", array_map($section, range(1, 3)));
+$root = fixture([
+    'docs/01-arquitectura/decisiones/registro.md' => $register([$row(1), $row(2), $row(3)]),
+    'docs/01-arquitectura/decisiones/registro/R-001-050.md' => "# Registro: R-001 a R-050\n\n$sections\n```text\n# R-099 no es un título\n```\n",
+]);
+[$output, $code] = run($root);
+check('un registro coherente no tiene hallazgos', str_contains($output, 'Sin hallazgos.') && str_contains($output, 'Registro: 3 decisiones (R-001 a R-003), 3 líneas en el índice.') && $code === 0, $output);
+file_put_contents("$root/docs/01-arquitectura/decisiones/registro.md", $register([$row(1), $row(2)]));
+[$output] = run($root);
+check('falta la línea de una R en el índice', str_contains($output, 'falta la línea de R-003'), $output);
+file_put_contents("$root/docs/01-arquitectura/decisiones/registro.md", $register([$row(1), $row(2), $row(3, 'R-001-050.md', '2026-11-05')]));
+[$output] = run($root);
+check('una fecha del índice distinta de la de la decisión', str_contains($output, 'R-003: el fecha no coincide') || str_contains($output, 'R-003: el ancla no coincide'), $output);
+file_put_contents("$root/docs/01-arquitectura/decisiones/registro.md", $register([$row(1), $row(2), $row(3)]) . "\n" . $section(4));
+[$output] = run($root);
+check('una decisión escrita en el índice', str_contains($output, 'una decisión escrita en el índice'), $output);
+file_put_contents("$root/docs/01-arquitectura/decisiones/registro.md", $register([$row(1), $row(2), $row(3)]));
+file_put_contents("$root/docs/01-arquitectura/decisiones/registro/R-001-050.md", "# Registro\n\n$sections\n" . $section(60));
+[$output] = run($root);
+check('una R fuera del rango de su archivo', str_contains($output, 'R-060 no es de este rango'), $output);
+remove($root);
+
+echo "\nCaso 11: los resultados de una fase, aparte del diseño (R-091)\n";
+$root = fixture([
+    'docs/03-plan-desarrollo/fases/frontend/f9-algo.md' => "# F9\n\n## Diseño\n\nTexto.\n",
+    'docs/03-plan-desarrollo/fases/frontend/f9-resultados.md' => "# F9: resultados\n\n## Resultado\n\nCorrida de `npm test` del frontend (2026-11-12): 5 tests en 0 archivos, en verde.\n",
+    'docs/04-desarrollo/frontend-convenciones.md' => "La suite tiene 5 tests.\nY 7 tests.\n",
+]);
+mkdir("$root/frontend/src", 0777, true);
+[$output, $code] = run($root);
+check('toma la corrida del archivo de resultados', str_contains($output, 'Frontend: 5 tests en 0 archivos (corrida del 2026-11-12, docs/03-plan-desarrollo/fases/frontend/f9-resultados.md:5).'), $output);
+check('frontend-convenciones.md es un documento del frontend', ! str_contains($output, 'frontend-convenciones.md:1:') && str_contains($output, 'frontend-convenciones.md:2: dice 7 tests del frontend'), $output);
+check('sin "Resultado" en el diseño, no hay hallazgo de resultados', ! str_contains($output, 'Resultados fuera de su archivo'), $output);
+file_put_contents("$root/docs/03-plan-desarrollo/fases/frontend/f9-algo.md", "# F9\n\n## Diseño\n\n## Resultado\n\nTexto.\n");
+[$output] = run($root);
+check('un "Resultado" en el diseño se informa', str_contains($output, 'f9-algo.md:5: el resultado va en f9-resultados.md'), $output);
 remove($root);
 
 printf("\n%d correctas, %d fallidas.\n", $passed, $failures);

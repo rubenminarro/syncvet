@@ -137,12 +137,7 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 (base y login, R-063), F1 (clientes y pacientes, R-072) y F2 (datos maestros: sucursales y depósitos,
-  usuarios, veterinarios, servicios, la configuración de la clínica con el logo y la auditoría, R-083) completadas e integradas a
-  `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
-  Sigue la F3 (agenda y turnos): el diseño aprobado (R-085), en `docs/front-f3-diseno`, las entregas 3.1a (agendas, R-086) y
-  3.1b (bloqueos, R-087), cerradas en `feature/front-3-1a-agendas` y `feature/front-3-1b-bloqueos`, y front-03 (soporte del
-  backend: `per_page` hasta 500 en `GET appointments`, R-088), cerrada en `feature/front-03-turnos-por-pagina`, y la 3.2
-  (la agenda del día, R-089), cerrada en `feature/front-3-2-agenda-dia`, y demo-02 (backend: `php artisan demo:agenda`, agendas
-  y turnos ficticios en la demo, R-090), cerrada en `feature/demo-02-agenda`, sin integrar a `main`; sigue la 3.3 (la semana y la lista de turnos); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0, F1 y F2 completadas e integradas a `main` (R-063, R-072 y R-083); la F3 (agenda y turnos), en curso: la 3.3,
+  en `feature/front-3-3-semana-lista`. El detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1 y en el
+  [handoff](docs/03-plan-desarrollo/handoff.md).
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

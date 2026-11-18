@@ -610,7 +610,7 @@ con los valores de la corrida anterior (como el Collection Runner): sin fallas.
 ## Entrega de soporte del frontend (front-01)
 
 Entrega del backend pedida por la F1 del frontend (R-064), cerrada en R-065
-([resultado](../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-front-01)). No suma pedidos: suma dos
+([resultado](../03-plan-desarrollo/fases/frontend/f1-resultados.md#entrega-front-01)). No suma pedidos: suma dos
 aserciones a la colección de pacientes (61 → 63).
 
 | Cambio | Dónde se prueba |

@@ -17,15 +17,29 @@ const BACKEND = 'backend';
 const FRONTEND = 'frontend';
 
 // La cifra de tests del frontend no se cuenta en el código (los .each y los bucles generan casos): sale de la última
-// corrida de `npm test` registrada en "Resultado" de una fase del frontend, con esta línea de formato fijo:
+// corrida de `npm test` registrada en "Resultado" de una fase del frontend (desde R-091, en su `fN-resultados.md`), con
+// esta línea de formato fijo:
 // Corrida de `npm test` del frontend (2026-11-12): 93 tests en 9 archivos, en verde.
 const FRONTEND_PHASES = 'docs/03-plan-desarrollo/fases/frontend';
 const FRONTEND_RUN = '/^Corrida de `npm test` del frontend \((\d{4}-\d{2}-\d{2})\): (\d+) tests en (\d+) archivos\b/u';
 
+// Documentos del frontend fuera de frontend/: una cifra sin marca es del frontend, como en frontend/ (R-091).
+const FRONTEND_DOCS = ['docs/04-desarrollo/frontend-convenciones.md'];
+
+// Las fases: el diseño de cada una (`f3-agenda.md`, `fase-03-agenda-y-turnos.md`) y, aparte, sus resultados
+// (`f3-resultados.md`, `fase-03-resultados.md`; R-091). Con el archivo de resultados, el diseño no lleva "Resultado".
+const PHASES = 'docs/03-plan-desarrollo/fases';
+const RESULTS_SUFFIX = '-resultados.md';
+
+// El registro de decisiones (R-091): el índice, una línea por R, y las decisiones en archivos de 50 (`registro/R-001-050.md`).
+const REGISTER_INDEX = 'docs/01-arquitectura/decisiones/registro.md';
+const REGISTER_DIR = 'docs/01-arquitectura/decisiones/registro';
+const REGISTER_RANGE = 50;
+
 // Raíces de una ruta citada que se leen desde la raíz del repositorio; las demás, desde BACKEND.
 const REPOSITORY_ROOTS = ['docs', 'backend', 'frontend'];
 
-const LIVE = ['CLAUDE.md', 'README.md', 'backend/CLAUDE.md', 'backend/README.md', 'frontend/CLAUDE.md', 'frontend/README.md', 'docs/README.md', 'docs/00-vision/overview.md', 'docs/00-vision/principios.md', 'docs/01-arquitectura/architecture.md', 'docs/01-arquitectura/technology-stack.md', 'docs/01-arquitectura/decisiones/README.md', 'docs/02-requisitos', 'docs/03-plan-desarrollo/README.md', 'docs/03-plan-desarrollo/handoff.md', 'docs/03-plan-desarrollo/modulos.md', 'docs/03-plan-desarrollo/fases/frontend', 'docs/04-desarrollo'];
+const LIVE = ['CLAUDE.md', 'README.md', 'backend/CLAUDE.md', 'backend/README.md', 'frontend/CLAUDE.md', 'frontend/README.md', 'docs/README.md', 'docs/00-vision/overview.md', 'docs/00-vision/principios.md', 'docs/01-arquitectura/architecture.md', 'docs/01-arquitectura/contrato-api.md', 'docs/01-arquitectura/technology-stack.md', 'docs/01-arquitectura/decisiones/README.md', 'docs/02-requisitos', 'docs/03-plan-desarrollo/README.md', 'docs/03-plan-desarrollo/handoff.md', 'docs/03-plan-desarrollo/modulos.md', 'docs/03-plan-desarrollo/fases/frontend', 'docs/04-desarrollo'];
 
 // Estado por módulo: sus cifras de una clase de test (`LoginTest` 9) se comparan con la clase.
 const MODULES = 'docs/03-plan-desarrollo/modulos.md';
@@ -120,8 +134,29 @@ function withoutCode(string $text): string
     return preg_replace('/```.*?```/s', '', str_replace("\r", '', $text));
 }
 
+/**
+ * Las líneas de un archivo fuera de los bloques de código, con su índice (desde 0) de siempre.
+ *
+ * @return array<int, string>
+ */
+function linesOutsideCode(string $file): array
+{
+    $found = [];
+    $inFence = false;
+
+    foreach (preg_split('/\R/', file_get_contents($file)) as $index => $line) {
+        if (str_starts_with(ltrim($line), '```')) {
+            $inFence = ! $inFence;
+        } elseif (! $inFence) {
+            $found[$index] = $line;
+        }
+    }
+
+    return $found;
+}
+
 // Enlaces y anclas
-$docs = files('docs', '/\.(md|html)$/');
+$docs =files('docs', '/\.(md|html)$/');
 $sources = array_merge($docs, array_values(array_filter(['CLAUDE.md', 'README.md', 'backend/CLAUDE.md', 'backend/README.md', 'frontend/CLAUDE.md', 'frontend/README.md'], 'is_file')));
 $graph = [];
 $total = 0;
@@ -363,7 +398,7 @@ foreach (live() as $file) {
             }
 
             // En un documento del frontend, una cifra sin marca es del frontend, salvo que su cláusula nombre al backend.
-            if ($figure['type'] === 'current' && str_starts_with($file, FRONTEND . '/')
+            if ($figure['type'] === 'current' && (str_starts_with($file, FRONTEND . '/') || in_array($file, FRONTEND_DOCS, true))
                 && ! mentionsBackend(figureClause(substr($line, 0, $offset), substr($line, $offset + strlen($text))))) {
                 $figure = ['type' => 'frontend'];
             }
@@ -420,8 +455,106 @@ foreach (is_file(MODULES) ? [MODULES] : [] as $file) {
     }
 }
 
+// Registro de decisiones partido (R-091): cada R una sola vez, en el archivo de su rango y en orden, sin huecos, y una línea
+// por R en el índice, en el mismo orden, con su archivo, su ancla, su fecha y su título.
+$register = null;
+
+if (is_file(REGISTER_INDEX)) {
+    $decisions = [];
+
+    foreach (is_dir(REGISTER_DIR) ? files(REGISTER_DIR, '/\.md$/') : [] as $file) {
+        if (! preg_match('/\/R-(\d{3})-(\d{3})\.md$/', $file, $range) || (int) $range[2] - (int) $range[1] !== REGISTER_RANGE - 1 || ((int) $range[1] - 1) % REGISTER_RANGE !== 0) {
+            report('Registro', $file, 'el nombre no es un rango de ' . REGISTER_RANGE . ' (R-001-050.md, R-051-100.md…)');
+            continue;
+        }
+
+        foreach (linesOutsideCode($file) as $number => $line) {
+            if (! preg_match('/^# (R-(\d{3})) (.+) \((\d{4}-\d{2}-\d{2})\)$/u', $line, $match)) {
+                if (preg_match('/^# R-\d/', $line)) {
+                    report('Registro', "$file:" . ($number + 1), 'el título no tiene la forma "# R-NNN Título (AAAA-MM-DD)"');
+                }
+
+                continue;
+            }
+
+            $n = (int) $match[2];
+
+            if ($n < (int) $range[1] || $n > (int) $range[2]) {
+                report('Registro', "$file:" . ($number + 1), "$match[1] no es de este rango");
+            }
+
+            $decisions[] = ['id' => $match[1], 'n' => $n, 'title' => $match[3], 'date' => $match[4], 'file' => $file, 'anchor' => slug(substr($line, 2))];
+        }
+    }
+
+    usort($decisions, fn ($a, $b) => [$a['file'], $a['n']] <=> [$b['file'], $b['n']]);
+
+    foreach ($decisions as $i => $decision) {
+        if ($decision['n'] !== $i + 1) {
+            report('Registro', $decision['file'], "{$decision['id']} fuera de orden, repetida o después de un hueco (se esperaba R-" . sprintf('%03d', $i + 1) . ')');
+            break;
+        }
+    }
+
+    $rows = [];
+
+    foreach (preg_split('/\R/', file_get_contents(REGISTER_INDEX)) as $number => $line) {
+        if (preg_match('/^# R-\d/', $line)) {
+            report('Registro', REGISTER_INDEX . ':' . ($number + 1), 'una decisión escrita en el índice: va en el archivo de su rango');
+        }
+
+        if (preg_match('/^\| \[(R-\d{3})\]\(([^)#]+)#([^)]+)\) \| (\d{4}-\d{2}-\d{2}) \| (.+) \|$/u', $line, $match)) {
+            $rows[] = ['id' => $match[1], 'file' => normalize(dirname(REGISTER_INDEX) . '/' . $match[2]), 'anchor' => rawurldecode($match[3]), 'date' => $match[4], 'title' => str_replace('\|', '|', $match[5]), 'line' => $number + 1];
+        }
+    }
+
+    foreach ($decisions as $i => $decision) {
+        $row = $rows[$i] ?? null;
+        $where = REGISTER_INDEX . ($row ? ':' . $row['line'] : '');
+
+        if ($row === null || $row['id'] !== $decision['id']) {
+            report('Registro', $where, "falta la línea de {$decision['id']} o no está en su lugar");
+            break;
+        }
+
+        foreach (['file' => 'archivo', 'anchor' => 'ancla', 'date' => 'fecha', 'title' => 'título'] as $key => $name) {
+            if ($row[$key] !== $decision[$key]) {
+                report('Registro', $where, "{$decision['id']}: el $name no coincide con el de la decisión ({$decision[$key]})");
+            }
+        }
+    }
+
+    if (count($rows) > count($decisions)) {
+        report('Registro', REGISTER_INDEX, 'el índice tiene ' . count($rows) . ' líneas y hay ' . count($decisions) . ' decisiones');
+    }
+
+    $register = ['count' => count($decisions), 'rows' => count($rows), 'last' => $decisions === [] ? null : end($decisions)['id']];
+}
+
+// Resultados aparte (R-091): con su `…-resultados.md`, el diseño de la fase no tiene una sección "Resultado".
+foreach (is_dir(PHASES) ? files(PHASES, '/' . preg_quote(RESULTS_SUFFIX, '/') . '$/') : [] as $results) {
+    $prefix = substr(basename($results), 0, -strlen(RESULTS_SUFFIX));
+
+    foreach (glob(dirname($results) . "/$prefix-*.md") as $design) {
+        $design = str_replace('\\', '/', $design);
+
+        if (str_ends_with($design, RESULTS_SUFFIX)) {
+            continue;
+        }
+
+        foreach (linesOutsideCode($design) as $number => $line) {
+            if (preg_match('/^#+\s+Resultado\b/u', $line)) {
+                report('Resultados fuera de su archivo', "$design:" . ($number + 1), 'el resultado va en ' . basename($results));
+            }
+        }
+    }
+}
+
 // Resultado
 printf("Documentos: %d. Enlaces internos: %d. Alcanzables desde el índice: %d.\n", count($docs), $total, count($seen));
+if ($register !== null) {
+    printf("Registro: %d decisiones (R-001 a %s), %d líneas en el índice.\n", $register['count'], $register['last'] ?? 'ninguna', $register['rows']);
+}
 printf(
     "Backend: %d tests, %s rutas, %d controllers, %d services, %d migraciones, %s permisos.\n",
     $actual['tests'], $actual['rutas'] ?? 'sin dato de', $actual['controllers'], $actual['services'],
