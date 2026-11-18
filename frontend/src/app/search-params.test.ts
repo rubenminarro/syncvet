@@ -44,3 +44,43 @@ describe('stringifySearch', () => {
     },
   );
 });
+
+describe('las listas en la URL (3.3: estados de /turnos)', () => {
+  it('se leen como una lista de textos, sin los vacíos y con la primera aparición', () => {
+    expect(parseSearch('?estados=confirmado,fichado').estados).toEqual(['confirmado', 'fichado']);
+    expect(parseSearch('?estados=ausente').estados).toEqual(['ausente']);
+    expect(parseSearch('?estados=1').estados).toEqual(['1']);
+    expect(parseSearch('?estados=,confirmado,,').estados).toEqual(['confirmado']);
+    expect(parseSearch('?estados=').estados).toEqual([]);
+    expect(parseSearch('?estados=a&estados=b').estados).toEqual(['a']);
+    expect(parseSearch('?estados=a%2Cb').estados).toEqual(['a', 'b']);
+  });
+
+  it('sin la clave, no aparece', () => {
+    expect(parseSearch('?pagina=2')).toEqual({ pagina: 2 });
+  });
+
+  it('se escriben separadas por comas, sin comillas ni JSON, y una lista vacía no va', () => {
+    expect(stringifySearch({ estados: ['confirmado', 'fichado'], pagina: 2 })).toBe(
+      '?estados=confirmado,fichado&pagina=2',
+    );
+    expect(stringifySearch({ estados: ['a confirmar'] })).toBe('?estados=a%20confirmar');
+    expect(stringifySearch({ estados: [] })).toBe('');
+    expect(stringifySearch({ buscar: 'x', estados: [] })).toBe('?buscar=x');
+  });
+
+  it('ida y vuelta', () => {
+    const estados = ['a-confirmar', 'confirmado', 'cancelado'];
+
+    expect(parseSearch(stringifySearch({ estados })).estados).toEqual(estados);
+  });
+
+  it('los otros listados no cambian', () => {
+    expect(parseSearch('?buscar=7&pagina=2&tipo=empresa')).toEqual({
+      buscar: '7',
+      pagina: 2,
+      tipo: 'empresa',
+    });
+    expect(stringifySearch({ tipo: 'empresa', pagina: 3 })).toBe('?tipo=empresa&pagina=3');
+  });
+});

@@ -170,3 +170,70 @@ export function dayName(value: string): string {
 export function dayTitle(value: string): string {
   return `${dayName(value)} de ${String(requireDay(value).year)}`;
 }
+
+/** Los siete días de la semana del día, de lunes a domingo (3.3), contados en el calendario de Asunción. */
+export function weekDaysOf(value: string): string[] {
+  const monday = weekStartOf(value);
+
+  return [0, 1, 2, 3, 4, 5, 6].map((offset) => addDaysToDay(monday, offset));
+}
+
+/** El domingo de la semana del día. */
+export function weekEndOf(value: string): string {
+  return addDaysToDay(weekStartOf(value), 6);
+}
+
+/** La semana como el intervalo [lunes 00:00, lunes siguiente 00:00) en milisegundos de Asunción. */
+export function weekBounds(value: string): { start: number; end: number } {
+  const monday = weekStartOf(value);
+
+  return { start: dayStart(monday), end: dayStart(addDaysToDay(monday, 7)) };
+}
+
+/** Las horas que dura la semana en Asunción: 168, o 167 y 169 en las del cambio de horario (hasta el 15/10/2024). */
+export function weekLengthHours(value: string): number {
+  const { start, end } = weekBounds(value);
+
+  return (end - start) / 3_600_000;
+}
+
+/** Los días de calendario de `from` a `to` (0 si son el mismo; negativo si `to` es anterior), sin contar horas. */
+export function daysBetween(from: string, to: string): number {
+  const a = requireDay(from);
+  const b = requireDay(to);
+
+  const utcDays = (parts: DayParts) =>
+    Date.UTC(parts.year, parts.month - 1, parts.day) / (24 * 3_600_000);
+
+  // Las fechas como días UTC de calendario: sin zona ni horario de verano, la cuenta es exacta.
+  return Math.round(utcDays(b) - utcDays(a));
+}
+
+/** "16 al 22 de noviembre de 2026", "30 de noviembre al 6 de diciembre de 2026" o "28 de diciembre de 2026 al 3 de enero de 2027". */
+export function weekRangeText(value: string): string {
+  const from = requireDay(weekStartOf(value));
+  const to = requireDay(weekEndOf(value));
+  const month = (parts: DayParts) => MONTHS[parts.month - 1] ?? '';
+
+  if (from.year !== to.year) {
+    return `${String(from.day)} de ${month(from)} de ${String(from.year)} al ${String(to.day)} de ${month(to)} de ${String(to.year)}`;
+  }
+
+  if (from.month !== to.month) {
+    return `${String(from.day)} de ${month(from)} al ${String(to.day)} de ${month(to)} de ${String(to.year)}`;
+  }
+
+  return `${String(from.day)} al ${String(to.day)} de ${month(to)} de ${String(to.year)}`;
+}
+
+/** "Semana del 16 al 22 de noviembre de 2026" (el título de la semana). */
+export function weekTitle(value: string): string {
+  return `Semana del ${weekRangeText(value)}`;
+}
+
+/** "Lun 16" (el encabezado de una columna de la semana). */
+export function shortDayName(value: string): string {
+  const weekday = WEEKDAYS[weekdayOf(value) - 1]?.label ?? '';
+
+  return `${weekday.slice(0, 3)} ${String(requireDay(value).day)}`;
+}

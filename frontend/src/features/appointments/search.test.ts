@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { parseSearch, stringifySearch } from '../../app/search-params';
-import { validateAgendaSearch } from './search';
+import {
+  listRangeError,
+  RANGE_TOO_LONG,
+  TO_BEFORE_FROM,
+  toAppointmentListFilters,
+  validateAgendaSearch,
+  validateAppointmentListSearch,
+} from './search';
 
 const EMPTY = {
   vista: undefined,
@@ -41,7 +48,6 @@ describe('validateAgendaSearch', () => {
     ['una fecha que no existe', { fecha: '2026-02-30' }],
     ['una fecha con hora', { fecha: '2026-11-17T09:00' }],
     ['una vista desconocida', { vista: 'mes' }],
-    ['la semana, que llega en la 3.3', { vista: 'semana' }],
     ['una agenda que no es un entero positivo', { agenda: '0' }],
     ['un veterinario con letras', { veterinario: 'abc' }],
     ['cancelados distinto de 1', { cancelados: '2' }],
@@ -56,5 +62,134 @@ describe('validateAgendaSearch', () => {
   it('la fecha viaja como texto en la URL (sin comillas ni JSON)', () => {
     expect(stringifySearch({ fecha: '2026-11-17', agenda: 7 })).toBe('?fecha=2026-11-17&agenda=7');
     expect(parseSearch('?fecha=2026-11-17').fecha).toBe('2026-11-17');
+  });
+});
+
+describe('validateAgendaSearch: la semana (3.3)', () => {
+  it('acepta vista=semana', () => {
+    expect(validateAgendaSearch({ vista: 'semana', fecha: '2026-11-18' })).toEqual({
+      ...EMPTY,
+      vista: 'semana',
+      fecha: '2026-11-18',
+    });
+  });
+});
+
+const LIST_EMPTY = {
+  desde: undefined,
+  hasta: undefined,
+  agenda: undefined,
+  veterinario: undefined,
+  estados: undefined,
+  buscar: undefined,
+  pagina: undefined,
+};
+
+describe('validateAppointmentListSearch (/turnos, 3.3)', () => {
+  it('sin parámetros: las siete claves, sin valor', () => {
+    expect(validateAppointmentListSearch({})).toEqual(LIST_EMPTY);
+  });
+
+  it('toma los valores válidos, con los estados en el orden de las casillas y sin repetir', () => {
+    expect(
+      validateAppointmentListSearch(
+        parseSearch(
+          '?desde=2026-11-16&hasta=2026-11-22&agenda=7&veterinario=4&estados=fichado,confirmado,fichado&buscar=%20luna%20&pagina=2',
+        ),
+      ),
+    ).toEqual({
+      desde: '2026-11-16',
+      hasta: '2026-11-22',
+      agenda: 7,
+      veterinario: 4,
+      estados: ['confirmado', 'fichado'],
+      buscar: 'luna',
+      pagina: 2,
+    });
+  });
+
+  it('descarta los estados desconocidos y, sin ninguno conocido, la clave', () => {
+    expect(validateAppointmentListSearch({ estados: ['ausente', 'borrado'] }).estados).toEqual([
+      'ausente',
+    ]);
+    expect(validateAppointmentListSearch({ estados: ['confirmed'] }).estados).toBeUndefined();
+    expect(validateAppointmentListSearch({ estados: [] }).estados).toBeUndefined();
+    expect(validateAppointmentListSearch({ estados: 'cancelado,a-confirmar' }).estados).toEqual([
+      'a-confirmar',
+      'cancelado',
+    ]);
+  });
+
+  it('descarta hasta si es anterior a desde (queda el día de desde)', () => {
+    expect(validateAppointmentListSearch({ desde: '2026-11-17', hasta: '2026-11-16' })).toEqual({
+      ...LIST_EMPTY,
+      desde: '2026-11-17',
+    });
+  });
+
+  it('31 días contando los dos extremos pasan; 32, no (como la API)', () => {
+    expect(validateAppointmentListSearch({ desde: '2026-11-01', hasta: '2026-12-01' }).hasta).toBe(
+      '2026-12-01',
+    );
+    expect(
+      validateAppointmentListSearch({ desde: '2026-11-01', hasta: '2026-12-02' }).hasta,
+    ).toBeUndefined();
+  });
+
+  it.each([
+    ['una fecha mal formada', { desde: '16/11/2026' }],
+    ['una página 1 o menos', { pagina: '1' }],
+    ['una agenda con letras', { agenda: 'x' }],
+    ['una búsqueda vacía', { buscar: '   ' }],
+  ] as [string, Record<string, string>][])('descarta %s', (_, raw) => {
+    expect(validateAppointmentListSearch(raw)).toEqual(LIST_EMPTY);
+  });
+
+  it('las fechas y los estados viajan como texto y como lista en la URL', () => {
+    expect(
+      stringifySearch({
+        desde: '2026-11-16',
+        hasta: '2026-11-22',
+        estados: ['confirmado', 'fichado'],
+      }),
+    ).toBe('?desde=2026-11-16&hasta=2026-11-22&estados=confirmado,fichado');
+  });
+});
+
+describe('listRangeError', () => {
+  it('como la API: invertido, más de 31 días o sin error', () => {
+    expect(listRangeError('2026-11-17', '2026-11-16')).toBe(TO_BEFORE_FROM);
+    expect(listRangeError('2026-11-01', '2026-12-02')).toBe(RANGE_TOO_LONG);
+    expect(RANGE_TOO_LONG).toBe('El rango no puede superar los 31 días.');
+    expect(listRangeError('2026-11-01', '2026-12-01')).toBeNull();
+    expect(listRangeError('2026-11-17', '2026-11-17')).toBeNull();
+    expect(listRangeError('2026-11-17', undefined)).toBeNull();
+    expect(listRangeError(undefined, '2026-11-17')).toBeNull();
+  });
+
+  it('cuenta días de calendario también sobre el cambio de horario (del 23/03/2024 al 22/04 pasa)', () => {
+    expect(listRangeError('2024-03-23', '2024-04-22')).toBeNull();
+    expect(listRangeError('2024-03-23', '2024-04-23')).toBe(RANGE_TOO_LONG);
+  });
+});
+
+describe('toAppointmentListFilters', () => {
+  it('los estados van con el valor de la API', () => {
+    expect(
+      toAppointmentListFilters({
+        desde: '2026-11-16',
+        estados: ['a-confirmar', 'ausente'],
+        buscar: 'luna',
+        pagina: 3,
+      }),
+    ).toEqual({
+      from: '2026-11-16',
+      to: null,
+      schedule_id: null,
+      veterinarian_id: null,
+      status: ['pending_confirmation', 'no_show'],
+      search: 'luna',
+      page: 3,
+    });
   });
 });

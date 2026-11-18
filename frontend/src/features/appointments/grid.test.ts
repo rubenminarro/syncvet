@@ -3,7 +3,9 @@ import { appointment, block } from '../../test/appointments';
 import type { ScheduleHour } from '../schedules/types';
 import {
   appointmentWho,
+  appointmentLabel,
   buildDayGrid,
+  buildWeekGrid,
   isInBlock,
   selectColumns,
   type ColumnSchedule,
@@ -346,5 +348,180 @@ describe('appointmentWho', () => {
     expect(
       appointmentWho(appointment(3, { patient: null, client: null, contact_name: 'Pedro Gómez' })),
     ).toBe('Pedro Gómez');
+  });
+});
+
+describe('buildWeekGrid (3.3): la semana de una agenda', () => {
+  // Lunes 16/11/2026 a domingo 22/11/2026. El horario: lunes a viernes de 08:00 a 12:00 y el sábado de 14:00 a 18:00.
+  const HOURS = [
+    ...[1, 2, 3, 4, 5].map((weekday) => hour(weekday, '08:00', '12:00', weekday)),
+    hour(6, '14:00', '18:00', 6),
+  ];
+  const week = (
+    appointments: ReturnType<typeof appointment>[],
+    blocks = [block(1, '10:00', '11:00')],
+  ) =>
+    buildWeekGrid({
+      day: '2026-11-18',
+      schedule: { schedule: ROOM_ONE, hours: HOURS, blocks },
+      appointments,
+      showCancelled: false,
+      today: '2026-11-18',
+    });
+
+  it('siete columnas de lunes a domingo, con el día como encabezado y "Hoy" en la de hoy', () => {
+    const grid = week([]);
+
+    expect(grid.columns.map((column) => column.day)).toEqual([
+      '2026-11-16',
+      '2026-11-17',
+      '2026-11-18',
+      '2026-11-19',
+      '2026-11-20',
+      '2026-11-21',
+      '2026-11-22',
+    ]);
+    expect(grid.columns.map((column) => column.heading)).toEqual([
+      'Lun 16',
+      'Mar 17',
+      'Mié 18',
+      'Jue 19',
+      'Vie 20',
+      'Sáb 21',
+      'Dom 22',
+    ]);
+    expect(grid.columns.map((column) => column.subheading)).toEqual([
+      '',
+      '',
+      'Hoy',
+      '',
+      '',
+      '',
+      '',
+    ]);
+    expect(new Set(grid.columns.map((column) => column.key)).size).toBe(7);
+  });
+
+  it('un rango de horas común a los siete días: de la mañana del lunes a la tarde del sábado', () => {
+    const grid = week([]);
+
+    expect([grid.start, grid.end]).toEqual([8 * 60, 18 * 60]);
+    // El lunes, cerrado de 12:00 a 18:00; el sábado, de 08:00 a 14:00; el domingo, todo el día.
+    expect(grid.columns[0]?.closed).toEqual([{ start: 12 * 60, end: 18 * 60 }]);
+    expect(grid.columns[5]?.closed).toEqual([{ start: 8 * 60, end: 14 * 60 }]);
+    expect(grid.columns[6]?.closed).toEqual([{ start: 8 * 60, end: 18 * 60 }]);
+  });
+
+  it('cada turno va en el día de Asunción en que empieza, solo los de la agenda', () => {
+    const grid = week([
+      appointment(1, { day: '2026-11-16', at: '09:00' }),
+      appointment(2, { day: '2026-11-21', at: '15:00' }),
+      appointment(3, {
+        day: '2026-11-17',
+        at: '09:00',
+        schedule: { id: 8, name: 'Consultorio 2' },
+      }),
+    ]);
+
+    expect(grid.columns.map((column) => column.items.map((item) => item.appointment.id))).toEqual([
+      [1],
+      [],
+      [],
+      [],
+      [],
+      [2],
+      [],
+    ]);
+  });
+
+  it('el domingo 22:30 de Asunción (lunes 01:30 en UTC) va en el domingo y amplía el rango', () => {
+    const grid = week([appointment(4, { day: '2026-11-22', at: '22:30' })]);
+
+    expect(grid.columns[6]?.items.map((item) => item.appointment.id)).toEqual([4]);
+    expect(grid.end).toBe(23 * 60);
+  });
+
+  it('el bloqueo y la marca "Dentro de un bloqueo" en su día; el que solo lo toca, sin la marca; los cancelados, ocultos', () => {
+    const grid = week([
+      appointment(5, { at: '10:00' }),
+      appointment(6, { at: '11:00' }),
+      appointment(7, { at: '10:30', status: 'cancelled' }),
+    ]);
+    const tuesday = grid.columns[1];
+
+    expect(tuesday?.blocks.map((item) => [item.start, item.end])).toEqual([[600, 660]]);
+    expect(grid.columns[0]?.blocks).toEqual([]);
+    expect(tuesday?.items.map((item) => [item.appointment.id, item.inBlock])).toEqual([
+      [5, true],
+      [6, false],
+    ]);
+  });
+
+  it('el nombre accesible del turno suma la agenda y el día', () => {
+    const grid = week([appointment(8, { at: '09:00' })]);
+    const tuesday = grid.columns[1];
+    const item = tuesday?.items[0];
+
+    expect(tuesday?.cellLabel).toBe('Martes 17 de noviembre');
+    expect(item === undefined ? '' : appointmentLabel(item, tuesday?.itemContext ?? '')).toBe(
+      '09:00 a 09:30, Luna, de Laura Martínez, Consulta, Confirmado, Consultorio 1, martes 17 de noviembre',
+    );
+  });
+
+  it('la semana del 23/03/2024 (25 horas): los dos turnos de la hora repetida, lado a lado en el sábado', () => {
+    const grid = buildWeekGrid({
+      day: '2024-03-20',
+      schedule: { schedule: ROOM_ONE, hours: [hour(6, '08:00', '23:55', 6)], blocks: [] },
+      appointments: [
+        {
+          ...appointment(9),
+          starts_at: '2024-03-24T02:30:00.000Z',
+          ends_at: '2024-03-24T03:00:00.000Z',
+        },
+        {
+          ...appointment(10),
+          starts_at: '2024-03-24T03:30:00.000Z',
+          ends_at: '2024-03-24T04:00:00.000Z',
+        },
+      ],
+      showCancelled: false,
+      today: '2026-11-18',
+    });
+    const saturday = grid.columns[5];
+
+    expect(grid.columns.map((column) => column.day)).toEqual([
+      '2024-03-18',
+      '2024-03-19',
+      '2024-03-20',
+      '2024-03-21',
+      '2024-03-22',
+      '2024-03-23',
+      '2024-03-24',
+    ]);
+    expect(saturday?.items.map((item) => [item.start, item.lane, item.lanes])).toEqual([
+      [23 * 60 + 30, 0, 2],
+      [23 * 60 + 30, 1, 2],
+    ]);
+    expect(grid.columns[6]?.items).toEqual([]);
+  });
+
+  it('la semana del 01/10/2023 (23 horas, el domingo): el turno de la 01:00 va en el domingo', () => {
+    const grid = buildWeekGrid({
+      day: '2023-09-27',
+      schedule: { schedule: ROOM_ONE, hours: [], blocks: [] },
+      appointments: [
+        {
+          ...appointment(11),
+          starts_at: '2023-10-01T04:00:00.000Z',
+          ends_at: '2023-10-01T04:30:00.000Z',
+        },
+      ],
+      showCancelled: false,
+      today: '2026-11-18',
+    });
+
+    expect(grid.columns[6]?.day).toBe('2023-10-01');
+    expect(grid.columns[6]?.items.map((item) => item.start)).toEqual([60]);
+    expect(grid.start).toBe(60);
   });
 });

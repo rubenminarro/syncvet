@@ -1,63 +1,35 @@
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  CheckboxField,
-  DateField,
-  Loading,
-  SelectField,
-  type SelectOption,
-} from '../../components/ui';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Alert, Button, Card, DateField, Loading, SelectField } from '../../components/ui';
 import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
-import { formatTime, todayInAppZone } from '../../lib/format/dates';
+import { todayInAppZone } from '../../lib/format/dates';
 import { useAutoRefreshPaused } from '../../lib/hooks/auto-refresh';
 import { useMediaQuery } from '../../lib/hooks/use-media-query';
 import { meQueryOptions } from '../auth/api';
 import { scheduleDetailQueryOptions } from '../schedules/api';
 import { AgendaGrid } from './AgendaGrid';
 import {
-  appointmentRangeQueryOptions,
-  branchScheduleOptionsQueryOptions,
-  dayBlocksQueryOptions,
-} from './api';
-import { addDaysToDay, dayName, dayTitle, isAgendaDay } from './dates';
+  AgendaFlags,
+  AgendaViewSwitch,
+  AppointmentPanel,
+  MissingAppointments,
+} from './AgendaShared';
 import {
-  appointmentWho,
-  buildDayGrid,
-  isVisible,
-  selectColumns,
-  type ColumnSchedule,
-  type GridItem,
-} from './grid';
+  countText,
+  ownVeterinarianOf,
+  scheduleOptionLabel,
+  selectedId,
+  SINGLE_COLUMN_QUERY,
+  useAgendaSchedules,
+} from './agenda-shared';
+import { appointmentRangeQueryOptions, rangeBlocksQueryOptions } from './api';
+import { addDaysToDay, dayName, dayTitle, isAgendaDay } from './dates';
+import { buildDayGrid, isVisible, type ColumnSchedule, type GridItem } from './grid';
 import type { AgendaSearch } from './search';
 
-/** Por debajo de este ancho, la grilla muestra una agenda por vez (diseño de la F3, "Celular, 375 px"). */
-export const SINGLE_COLUMN_QUERY = '(max-width: 767.98px)';
-
-/** El aviso de los turnos que no entraron en el pedido (pregunta 1: nunca corta en silencio). */
-export const MISSING_APPOINTMENTS_MESSAGE = 'Hay más turnos de los que se muestran: usá la lista.';
-
-function countText(count: number): string {
-  if (count === 0) {
-    return 'sin turnos';
-  }
-
-  return count === 1 ? '1 turno' : `${String(count)} turnos`;
-}
-
-/** El nombre de una agenda en los selectores: la inactivada, con la misma marca que su columna. */
-function scheduleOptionLabel(schedule: ColumnSchedule): string {
-  return schedule.is_active ? schedule.name : schedule.name + ' (inactivada)';
-}
-
-interface Selected {
-  item: GridItem;
-  scheduleName: string;
-}
+export { MISSING_APPOINTMENTS_MESSAGE, SINGLE_COLUMN_QUERY } from './agenda-shared';
 
 /**
  * /agenda (3.2): la agenda del día de la sucursal actual de la barra (pregunta 2), con una columna por agenda activa (las
@@ -76,7 +48,7 @@ export function AgendaDayPage() {
   const paused = useAutoRefreshPaused();
   const singleColumn = useMediaQuery(SINGLE_COLUMN_QUERY);
   const [mobileScheduleId, setMobileScheduleId] = useState<number | null>(null);
-  const [selected, setSelected] = useState<Selected | null>(null);
+  const [selected, setSelected] = useState<GridItem | null>(null);
   const panelRef = useRef<HTMLHeadingElement>(null);
   const emptyRef = useRef<HTMLParagraphElement>(null);
   // ¿El foco estaba en la grilla (o en el aviso del día sin agendas)? Para no perderlo al cambiar de día con el teclado.
@@ -84,35 +56,19 @@ export function AgendaDayPage() {
   const openerRef = useRef<HTMLElement | null>(null);
   const [announced, setAnnounced] = useState<{ key: string; text: string } | null>(null);
 
-  const schedulesQuery = useQuery({
-    ...branchScheduleOptionsQueryOptions(branchId ?? 0),
-    enabled: branchId !== null,
-  });
   const rangeQuery = useQuery({
     ...appointmentRangeQueryOptions(branchId ?? 0, { from: day, to: day }, paused),
     enabled: branchId !== null,
   });
 
   const appointments = rangeQuery.data?.items ?? [];
-  const active: ColumnSchedule[] = schedulesQuery.data ?? [];
-  const ownVeterinarianId =
-    me?.veterinarian !== null && me?.veterinarian !== undefined && search.todos !== 1
-      ? me.veterinarian.id
-      : null;
-  // Las agendas inactivadas entran solo con turnos que se ven (sin los cancelados ocultos): una columna vacía confunde.
-  const visibleAppointments = appointments.filter((appointment) =>
-    isVisible(appointment, showCancelled),
-  );
-  // Las agendas que se pueden elegir en los filtros: las de la sucursal (y las inactivas con turnos ese día), sin filtrar.
-  const candidates = selectColumns(active, visibleAppointments, {
-    scheduleId: undefined,
-    veterinarianId: undefined,
-    ownVeterinarianId: null,
-  });
-  const filtered = selectColumns(active, visibleAppointments, {
-    scheduleId: search.agenda,
-    veterinarianId: search.veterinario,
-    ownVeterinarianId,
+  const { schedulesQuery, candidates, filtered, vetOptions } = useAgendaSchedules({
+    branchId,
+    appointments,
+    showCancelled,
+    agenda: search.agenda,
+    veterinario: search.veterinario,
+    ownVeterinarianId: ownVeterinarianOf(me, search.todos),
   });
   const shown =
     singleColumn && filtered.length > 1
@@ -125,7 +81,9 @@ export function AgendaDayPage() {
     queries: shown.map((schedule) => scheduleDetailQueryOptions(schedule.id)),
   });
   const blocks = useQueries({
-    queries: shown.map((schedule) => dayBlocksQueryOptions(schedule.id, day, paused)),
+    queries: shown.map((schedule) =>
+      rangeBlocksQueryOptions(schedule.id, { from: day, to: day }, paused),
+    ),
   });
 
   const shownIds = new Set(shown.map((schedule) => schedule.id));
@@ -168,24 +126,6 @@ export function AgendaDayPage() {
   };
   const today = todayInAppZone();
 
-  const vetOptions: SelectOption[] = [{ value: '', label: 'Todos' }];
-  const seenVets = new Set<number>();
-
-  for (const schedule of candidates) {
-    if (schedule.veterinarian !== null && !seenVets.has(schedule.veterinarian.id)) {
-      seenVets.add(schedule.veterinarian.id);
-      vetOptions.push({
-        value: String(schedule.veterinarian.id),
-        label: schedule.veterinarian.name,
-      });
-    }
-  }
-
-  const missing =
-    rangeQuery.data !== undefined && rangeQuery.data.total > rangeQuery.data.items.length
-      ? rangeQuery.data
-      : null;
-
   let content;
 
   if (branchId === null) {
@@ -224,16 +164,16 @@ export function AgendaDayPage() {
         grid={grid}
         label={`Agenda del ${dayTitle(day).toLowerCase()}`}
         busy={rangeQuery.isPlaceholderData}
-        onPreviousDay={() => {
+        onPrevious={() => {
           goToDay(addDaysToDay(day, -1));
         }}
-        onNextDay={() => {
+        onNext={() => {
           goToDay(addDaysToDay(day, 1));
         }}
-        onOpen={(item, scheduleName) => {
+        onOpen={(item) => {
           openerRef.current =
             document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          setSelected({ item, scheduleName });
+          setSelected(item);
           window.setTimeout(() => panelRef.current?.focus(), 0);
         }}
       />
@@ -266,7 +206,12 @@ export function AgendaDayPage() {
       ? null
       : (grid.columns
           .flatMap((column) => column.items)
-          .find((item) => item.appointment.id === selected.item.appointment.id) ?? selected.item);
+          .find((item) => item.appointment.id === selected.appointment.id) ?? selected);
+
+  const setFilter = (patch: Partial<AgendaSearch>) => {
+    setSelected(null);
+    void navigate({ search: (previous) => ({ ...previous, ...patch }) });
+  };
 
   return (
     <>
@@ -283,6 +228,15 @@ export function AgendaDayPage() {
       </div>
       <Card>
         <div className="row g-2 align-items-end agenda-toolbar">
+          <div className="col-12 col-md-auto">
+            <AgendaViewSwitch
+              current="dia"
+              day={day}
+              agenda={search.agenda}
+              veterinario={search.veterinario}
+              extra={{ cancelados: search.cancelados, todos: search.todos }}
+            />
+          </div>
           <div className="col-12 col-md-auto">
             <div className="btn-group w-100" role="group" aria-label="Día">
               <Button
@@ -339,13 +293,7 @@ export function AgendaDayPage() {
                 })),
               ]}
               onChange={(event) => {
-                setSelected(null);
-                void navigate({
-                  search: (previous) => ({
-                    ...previous,
-                    agenda: event.target.value === '' ? undefined : Number(event.target.value),
-                  }),
-                });
+                setFilter({ agenda: selectedId(event.target.value) });
               }}
             />
           </div>
@@ -355,45 +303,24 @@ export function AgendaDayPage() {
               value={search.veterinario === undefined ? '' : String(search.veterinario)}
               options={vetOptions}
               onChange={(event) => {
-                setSelected(null);
-                void navigate({
-                  search: (previous) => ({
-                    ...previous,
-                    veterinario: event.target.value === '' ? undefined : Number(event.target.value),
-                  }),
-                });
+                setFilter({ veterinario: selectedId(event.target.value) });
               }}
             />
           </div>
           <div className="col-12 col-sm-6 col-md-auto">
-            <CheckboxField
-              label="Mostrar los cancelados"
-              checked={showCancelled}
-              onChange={(event) => {
+            <AgendaFlags
+              showCancelled={showCancelled}
+              todos={search.todos === 1}
+              isVeterinarian={me?.veterinarian !== null && me?.veterinarian !== undefined}
+              onCancelled={(checked) => {
                 void navigate({
-                  search: (previous) => ({
-                    ...previous,
-                    cancelados: event.target.checked ? 1 : undefined,
-                  }),
+                  search: (previous) => ({ ...previous, cancelados: checked ? 1 : undefined }),
                 });
               }}
+              onTodos={(checked) => {
+                setFilter({ todos: checked ? 1 : undefined });
+              }}
             />
-            {me?.veterinarian !== null && me?.veterinarian !== undefined ? (
-              <CheckboxField
-                label="Ver toda la sucursal"
-                hint="Sin marcar, tus agendas y las que no tienen veterinario."
-                checked={search.todos === 1}
-                onChange={(event) => {
-                  setSelected(null);
-                  void navigate({
-                    search: (previous) => ({
-                      ...previous,
-                      todos: event.target.checked ? 1 : undefined,
-                    }),
-                  });
-                }}
-              />
-            ) : null}
           </div>
         </div>
         {singleColumn && filtered.length > 1 ? (
@@ -411,18 +338,12 @@ export function AgendaDayPage() {
           />
         ) : null}
       </Card>
-      {missing !== null ? (
-        <div className="mt-3 agenda-missing">
-          <Alert tone="warning" title={MISSING_APPOINTMENTS_MESSAGE}>
-            Se muestran {missing.items.length} de los {missing.total} turnos del día.
-          </Alert>
-        </div>
-      ) : null}
-      {selectedNow !== null && selected !== null ? (
+      <MissingAppointments range={rangeQuery.data} what="del día" />
+      {selectedNow !== null ? (
         <div className="mt-3">
           <AppointmentPanel
-            item={selectedNow}
-            scheduleName={selected.scheduleName}
+            appointment={selectedNow.appointment}
+            inBlock={selectedNow.inBlock}
             headingRef={panelRef}
             onClose={() => {
               setSelected(null);
@@ -448,64 +369,5 @@ export function AgendaDayPage() {
         {content}
       </div>
     </>
-  );
-}
-
-/** Los datos del turno, de solo lectura (en la 3.2; el detalle con las acciones llega en la 3.4). */
-function AppointmentPanel({
-  item,
-  scheduleName,
-  headingRef,
-  onClose,
-}: {
-  item: GridItem;
-  scheduleName: string;
-  headingRef: RefObject<HTMLHeadingElement | null>;
-  onClose: () => void;
-}) {
-  const { appointment } = item;
-  const rows: [string, string][] = [
-    ['Horario', `${formatTime(appointment.starts_at)} a ${formatTime(appointment.ends_at)}`],
-    ['Agenda', scheduleName],
-    ['Quién', appointmentWho(appointment)],
-    ['Teléfono de contacto', appointment.contact_phone ?? ''],
-    ['Servicio', appointment.service?.name ?? ''],
-    ['Veterinario', appointment.veterinarian?.name ?? ''],
-    ['Estado', appointment.status.label],
-    ['Origen', appointment.source.label],
-    ['Motivo', appointment.reason ?? ''],
-  ];
-
-  return (
-    <section className="card agenda-panel" aria-labelledby="agenda-panel-title">
-      <div className="card-header">
-        <h3 className="card-title" id="agenda-panel-title" tabIndex={-1} ref={headingRef}>
-          Turno de las {formatTime(appointment.starts_at)}
-        </h3>
-        <div className="card-actions">
-          <Button variant="secondary" onClick={onClose}>
-            Cerrar
-          </Button>
-        </div>
-      </div>
-      <div className="card-body">
-        {item.inBlock ? (
-          <Alert tone="warning" title="Dentro de un bloqueo">
-            El turno quedó dentro de un bloqueo de la agenda: reprogramalo o cancelalo.
-          </Alert>
-        ) : null}
-        {appointment.is_overbooked ? <p className="mb-2 fw-bold">Sobreturno</p> : null}
-        <dl className="row mb-0">
-          {rows
-            .filter(([, value]) => value !== '')
-            .map(([label, value]) => (
-              <div key={label} className="col-12 col-md-6 d-flex gap-2">
-                <dt className="text-secondary">{label}:</dt>
-                <dd className="mb-1">{value}</dd>
-              </div>
-            ))}
-        </dl>
-      </div>
-    </section>
   );
 }

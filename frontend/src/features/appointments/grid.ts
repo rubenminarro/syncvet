@@ -1,6 +1,16 @@
 import { formatTime } from '../../lib/format/dates';
 import type { ScheduleBlock, ScheduleHour } from '../schedules/types';
-import { clockToMinutes, dayBounds, MINUTES_PER_DAY, wallMinutes, weekdayOf } from './dates';
+import {
+  clockToMinutes,
+  dayBounds,
+  dayName,
+  MINUTES_PER_DAY,
+  shortDayName,
+  wallDay,
+  wallMinutes,
+  weekDaysOf,
+  weekdayOf,
+} from './dates';
 import { OCCUPYING_STATUSES, type Appointment } from './types';
 
 /**
@@ -57,6 +67,18 @@ export interface GridItem {
 }
 
 export interface GridColumn {
+  /** Única en la grilla: la agenda (en el día) o el día (en la semana, 3.3). */
+  key: string;
+  /** El día de Asunción de la columna. */
+  day: string;
+  /** El encabezado: el nombre de la agenda o el día de la semana ("Lun 16"). */
+  heading: string;
+  /** Debajo del encabezado: el veterinario de la agenda o, en la semana, "Hoy". */
+  subheading: string;
+  /** Lo que nombra la columna en el nombre accesible de cada celda: la agenda o el día ("Lunes 16 de noviembre"). */
+  cellLabel: string;
+  /** Lo que se suma al final del nombre accesible de cada turno: la agenda y, en la semana, el día. */
+  itemContext: string;
   schedule: ColumnSchedule;
   /** Los tramos sin atención dentro del rango (vacío si el horario todavía no llegó). */
   closed: Interval[];
@@ -226,6 +248,8 @@ export function buildDayGrid(input: {
   schedules: readonly GridScheduleInput[];
   appointments: readonly Appointment[];
   showCancelled: boolean;
+  /** El rango que la grilla cubre como mínimo (la semana: el de sus siete días, para que las filas coincidan). */
+  minRange?: Interval;
 }): DayGrid {
   const weekday = weekdayOf(input.day);
   const bounds = dayBounds(input.day);
@@ -261,6 +285,11 @@ export function buildDayGrid(input: {
     end = Math.max(end, item.end);
   }
 
+  if (input.minRange !== undefined) {
+    start = Math.min(start, input.minRange.start);
+    end = Math.max(end, input.minRange.end);
+  }
+
   start = Math.floor(start / 60) * 60;
   end = Math.min(Math.ceil(end / 60) * 60, MINUTES_PER_DAY);
 
@@ -280,6 +309,12 @@ export function buildDayGrid(input: {
     const blocks = entry.blocks ?? [];
 
     return {
+      key: `s:${String(entry.schedule.id)}`,
+      day: input.day,
+      heading: entry.schedule.name,
+      subheading: `${entry.schedule.veterinarian?.name ?? 'Sin veterinario'}${entry.schedule.is_active ? '' : ' (inactivada)'}`,
+      cellLabel: entry.schedule.name,
+      itemContext: entry.schedule.name,
       schedule: entry.schedule,
       closed: open === null ? [] : closedIntervals(open, range),
       blocks: blocks
@@ -299,6 +334,77 @@ export function buildDayGrid(input: {
   });
 
   return { start, end, rows, columns };
+}
+
+/**
+ * La semana de una agenda (3.3, pregunta 4): siete columnas, de lunes a domingo, armadas con `buildDayGrid` (la misma
+ * grilla del día, sin duplicarla), con un rango de horas común a los siete días (el de cada día, unido), así las filas
+ * coinciden. Cada turno va en el día de Asunción en que empieza; cada día sombrea su horario y los bloqueos que lo tocan.
+ */
+export function buildWeekGrid(input: {
+  /** Cualquier día de la semana. */
+  day: string;
+  schedule: GridScheduleInput;
+  appointments: readonly Appointment[];
+  showCancelled: boolean;
+  /** "Hoy" en Asunción, para marcar su columna. */
+  today: string;
+}): DayGrid {
+  const days = weekDaysOf(input.day);
+  const own = input.appointments.filter(
+    (appointment) => appointment.schedule.id === input.schedule.schedule.id,
+  );
+  const byDay = new Map<string, Appointment[]>();
+
+  for (const appointment of own) {
+    const day = wallDay(appointment.starts_at);
+    const list = byDay.get(day) ?? [];
+    list.push(appointment);
+    byDay.set(day, list);
+  }
+
+  const dayGrid = (day: string, minRange?: Interval) =>
+    buildDayGrid({
+      day,
+      schedules: [input.schedule],
+      appointments: byDay.get(day) ?? [],
+      showCancelled: input.showCancelled,
+      ...(minRange === undefined ? {} : { minRange }),
+    });
+  const first = days.map((day) => dayGrid(day));
+  const range = {
+    start: Math.min(...first.map((grid) => grid.start)),
+    end: Math.max(...first.map((grid) => grid.end)),
+  };
+  const grids = days.map((day) => dayGrid(day, range));
+  const columns = grids.map((grid, index): GridColumn => {
+    const day = days[index] ?? input.day;
+    const column = grid.columns[0];
+
+    if (column === undefined) {
+      throw new Error('La semana sin su agenda.');
+    }
+
+    const name = dayName(day);
+
+    return {
+      ...column,
+      key: `d:${day}`,
+      day,
+      heading: shortDayName(day),
+      subheading: day === input.today ? 'Hoy' : '',
+      cellLabel: name,
+      itemContext: `${column.schedule.name}, ${name.toLowerCase()}`,
+    };
+  });
+  const base = grids[0];
+
+  return {
+    start: base?.start ?? range.start,
+    end: base?.end ?? range.end,
+    rows: base?.rows ?? [],
+    columns,
+  };
 }
 
 /** El filtro de las agendas que se ven (la URL y la vista por defecto del veterinario). */
@@ -379,14 +485,14 @@ export function appointmentWho(appointment: Appointment): string {
 }
 
 /** El nombre accesible de un turno: "09:00 a 09:30, Luna, de Laura Martínez, Consulta, Confirmado, Consultorio 1". */
-export function appointmentLabel(item: GridItem, scheduleName: string): string {
+export function appointmentLabel(item: GridItem, context: string): string {
   const { appointment } = item;
   const parts = [
     `${formatTime(appointment.starts_at)} a ${formatTime(appointment.ends_at)}`,
     appointmentWho(appointment),
     appointment.service?.name ?? '',
     appointment.status.label,
-    scheduleName,
+    context,
     appointment.is_overbooked ? 'sobreturno' : '',
     item.inBlock ? 'dentro de un bloqueo' : '',
     item.continuesNextDay ? 'sigue el día siguiente' : '',

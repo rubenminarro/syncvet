@@ -23,6 +23,8 @@ export interface MenuItem {
     | '/configuracion';
   label: string;
   icon: Icon;
+  /** Otras rutas donde el ítem también está activo (desde la 3.3: "Agenda" en /turnos). */
+  alsoActiveOn?: readonly string[];
   /** Sin permiso: lo ve todo usuario con sesión. */
   permission?: string;
 }
@@ -36,7 +38,13 @@ export const MENU: readonly MenuItem[] = [
   { to: '/', label: 'Inicio', icon: IconHome },
   { to: '/clientes', label: 'Clientes', icon: IconUsers, permission: PERMISSIONS.clientsIndex },
   { to: '/pacientes', label: 'Pacientes', icon: IconPaw, permission: PERMISSIONS.patientsIndex },
-  { to: '/agenda', label: 'Agenda', icon: IconCalendar, permission: PERMISSIONS.appointmentsIndex },
+  {
+    to: '/agenda',
+    label: 'Agenda',
+    icon: IconCalendar,
+    permission: PERMISSIONS.appointmentsIndex,
+    alsoActiveOn: ['/turnos'],
+  },
   { to: '/especies', label: 'Especies', icon: IconCategory, permission: PERMISSIONS.speciesIndex },
   {
     to: '/servicios',

@@ -1,5 +1,6 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 import { getPage } from '../../lib/api/client';
+import type { Page } from '../../lib/api/types';
 import { branchKey } from '../../lib/api/query-keys';
 import type { Schedule, ScheduleBlock } from '../schedules/types';
 import type { Appointment } from './types';
@@ -19,8 +20,11 @@ export const AGENDA_STALE_MS = 30_000;
 /** Las agendas de una sucursal, para las columnas y los filtros: las activas, en un pedido (son pocas por sucursal). */
 export const SCHEDULE_OPTIONS_PER_PAGE = 100;
 
-/** Los bloqueos de una agenda en el día: en un pedido. */
+/** Los bloqueos de una agenda en el día, la semana o el rango de la lista: en un pedido. */
 export const DAY_BLOCKS_PER_PAGE = 100;
+
+/** Los turnos por página de la lista (/turnos, 3.3), como los demás listados. */
+export const LIST_PER_PAGE = 20;
 
 /**
  * Las claves de la agenda (diseño de la F3, "Claves de las consultas"): los turnos del rango llevan la sucursal que
@@ -29,12 +33,14 @@ export const DAY_BLOCKS_PER_PAGE = 100;
 export const appointmentKeys = {
   range: (branchId: number | null, range: { from: string; to: string }) =>
     branchKey(branchId, 'appointments', 'range', range),
+  list: (branchId: number | null, filters: AppointmentListFilters) =>
+    branchKey(branchId, 'appointments', 'list', filters),
 };
 
 export const agendaScheduleKeys = {
   options: (branchId: number) => ['schedules', 'options', { branch_id: branchId }] as const,
-  dayBlocks: (scheduleId: number, day: string) =>
-    ['schedules', scheduleId, 'blocks', { from: day, to: day, page: 1 }] as const,
+  rangeBlocks: (scheduleId: number, range: { from: string; to: string }) =>
+    ['schedules', scheduleId, 'blocks', { from: range.from, to: range.to, page: 1 }] as const,
 };
 
 /** Lo que devuelve el pedido del rango: los turnos y cuántos hay en total (el aviso de los que faltan). */
@@ -91,19 +97,72 @@ export function branchScheduleOptionsQueryOptions(branchId: number) {
   });
 }
 
-/** GET schedules/{id}/blocks?from=<día>&to=<día>: los bloqueos que tocan el día (para el sombreado y la marca). */
-export function dayBlocksQueryOptions(scheduleId: number, day: string, paused: boolean) {
+/**
+ * GET schedules/{id}/blocks?from=&to=: los bloqueos que tocan el día, la semana o el rango de la lista (para el sombreado y la
+ * marca "Dentro de un bloqueo"). La API no limita el rango de los bloqueos.
+ */
+export function rangeBlocksQueryOptions(
+  scheduleId: number,
+  range: { from: string; to: string },
+  paused: boolean,
+) {
   return queryOptions({
-    queryKey: agendaScheduleKeys.dayBlocks(scheduleId, day),
+    queryKey: agendaScheduleKeys.rangeBlocks(scheduleId, range),
     queryFn: async ({ signal }) =>
       (
         await getPage<ScheduleBlock>(`schedules/${String(scheduleId)}/blocks`, {
           signal,
-          query: { from: day, to: day, per_page: DAY_BLOCKS_PER_PAGE },
+          query: { from: range.from, to: range.to, per_page: DAY_BLOCKS_PER_PAGE },
         })
       ).items,
     staleTime: AGENDA_STALE_MS,
     refetchInterval: refreshInterval(paused),
     refetchIntervalInBackground: false,
+  });
+}
+
+/** Los filtros de la lista (/turnos) con los nombres de la API; `null` o una lista vacía: sin ese filtro. */
+export interface AppointmentListFilters {
+  from: string | null;
+  to: string | null;
+  schedule_id: number | null;
+  veterinarian_id: number | null;
+  /** Los valores de la API (`confirmed`, `checked_in`…), mandados como `status[]` (H5). */
+  status: readonly string[];
+  search: string;
+  page: number;
+}
+
+/**
+ * GET appointments?branch_id=<actual>&from&to&schedule_id&veterinarian_id&status[]&search&page&per_page=20: la lista, con los
+ * filtros de la API (H2) y su paginación. Se actualiza como la agenda (cada 60 s, con la pausa) y, al cambiar de filtro o de
+ * página, sigue con la anterior hasta que llega la nueva.
+ */
+export function appointmentListQueryOptions(
+  branchId: number,
+  filters: AppointmentListFilters,
+  paused: boolean,
+) {
+  return queryOptions({
+    queryKey: appointmentKeys.list(branchId, filters),
+    queryFn: ({ signal }): Promise<Page<Appointment>> =>
+      getPage<Appointment>('appointments', {
+        signal,
+        query: {
+          branch_id: branchId,
+          from: filters.from,
+          to: filters.to,
+          schedule_id: filters.schedule_id,
+          veterinarian_id: filters.veterinarian_id,
+          status: filters.status,
+          search: filters.search,
+          page: filters.page,
+          per_page: LIST_PER_PAGE,
+        },
+      }),
+    staleTime: AGENDA_STALE_MS,
+    refetchInterval: refreshInterval(paused),
+    refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
   });
 }

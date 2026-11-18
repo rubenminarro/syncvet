@@ -27,6 +27,7 @@ import { Route as SesionPacientesIdRouteImport } from './routes/_sesion/paciente
 import { Route as SesionServiciosIndexRouteImport } from './routes/_sesion/servicios/index'
 import { Route as SesionServiciosIdRouteImport } from './routes/_sesion/servicios/$id'
 import { Route as SesionServiciosNuevoRouteImport } from './routes/_sesion/servicios/nuevo'
+import { Route as SesionTurnosIndexRouteImport } from './routes/_sesion/turnos/index'
 import { Route as SesionVeterinariosIndexRouteImport } from './routes/_sesion/veterinarios/index'
 import { Route as SesionVeterinariosIdRouteImport } from './routes/_sesion/veterinarios/$id'
 import { Route as SesionVeterinariosNuevoRouteImport } from './routes/_sesion/veterinarios/nuevo'
@@ -138,6 +139,11 @@ const SesionServiciosIdRoute = SesionServiciosIdRouteImport.update({
 const SesionServiciosNuevoRoute = SesionServiciosNuevoRouteImport.update({
   id: '/servicios/nuevo',
   path: '/servicios/nuevo',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionTurnosIndexRoute = SesionTurnosIndexRouteImport.update({
+  id: '/turnos/',
+  path: '/turnos/',
   getParentRoute: () => SesionRoute,
 } as any)
 const SesionVeterinariosIndexRoute = SesionVeterinariosIndexRouteImport.update({
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/configuracion/': typeof SesionConfiguracionIndexRoute
   '/pacientes/': typeof SesionPacientesIndexRoute
   '/servicios/': typeof SesionServiciosIndexRoute
+  '/turnos/': typeof SesionTurnosIndexRoute
   '/veterinarios/': typeof SesionVeterinariosIndexRoute
   '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
   '/configuracion/agendas/$id': typeof SesionConfiguracionAgendasIdRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/configuracion': typeof SesionConfiguracionIndexRoute
   '/pacientes': typeof SesionPacientesIndexRoute
   '/servicios': typeof SesionServiciosIndexRoute
+  '/turnos': typeof SesionTurnosIndexRoute
   '/veterinarios': typeof SesionVeterinariosIndexRoute
   '/clientes/$id/editar': typeof SesionClientesIdEditarRoute
   '/configuracion/agendas/$id': typeof SesionConfiguracionAgendasIdRoute
@@ -369,6 +377,7 @@ export interface FileRoutesById {
   '/_sesion/configuracion/': typeof SesionConfiguracionIndexRoute
   '/_sesion/pacientes/': typeof SesionPacientesIndexRoute
   '/_sesion/servicios/': typeof SesionServiciosIndexRoute
+  '/_sesion/turnos/': typeof SesionTurnosIndexRoute
   '/_sesion/veterinarios/': typeof SesionVeterinariosIndexRoute
   '/_sesion/clientes/$id_/editar': typeof SesionClientesIdEditarRoute
   '/_sesion/configuracion/agendas/$id': typeof SesionConfiguracionAgendasIdRoute
@@ -411,6 +420,7 @@ export interface FileRouteTypes {
     | '/configuracion/'
     | '/pacientes/'
     | '/servicios/'
+    | '/turnos/'
     | '/veterinarios/'
     | '/clientes/$id/editar'
     | '/configuracion/agendas/$id'
@@ -451,6 +461,7 @@ export interface FileRouteTypes {
     | '/configuracion'
     | '/pacientes'
     | '/servicios'
+    | '/turnos'
     | '/veterinarios'
     | '/clientes/$id/editar'
     | '/configuracion/agendas/$id'
@@ -493,6 +504,7 @@ export interface FileRouteTypes {
     | '/_sesion/configuracion/'
     | '/_sesion/pacientes/'
     | '/_sesion/servicios/'
+    | '/_sesion/turnos/'
     | '/_sesion/veterinarios/'
     | '/_sesion/clientes/$id_/editar'
     | '/_sesion/configuracion/agendas/$id'
@@ -646,6 +658,13 @@ declare module '@tanstack/react-router' {
       path: '/servicios/nuevo'
       fullPath: '/servicios/nuevo'
       preLoaderRoute: typeof SesionServiciosNuevoRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/turnos/': {
+      id: '/_sesion/turnos/'
+      path: '/turnos'
+      fullPath: '/turnos/'
+      preLoaderRoute: typeof SesionTurnosIndexRouteImport
       parentRoute: typeof SesionRoute
     }
     '/_sesion/veterinarios/': {
@@ -834,6 +853,7 @@ interface SesionRouteChildren {
   SesionConfiguracionIndexRoute: typeof SesionConfiguracionIndexRoute
   SesionPacientesIndexRoute: typeof SesionPacientesIndexRoute
   SesionServiciosIndexRoute: typeof SesionServiciosIndexRoute
+  SesionTurnosIndexRoute: typeof SesionTurnosIndexRoute
   SesionVeterinariosIndexRoute: typeof SesionVeterinariosIndexRoute
   SesionClientesIdEditarRoute: typeof SesionClientesIdEditarRoute
   SesionConfiguracionAgendasIdRoute: typeof SesionConfiguracionAgendasIdRoute
@@ -874,6 +894,7 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionConfiguracionIndexRoute: SesionConfiguracionIndexRoute,
   SesionPacientesIndexRoute: SesionPacientesIndexRoute,
   SesionServiciosIndexRoute: SesionServiciosIndexRoute,
+  SesionTurnosIndexRoute: SesionTurnosIndexRoute,
   SesionVeterinariosIndexRoute: SesionVeterinariosIndexRoute,
   SesionClientesIdEditarRoute: SesionClientesIdEditarRoute,
   SesionConfiguracionAgendasIdRoute: SesionConfiguracionAgendasIdRoute,

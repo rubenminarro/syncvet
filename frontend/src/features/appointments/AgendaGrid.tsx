@@ -1,20 +1,9 @@
-import {
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconCircleX,
-  IconClock,
-  IconDoorEnter,
-  IconLock,
-  IconStethoscope,
-  IconUserX,
-  type Icon,
-} from '@tabler/icons-react';
+import { IconLock } from '@tabler/icons-react';
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { formatTime } from '../../lib/format/dates';
+import { AppointmentSummary } from './AgendaShared';
 import { minutesToClock } from './dates';
 import {
   appointmentLabel,
-  appointmentWho,
   ROW_MINUTES,
   type DayGrid,
   type GridColumn,
@@ -23,15 +12,6 @@ import {
 
 /** El alto de una fila de 15 minutos, en píxeles (una hora, 96 px). Va también en `styles.css` (`--agenda-row`). */
 const ROW_PX = 24;
-
-const STATUS_ICONS: Record<string, Icon> = {
-  pending_confirmation: IconClock,
-  confirmed: IconCircleCheck,
-  checked_in: IconDoorEnter,
-  attended: IconStethoscope,
-  no_show: IconUserX,
-  cancelled: IconCircleX,
-};
 
 interface Position {
   col: number;
@@ -106,8 +86,9 @@ interface AgendaGridProps {
   grid: DayGrid;
   /** "Agenda del martes 17 de noviembre de 2026". */
   label: string;
-  onPreviousDay: () => void;
-  onNextDay: () => void;
+  /** Re Pág y Av Pág: el día (o la semana, 3.3) anterior y el siguiente. */
+  onPrevious: () => void;
+  onNext: () => void;
   onOpen: (item: GridItem, scheduleName: string) => void;
   /** Mientras llega otro día (la grilla sigue con el anterior). */
   busy: boolean;
@@ -117,18 +98,11 @@ interface AgendaGridProps {
  * La grilla del día (diseño de la F3, "Accesibilidad"): el patrón *grid* de WAI-ARIA, con las agendas como encabezados de
  * columna y las horas como encabezados de fila, y **un solo punto de tabulación** (*roving tabindex*). Las flechas recorren
  * las celdas y los turnos; Inicio y Fin van al comienzo y al fin de la fila (con Ctrl, de la grilla); Re Pág y Av Pág
- * cambian de día; Enter abre el turno (en la 3.2, el panel de solo lectura). Si el turno con el foco desaparece con la
+ * cambian de día (en la semana, de semana); Enter abre el turno (en la 3.2, el panel de solo lectura). Si el turno con el foco desaparece con la
  * actualización (otra PC lo movió o lo canceló), el foco va a su celda; la actualización nunca mueve el foco si no estaba
  * en la grilla.
  */
-export function AgendaGrid({
-  grid,
-  label,
-  onPreviousDay,
-  onNextDay,
-  onOpen,
-  busy,
-}: AgendaGridProps) {
+export function AgendaGrid({ grid, label, onPrevious, onNext, onOpen, busy }: AgendaGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   // La clave con el punto de tabulación y dónde estaba al elegirla (para ir a su celda si el turno desaparece).
   const [focus, setFocus] = useState<(Position & { key: string }) | null>(null);
@@ -207,12 +181,12 @@ export function AgendaGrid({
         break;
       case 'PageUp':
         event.preventDefault();
-        onPreviousDay();
+        onPrevious();
 
         return;
       case 'PageDown':
         event.preventDefault();
-        onNextDay();
+        onNext();
 
         return;
       default:
@@ -267,7 +241,7 @@ export function AgendaGrid({
           </div>
           {grid.columns.map((column, col) => (
             <div
-              key={column.schedule.id}
+              key={column.key}
               role="columnheader"
               className="agenda-column-head"
               aria-colindex={col + 2}
@@ -277,11 +251,8 @@ export function AgendaGrid({
                   : { borderTopColor: column.schedule.color }
               }
             >
-              <div className="fw-bold text-truncate agenda-column-name">{column.schedule.name}</div>
-              <div className="small text-secondary text-truncate">
-                {column.schedule.veterinarian?.name ?? 'Sin veterinario'}
-                {column.schedule.is_active ? '' : ' (inactivada)'}
-              </div>
+              <div className="fw-bold text-truncate agenda-column-name">{column.heading}</div>
+              <div className="small text-secondary text-truncate">{column.subheading}</div>
             </div>
           ))}
         </div>
@@ -312,12 +283,12 @@ export function AgendaGrid({
 
                 return (
                   <div
-                    key={column.schedule.id}
+                    key={column.key}
                     role="gridcell"
                     data-key={key}
                     tabIndex={effectiveKey === key ? 0 : -1}
                     aria-colindex={col + 2}
-                    aria-label={[clock, column.schedule.name, ...states].join(', ')}
+                    aria-label={[clock, column.cellLabel, ...states].join(', ')}
                     className={`agenda-cell${closed ? ' agenda-closed' : ''}${block === undefined ? '' : ' agenda-blocked'}`}
                   >
                     {blockStartsHere ? (
@@ -333,6 +304,7 @@ export function AgendaGrid({
                         rowStart={rowStart}
                         color={column.schedule.color}
                         scheduleName={column.schedule.name}
+                        context={column.itemContext}
                         focusable={effectiveKey === itemKey(item.appointment.id)}
                         onOpen={onOpen}
                       />
@@ -354,6 +326,7 @@ const AgendaItem = memo(function AgendaItem({
   rowStart,
   color,
   scheduleName,
+  context,
   focusable,
   onOpen,
 }: {
@@ -361,11 +334,12 @@ const AgendaItem = memo(function AgendaItem({
   rowStart: number;
   color: string | null;
   scheduleName: string;
+  /** El final del nombre accesible: la agenda y, en la semana, el día. */
+  context: string;
   focusable: boolean;
   onOpen: (item: GridItem, scheduleName: string) => void;
 }) {
   const { appointment } = item;
-  const StatusIcon = STATUS_ICONS[appointment.status.value] ?? IconClock;
   const status = appointment.status.value;
   const classes = [
     'agenda-item',
@@ -382,7 +356,7 @@ const AgendaItem = memo(function AgendaItem({
       data-status={status}
       tabIndex={focusable ? 0 : -1}
       className={classes.join(' ')}
-      aria-label={appointmentLabel(item, scheduleName)}
+      aria-label={appointmentLabel(item, context)}
       style={{
         top: `${String(((item.start - rowStart) / ROW_MINUTES) * ROW_PX)}px`,
         height: `${String(Math.max(((item.end - item.start) / ROW_MINUTES) * ROW_PX - 2, ROW_PX - 2))}px`,
@@ -394,33 +368,7 @@ const AgendaItem = memo(function AgendaItem({
         onOpen(item, scheduleName);
       }}
     >
-      <span className="agenda-item-line">
-        <span className="agenda-item-time">
-          {formatTime(appointment.starts_at)}–{formatTime(appointment.ends_at)}
-        </span>{' '}
-        <strong>{appointmentWho(appointment)}</strong>
-      </span>
-      <span className="agenda-item-line">
-        <StatusIcon size={14} className="me-1" aria-hidden="true" />
-        {appointment.status.label}
-        {appointment.service === null ? '' : ` · ${appointment.service.name}`}
-      </span>
-      {appointment.is_overbooked || item.inBlock ? (
-        <span className="agenda-item-line agenda-item-flag">
-          {item.inBlock ? (
-            <span className="agenda-item-block-flag me-2">
-              <IconLock size={14} className="me-1" aria-hidden="true" />
-              Dentro de un bloqueo
-            </span>
-          ) : null}
-          {appointment.is_overbooked ? (
-            <span>
-              <IconAlertTriangle size={14} className="me-1" aria-hidden="true" />
-              Sobreturno
-            </span>
-          ) : null}
-        </span>
-      ) : null}
+      <AppointmentSummary appointment={appointment} inBlock={item.inBlock} />
     </button>
   );
 });

@@ -8,7 +8,14 @@ import type { ApiFailure, ApiSuccess, Page } from './types';
 
 export const API_BASE = '/api';
 
-type QueryValue = string | number | boolean | null | undefined;
+type QueryScalar = string | number | boolean | null | undefined;
+
+/**
+ * Un valor de la URL de un pedido: un escalar o, desde la 3.3 (H5 del diseño de la F3), una lista, que va como `clave[]` una
+ * vez por elemento (`status: ['confirmed', 'checked_in']` → `status[]=confirmed&status[]=checked_in`, lo que lee Laravel).
+ * Una lista vacía no va.
+ */
+export type QueryValue = QueryScalar | readonly (string | number)[];
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -59,11 +66,19 @@ export function endsSession(error: ApiError): boolean {
   );
 }
 
+function isList(value: QueryValue): value is readonly (string | number)[] {
+  return Array.isArray(value);
+}
+
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   const url = new URL(`${API_BASE}/${path.replace(/^\/+/, '')}`, window.location.origin);
 
   for (const [key, value] of Object.entries(query ?? {})) {
-    if (value !== null && value !== undefined && value !== '') {
+    if (isList(value)) {
+      for (const item of value) {
+        url.searchParams.append(`${key}[]`, String(item));
+      }
+    } else if (value !== null && value !== undefined && value !== '') {
       url.searchParams.set(key, String(value));
     }
   }

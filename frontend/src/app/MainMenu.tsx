@@ -10,6 +10,13 @@ import type { MenuItem } from './menu';
  */
 export const COLLAPSED_MENU_QUERY = '(max-width: 991.98px)';
 
+/** ¿El ítem está activo por otra ruta que también es suya? ("Agenda" en /turnos, desde la 3.3). */
+function isAlsoActive(item: MenuItem, pathname: string): boolean {
+  return (item.alsoActiveOn ?? []).some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 /**
  * El menú principal (2.5, desvío 10 de la 2.4): en pantallas anchas, la barra horizontal de siempre; en las chicas, plegado
  * detrás del botón "Menú", sin el JS de Tabler. El botón dice si está abierto (`aria-expanded`) y qué abre
@@ -83,7 +90,7 @@ export function MainMenu({ items }: { items: readonly MenuItem[] }) {
           <li key={item.to} className="nav-item">
             <Link
               to={item.to}
-              className="nav-link"
+              className={`nav-link${isAlsoActive(item, pathname) ? ' active' : ''}`}
               activeProps={{ className: 'active' }}
               activeOptions={{ exact: item.to === '/' }}
               onClick={() => {

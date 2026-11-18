@@ -206,3 +206,39 @@
 .agenda-single {
   margin-top: 0.75rem;
 }
+
+/* La semana en el celular y la lista en tarjetas (3.3): las mismas tarjetas de turno de la grilla, en el flujo de la página
+   (sin la posición absoluta de la grilla) y a todo el ancho. */
+.agenda-week-item {
+  position: static;
+  width: 100%;
+  min-height: 2.75rem;
+}
+
+.agenda-week-day {
+  font-size: 0.9375rem;
+}
+
+.agenda-week-block {
+  color: var(--tblr-orange);
+}
+
+/* Los ausentes de la lista, atenuados como en la grilla (pregunta 5). */
+.appointment-row-dimmed > td {
+  opacity: 0.55;
+}
+
+/* "Filtrar", alineado con las fechas (que tienen la etiqueta arriba). */
+.appointment-range-submit {
+  padding-top: 1.75rem;
+}
+
+.appointment-statuses .form-check {
+  display: inline-block;
+  margin-right: 1rem;
+}
+
+/* El cambio de vista: los tres enlaces del mismo ancho en el celular, sin desplazar la página. */
+.agenda-views .btn {
+  white-space: nowrap;
+}
