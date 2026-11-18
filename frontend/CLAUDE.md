@@ -8,9 +8,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2 y demo-02 (R-086 a R-090), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | La 3.3 (la semana y la lista de turnos), en `feature/front-3-3-semana-lista`, sin código todavía ([diseño](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#33-la-semana-y-la-lista-de-turnos)) |
-| Tests | Vitest: 1511 tests en 74 archivos, en verde (cierre de la 3.2, R-089, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-32)); Playwright: 34 casos en 17 archivos; la corrida completa, al cerrar la F3 |
+| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2, demo-02 y la 3.3 (R-086 a R-090 y R-092), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
+| Entrega | La 3.3 (la semana y la lista de turnos), cerrada en `feature/front-3-3-semana-lista` (R-092); sigue la 3.4 (el turno: detalle, alta, edición y reprogramación, [diseño](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#34-el-turno-detalle-alta-edición-y-reprogramación)), sin código hasta la autorización del usuario |
+| Tests | Vitest: 1586 tests en 76 archivos, en verde (cierre de la 3.3, R-092, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-33)); Playwright: 36 casos en 18 archivos; la corrida completa, al cerrar la F3 |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
 [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend); el resultado de cada entrega, en el `fN-resultados.md` de su fase;
@@ -90,7 +90,7 @@ Las reglas duras, una por línea; el detalle y los ejemplos de cada una, en
 * **Decidir por `error_code`**, nunca por el texto ni solo por el HTTP ([§6](#6-qué-hace-la-interfaz-con-cada-código-de-error), `src/lib/api/errors.ts`).
 * **Toda llamada a la API pasa por `src/lib/api/client.ts`**: ni `fetch` ni `XMLHttpRequest` fuera de él, y nunca `dangerouslySetInnerHTML`.
 * **Lecturas con `useQuery` y cambios con `useMutation`**, con las claves en el `api.ts` del módulo; lo que depende de la sucursal, con `branchKey`.
-* **Listados**: búsqueda, filtros y página en la URL (`validateSearch` devuelve todas sus claves); lo escrito, siempre texto (`TEXT_SEARCH_PARAMS`); el modelo es `/clientes`.
+* **Listados**: búsqueda, filtros y página en la URL (`validateSearch` devuelve todas sus claves); lo escrito, siempre texto (`TEXT_SEARCH_PARAMS`); una lista, separada por comas (`LIST_SEARCH_PARAMS`) y a la API como `clave[]`; el modelo es `/clientes`.
 * **Contraseñas y archivos fuera de la caché de mutaciones**: `gcTime: 0` y `reset()` en `onSettled`.
 * **Tipos escritos a mano**, con los nombres de la API en `snake_case`.
 * **Formularios**: React Hook Form con Zod, las reglas de la API con sus mensajes, un solo envío (`useSingleAction`) y el 422 con `applyValidationErrors`.

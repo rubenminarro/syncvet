@@ -138,6 +138,6 @@ de una PC.
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
 * **Frontend:** F0, F1 y F2 completadas e integradas a `main` (R-063, R-072 y R-083); la F3 (agenda y turnos), en curso: la 3.3,
-  en `feature/front-3-3-semana-lista`. El detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1 y en el
+  cerrada en `feature/front-3-3-semana-lista` (R-092); sigue la 3.4. El detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1 y en el
   [handoff](docs/03-plan-desarrollo/handoff.md).
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

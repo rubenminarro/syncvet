@@ -36,6 +36,12 @@ su [§5](../../frontend/CLAUDE.md#5-convenciones)). Si una convención contradic
     `hasta` de la auditoría). Un parámetro nuevo no reutiliza el nombre de otro listado con otros valores: el router junta las
     búsquedas de todas las rutas en los enlaces sin `from` (por eso el tipo de la auditoría es `entidad` y no `tipo`, que es de
     `/clientes`).
+  * **Una lista en la URL** (desde la 3.3, los `estados` de `/turnos`): su clave va en `LIST_SEARCH_PARAMS`
+    (`src/app/search-params.ts`), que la lee siempre como una lista de textos (la primera aparición, sin los vacíos) y la escribe
+    separada por comas, sin JSON (`?estados=confirmado,fichado`); una lista vacía no va. El `validateSearch` descarta los valores
+    desconocidos y los repetidos y la ordena como sus casillas; ninguno válido es `undefined`. A la API va como `clave[]`, una vez
+    por elemento (`buildUrl` de `client.ts`: `status: ['confirmed']` → `status[]=confirmed`; una lista vacía no va). Una casilla
+    se aplica sobre la búsqueda más reciente (`navigate` con función), para que dos clics seguidos no pierdan uno.
   * **El campo de búsqueda es local** (`SearchField`, con el hook común `useSearchText` de `src/lib/hooks/use-search-text.ts`, desde
     la 1.3a: lo usan `/clientes` y `/pacientes`) y cambia la URL 300 ms después de la última tecla (`useDebouncedValue`,
     `src/lib/hooks/`, solo con primitivos), sin los espacios de los extremos, con `replace: true` y de vuelta en la página 1; el
