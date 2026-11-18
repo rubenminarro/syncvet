@@ -814,8 +814,8 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
     cuenta todos los del filtro: si supera lo traído, el frontend avisa que faltan turnos. Las relaciones del Resource (agenda,
     sucursal, veterinario con su usuario, servicio, paciente y cliente) van en el `with`: las mismas consultas con 1 turno que con
     300 (`AppointmentPerPageTest`). La consulta de la semana usa `appointments_branch_id_starts_at_index` o, con `schedule_id`,
-    `appointments_schedule_id_starts_at_ends_at_index` (EXPLAIN en MySQL, front-03). El detalle (`ShowAppointmentResource`) suma las notas, quién lo creó y las
-    fechas de los estados (`confirmed_at`, `checked_in_at`, `attended_at`, `no_show_at` y `cancelled_at`, en UTC con `Z`).
+    `appointments_schedule_id_starts_at_ends_at_index` (EXPLAIN en MySQL, front-03). El detalle (`ShowAppointmentResource`) suma
+    las notas, quién lo creó y las fechas de los estados (`confirmed_at`, `checked_in_at`, `attended_at`, `no_show_at` y `cancelled_at`, en UTC con `Z`).
 * **Estados del turno** (3.2b; `AppointmentTransitionController`, `AppointmentTransitionService` y `App\Enums\AppointmentTransition`,
   cada acción con sus estados de origen y su destino): `POST appointments/{appointment}/` + `confirm`, `check-in`, `attend`,
   `no-show`, `undo-no-show` y `cancel`, con su permiso (`appointments.confirm`, `.check-in`, `.attend`, `.no-show` y `.cancel`;

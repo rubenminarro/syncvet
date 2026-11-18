@@ -297,6 +297,12 @@ repetidas):
   completo, al cerrar la fase. Si la entrega cambia el menú (`src/app/menu.ts`) o el permiso de una ruta (`requirePermission`, un
   permiso de `PERMISSIONS`), corre también `e2e/permisos.spec.ts` (`npx playwright test e2e/<archivo>.spec.ts e2e/permisos.spec.ts`;
   R-084). **Navegador** (Edge sin ventana): hasta 10 controles, con capturas solo si cambió una pantalla.
+* **El backend de Playwright corre sin Xdebug** (`XDEBUG_MODE: 'off'` en el `env` de su `webServer`, front-03; con `--no-reload`,
+  `php artisan serve` pasa el entorno entero a `php -S`). Laragon carga Xdebug en modo `debug` y cada pedido tardaba de 2,5 a 3
+  veces más (la medición de front-03, fuera de Playwright). En la corrida, la mejora es chica porque manda la interfaz:
+  `e2e/agendas.spec.ts` y `e2e/permisos.spec.ts` juntos, dos corridas de cada lado, 100 s antes y 99,5 s después en total (con la
+  preparación y Vite); `agendas.spec.ts`, de 37,6 a 33,8 s (−10 %), y `permisos.spec.ts`, de 39,8 a 40,3 s (sin cambio: casi no
+  hace pedidos lentos). Un servidor ya levantado en `:8010` se reutiliza (`reuseExistingServer`) con su propio Xdebug.
 * **Prettier solo sobre los archivos cambiados**: `npx prettier --write <archivos>` (por ejemplo, los de
   `git diff --name-only -- frontend`), no `npm run format` sobre todo el proyecto en cada vuelta.
 * **Una entrega, un tema.** El validador de la documentación, las skills y la documentación general (roadmap, handoff,

@@ -391,8 +391,53 @@ del 2026-11-12). Ningún servidor propio quedó escuchando (8001 y 8021 libres).
 | 4 | El pedido lento no se corrigió | La causa es el servidor de Playwright, no el código de la baja (arriba); la línea de `playwright.config.ts` queda para decidir |
 | 5 | Las mediciones con `php artisan serve` fueron contra la demo (`syncvet`), no contra `syncvet_e2e` | Para medir el mismo código y los mismos datos que `syncvet.test` cambiando solo el servidor y Xdebug |
 
-**Para el cierre:** la revisión (`composer test:fast` y el diff), el registro R-0xx, `backend/CLAUDE.md` §1 (la entrega y las
-cifras), el roadmap y el handoff.
+**Decisiones del usuario (2026-11-18).** Se aceptan los 5 desvíos. Sí a `XDEBUG_MODE: 'off'` en el `env` del `webServer` del
+backend en `frontend/playwright.config.ts` (hecho en la revisión, abajo); los 30 s de `SAVED` de la 3.1b quedan como están;
+Playwright completo, al cerrar la F3.
+
+**Revisión (2026-11-18)**, sobre el diff `c71e71d..60b3615`, por un revisor que no la escribió:
+
+* **`IndexAppointmentRequest`.** La regla de `per_page` pisa la de `ListFilters` (va después del `...`) y el controlador pagina con
+  `$request->integer('per_page')`, la misma entrada que valida el Request: no hay otra vía para pasar más de 500 (el cuerpo de un
+  `GET` también pasa por la validación; un arreglo, `per_page[]=600`, falla en `integer`). Bordes probados con el validador:
+  `600.5`, `-0.5`, `500.0`, `1e2`, `5e2` y `0500` → 422 con **un solo** mensaje (Laravel deja de revisar `min` y `max` cuando falla
+  `integer`); `+500` y ` 500` pasan y dan 500 (inofensivo). El mensaje está en voseo y pasa `VoseoTest`. Ningún otro listado usa
+  `IndexAppointmentRequest`.
+* **`ListFilters` y los otros 10 listados**, sin cambios en el diff; los 10 controladores siguen paginando con
+  `ListFilters::DEFAULT_PER_PAGE`, y `test_the_other_lists_still_stop_at_100` cubre los 10.
+* **`AppointmentPerPageTest`.** El conteo falla de verdad si vuelve el N+1: el turno único tiene paciente, cliente, servicio y una
+  agenda con veterinario (las seis relaciones con clave, así cada una hace su consulta también con 1 turno) y el pedido previo
+  llena la caché de permisos. No depende del orden (300 turnos con `per_page=500` entran en una página) ni de la caché (cada
+  `countQueries` registra su propio `DB::listen`). Sin cambios.
+* **Postman, "22a" a "22c".** Filtran por la agenda de la corrida (`schedule_id`), así el `total: 4` de "22a" vale también en una
+  segunda corrida sin recrear la base; "22b" y "22c" comparan el mensaje exacto. Sin cambios.
+* **Documentación**: completa (`backend/CLAUDE.md` §3 y §6.10, la guía de Postman y esta sección). **Hallazgo 1 (menor, corregido):**
+  la línea nueva de §6.10 de `backend/CLAUDE.md` pasaba de 130 caracteres; se partió.
+* **Mutaciones** (2 de 2 detectadas, revertidas): `per_page` con `numeric` en lugar de `integer` (2 fallas: `10.5` → 200 y `abc`
+  con el mensaje genérico); sin `client` en el `with` (de 9 a 208 consultas con 300 turnos).
+* **Tests relacionados** (sin Xdebug): `AppointmentPerPageTest`, `AppointmentIndexTest`, `ListFiltersTest`, `VoseoTest` y
+  `ValidationTranslationsTest`, 54 de 54 (3399 aserciones). No se tocó código del backend (solo el `CLAUDE.md`): sin `composer
+  test` ni Newman en la revisión; valen los de la implementación (1485 casos; 61 pedidos y 113 aserciones).
+
+**`XDEBUG_MODE: 'off'` en Playwright** (`frontend/playwright.config.ts`, con su comentario; `frontend/CLAUDE.md` §8). Con
+`--no-reload`, `php artisan serve` pasa el entorno entero a `php -S` (`ServeCommand::startProcess`), así que la variable llega al
+servidor. Medición con `npx playwright test e2e/agendas.spec.ts e2e/permisos.spec.ts` (9 casos, todos en verde), dos corridas de
+cada lado, alternadas (antes, después, después, antes):
+
+| | Corrida 1 | Corrida 2 | Promedio | `agendas.spec.ts` (promedio) | `permisos.spec.ts` (promedio) |
+|---|---|---|---|---|---|
+| Antes (con Xdebug) | 101 s | 99 s | 100 s | 37,6 s (39,4 y 35,8) | 39,8 s (40,3 y 39,3) |
+| Después (`XDEBUG_MODE=off`) | 102 s | 97 s | 99,5 s | 33,8 s (33,1 y 34,4) | 40,3 s (42,6 y 38,0) |
+
+La mejora en la corrida es chica: `agendas.spec.ts` baja un 10 % (el caso de los bloqueos, de 19,2 y 13,8 s a 11,9 y 12,6 s) y
+`permisos.spec.ts` no cambia (casi todo es esperar la interfaz). El total incluye la preparación de `syncvet_e2e` y el arranque de
+Vite, que no dependen de Xdebug. La línea queda: no cuesta nada y saca la variable más lenta de los pedidos. `typecheck`, ESLint y
+Prettier del archivo, sin errores.
+
+**Demo.** La revisión no la tocó (Playwright usa `syncvet_e2e`); `admin-a`, `recepcion-a` y `vet-a`, con su `updated_at` del
+2026-11-12. Los servidores de Playwright (`:8010` y `:5174`) los levantó y los cerró Playwright; ninguno quedó escuchando.
+
+**Para el cierre:** el registro R-0xx, `backend/CLAUDE.md` §1 (la entrega y las cifras), el roadmap y el handoff.
 
 ### 3.2 La agenda del día
 
