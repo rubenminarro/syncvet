@@ -9,6 +9,13 @@ import { login, USERS } from './support/session';
 const PREFIX = 'Agenda E2E';
 const NAME = `${PREFIX} ${String(Date.now()).slice(-6)}`;
 
+/**
+ * El resultado de una acción (el aviso, que dura 6 s desde que aparece, o la marca): hasta 30 s, no los 10 s por defecto. El
+ * backend de Playwright (`php artisan serve`) a veces tarda más en un pedido: en la revisión de la 3.1b, la baja de la agenda
+ * tardó 10,8 s una vez (las demás, de 1 a 2 s) y el aviso llegó después del límite.
+ */
+const SAVED = { timeout: 30_000 };
+
 const dialog = (page: Page) => page.locator('.confirm-dialog');
 const day = (page: Page, weekday: number) =>
   page.locator(`.schedule-form .schedule-day-${String(weekday)}`);
@@ -52,7 +59,7 @@ test('una agenda nueva: crearla con dos tramos que se tocan, editar el horario, 
       { weekday: 1, starts_at: '12:00', ends_at: '16:00' },
     ],
   });
-  await expect(page.getByText('Agenda creada correctamente.')).toBeVisible();
+  await expect(page.getByText('Agenda creada correctamente.')).toBeVisible(SAVED);
   await expect(page.locator('.schedule-title')).toHaveText(NAME);
 
   // Después de recargar, lo guardado: el veterinario y los dos tramos del lunes.
@@ -68,7 +75,7 @@ test('una agenda nueva: crearla con dos tramos que se tocan, editar el horario, 
   await day(page, 1).locator('.hour-end').first().fill('13:00');
   await addHour(page, 3, '09:00', '11:00');
   await page.getByRole('button', { name: 'Guardar' }).click();
-  await expect(page.getByText('Agenda actualizada correctamente.')).toBeVisible();
+  await expect(page.getByText('Agenda actualizada correctamente.')).toBeVisible(SAVED);
   await page.reload();
   await expect(page.locator('.schedule-day-1')).toHaveText('08:00 a 13:00');
   await expect(page.locator('.schedule-day-3')).toHaveText('09:00 a 11:00');
@@ -78,7 +85,7 @@ test('una agenda nueva: crearla con dos tramos que se tocan, editar el horario, 
   await dialog(page)
     .getByRole('button', { name: `Inactivar ${NAME}` })
     .click();
-  await expect(page.locator('.schedule-inactive')).toHaveText('Inactivada');
+  await expect(page.locator('.schedule-inactive')).toHaveText('Inactivada', SAVED);
   await page.locator('.page-pretitle').getByRole('link', { name: 'Agendas' }).click();
   await page.getByLabel('Buscar agendas').fill(NAME);
   await expect(page.getByText('No hay agendas que coincidan con la búsqueda.')).toBeVisible();
@@ -92,7 +99,7 @@ test('una agenda nueva: crearla con dos tramos que se tocan, editar el horario, 
   await dialog(page)
     .getByRole('button', { name: `Eliminar ${NAME}` })
     .click();
-  await expect(page.getByText('Agenda eliminada correctamente.')).toBeVisible();
+  await expect(page.getByText('Agenda eliminada correctamente.')).toBeVisible(SAVED);
   await expect(page).toHaveURL(/\/configuracion\/agendas(\?|$)/);
   await expect(page.locator('tr', { hasText: NAME })).toHaveCount(0);
 });
@@ -141,7 +148,7 @@ test('los bloqueos de una agenda: crear uno de una hora, verlo después de recar
     ends_at: `${date}T10:00:00.000-03:00`,
     reason: 'Capacitación E2E',
   });
-  await expect(page.getByText('Bloqueo creado correctamente.')).toBeVisible();
+  await expect(page.getByText('Bloqueo creado correctamente.')).toBeVisible(SAVED);
   await expect(dialog(page)).toHaveCount(0);
 
   // Después de recargar, el bloqueo guardado, en la hora de Asunción.
@@ -151,6 +158,6 @@ test('los bloqueos de una agenda: crear uno de una hora, verlo después de recar
 
   await row.locator('.block-delete').click();
   await dialog(page).getByRole('button', { name: 'Eliminar el bloqueo' }).click();
-  await expect(page.getByText('Bloqueo eliminado correctamente.')).toBeVisible();
+  await expect(page.getByText('Bloqueo eliminado correctamente.')).toBeVisible(SAVED);
   await expect(page.getByText('La agenda no tiene bloqueos desde hoy.')).toBeVisible();
 });

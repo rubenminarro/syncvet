@@ -66,6 +66,15 @@ export function ScheduleBlocks({ schedule }: { schedule: ScheduleDetail }) {
     setDialog(null);
   };
 
+  // Eliminado el único bloqueo de una página que no es la primera, vuelve a la anterior (si no, "Esta página no existe.").
+  const onBlockDeleted = () => {
+    if (page > 1 && blocks.data?.items.length === 1) {
+      setPage(page - 1);
+    }
+
+    close();
+  };
+
   // El bloqueo ya no está (otra pestaña lo eliminó): aviso y la lista pedida de nuevo.
   const onBlockGone = (message: string) => {
     toast.show(message);
@@ -137,10 +146,21 @@ export function ScheduleBlocks({ schedule }: { schedule: ScheduleDetail }) {
           columns={columns}
           rows={blocks.data.items}
           rowKey={(block) => block.id}
-          {...(blocks.data.pagination.last_page > 1
+          {...(blocks.data.pagination.last_page > 1 || page > 1
             ? { pagination: blocks.data.pagination, onPageChange: setPage }
             : {})}
           empty="La agenda no tiene bloqueos desde hoy."
+          firstPageLink={
+            <Button
+              variant="link"
+              className="p-0 align-baseline first-page-link"
+              onClick={() => {
+                setPage(1);
+              }}
+            >
+              Ir a la página 1
+            </Button>
+          }
         />
       )}
       {dialog?.type === 'new' ? <NewBlockDialog schedule={schedule} onClose={close} /> : null}
@@ -149,6 +169,7 @@ export function ScheduleBlocks({ schedule }: { schedule: ScheduleDetail }) {
           schedule={schedule}
           block={dialog.block}
           onGone={onBlockGone}
+          onDeleted={onBlockDeleted}
           onClose={close}
         />
       ) : null}
@@ -462,11 +483,14 @@ export function DeleteBlockDialog({
   schedule,
   block,
   onGone,
+  onDeleted,
   onClose,
 }: {
   schedule: ScheduleDetail;
   block: ScheduleBlock;
   onGone: (message: string) => void;
+  /** Con el 200 (si no se pasa, `onClose`). */
+  onDeleted?: () => void;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -485,7 +509,7 @@ export function DeleteBlockDialog({
     onSuccess: (response) => {
       afterBlocksChanged(queryClient, schedule.id);
       toast.show(response.message, 'success');
-      onClose();
+      (onDeleted ?? onClose)();
     },
     onError: (error) => {
       setFailure(dialogError(error, onGone));

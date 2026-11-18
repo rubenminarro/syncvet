@@ -914,3 +914,4 @@ Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../doc
 | 15 | Foto con un `photo_path` fuera de su carpeta: borrarla responde 404 y deja la referencia (el logo ya la limpia) |
 | 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |
 | 21 | Tests: `countQueries` copiado en tres tests (turnos, agenda y pacientes); prioridad baja: unificarlo cuando se toquen esos tests |
+| 25 | Bloqueos: sin una consulta previa (`dry_run` o similar) de los turnos que quedarían adentro antes de crear el bloqueo; mejora no urgente (revisión de la 3.1b del frontend) |

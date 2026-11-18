@@ -390,6 +390,89 @@ describe('Eliminar un bloqueo', () => {
     });
   });
 
+  it('el único bloqueo de la página 2: al eliminarlo vuelve a la 1, sin "Esta página no existe." ni el vacío', async () => {
+    const SECOND: ScheduleBlock = { ...ONE_HOUR, id: 33 };
+    const pages: number[] = [];
+    let remaining = [ONE_HOUR, SECOND];
+    // Por página de a 1 para no armar 21 bloqueos: la 2 tiene solo SECOND.
+    server.use(
+      meHandler(ADMIN),
+      http.get('/api/schedules/:id', () => success(ROOM_ONE)),
+      http.get('/api/schedules/:id/blocks', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'));
+        pages.push(page);
+        const lastPage = Math.max(1, remaining.length);
+        const items = remaining.slice(page - 1, page);
+
+        return success(items, {
+          meta: pagination({
+            total: remaining.length,
+            per_page: 1,
+            current_page: page,
+            last_page: lastPage,
+          }),
+        });
+      }),
+      http.delete('/api/schedule-blocks/:id', ({ params }) => {
+        remaining = remaining.filter((block) => String(block.id) !== String(params.id));
+
+        return success(null, { message: 'Bloqueo eliminado correctamente.' });
+      }),
+    );
+    renderApp(`/configuracion/agendas/${String(ROOM_ONE.id)}`, { session: sessionFor() });
+    await screen.findByText('20/11/2026, de 09:00 a 10:00', { selector: '.block-period' });
+
+    fireEvent.click(await screen.findByText('Siguiente', { selector: 'button' }));
+    await waitFor(() => {
+      expect(pages).toContain(2);
+    });
+    await screen.findByText('Página 2 de 2');
+    fireEvent.click(
+      screen.getByLabelText('Eliminar el bloqueo 20/11/2026, de 09:00 a 10:00', {
+        selector: 'button',
+      }),
+    );
+    fireEvent.click(await findDialogButton('Eliminar el bloqueo'));
+
+    await screen.findByText('Bloqueo eliminado correctamente.');
+    // De vuelta en la 1 (sin "Esta página no existe." ni el vacío), con el que quedó y sin la paginación.
+    await waitFor(() => {
+      expect(pages.at(-1)).toBe(1);
+    });
+    await screen.findByText('20/11/2026, de 09:00 a 10:00', { selector: '.block-period' });
+    expect(screen.queryByText('La agenda no tiene bloqueos desde hoy.')).toBeNull();
+    expect(screen.queryByText('Página 1 de 1')).toBeNull();
+  });
+
+  it('una página que ya no existe (los bloqueos terminaron u otra pestaña los eliminó): "Esta página no existe." e ir a la 1', async () => {
+    const pages: number[] = [];
+    let total = 2;
+    server.use(
+      meHandler(ADMIN),
+      http.get('/api/schedules/:id', () => success(ROOM_ONE)),
+      http.get('/api/schedules/:id/blocks', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'));
+        pages.push(page);
+        const items = page <= total ? [ONE_HOUR] : [];
+
+        return success(items, {
+          meta: pagination({ total, per_page: 1, current_page: page, last_page: total }),
+        });
+      }),
+    );
+    renderApp(`/configuracion/agendas/${String(ROOM_ONE.id)}`, { session: sessionFor() });
+    await screen.findByText('20/11/2026, de 09:00 a 10:00', { selector: '.block-period' });
+
+    total = 1;
+    fireEvent.click(await screen.findByText('Siguiente', { selector: 'button' }));
+    await screen.findByText('Esta página no existe.', { exact: false });
+    expect(screen.queryByText('La agenda no tiene bloqueos desde hoy.')).toBeNull();
+
+    fireEvent.click(screen.getByText('Ir a la página 1', { selector: 'button' }));
+    await screen.findByText('20/11/2026, de 09:00 a 10:00', { selector: '.block-period' });
+    expect(pages.at(-1)).toBe(1);
+  });
+
   it('404 (otra pestaña ya lo eliminó): el aviso, el diálogo cerrado y la lista pedida de nuevo', async () => {
     const urls: URL[] = [];
     await openDetail(
