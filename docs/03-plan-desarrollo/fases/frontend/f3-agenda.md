@@ -370,9 +370,10 @@ y su marca). Sin rutas, permisos, migraciones ni `error_code` nuevos.
 
 * **Lo que crea**, por los Services (`ScheduleService`, `ScheduleBlockService`, `ServiceCatalogService`, `AppointmentService` y
   `AppointmentTransitionService`) y con `admin-a` como usuario (la auditoría es la de la API): los servicios "Demo Consulta
-  general", "Demo Baño y corte", "Demo Guardia" y "Demo Vacunación"; en la sucursal por defecto, "Demo Consultorio 1" (con la
-  ficha de `vet-a`), "Demo Consultorio 2", "Demo Peluquería" y "Demo Guardia" (abierta todos los días, sin veterinario), y "Demo
-  Vacunación" en cada una de las demás sucursales activas, cada una con su horario semanal; los turnos de la semana en curso
+  general", "Demo Baño y corte", "Demo Guardia" y "Demo Vacunación"; en la sucursal del `DemoSeeder` (`SUC-01` "Casa central",
+  por su código, `ClinicService::FIRST_BRANCH_CODE`; nunca en las que dejan Postman o Playwright, aunque alguna sea la por
+  defecto), "Demo Consultorio 1" (con la ficha de `vet-a`), "Demo Consultorio 2", "Demo Peluquería", "Demo Guardia" (abierta
+  todos los días, sin veterinario) y "Demo Vacunación", cada una con su horario semanal; los turnos de la semana en curso
   (lunes a domingo en `America/Asuncion`), uno cada dos o tres horarios, con los pacientes del `DemoSeeder`. El estado sale de la
   hora: los que ya terminaron, atendidos, ausentes o cancelados; el que está en curso, fichado; los que vienen, a confirmar,
   confirmados o cancelados. Siempre hay un turno en cada estado (lo que falta va en la guardia de ayer, de la semana pasada si es
@@ -380,18 +381,22 @@ y su marca). Sin rutas, permisos, migraciones ni `error_code` nuevos.
   teléfono inventados) y un bloqueo sobre un turno que ocupa el horario (en la peluquería o la guardia, el primero de hoy por
   venir).
 * **Idempotente.** La marca es el prefijo "Demo " del nombre. Al correrlo de nuevo borra los turnos y los bloqueos de las agendas
-  "Demo …", actualiza esas agendas (conservan su id), elimina las "Demo …" que ya no están en la definición, reutiliza los
-  servicios y regenera la semana actual. No toca otras agendas ni sus turnos, ni la Clínica B, ni `admin-a`, `recepcion-a` o
-  `vet-a`. Si un turno de una agenda "Demo …" tiene una consulta (FASE 4), se niega.
+  "Demo …", actualiza esas agendas (conservan su id), elimina las "Demo …" que ya no están en la definición o que quedaron en otra
+  sucursal, reutiliza los servicios y regenera la semana actual. No toca otras agendas ni sus turnos, ni las sucursales, ni la
+  Clínica B, ni `admin-a`, `recepcion-a` o `vet-a`. Si un turno de una agenda "Demo …" tiene una consulta (FASE 4), o si
+  `SUC-01` no está o está inactiva, se niega.
 * **Se niega** fuera de `local` y `testing` (los entornos del `DemoSeeder`) y sin la clínica de la demo; todo va en una
   transacción.
 * **Resumen** al final: las agendas con su sucursal, su veterinario y sus turnos; los turnos por estado; los de hoy, los
   sobreturnos, los de un contacto y el bloqueo.
 
-**Tests** (`tests/Feature/Console/DemoAgendaCommandTest.php`, 8): lo que crea y los estados con el reloj fijo (miércoles
-18/11/2026 10:15); dos corridas iguales (las agendas con el mismo id); otra corrida, otro lunes, que regenera la semana; que no toca
-otros datos ni los tres usuarios; la negativa en `production` y sin la clínica de la demo; la semana de Asunción con el domingo
-22:30 (lunes 01:30 en UTC); el lunes temprano, con el atendido y el ausente del domingo anterior.
+**Tests** (`tests/Feature/Console/DemoAgendaCommandTest.php`, 11): lo que crea y los estados con el reloj fijo (miércoles
+18/11/2026 10:15), las cinco agendas en `SUC-01`; dos corridas iguales (las agendas con el mismo id); otra corrida, otro lunes, que
+regenera la semana; que no toca otros datos ni los tres usuarios; solo `SUC-01` con otra sucursal activa y por defecto, y la "Demo
+Vacunación" vieja de esa sucursal eliminada con su turno (la agenda propia de esa sucursal queda); el reloj restaurado después de
+una corrida y después de una falla a mitad de un paso con el reloj corrido (sin nada a medias); la negativa en `production` y sin
+la clínica de la demo; la semana de Asunción con el domingo 22:30 (lunes 01:30 en UTC); el lunes temprano, con el atendido y el
+ausente del domingo anterior. Ninguno depende de la hora real: los que corren el comando fijan el reloj (`travelTo`).
 
 #### Pendiente para el cierre (demo-02)
 
@@ -420,7 +425,7 @@ errores. Capturas fuera del repositorio (scratchpad de la sesión, `capturas-dem
 | 2 | Los turnos de las agendas "Demo …" se borran con el modelo (uno por uno, con su auditoría), no con un Service | La API no tiene baja de turnos. Un turno dado a mano en una agenda "Demo …" también se borra en la corrida siguiente |
 | 3 | Crea 4 servicios "Demo …" (se reutilizan, no se borran) | Las agendas sin veterinario necesitan un servicio (P10) y la demo no tiene servicios activos propios |
 | 4 | Se niega fuera de `local` y `testing`, no solo en `production` | Los mismos entornos que el `DemoSeeder`; el test cubre `production` |
-| 5 | "Demo Vacunación" queda en "Sucursal de usuarios (Postman)", la otra sucursal activa de la demo | Los tres usuarios de la demo trabajan solo en Casa central: esa agenda no se ve en su `/agenda` (sí en `/configuracion/agendas`) |
+| 5 | ~~"Demo Vacunación" queda en "Sucursal de usuarios (Postman)", la otra sucursal activa de la demo~~ **Corregido en la revisión** (decisión del usuario): todas las agendas van en `SUC-01` | Los tres usuarios de la demo trabajan solo en Casa central: esa agenda no se veía en su `/agenda` (sí en `/configuracion/agendas`) |
 | 6 | El bloqueo va en la peluquería o en la guardia, el primero de hoy por venir: a las 18:28 quedó en la guardia | La peluquería cierra a las 17:00; así el bloqueo se ve en "hoy" a cualquier hora hasta las 20:00 |
 | 7 | En Edge, el control 2 falló en la primera corrida por la espera del script (la grilla dibuja los turnos antes de que lleguen los bloqueos); se corrigió la espera y se repitió solo ese control (en total, 2 ingresos de `admin-a` y 1 de `vet-a`, los 3 tokens revocados, 0 al terminar). La captura `01-dia-1280.png` es de antes de que llegaran los bloqueos (sin el sombreado de las 19:00); el bloqueo está en `02-bloqueo-1280.png` | Falla del script, no de la pantalla |
 | 8 | El comando se corrió 3 veces en la demo (dos con el código final del alta de turnos y una después de mover el bloqueo a "hoy") | La segunda, para ver la idempotencia con los datos reales |
@@ -437,6 +442,57 @@ repitieron solo `VoseoTest` y `DemoAgendaCommandTest`, 10 de 10 (434 aserciones)
 entrega). `FictitiousDocumentsTest`, 3 de 3. MySQL no se corrió (sin migraciones, concurrencia ni búsqueda de texto); Newman
 tampoco (sin rutas nuevas). Desvío 9: la falla de `VoseoTest` en la corrida final, por la que la cifra de `composer test` no es
 de una corrida entera en verde.
+
+**Validación del usuario** (2026-11-18): acepta los desvíos 1 a 4 y 6 a 9; el 5 se corrige (todas las agendas en la sucursal del
+`DemoSeeder`, identificada por su código, y la "Demo Vacunación" de la sucursal de Postman, fuera) y `setup.md` avisa que un turno
+cargado a mano en una agenda "Demo …" se borra en la corrida siguiente.
+
+**Revisión** (2026-11-18, un revisor que no la escribió; el diff `7e2eb5a..910b4cb`, con el Presupuesto por entrega):
+
+* **Services.** Todo pasa por `ScheduleService`, `ScheduleBlockService`, `ServiceCatalogService`, `AppointmentService` y
+  `AppointmentTransitionService`; la única baja sin Service es la de los turnos de las agendas "Demo …", modelo por modelo
+  (desvío 2, documentado). Sin hallazgos.
+* **Lo que borra y regenera.** Solo lo marcado "Demo …": las agendas por el prefijo (con el scope de la clínica: nunca la Clínica
+  B), sus turnos y sus bloqueos por `schedule_id` de esas agendas, y los servicios "Demo …" se reutilizan sin borrarse. Los
+  turnos no tienen `SoftDeletes`, así que la baja de una agenda "Demo …" vieja no choca con turnos eliminados. **H1 (el desvío 5,
+  corregido):** las agendas se creaban en la sucursal **por defecto** y "Demo Vacunación" en **cada otra sucursal activa**; si
+  Postman o Playwright dejaban otra sucursal como la por defecto, todas iban a parar a ella. Ahora van solo en `SUC-01` (por su
+  código: `DemoAgendaCommand::BRANCH_CODE`, tomado de la constante nueva `ClinicService::FIRST_BRANCH_CODE`, la que usa el alta de
+  la clínica); sin `SUC-01` activa, se niega. La "Demo …" que quedó en otra sucursal es una "Demo …" que ya no está en la
+  definición y se elimina sola con sus turnos (`deleteStaleSchedules`), sin código aparte.
+* **El reloj simulado.** `at()` lo corre y lo devuelve en un `finally`, y `handle()` lo vuelve a devolver en el suyo (dos capas):
+  no queda corrido ni si un Service falla a mitad de un paso. Antes no había test; ahora dos (después de una corrida y después de
+  una falla del atendido con el reloj corrido).
+* **La transacción.** `DB::transaction` dentro de `CurrentClinic::run`; la falla simulada no deja agendas, servicios ni turnos
+  (test nuevo). Las excepciones que no son `RuntimeException` también revierten (la transacción) y devuelven el reloj y el
+  usuario (`finally`).
+* **La negativa** fuera de `local` y `testing` (`DemoSeeder::ENVIRONMENTS`), antes de leer nada. Sin hallazgos.
+* **La semana en Asunción.** `now()` en `app.timezone` y `startOfWeek(MONDAY)`; los instantes van con su desplazamiento al alta.
+  Sin hallazgos.
+* **Los tests y la hora real.** Los que corren el comando fijan el reloj (`travelTo`); los dos que no (la negativa y sin la
+  clínica) no generan nada. Sin hallazgos.
+* **H2 (menor, corregido):** el contador de turnos salteados (`$skipped`) no se ponía en 0 al empezar; como Artisan reutiliza la
+  instancia del comando en el mismo proceso, una segunda corrida en el mismo proceso (los tests) sumaba los de la anterior. Ahora
+  se pone en 0 en `handle()`. Sin cambio en una corrida normal.
+
+**Mutaciones de la revisión** (2, con los tests relacionados): (1) la sucursal elegida otra vez por `is_default` en lugar del
+código: falla `test_it_only_uses_the_demo_branch_and_removes_its_old_agendas_elsewhere`; (2) sin devolver el reloj en las dos
+capas (el `finally` de `at()` y el de `handle()`): falla `test_the_clock_is_restored_and_nothing_is_left_after_a_failure`. Quitar
+solo la de `handle()` no falla ningún test: es redundante con la de `at()`, a propósito. Las dos, restauradas.
+
+**Corrida en la demo después de la corrección** (`syncvet.test`, 2026-11-18): 5 agendas, todas en "Casa central" (Consultorio 1
+de Víctor Acosta, 45 turnos; Consultorio 2, 27; Peluquería, 22; Guardia, 57; Vacunación, 20) y 171 turnos: 34 a confirmar, 33
+confirmados, 1 fichado, 53 atendidos, 17 ausentes y 33 cancelados; 30 de hoy, 1 sobreturno, 1 de un contacto y 1 bloqueo ("Demo
+Guardia", 18/11 19:00–19:30, con 1 turno adentro). La "Demo Vacunación" de la sucursal de Postman (id 43) se eliminó sola con sus
+turnos; la nueva, en Casa central, es la 44. Ninguna "Demo …" fuera de `SUC-01`; las agendas de Postman de Casa central, sin
+cambios. `admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at` del 12/11, del 05/11 y del 12/11). Con la quinta agenda en
+Casa central, `/agenda` de hoy muestra 5 columnas (antes 4): no se volvió a mirar en Edge (sin cambios de pantalla).
+
+**Pruebas de la revisión** (desde `backend/`, sin Xdebug): `DemoAgendaCommandTest`, 11 de 11 (475 aserciones).
+Corrida final, `composer test` en SQLite y en serie, **en verde**: 1496 casos, 1480 pasan, 16 omitidos (solo de MySQL), 0 fallas,
+14891 aserciones (4 min 19 s); esta es la cifra de una corrida entera en verde que faltaba (desvío 9). `FictitiousDocumentsTest`,
+3 de 3 (69 aserciones). MySQL, Newman y Playwright no se corrieron (sin migraciones, concurrencia, búsqueda de texto, rutas ni
+pantallas nuevas).
 
 ### 3.3 La semana y la lista de turnos
 

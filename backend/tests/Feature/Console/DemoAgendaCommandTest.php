@@ -5,12 +5,15 @@ namespace Tests\Feature\Console;
 use App\Console\Commands\DemoAgendaCommand;
 use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\Branch;
 use App\Models\Clinic;
 use App\Models\Schedule;
 use App\Models\ScheduleBlock;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
+use App\Services\AppointmentService;
+use App\Services\AppointmentTransitionService;
 use App\Support\CurrentClinic;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DemoSeeder;
@@ -47,15 +50,15 @@ class DemoAgendaCommandTest extends TestCase
         $this->inDemoClinic(function () {
             $schedules = Schedule::with('hours')->orderBy('id')->get();
             $this->assertSame(
-                ['Demo Consultorio 1', 'Demo Consultorio 2', 'Demo Peluquería', 'Demo Guardia'],
-                $schedules->pluck('name')->all(),
-                'Sin otra sucursal activa, solo las de la sucursal por defecto.'
+                ['Demo Consultorio 1', 'Demo Consultorio 2', 'Demo Peluquería', 'Demo Guardia', 'Demo Vacunación'],
+                $schedules->pluck('name')->all()
             );
             $this->assertTrue($schedules->every(fn (Schedule $s) => $s->is_active && $s->hours->isNotEmpty()));
+            $this->assertSame([Branch::where('code', 'SUC-01')->value('id')], $schedules->pluck('branch_id')->unique()->values()->all());
 
             $vetA = Veterinarian::where('user_id', User::where('email', 'vet-a@example.com')->value('id'))->sole();
             $this->assertSame([$vetA->id], $schedules->pluck('veterinarian_id')->filter()->values()->all());
-            $this->assertSame(3, $schedules->whereNull('veterinarian_id')->count());
+            $this->assertSame(4, $schedules->whereNull('veterinarian_id')->count());
 
             $appointments = Appointment::all();
             $this->assertGreaterThan(50, $appointments->count());
@@ -184,6 +187,89 @@ class DemoAgendaCommandTest extends TestCase
         $this->assertSame($before, $after);
         $this->assertSame($otherRow, (array) DB::table('appointments')->where('id', $otherAppointment->id)->first());
         $this->assertSame('Agenda propia', DB::table('schedules')->where('id', $other->id)->value('name'));
+    }
+
+    /**
+     * Desvío 5 de demo-02: solo la sucursal del DemoSeeder (SUC-01), aunque haya otra activa y sea
+     * la por defecto (como la que deja Postman). Una "Demo …" de una corrida anterior en esa otra
+     * sucursal se elimina con sus turnos; lo que no es "Demo …" en ella queda.
+     */
+    public function test_it_only_uses_the_demo_branch_and_removes_its_old_agendas_elsewhere(): void
+    {
+        $this->travelTo(CarbonImmutable::parse(self::WEDNESDAY, self::TZ));
+        $clinicA = Clinic::where('ruc', DemoSeeder::CLINICS[0]['ruc'])->sole();
+        $admin = User::where('email', 'admin-a@example.com')->value('id');
+
+        [$postman, $old, $ownAppointment] = CurrentClinic::run($clinicA, function () use ($admin) {
+            Branch::where('code', 'SUC-01')->update(['is_default' => false]);
+            $postman = Branch::create(['code' => 'SUC-PM', 'name' => 'Sucursal de usuarios (Postman)', 'establishment' => '009', 'is_default' => true, 'is_active' => true]);
+            $service = Service::create(['code' => 'SRV-900002', 'name' => 'Consulta propia', 'category' => 'consultation', 'duration_minutes' => 30, 'standard_price' => '1000.00', 'tax_rate' => 10, 'status' => 'active']);
+            $make = function (string $name, string $contact) use ($postman, $service, $admin) {
+                $schedule = Schedule::create(['branch_id' => $postman->id, 'name' => $name, 'service_id' => $service->id, 'slot_minutes' => 30, 'is_active' => true]);
+                $appointment = Appointment::create([
+                    'schedule_id' => $schedule->id, 'branch_id' => $postman->id, 'service_id' => $service->id,
+                    'contact_name' => $contact, 'contact_phone' => '+595981000998',
+                    'starts_at' => CarbonImmutable::parse('2026-11-19 10:00:00', self::TZ), 'ends_at' => CarbonImmutable::parse('2026-11-19 10:30:00', self::TZ),
+                    'status' => 'pending_confirmation', 'created_by' => $admin,
+                ]);
+
+                return [$schedule, $appointment];
+            };
+            [$old] = $make('Demo Vacunación', 'Persona Inventada');
+            [, $ownAppointment] = $make('Agenda propia', 'Otra Persona');
+
+            return [$postman, $old, $ownAppointment];
+        });
+
+        $this->artisan('demo:agenda')->assertSuccessful();
+
+        $this->inDemoClinic(function () use ($postman, $old, $ownAppointment) {
+            $suc01 = Branch::where('code', 'SUC-01')->value('id');
+            $demo = Schedule::where('name', 'like', 'Demo %')->get();
+            $this->assertCount(5, $demo);
+            $this->assertSame([$suc01], $demo->pluck('branch_id')->unique()->values()->all());
+            $this->assertNull(Schedule::find($old->id), 'La "Demo Vacunación" de la otra sucursal se elimina.');
+            $this->assertSame(0, Appointment::where('branch_id', $postman->id)->where('id', '!=', $ownAppointment->id)->count());
+            $this->assertNotNull(Appointment::find($ownAppointment->id), 'El turno de la agenda propia queda.');
+            $this->assertTrue(Branch::find($postman->id)->is_default, 'Las sucursales no se tocan.');
+        });
+    }
+
+    public function test_the_clock_is_restored_after_a_run(): void
+    {
+        $now = CarbonImmutable::parse(self::WEDNESDAY, self::TZ);
+        $this->travelTo($now);
+
+        $this->artisan('demo:agenda')->assertSuccessful();
+
+        $this->assertTrue(now()->equalTo($now), 'Después de una corrida, el reloj es el de antes.');
+        $this->assertTrue(CarbonImmutable::now()->equalTo($now));
+    }
+
+    /**
+     * El reloj de PHP vuelve a su valor también si la generación falla a mitad de un paso con el
+     * reloj corrido (finally); y la transacción no deja nada.
+     */
+    public function test_the_clock_is_restored_and_nothing_is_left_after_a_failure(): void
+    {
+        $now = CarbonImmutable::parse(self::WEDNESDAY, self::TZ);
+        $this->travelTo($now);
+
+        // El atendido se marca con el reloj corrido (20 minutos después del turno).
+        $this->instance(AppointmentTransitionService::class, new class ($this->app->make(AppointmentService::class)) extends AppointmentTransitionService
+        {
+            public function attend(Appointment $appointment): Appointment
+            {
+                throw new \RuntimeException('Falla simulada en el atendido.');
+            }
+        });
+
+        $this->artisan('demo:agenda')->expectsOutputToContain('Falla simulada')->assertFailed();
+
+        $this->assertTrue(now()->equalTo($now), 'Después de una falla, el reloj es el de antes.');
+        $this->assertTrue(CarbonImmutable::now()->equalTo($now));
+        $this->assertSame(0, DB::table('appointments')->count(), 'La transacción no deja nada a medias.');
+        $this->assertSame(0, DB::table('schedules')->count());
     }
 
     public function test_it_refuses_to_run_in_production(): void

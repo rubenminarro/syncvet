@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Services\AppointmentService;
 use App\Services\AppointmentTransitionService;
+use App\Services\ClinicService;
 use App\Services\ScheduleBlockService;
 use App\Services\ScheduleService;
 use App\Services\ServiceCatalogService;
@@ -36,10 +37,12 @@ use RuntimeException;
  * frontend): la Clínica A del DemoSeeder, que no trae agendas ni turnos.
  *
  * - Solo en local y testing (DemoSeeder::ENVIRONMENTS): en production se niega sin tocar nada.
+ * - Crea sus agendas solo en la sucursal del DemoSeeder (BRANCH_CODE, "Casa central").
  * - Lo suyo lleva el prefijo PREFIX: las agendas "Demo …" (de cualquier sucursal de la clínica)
  *   con sus bloqueos y sus turnos, y los servicios "Demo …". Al correrlo de nuevo borra los
  *   turnos y los bloqueos de esas agendas, actualiza las agendas (conservan su id), elimina las
- *   "Demo …" que ya no están en AGENDAS y regenera la semana. Nunca toca otros datos: ni otras
+ *   "Demo …" que ya no están en AGENDAS o que quedaron en otra sucursal (una corrida anterior
+ *   las ponía en las demás sucursales activas) y regenera la semana. Nunca toca otros datos: ni otras
  *   agendas ni sus turnos, ni la Clínica B, ni admin-a, recepcion-a o vet-a (solo vincula una
  *   agenda a la ficha de vet-a).
  * - Por los Services (ScheduleService, ScheduleBlockService, ServiceCatalogService,
@@ -82,37 +85,43 @@ class DemoAgendaCommand extends Command
     ];
 
     /**
-     * Las agendas. branch: 'default' (la sucursal por defecto) u 'others' (una en cada sucursal
-     * activa que no es la por defecto). vet: la ficha de vet-a. hours: día (1 lunes … 7 domingo)
-     * => tramos. every: un turno cada tantos horarios (la densidad de la grilla).
+     * La única sucursal que crea el DemoSeeder (por ClinicService): todas las agendas "Demo …" van
+     * en ella, nunca en las que dejan Postman o Playwright (tampoco si alguna pasa a ser la por
+     * defecto).
+     */
+    public const BRANCH_CODE = ClinicService::FIRST_BRANCH_CODE;
+
+    /**
+     * Las agendas, todas en la sucursal BRANCH_CODE. vet: la ficha de vet-a. hours: día (1 lunes …
+     * 7 domingo) => tramos. every: un turno cada tantos horarios (la densidad de la grilla).
      */
     public const AGENDAS = [
         [
-            'name' => 'Demo Consultorio 1', 'branch' => 'default', 'vet' => true, 'service' => 'consulta', 'slot' => 30, 'color' => '#206BC4', 'every' => 2,
+            'name' => 'Demo Consultorio 1', 'vet' => true, 'service' => 'consulta', 'slot' => 30, 'color' => '#206BC4', 'every' => 2,
             'hours' => [1 => [['08:00', '12:00'], ['14:00', '18:00']], 2 => [['08:00', '12:00'], ['14:00', '18:00']], 3 => [['08:00', '12:00'], ['14:00', '18:00']], 4 => [['08:00', '12:00'], ['14:00', '18:00']], 5 => [['08:00', '12:00'], ['14:00', '18:00']], 6 => [['08:00', '12:00']]],
             'patients' => ['Firulais', 'Mishi', 'Rocky', 'Lucero'],
             'reasons' => ['Control anual', 'Consulta por vómitos', 'Revisión de la piel', 'Control de peso'],
         ],
         [
-            'name' => 'Demo Consultorio 2', 'branch' => 'default', 'vet' => false, 'service' => 'consulta', 'slot' => 30, 'color' => '#2FB344', 'every' => 3,
+            'name' => 'Demo Consultorio 2', 'vet' => false, 'service' => 'consulta', 'slot' => 30, 'color' => '#2FB344', 'every' => 3,
             'hours' => [1 => [['09:00', '17:00']], 2 => [['09:00', '17:00']], 3 => [['09:00', '17:00']], 4 => [['09:00', '17:00']], 5 => [['09:00', '17:00']]],
             'patients' => ['Rocky', 'Firulais', 'Mishi'],
             'reasons' => ['Control posoperatorio', 'Consulta por tos', 'Desparasitación'],
         ],
         [
-            'name' => 'Demo Peluquería', 'branch' => 'default', 'vet' => false, 'service' => 'peluqueria', 'slot' => 60, 'color' => '#AE3EC9', 'every' => 2,
+            'name' => 'Demo Peluquería', 'vet' => false, 'service' => 'peluqueria', 'slot' => 60, 'color' => '#AE3EC9', 'every' => 2,
             'hours' => [1 => [['09:00', '17:00']], 2 => [['09:00', '17:00']], 3 => [['09:00', '17:00']], 4 => [['09:00', '17:00']], 5 => [['09:00', '17:00']], 6 => [['09:00', '13:00']]],
             'patients' => ['Mishi', 'Firulais', 'Rocky'],
             'reasons' => ['Baño y corte', 'Corte de uñas', 'Baño medicado'],
         ],
         [
-            'name' => 'Demo Guardia', 'branch' => 'default', 'vet' => false, 'service' => 'guardia', 'slot' => 30, 'color' => '#D63939', 'every' => 3,
+            'name' => 'Demo Guardia', 'vet' => false, 'service' => 'guardia', 'slot' => 30, 'color' => '#D63939', 'every' => 3,
             'hours' => [1 => [['08:00', '20:00']], 2 => [['08:00', '20:00']], 3 => [['08:00', '20:00']], 4 => [['08:00', '20:00']], 5 => [['08:00', '20:00']], 6 => [['08:00', '20:00']], 7 => [['08:00', '20:00']]],
             'patients' => ['Lucero', 'Rocky', 'Firulais', 'Mishi'],
             'reasons' => ['Guardia: decaimiento', 'Guardia: herida en la pata', 'Guardia: no come'],
         ],
         [
-            'name' => 'Demo Vacunación', 'branch' => 'others', 'vet' => false, 'service' => 'vacunacion', 'slot' => 30, 'color' => '#F76707', 'every' => 2,
+            'name' => 'Demo Vacunación', 'vet' => false, 'service' => 'vacunacion', 'slot' => 30, 'color' => '#F76707', 'every' => 2,
             'hours' => [1 => [['09:00', '13:00']], 2 => [['09:00', '13:00']], 3 => [['09:00', '13:00']], 4 => [['09:00', '13:00']], 5 => [['09:00', '13:00']]],
             'patients' => ['Firulais', 'Mishi', 'Rocky'],
             'reasons' => ['Vacuna antirrábica', 'Vacuna séxtuple', 'Refuerzo anual'],
@@ -176,6 +185,7 @@ class DemoAgendaCommand extends Command
             return self::FAILURE;
         }
 
+        $this->skipped = 0;
         $test = Carbon::getTestNow();
         $this->originalTestNow = $test === null ? null : CarbonImmutable::instance($test);
         $this->now = now()->toImmutable()->setTimezone(config('app.timezone'));
@@ -225,8 +235,7 @@ class DemoAgendaCommand extends Command
         Auth::guard()->setUser($admin);
 
         $vet = $this->demoVeterinarian();
-        $defaultBranch = Branch::where('is_default', true)->firstOrFail();
-        $otherBranches = Branch::where('is_default', false)->where('is_active', true)->orderBy('id')->get();
+        $branch = $this->demoBranch();
         $patients = $this->demoPatients();
 
         $this->cleanUp();
@@ -240,14 +249,10 @@ class DemoAgendaCommand extends Command
         $agendas = [];
 
         foreach (self::AGENDAS as $definition) {
-            $branches = $definition['branch'] === 'default' ? [$defaultBranch] : $otherBranches->all();
-
-            foreach ($branches as $branch) {
-                $agendas[] = [
-                    'definition' => $definition,
-                    'schedule' => $this->demoSchedule($definition, $branch, $definition['vet'] ? $vet : null, $services[$definition['service']]),
-                ];
-            }
+            $agendas[] = [
+                'definition' => $definition,
+                'schedule' => $this->demoSchedule($definition, $branch, $definition['vet'] ? $vet : null, $services[$definition['service']]),
+            ];
         }
 
         $this->deleteStaleSchedules(array_map(fn (array $agenda) => $agenda['schedule']->id, $agendas));
@@ -291,6 +296,20 @@ class DemoAgendaCommand extends Command
         }
 
         return $vet;
+    }
+
+    /**
+     * La sucursal del DemoSeeder, por su código fijo, activa; no se modifica.
+     */
+    private function demoBranch(): Branch
+    {
+        $branch = Branch::where('code', self::BRANCH_CODE)->first();
+
+        if ($branch === null || ! $branch->is_active) {
+            throw new RuntimeException('No está activa la sucursal ' . self::BRANCH_CODE . ' de la demo: el comando no la modifica.');
+        }
+
+        return $branch;
     }
 
     /**

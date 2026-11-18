@@ -83,7 +83,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
   aceptaría, hasta 7 días) y la cola del día de la sucursal actual.
 * **Comandos:** `php artisan clinic:create` (alta de una clínica con su administrador; no hay alta por la API), el
   `DemoSeeder` (dos clínicas de demostración, solo en `local` y `testing`), `php artisan demo:agenda` (demo-02: en la Clínica A,
-  agendas "Demo …" y los turnos ficticios de la semana en curso en todos los estados, por los Services; idempotente, reemplaza solo
+  solo en su sucursal `SUC-01`, agendas "Demo …" y los turnos ficticios de la semana en curso en todos los estados, por los Services; idempotente, reemplaza solo
   lo que lleva el prefijo "Demo ", sin tocar a `admin-a`, `recepcion-a` ni `vet-a`; solo en `local` y `testing`;
   `docs/04-desarrollo/setup.md`) y `php artisan files:prune-orphans` (fotos y logos
   huérfanos de más de 24 horas, con `--dry-run`; programado a diario a las 03:00, en producción necesita el cron del
