@@ -218,8 +218,8 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 | Entrega | Contenido | Necesita el backend | Rama | Estado |
 |---|---|---|---|---|
 | 3.1a | Agendas: listado, detalle, alta y edición con el horario semanal, inactivar y baja (`/configuracion/agendas`) | No | `feature/front-3-1a-agendas`, desde `docs/front-f3-diseno` | COMPLETADO (R-086, [resultado](#entrega-31a)) |
-| 3.1b | Bloqueos de una agenda: listar, crear (con los turnos afectados) y eliminar | No | `feature/front-3-1b-bloqueos`, desde la 3.1a | APROBADA (siguiente; rama creada desde el cierre de la 3.1a) |
-| front-03 | Soporte del backend: `per_page` hasta 500 en `GET appointments` ([pregunta 1](#preguntas-del-diseño)) | — | `feature/front-03-turnos-por-pagina`, desde la 3.1b | APROBADA |
+| 3.1b | Bloqueos de una agenda: listar, crear (con los turnos afectados) y eliminar | No | `feature/front-3-1b-bloqueos`, desde la 3.1a | COMPLETADO (R-087, [resultado](#entrega-31b)) |
+| front-03 | Soporte del backend: `per_page` hasta 500 en `GET appointments` ([pregunta 1](#preguntas-del-diseño)) | — | `feature/front-03-turnos-por-pagina`, desde la 3.1b | APROBADA (siguiente; rama creada desde el cierre de la 3.1b) |
 | 3.2 | La agenda del día: grilla por agenda, filtros, la sucursal actual, el teclado y "Agenda" en el menú (solo lectura) | front-03 | `feature/front-3-2-agenda-dia`, desde front-03 | APROBADA |
 | 3.3 | La semana y la lista de turnos (`/turnos`, con los filtros de la API y las listas en la URL) | No | `feature/front-3-3-semana-lista`, desde la 3.2 | APROBADA |
 | 3.4 | El turno: detalle, alta (paciente, cliente o contacto; servicio y duración; horario con la disponibilidad; sobreturno), edición y reprogramación | No | `feature/front-3-4-turnos`, desde la 3.3 | APROBADA |
@@ -310,110 +310,7 @@ en la 3.4 (cuando haya turnos desde la interfaz).
 
 #### Pendiente para el cierre (3.1b)
 
-Implementación del 2026-11-18 en `feature/front-3-1b-bloqueos` (desde `913f1d3`), commit WIP; falta la validación del usuario y
-el cierre (`/cerrar-entrega`: `frontend/CLAUDE.md`, el Resultado de este documento, el roadmap, `modulos.md` y el handoff).
-
-**Hecho.** `features/schedules/blocks.ts` (el formulario del alta en Asunción con `TZDate` y `toApiDateTime`, "Todo el día", las
-reglas de `StoreScheduleBlockRequest` con sus mensajes y el período de un bloqueo para mostrar) con `blocks.test.ts`;
-`ScheduleBlocks.tsx` (la tarjeta "Bloqueos" del detalle con `schedule-blocks.index`, paginada, sin `from` ni `to`; "Nuevo bloqueo"
-con `.store` y "Eliminar" con `.destroy`, en `ConfirmDialog` con `useSingleAction` y `dialogError`) con `ScheduleBlocks.test.tsx`;
-en `api.ts`, la consulta (`['schedules', id, 'blocks', { from, to, page }]`), el alta, la baja y `afterBlocksChanged` (los bloqueos y
-la disponibilidad de la agenda, `['schedules', id]`, y el detalle marcado viejo sin otro pedido); tres permisos en `PERMISSIONS`; el
-ayudante de Playwright `createScheduleFor` (la agenda por la API en `syncvet_e2e`) y un caso nuevo en `e2e/agendas.spec.ts`. Sin
-rutas nuevas, sin cambios en el menú, en el backend ni en los paquetes.
-
-**Desvíos y decisiones a validar:**
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | Los turnos que quedan adentro se muestran **después** del 201, no antes de confirmar | Es lo que hace la API (pregunta 22 del backend): crea el bloqueo aunque haya turnos, no lo rechaza ni pide confirmación, y los devuelve en `affected_appointments`. No hay una vista previa en la API (armarla con `GET appointments` no sirve: ese listado llega hasta 31 días y un bloqueo, hasta 366). Antes de confirmar, el diálogo avisa: "Si ya hay turnos en ese horario, el bloqueo se crea igual y te mostramos cuáles quedaron adentro…"; con el 201, el diálogo pasa a la lista (día y hora en Asunción, paciente con su dueño, cliente o contacto con su teléfono, y el estado) con solo "Cerrar" |
-| 2 | Sin el enlace a cada turno de la lista | `/turnos/$id` llega en la 3.4: se suma ahí (el diseño ya lo dice) |
-| 3 | La validación del navegador es una función pura (`blockFormErrors`), no Zod | El diálogo no usa React Hook Form, como los demás diálogos con campos (depósitos y fallecimiento, `deceased.ts`): las mismas reglas y mensajes de la API, con sus tests en los bordes |
-| 4 | A la API, `starts_at` y `ends_at` van con `-03:00` (`toApiDateTime`), no en UTC con `Z` | Lo dice el diseño y la convención de `frontend/CLAUDE.md` §5; la API acepta los dos y responde en UTC con `Z`, que se muestra en Asunción |
-| 5 | La API no tiene un 409 propio de los bloqueos (ni `error_code` de negocio) | Los tests prueban el 409 `CONFLICT` genérico (el aviso de la F0 y el formulario intacto para probar de nuevo) y el 404 de la baja (otra pestaña ya lo eliminó: aviso y la lista de nuevo). El 404 del alta (la agenda eliminada) va al listado con `useScheduleGone` |
-| 6 | El recepcionista y el veterinario se prueban con la tarjeta sola | La ruta del detalle es del administrador (`schedules.update`, 3.1a): hoy solo él ve la tarjeta. El test monta la tarjeta con los permisos reales de los otros roles (lista sin "Nuevo bloqueo" ni "Eliminar") y comprueba que la ruta los lleva a `/sin-permiso` |
-| 7 | Los errores del 422 de la API van a la **fecha** ("Fecha desde", "Fecha hasta"); los del navegador, a la hora si el problema es la hora | La API manda una sola clave por instante (`starts_at`, `ends_at`); el navegador sabe qué parte está mal (fuera de la grilla, a la hora; el fin antes del inicio el mismo día, a "Hora hasta"; en otro día o más de 366 días, a "Fecha hasta") |
-| 8 | "Todo el día" en un día que empezó con el cambio de horario (01/10/2023) empieza a la 01:00 y en la tabla se muestra con la hora, no como "todo el día" | Las 00:00 no existieron ese día (`TZDate` da la 01:00 `-03:00`, el comienzo real del día; el día dura 23 horas, con test). Solo fechas anteriores al 15/10/2024 |
-| 9 | Se corrió `e2e/permisos.spec.ts` (7 de 7) aunque no cambian el menú ni el permiso de una ruta | `PERMISSIONS` suma tres claves (R-084 lo nombra) |
-| 10 | Playwright, la primera corrida de `agendas.spec.ts`: 2 fallas | El caso nuevo, por el ayudante: el nombre del veterinario está en `user.name`, no en `name` (corregido). El de la 3.1a falló en la misma corrida y su error quedó fuera de la salida recortada: no se determinó la causa; sin cambios en ese caso, la corrida siguiente dio 2 de 2 |
-| 11 | En Edge, la primera corrida del script dio 7 de 8: el control 7 falló por el script (`getByRole` encontraba también el "Eliminar" de la fila, cuyo nombre accesible empieza igual) | `exact: true`; repetido el script entero, 8 de 8. Por eso `admin-a` ingresó dos veces (dos ingresos en la auditoría) |
-
-**Mutaciones** (4 de 4 detectadas, revertidas): la fecha armada con la zona de la PC (`new Date(...).toISOString()`) en lugar de
-`toApiDateTime` (7 fallas); "Todo el día" hasta las 00:00 de la fecha hasta, sin el día siguiente (6 fallas); los turnos adentro sin
-mostrar (el diálogo se cierra siempre, 1 falla); el límite de 366 días rechazado en el borde (`>=`, 2 fallas).
-
-**En Edge** (sin ventana, `es-PY`, zona `America/Asuncion`, contra `syncvet.test` con un Vite propio en `:5180`, detenido por su PID;
-8 de 8; la agenda temporal "Control Edge 3.1b …" creada y eliminada por la API, con sus bloqueos: 0 en la demo después): (1) "Nuevo
-bloqueo" con Enter abre con el foco en "Cancelar" y Escape lo cierra y devuelve el foco al botón; (2) la fecha escrita con el teclado
-en el selector nativo (dd/mm/aaaa) queda `yyyy-MM-dd` y Tab no sale del diálogo; (3) 09:03 da el mensaje de la grilla y "hasta" antes
-de "desde", el del fin, sin pedido; (4) "Todo el día" con la barra espaciadora oculta las horas y manda de las 00:00 `-03:00` a las
-00:00 del día siguiente a la fecha hasta, y la tabla dice "Del … al …, todo el día"; (5) la API lo guardó en UTC (03:00 `Z`); (6) a
-375 px, el detalle y el diálogo sin desplazamiento horizontal; (7) eliminar con el teclado (el foco empieza en "Cancelar"); (8) la
-consola sin errores. Ingresó y salió `admin-a` (tokens revocados); `admin-a`, `recepcion-a` y `vet-a` sin cambios. Capturas fuera del
-repositorio (scratchpad de la sesión, `capturas-3-1b`): `01-validacion-1280.png`, `02-todo-el-dia-1280.png`,
-`03-detalle-con-bloqueo-1280.png`, `04-detalle-375.png` y `05-dialogo-375.png`.
-
-**Pruebas.** Durante el trabajo, `vitest related` de lo tocado: 627 de 627 en 29 archivos; `blocks.test.ts` 22 y
-`ScheduleBlocks.test.tsx` 12. Playwright: `e2e/agendas.spec.ts` 2 de 2 (en la segunda corrida, desvío 10) y `e2e/permisos.spec.ts`
-7 de 7. Corrida final (2026-11-18, desde `frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni
-avisos; `npm test`, 1437 tests en 69 archivos, en verde, a la primera. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
-
-**Para la 3.4:** el enlace a cada turno de la lista de afectados y el caso de Playwright con un turno adentro (con turnos desde la
-interfaz).
-
-**Revisión (2026-11-18, sobre `2c30241`, con el diff desde `913f1d3`).** `syncvet.test` respondía (200 en `/` y `/up`).
-Decisiones del usuario: **los 11 desvíos, aceptados**; los turnos adentro, como la API (el bloqueo se crea igual y se muestran
-después), con la marca "Dentro de un bloqueo" en la grilla y en la lista registrada en la [3.2](#32-la-agenda-del-día) y la
-[3.3](#33-la-semana-y-la-lista-de-turnos); la consulta previa de los turnos que quedarían adentro, como mejora del backend no
-urgente ([deuda 25](../../deuda-tecnica.md)).
-
-* **Revisado, sin hallazgos.** Las fechas: el alta arma la hora de pared de Asunción con `TZDate` y la manda con `toApiDateTime`
-  (`-03:00`); lo recibido (`Z`) se muestra con `inAppZone`; "Todo el día" va hasta las 00:00 del día siguiente a la fecha hasta (el
-  día 32 lo normaliza `TZDate`, también el 31/12), con los días de 23 y 25 horas y el cruce de medianoche probados con la PC en UTC.
-  La paridad con `StoreScheduleBlockRequest`: múltiplos de 5 en la hora de Asunción, el fin estrictamente después del inicio
-  (`<=` como `lessThanOrEqualTo`), 366 días de calendario sumados en Asunción (`addDays` sobre `TZDate`, como `addDays` de Carbon
-  en la hora local; el borde pasa y 5 minutos más no), el motivo sin los espacios de los extremos (como `TrimStrings`) y contado
-  en caracteres (`Array.from`, como `mb_strlen`), sin `maxLength` nativo; los mensajes, los de la API. El aviso previo y la lista
-  posterior de los afectados (día, hora, quién y estado en Asunción, solo "Cerrar"). El 409 `CONFLICT` en el diálogo con el
-  formulario intacto, los 422 a sus campos (y las claves desconocidas a la alerta), el 404 del alta (al listado,
-  `useScheduleGone`) y el de la baja (aviso y la lista de nuevo). Los permisos: `schedule-blocks.index`, `.store` y `.destroy`, los
-  nombres de `ScheduleBlockController` y del `RolesAndPermissionsSeeder` (el recepcionista y el veterinario, solo `.index`); con
-  los permisos reales de los dos roles, la tarjeta sin "Nuevo bloqueo" ni "Eliminar". 375 px: el control 6 de Edge de la
-  implementación (sin cambios de pantalla en la revisión, no se repitió).
-* **Hallazgo 1 (menor, corregido): la página de bloqueos que se queda vacía.** La paginación se pasaba solo con
-  `last_page > 1`: al eliminar el único bloqueo de la página 2, la respuesta daba `last_page` 1 y la tabla decía "La agenda no
-  tiene bloqueos desde hoy." aunque la 1 tuviera bloqueos (lo mismo si los de esa página terminaban u otra pestaña los
-  eliminaba). Ahora, al eliminar el único de una página que no es la primera, vuelve a la anterior (`onDeleted` de
-  `DeleteBlockDialog`), y una página fuera de rango muestra "Esta página no existe." con "Ir a la página 1", como los listados.
-  Dos tests nuevos en `ScheduleBlocks.test.tsx`. Sin cambios en la API, los permisos ni los textos de lo que ya andaba.
-* **Hallazgo 2, el test frágil (desvío 10): la causa, el límite de 10 s sobre un pedido lento del backend (corregido).** Antes de
-  tocar nada, `e2e/agendas.spec.ts` 3 veces seguidas: 2 de 2 en cada una. Se descartaron, con 0 fallas en 27 intentos: los datos
-  compartidos (la búsqueda del caso de la 3.1a es el nombre completo y el caso nuevo corre después, en serie, sin crear nada
-  antes de fallar en su ayudante), el checkbox "Incluir las inactivas" controlado por la URL (con un spec temporal, 0 de 10
-  desmarcados justo después del clic y 0 de 10 fallas de `check()`), el aviso antes de recargar en la edición (la URL ya es la del
-  detalle cuando se ve el aviso, 10 de 10), la CPU del navegador frenada ×3 (4 de 4) y una optimización nueva de dependencias de
-  Vite (no hubo). Con el código final, el spec completo falló 2 de 3 veces en el caso de la 3.1a (solo, 3 de 3 en verde) y 3 de
-  13 corridas en total, siempre en las lentas (2,4 a 2,7 min contra 1,1). Con el tiempo de cada pedido a la API registrado
-  (`requestfinished`, un gancho temporal), la falla quedó a la vista: `expect(getByText('Agenda eliminada
-  correctamente.')).toBeVisible()` con el límite por defecto de 10 s y `DELETE /api/schedules/1` de **10.803 ms** (la misma baja,
-  1,1 a 1,6 s en las corridas en verde; los demás pedidos, de 0,3 a 3,7 s). El aviso llegaba después del límite (en la captura
-  está). No es la entrega: es el backend de Playwright (`php artisan serve` en Windows), que a veces tarda más de 10 s en un pedido.
-  **Corrección:** los resultados de las acciones de los dos casos (los cinco avisos y la marca "Inactivada") esperan hasta 30 s
-  (`SAVED`), con el motivo en el spec; el aviso dura 6 s desde que aparece, así que esperar más no lo pierde. Después, 3 corridas
-  seguidas del spec completo: 2 de 2 en cada una. Los specs temporales y el gancho se borraron.
-
-**Mutaciones de la revisión** (4 de 4 detectadas, revertidas; solo los tests del archivo): el motivo contado con `.length` (un
-emoji es 2, `blocks.test.ts`, 1 falla); "Nuevo bloqueo" sin `schedule-blocks.store` (`ScheduleBlocks.test.tsx`, 2 fallas: el
-recepcionista y el veterinario); `ends_at` del 422 a "Fecha desde" (1 falla); el hallazgo 1 sin volver a la página anterior (1
-falla).
-
-**Pruebas de la revisión.** `vitest related` de `ScheduleBlocks.tsx`: 571 de 571 en 27 archivos. Corrida final (2026-11-18, desde
-`frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1439 tests en 69
-archivos, en verde, a la primera (2 más que la implementación: los del hallazgo 1). Desde `backend/`, `FictitiousDocumentsTest`,
-3 de 3. Playwright: `e2e/agendas.spec.ts` con la corrección, 3 corridas seguidas, 2 de 2 en cada una (y `eslint` y `tsc` del spec).
-No se tocó la demo (`syncvet.test`, solo para comprobar que respondía): Playwright usa `syncvet_e2e`; `admin-a`, `recepcion-a` y
-`vet-a`, sin cambios. Los servidores de Playwright los levanta y los detiene Playwright (al final, ningún puerto escuchando en
-`:8010` ni `:5174`).
+Vacío: la entrega se cerró (R-087) y todo lo que había acá pasó a su [resultado](#entrega-31b).
 
 ### front-03 Soporte del backend: más turnos por página en el listado
 
@@ -781,3 +678,120 @@ en la implementación (con el backend propio del desvío 8) y 8 de 8 repetidos c
 Playwright); la corrida completa de Playwright, al cerrar la F3.
 
 Corrida de `npm test` del frontend (2026-11-18): 1403 tests en 67 archivos, en verde.
+
+### Entrega 3.1b
+
+Estado: **COMPLETADO** el 2026-11-18 (R-087). Los bloqueos de una agenda (listar, crear con los turnos que quedan adentro y
+eliminar), en la tarjeta "Bloqueos" del detalle de la agenda, en `feature/front-3-1b-bloqueos` (desde `913f1d3`, el cierre de la
+3.1a), sin integrar a `main` (se integra al cerrar la F3). Commits: `2c30241` (WIP de la implementación), `cbb4663` (WIP de la
+revisión) y el de este cierre (R-087: la documentación), todos el 2026-11-18. Sin cambios en el backend ni paquetes nuevos.
+
+**Hecho.** `features/schedules/blocks.ts` (el formulario del alta en Asunción con `TZDate` y `toApiDateTime`, "Todo el día", las
+reglas de `StoreScheduleBlockRequest` con sus mensajes y el período de un bloqueo para mostrar) con `blocks.test.ts`;
+`ScheduleBlocks.tsx` (la tarjeta "Bloqueos" del detalle con `schedule-blocks.index`, paginada, sin `from` ni `to`; "Nuevo bloqueo"
+con `.store` y "Eliminar" con `.destroy`, en `ConfirmDialog` con `useSingleAction` y `dialogError`) con `ScheduleBlocks.test.tsx`;
+en `api.ts`, la consulta (`['schedules', id, 'blocks', { from, to, page }]`), el alta, la baja y `afterBlocksChanged` (los bloqueos y
+la disponibilidad de la agenda, `['schedules', id]`, y el detalle marcado viejo sin otro pedido); tres permisos en `PERMISSIONS`; el
+ayudante de Playwright `createScheduleFor` (la agenda por la API en `syncvet_e2e`) y un caso nuevo en `e2e/agendas.spec.ts`. Sin
+rutas nuevas, sin cambios en el menú, en el backend ni en los paquetes.
+
+**Desvíos** (los 11, aceptados por el usuario en la revisión; ninguno cambia el comportamiento del diseño):
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Los turnos que quedan adentro se muestran **después** del 201, no antes de confirmar | Es lo que hace la API (pregunta 22 del backend): crea el bloqueo aunque haya turnos, no lo rechaza ni pide confirmación, y los devuelve en `affected_appointments`. No hay una vista previa en la API (armarla con `GET appointments` no sirve: ese listado llega hasta 31 días y un bloqueo, hasta 366). Antes de confirmar, el diálogo avisa: "Si ya hay turnos en ese horario, el bloqueo se crea igual y te mostramos cuáles quedaron adentro…"; con el 201, el diálogo pasa a la lista (día y hora en Asunción, paciente con su dueño, cliente o contacto con su teléfono, y el estado) con solo "Cerrar" |
+| 2 | Sin el enlace a cada turno de la lista | `/turnos/$id` llega en la 3.4: se suma ahí (el diseño ya lo dice) |
+| 3 | La validación del navegador es una función pura (`blockFormErrors`), no Zod | El diálogo no usa React Hook Form, como los demás diálogos con campos (depósitos y fallecimiento, `deceased.ts`): las mismas reglas y mensajes de la API, con sus tests en los bordes |
+| 4 | A la API, `starts_at` y `ends_at` van con `-03:00` (`toApiDateTime`), no en UTC con `Z` | Lo dice el diseño y la convención de `frontend/CLAUDE.md` §5; la API acepta los dos y responde en UTC con `Z`, que se muestra en Asunción |
+| 5 | La API no tiene un 409 propio de los bloqueos (ni `error_code` de negocio) | Los tests prueban el 409 `CONFLICT` genérico (el aviso de la F0 y el formulario intacto para probar de nuevo) y el 404 de la baja (otra pestaña ya lo eliminó: aviso y la lista de nuevo). El 404 del alta (la agenda eliminada) va al listado con `useScheduleGone` |
+| 6 | El recepcionista y el veterinario se prueban con la tarjeta sola | La ruta del detalle es del administrador (`schedules.update`, 3.1a): hoy solo él ve la tarjeta. El test monta la tarjeta con los permisos reales de los otros roles (lista sin "Nuevo bloqueo" ni "Eliminar") y comprueba que la ruta los lleva a `/sin-permiso` |
+| 7 | Los errores del 422 de la API van a la **fecha** ("Fecha desde", "Fecha hasta"); los del navegador, a la hora si el problema es la hora | La API manda una sola clave por instante (`starts_at`, `ends_at`); el navegador sabe qué parte está mal (fuera de la grilla, a la hora; el fin antes del inicio el mismo día, a "Hora hasta"; en otro día o más de 366 días, a "Fecha hasta") |
+| 8 | "Todo el día" en un día que empezó con el cambio de horario (01/10/2023) empieza a la 01:00 y en la tabla se muestra con la hora, no como "todo el día" | Las 00:00 no existieron ese día (`TZDate` da la 01:00 `-03:00`, el comienzo real del día; el día dura 23 horas, con test). Solo fechas anteriores al 15/10/2024 |
+| 9 | Se corrió `e2e/permisos.spec.ts` (7 de 7) aunque no cambian el menú ni el permiso de una ruta | `PERMISSIONS` suma tres claves (R-084 lo nombra) |
+| 10 | Playwright, la primera corrida de `agendas.spec.ts`: 2 fallas | El caso nuevo, por el ayudante: el nombre del veterinario está en `user.name`, no en `name` (corregido). El de la 3.1a falló en la misma corrida y su error quedó fuera de la salida recortada: no se determinó la causa; sin cambios en ese caso, la corrida siguiente dio 2 de 2 |
+| 11 | En Edge, la primera corrida del script dio 7 de 8: el control 7 falló por el script (`getByRole` encontraba también el "Eliminar" de la fila, cuyo nombre accesible empieza igual) | `exact: true`; repetido el script entero, 8 de 8. Por eso `admin-a` ingresó dos veces (dos ingresos en la auditoría) |
+
+**Mutaciones** (4 de 4 detectadas, revertidas): la fecha armada con la zona de la PC (`new Date(...).toISOString()`) en lugar de
+`toApiDateTime` (7 fallas); "Todo el día" hasta las 00:00 de la fecha hasta, sin el día siguiente (6 fallas); los turnos adentro sin
+mostrar (el diálogo se cierra siempre, 1 falla); el límite de 366 días rechazado en el borde (`>=`, 2 fallas).
+
+**En Edge** (sin ventana, `es-PY`, zona `America/Asuncion`, contra `syncvet.test` con un Vite propio en `:5180`, detenido por su PID;
+8 de 8; la agenda temporal "Control Edge 3.1b …" creada y eliminada por la API, con sus bloqueos: 0 en la demo después): (1) "Nuevo
+bloqueo" con Enter abre con el foco en "Cancelar" y Escape lo cierra y devuelve el foco al botón; (2) la fecha escrita con el teclado
+en el selector nativo (dd/mm/aaaa) queda `yyyy-MM-dd` y Tab no sale del diálogo; (3) 09:03 da el mensaje de la grilla y "hasta" antes
+de "desde", el del fin, sin pedido; (4) "Todo el día" con la barra espaciadora oculta las horas y manda de las 00:00 `-03:00` a las
+00:00 del día siguiente a la fecha hasta, y la tabla dice "Del … al …, todo el día"; (5) la API lo guardó en UTC (03:00 `Z`); (6) a
+375 px, el detalle y el diálogo sin desplazamiento horizontal; (7) eliminar con el teclado (el foco empieza en "Cancelar"); (8) la
+consola sin errores. Ingresó y salió `admin-a` (tokens revocados); `admin-a`, `recepcion-a` y `vet-a` sin cambios. Capturas fuera del
+repositorio (scratchpad de la sesión, `capturas-3-1b`): `01-validacion-1280.png`, `02-todo-el-dia-1280.png`,
+`03-detalle-con-bloqueo-1280.png`, `04-detalle-375.png` y `05-dialogo-375.png`.
+
+**Pruebas.** Durante el trabajo, `vitest related` de lo tocado: 627 de 627 en 29 archivos; `blocks.test.ts` 22 y
+`ScheduleBlocks.test.tsx` 12. Playwright: `e2e/agendas.spec.ts` 2 de 2 (en la segunda corrida, desvío 10) y `e2e/permisos.spec.ts`
+7 de 7. Corrida final (2026-11-18, desde `frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni
+avisos; `npm test`, 1437 tests en 69 archivos, en verde, a la primera. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
+**Para la 3.4:** el enlace a cada turno de la lista de afectados y el caso de Playwright con un turno adentro (con turnos desde la
+interfaz).
+
+**Revisión (2026-11-18, sobre `2c30241`, con el diff desde `913f1d3`).** `syncvet.test` respondía (200 en `/` y `/up`).
+Decisiones del usuario: **los 11 desvíos, aceptados**; los turnos adentro, como la API (el bloqueo se crea igual y se muestran
+después), con la marca "Dentro de un bloqueo" en la grilla y en la lista registrada en la [3.2](#32-la-agenda-del-día) y la
+[3.3](#33-la-semana-y-la-lista-de-turnos); la consulta previa de los turnos que quedarían adentro, como mejora del backend no
+urgente ([deuda 25](../../deuda-tecnica.md)).
+
+* **Revisado, sin hallazgos.** Las fechas: el alta arma la hora de pared de Asunción con `TZDate` y la manda con `toApiDateTime`
+  (`-03:00`); lo recibido (`Z`) se muestra con `inAppZone`; "Todo el día" va hasta las 00:00 del día siguiente a la fecha hasta (el
+  día 32 lo normaliza `TZDate`, también el 31/12), con los días de 23 y 25 horas y el cruce de medianoche probados con la PC en UTC.
+  La paridad con `StoreScheduleBlockRequest`: múltiplos de 5 en la hora de Asunción, el fin estrictamente después del inicio
+  (`<=` como `lessThanOrEqualTo`), 366 días de calendario sumados en Asunción (`addDays` sobre `TZDate`, como `addDays` de Carbon
+  en la hora local; el borde pasa y 5 minutos más no), el motivo sin los espacios de los extremos (como `TrimStrings`) y contado
+  en caracteres (`Array.from`, como `mb_strlen`), sin `maxLength` nativo; los mensajes, los de la API. El aviso previo y la lista
+  posterior de los afectados (día, hora, quién y estado en Asunción, solo "Cerrar"). El 409 `CONFLICT` en el diálogo con el
+  formulario intacto, los 422 a sus campos (y las claves desconocidas a la alerta), el 404 del alta (al listado,
+  `useScheduleGone`) y el de la baja (aviso y la lista de nuevo). Los permisos: `schedule-blocks.index`, `.store` y `.destroy`, los
+  nombres de `ScheduleBlockController` y del `RolesAndPermissionsSeeder` (el recepcionista y el veterinario, solo `.index`); con
+  los permisos reales de los dos roles, la tarjeta sin "Nuevo bloqueo" ni "Eliminar". 375 px: el control 6 de Edge de la
+  implementación (sin cambios de pantalla en la revisión, no se repitió).
+* **Hallazgo 1 (menor, corregido): la página de bloqueos que se queda vacía.** La paginación se pasaba solo con
+  `last_page > 1`: al eliminar el único bloqueo de la página 2, la respuesta daba `last_page` 1 y la tabla decía "La agenda no
+  tiene bloqueos desde hoy." aunque la 1 tuviera bloqueos (lo mismo si los de esa página terminaban u otra pestaña los
+  eliminaba). Ahora, al eliminar el único de una página que no es la primera, vuelve a la anterior (`onDeleted` de
+  `DeleteBlockDialog`), y una página fuera de rango muestra "Esta página no existe." con "Ir a la página 1", como los listados.
+  Dos tests nuevos en `ScheduleBlocks.test.tsx`. Sin cambios en la API, los permisos ni los textos de lo que ya andaba.
+* **Hallazgo 2, el test frágil (desvío 10): la causa, el límite de 10 s sobre un pedido lento del backend (corregido).** Antes de
+  tocar nada, `e2e/agendas.spec.ts` 3 veces seguidas: 2 de 2 en cada una. Se descartaron, con 0 fallas en 27 intentos: los datos
+  compartidos (la búsqueda del caso de la 3.1a es el nombre completo y el caso nuevo corre después, en serie, sin crear nada
+  antes de fallar en su ayudante), el checkbox "Incluir las inactivas" controlado por la URL (con un spec temporal, 0 de 10
+  desmarcados justo después del clic y 0 de 10 fallas de `check()`), el aviso antes de recargar en la edición (la URL ya es la del
+  detalle cuando se ve el aviso, 10 de 10), la CPU del navegador frenada ×3 (4 de 4) y una optimización nueva de dependencias de
+  Vite (no hubo). Con el código final, el spec completo falló 2 de 3 veces en el caso de la 3.1a (solo, 3 de 3 en verde) y 3 de
+  13 corridas en total, siempre en las lentas (2,4 a 2,7 min contra 1,1). Con el tiempo de cada pedido a la API registrado
+  (`requestfinished`, un gancho temporal), la falla quedó a la vista: `expect(getByText('Agenda eliminada
+  correctamente.')).toBeVisible()` con el límite por defecto de 10 s y `DELETE /api/schedules/1` de **10.803 ms** (la misma baja,
+  1,1 a 1,6 s en las corridas en verde; los demás pedidos, de 0,3 a 3,7 s). El aviso llegaba después del límite (en la captura
+  está). No es la entrega: es el backend de Playwright (`php artisan serve` en Windows), que a veces tarda más de 10 s en un pedido.
+  **Corrección:** los resultados de las acciones de los dos casos (los cinco avisos y la marca "Inactivada") esperan hasta 30 s
+  (`SAVED`), con el motivo en el spec; el aviso dura 6 s desde que aparece, así que esperar más no lo pierde. Después, 3 corridas
+  seguidas del spec completo: 2 de 2 en cada una. Los specs temporales y el gancho se borraron.
+
+**Mutaciones de la revisión** (4 de 4 detectadas, revertidas; solo los tests del archivo): el motivo contado con `.length` (un
+emoji es 2, `blocks.test.ts`, 1 falla); "Nuevo bloqueo" sin `schedule-blocks.store` (`ScheduleBlocks.test.tsx`, 2 fallas: el
+recepcionista y el veterinario); `ends_at` del 422 a "Fecha desde" (1 falla); el hallazgo 1 sin volver a la página anterior (1
+falla).
+
+**Pruebas de la revisión.** `vitest related` de `ScheduleBlocks.tsx`: 571 de 571 en 27 archivos. Corrida final (2026-11-18, desde
+`frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1439 tests en 69
+archivos, en verde, a la primera (2 más que la implementación: los del hallazgo 1). Desde `backend/`, `FictitiousDocumentsTest`,
+3 de 3. Playwright: `e2e/agendas.spec.ts` con la corrección, 3 corridas seguidas, 2 de 2 en cada una (y `eslint` y `tsc` del spec).
+No se tocó la demo (`syncvet.test`, solo para comprobar que respondía): Playwright usa `syncvet_e2e`; `admin-a`, `recepcion-a` y
+`vet-a`, sin cambios. Los servidores de Playwright los levanta y los detiene Playwright (al final, ningún puerto escuchando en
+`:8010` ni `:5174`).
+
+**Validación.** El usuario aceptó los 11 desvíos, decidió los turnos adentro como la API (con la marca de la 3.2 y la 3.3 y la
+deuda 25), pidió la revisión y el cierre. Claude Code: Edge sin ventana, 8 de 8 contra `syncvet.test` en la implementación (la
+revisión no cambió la pantalla salvo la página fuera de rango, cubierta por Vitest); Playwright, `e2e/agendas.spec.ts` 2 de 2 en
+3 corridas seguidas con la corrección del hallazgo 2 y `e2e/permisos.spec.ts` 7 de 7 (en la implementación); la corrida completa
+de Playwright, al cerrar la F3.
+
+Corrida de `npm test` del frontend (2026-11-18): 1439 tests en 69 archivos, en verde.

@@ -1849,3 +1849,22 @@ Primera entrega de pantallas de la F3 del frontend (R-085), en `feature/front-3-
 | Siguiente | La entrega 3.1b (bloqueos de una agenda), en `feature/front-3-1b-bloqueos`, creada desde el cierre de la 3.1a | Diseño (R-085) |
 
 **Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta, colecciones y paquetes.
+
+# R-087 Cierre de la entrega 3.1b del frontend (bloqueos de una agenda) (2026-11-18)
+
+Segunda entrega de pantallas de la F3 del frontend (R-085), en `feature/front-3-1b-bloqueos` (desde `913f1d3`, el cierre de la
+3.1a), sin integrar a `main`: se integra al cerrar la F3. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f3-agenda.md#entrega-31b).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Bloqueos" en el detalle de la agenda (`schedule-blocks.index`, paginada): los próximos con el período en Asunción y el motivo; "Nuevo bloqueo" (`schedule-blocks.store`) con desde y hasta, "Todo el día" (hasta las 00:00 del día siguiente a la fecha hasta) y el motivo, mandados con `toApiDateTime` (`-03:00`) y con las reglas de `StoreScheduleBlockRequest` repetidas en el navegador (`features/schedules/blocks.ts`); "Eliminar" (`schedule-blocks.destroy`). `PERMISSIONS` suma las tres claves. El ayudante de Playwright `createScheduleFor` y un caso nuevo en `e2e/agendas.spec.ts` | Diseño (R-085) |
+| Turnos adentro | Como la API (pregunta 22 del backend): el bloqueo se crea igual; antes de confirmar, el diálogo avisa, y con el 201 muestra los turnos de `affected_appointments` (el enlace a cada uno, en la 3.4). La grilla (3.2) y la lista (3.3) los marcan "Dentro de un bloqueo". La consulta previa de los que quedarían adentro, mejora del backend no urgente (deuda 25) | Usuario |
+| Desvíos | Los 11, aceptados; ninguno cambia el comportamiento del diseño. Entre ellos: los afectados después del 201 (1); la validación del navegador como función pura, sin Zod (3); el 409 `CONFLICT` genérico y los 404 del alta y de la baja (5); los 422 de la API a la fecha y los del navegador a la hora o la fecha (7); "Todo el día" en el día del cambio de horario de 2023 desde la 01:00 (8) | Usuario |
+| Revisión | Con el presupuesto por entrega, sobre `2c30241` (diff con `913f1d3`), corregido en `cbb4663`. Hallazgo 1 (menor): al eliminar el único bloqueo de una página que no es la primera, la tarjeta decía que no había bloqueos; ahora vuelve a la anterior y una página fuera de rango muestra "Esta página no existe." con "Ir a la página 1" (2 tests). Hallazgo 2, la causa del test frágil de la 3.1a (desvío 10): `DELETE /api/schedules/1` tardó 10,8 s en el backend de Playwright y el aviso llegó después del límite de 10 s; los avisos y la marca "Inactivada" de `agendas.spec.ts` esperan hasta 30 s (`SAVED`) | Revisión |
+| Mutaciones | De la implementación, 4 de 4 (la fecha con la zona de la PC; "Todo el día" sin el día siguiente; los afectados sin mostrar; 366 días rechazado en el borde); de la revisión, 4 de 4 (el motivo contado con `.length`; "Nuevo bloqueo" sin su permiso; `ends_at` del 422 a "Fecha desde"; el hallazgo 1 sin volver a la página anterior) | Implementación y revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 8 de 8 en Edge sin ventana contra `syncvet.test` en la implementación; Playwright, `e2e/agendas.spec.ts` 2 de 2 en 3 corridas seguidas (revisión) y `e2e/permisos.spec.ts` 7 de 7 (implementación). Corrida de la revisión, sobre el código de `cbb4663`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1439 tests en 69 archivos, en verde, a la primera; `FictitiousDocumentsTest`, 3 de 3 | Usuario y Claude Code |
+| Siguiente | La entrega de soporte del backend front-03 (`per_page` hasta 500 en `GET appointments`), en `feature/front-03-turnos-por-pagina` desde la 3.1b; después, la 3.2 | Diseño (R-085) |
+
+**Qué no cambió.** Backend (solo la fila 25 de la tabla de deuda de `backend/CLAUDE.md`), rutas y permisos de la API, `error_code`,
+códigos HTTP, contrato de respuesta, el menú, el permiso de las rutas, colecciones y paquetes.
