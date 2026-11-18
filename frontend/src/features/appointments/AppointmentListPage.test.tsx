@@ -245,6 +245,16 @@ describe('/turnos: la lista', () => {
     expect(history.location.search).toContain('agenda=8&veterinario=5');
   });
 
+  it('sin resultados: "en estas fechas" sin filtros; con el filtro de veterinario, "que coincidan con los filtros"', async () => {
+    const { history } = await openList('/turnos?desde=2026-11-17', { appointments: () => [] });
+
+    expect(await screen.findByText('No hay turnos en estas fechas.')).toBeTruthy();
+
+    history.push('/turnos?desde=2026-11-17&veterinario=5');
+
+    expect(await screen.findByText('No hay turnos que coincidan con los filtros.')).toBeTruthy();
+  });
+
   it('la paginación y la página que no existe', async () => {
     const { history, urls } = await openList('/turnos?desde=2026-11-17&pagina=2', {
       total: 30,

@@ -1,7 +1,7 @@
 import { IconClock } from '@tabler/icons-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useRef, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { useState, type ReactNode, type SyntheticEvent } from 'react';
 import { ForbiddenPage } from '../../app/ForbiddenPage';
 import {
   Button,
@@ -24,13 +24,16 @@ import { useSearchText } from '../../lib/hooks/use-search-text';
 import { SEARCH_MAX_LENGTH } from '../../lib/search-text';
 import { meQueryOptions } from '../auth/api';
 import {
+  AgendaHeader,
   AgendaViewSwitch,
   AppointmentFlags,
   AppointmentPanel,
   AppointmentSummary,
 } from './AgendaShared';
 import {
+  appointmentItemClass,
   countText,
+  useAppointmentPanel,
   scheduleOptionLabel,
   selectedId,
   SINGLE_COLUMN_QUERY,
@@ -81,11 +84,8 @@ export function AppointmentListPage() {
   // Lo que la API toma como el rango: sin fechas, hoy; con una sola, ese día.
   const from = search.desde ?? search.hasta ?? today;
   const to = search.hasta ?? search.desde ?? today;
-  const [selected, setSelected] = useState<{ appointment: Appointment; inBlock: boolean } | null>(
-    null,
-  );
-  const panelRef = useRef<HTMLHeadingElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
+  const panel = useAppointmentPanel<{ appointment: Appointment; inBlock: boolean }>();
+  const { selected, setSelected } = panel;
   const [announced, setAnnounced] = useState<{ key: string; text: string } | null>(null);
 
   const query = useQuery({
@@ -138,10 +138,7 @@ export function AppointmentListPage() {
     });
   };
   const open = (appointment: Appointment) => {
-    openerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setSelected({ appointment, inBlock: inBlock(appointment) });
-    window.setTimeout(() => panelRef.current?.focus(), 0);
+    panel.open({ appointment, inBlock: inBlock(appointment) });
   };
 
   // El anuncio, como en la agenda: al cambiar de filtro o de página, cuando llega lo pedido; nunca con la actualización.
@@ -196,7 +193,10 @@ export function AppointmentListPage() {
   ];
 
   const emptyText =
-    filters.search === '' && filters.status.length === 0 && filters.schedule_id === null
+    filters.search === '' &&
+    filters.status.length === 0 &&
+    filters.schedule_id === null &&
+    filters.veterinarian_id === null
       ? 'No hay turnos en estas fechas.'
       : 'No hay turnos que coincidan con los filtros.';
   const firstPageLink = (
@@ -264,17 +264,7 @@ export function AppointmentListPage() {
 
   return (
     <>
-      <div className="page-header mb-3">
-        <div className="row g-2 align-items-center">
-          <div className="col">
-            <div className="page-pretitle">Agenda</div>
-            <h2 className="page-title">Turnos</h2>
-          </div>
-        </div>
-      </div>
-      <div className="visually-hidden" role="status" aria-live="polite">
-        {announced?.text ?? ''}
-      </div>
+      <AgendaHeader title="Turnos" titleClassName="" announcement={announced?.text ?? ''} />
       <Card flush>
         <div className="card-body border-bottom">
           <div className="mb-3 appointment-list-views">
@@ -375,11 +365,8 @@ export function AppointmentListPage() {
             <AppointmentPanel
               appointment={selected.appointment}
               inBlock={selected.inBlock}
-              headingRef={panelRef}
-              onClose={() => {
-                setSelected(null);
-                openerRef.current?.focus();
-              }}
+              headingRef={panel.headingRef}
+              onClose={panel.close}
             />
           </div>
         ) : null}
@@ -492,21 +479,17 @@ function AppointmentCards({
         ) : (
           <ul className="list-unstyled mb-0 appointment-cards">
             {rows.map((appointment) => {
-              const status = appointment.status.value;
-              const classes = [
-                'agenda-item',
-                'agenda-week-item',
-                'appointment-card',
-                status === 'no_show' ? 'agenda-item-dimmed' : '',
-                inBlock(appointment) ? 'agenda-item-in-block' : '',
-              ].filter((name) => name !== '');
-
               return (
                 <li key={appointment.id} className="mb-2">
                   <button
                     type="button"
-                    className={classes.join(' ')}
-                    data-status={status}
+                    className={appointmentItemClass(
+                      appointment,
+                      inBlock(appointment),
+                      'agenda-week-item',
+                      'appointment-card',
+                    )}
+                    data-status={appointment.status.value}
                     onClick={() => {
                       onOpen(appointment);
                     }}

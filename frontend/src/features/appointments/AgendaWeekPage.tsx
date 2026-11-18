@@ -1,9 +1,8 @@
-import { IconChevronLeft, IconChevronRight, IconLock } from '@tabler/icons-react';
+import { IconLock } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Alert, Button, Card, DateField, Loading, SelectField } from '../../components/ui';
-import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { useRef, useState } from 'react';
+import { Card, DateField, Loading, SelectField } from '../../components/ui';
 import { todayInAppZone } from '../../lib/format/dates';
 import { useAutoRefreshPaused } from '../../lib/hooks/auto-refresh';
 import { useMediaQuery } from '../../lib/hooks/use-media-query';
@@ -11,19 +10,26 @@ import { meQueryOptions } from '../auth/api';
 import { scheduleDetailQueryOptions } from '../schedules/api';
 import { AgendaGrid } from './AgendaGrid';
 import {
+  AgendaContent,
+  AgendaEmpty,
   AgendaFlags,
+  AgendaHeader,
+  AgendaStepper,
   AgendaViewSwitch,
   AppointmentPanel,
   AppointmentSummary,
   MissingAppointments,
+  RangeLoadError,
 } from './AgendaShared';
 import {
+  appointmentItemClass,
   countText,
   ownVeterinarianOf,
   scheduleOptionLabel,
   selectedId,
   SINGLE_COLUMN_QUERY,
   useAgendaSchedules,
+  useAppointmentPanel,
 } from './agenda-shared';
 import { appointmentRangeQueryOptions, rangeBlocksQueryOptions } from './api';
 import {
@@ -63,11 +69,8 @@ export function AgendaWeekPage() {
   const showCancelled = search.cancelados === 1;
   const paused = useAutoRefreshPaused();
   const asList = useMediaQuery(SINGLE_COLUMN_QUERY);
-  const [selected, setSelected] = useState<GridItem | null>(null);
-  const panelRef = useRef<HTMLHeadingElement>(null);
+  const panel = useAppointmentPanel<GridItem>();
   const emptyRef = useRef<HTMLParagraphElement>(null);
-  const keyboardInContent = useRef(false);
-  const openerRef = useRef<HTMLElement | null>(null);
   const [announced, setAnnounced] = useState<{ key: string; text: string } | null>(null);
 
   const rangeQuery = useQuery({
@@ -149,18 +152,15 @@ export function AgendaWeekPage() {
 
   // La fecha va siempre en la URL (como en el día): un día cualquiera de la semana.
   const goToDay = (next: string) => {
-    setSelected(null);
+    panel.setSelected(null);
     void navigate({ search: (previous) => ({ ...previous, fecha: next }) });
   };
-  const setFilter = (patch: Partial<AgendaSearch>) => {
-    setSelected(null);
-    void navigate({ search: (previous) => ({ ...previous, ...patch }) });
+  const step = (direction: -1 | 1) => {
+    goToDay(addDaysToDay(day, 7 * direction));
   };
-  const onOpen = (item: GridItem) => {
-    openerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setSelected(item);
-    window.setTimeout(() => panelRef.current?.focus(), 0);
+  const setFilter = (patch: Partial<AgendaSearch>) => {
+    panel.setSelected(null);
+    void navigate({ search: (previous) => ({ ...previous, ...patch }) });
   };
 
   let content;
@@ -169,33 +169,28 @@ export function AgendaWeekPage() {
     content = null;
   } else if (rangeQuery.isError && rangeQuery.data === undefined) {
     content = (
-      <Alert
-        title={isApiError(rangeQuery.error) ? userMessage(rangeQuery.error) : MESSAGES.programming}
-      >
-        <Button
-          variant="secondary"
-          onClick={() => {
-            void rangeQuery.refetch();
-          }}
-        >
-          Probá de nuevo
-        </Button>
-      </Alert>
+      <RangeLoadError
+        error={rangeQuery.error}
+        onRetry={() => {
+          void rangeQuery.refetch();
+        }}
+      />
     );
   } else if (rangeQuery.data === undefined || schedulesQuery.data === undefined) {
     content = <Loading label="Cargando la semana…" />;
   } else if (grid === null || chosen === undefined) {
     content = (
-      <Card>
-        <p className="text-secondary mb-0 agenda-empty" ref={emptyRef} tabIndex={-1}>
-          {candidates.length === 0
+      <AgendaEmpty
+        emptyRef={emptyRef}
+        text={
+          candidates.length === 0
             ? 'La sucursal no tiene agendas activas ni turnos esta semana.'
-            : 'Ninguna agenda coincide con los filtros.'}
-        </p>
-      </Card>
+            : 'Ninguna agenda coincide con los filtros.'
+        }
+      />
     );
   } else if (asList) {
-    content = <WeekList grid={grid} onOpen={onOpen} busy={rangeQuery.isPlaceholderData} />;
+    content = <WeekList grid={grid} onOpen={panel.open} busy={rangeQuery.isPlaceholderData} />;
   } else {
     content = (
       <AgendaGrid
@@ -203,55 +198,28 @@ export function AgendaWeekPage() {
         label={`${weekTitle(day)}, ${chosen.name}`}
         busy={rangeQuery.isPlaceholderData}
         onPrevious={() => {
-          goToDay(addDaysToDay(day, -7));
+          step(-1);
         }}
         onNext={() => {
-          goToDay(addDaysToDay(day, 7));
+          step(1);
         }}
-        onOpen={onOpen}
+        onOpen={panel.open}
       />
     );
   }
 
   const emptyShown = content !== null && grid === null && rangeQuery.data !== undefined;
-
-  useEffect(() => {
-    if (emptyShown && keyboardInContent.current && document.activeElement === document.body) {
-      emptyRef.current?.focus();
-    }
-  }, [emptyShown]);
-
-  const onContentKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented || event.target !== emptyRef.current) {
-      return;
-    }
-
-    if (event.key === 'PageUp' || event.key === 'PageDown') {
-      event.preventDefault();
-      goToDay(addDaysToDay(day, event.key === 'PageUp' ? -7 : 7));
-    }
-  };
-
   const selectedNow =
-    selected === null || grid === null
-      ? selected
+    panel.selected === null || grid === null
+      ? panel.selected
       : (grid.columns
           .flatMap((column) => column.items)
-          .find((item) => item.appointment.id === selected.appointment.id) ?? selected);
+          .find((item) => item.appointment.id === panel.selected?.appointment.id) ??
+        panel.selected);
 
   return (
     <>
-      <div className="page-header mb-3">
-        <div className="row g-2 align-items-center">
-          <div className="col">
-            <div className="page-pretitle">Agenda</div>
-            <h2 className="page-title agenda-title">{weekTitle(day)}</h2>
-          </div>
-        </div>
-      </div>
-      <div className="visually-hidden" role="status" aria-live="polite">
-        {announced?.text ?? ''}
-      </div>
+      <AgendaHeader title={weekTitle(day)} announcement={announced?.text ?? ''} />
       <Card>
         <div className="row g-2 align-items-end agenda-toolbar">
           <div className="col-12 col-md-auto">
@@ -264,37 +232,16 @@ export function AgendaWeekPage() {
             />
           </div>
           <div className="col-12 col-md-auto">
-            <div className="btn-group w-100" role="group" aria-label="Semana">
-              <Button
-                variant="secondary"
-                className="agenda-previous"
-                aria-label="Semana anterior"
-                onClick={() => {
-                  goToDay(addDaysToDay(day, -7));
-                }}
-              >
-                <IconChevronLeft size={18} aria-hidden="true" />
-              </Button>
-              <Button
-                variant="secondary"
-                className="agenda-today"
-                onClick={() => {
-                  goToDay(today);
-                }}
-              >
-                Esta semana
-              </Button>
-              <Button
-                variant="secondary"
-                className="agenda-next"
-                aria-label="Semana siguiente"
-                onClick={() => {
-                  goToDay(addDaysToDay(day, 7));
-                }}
-              >
-                <IconChevronRight size={18} aria-hidden="true" />
-              </Button>
-            </div>
+            <AgendaStepper
+              label="Semana"
+              previousLabel="Semana anterior"
+              nextLabel="Semana siguiente"
+              todayLabel="Esta semana"
+              onStep={step}
+              onToday={() => {
+                goToDay(today);
+              }}
+            />
           </div>
           <div className="col-12 col-sm-6 col-md-auto agenda-date">
             <DateField
@@ -307,7 +254,7 @@ export function AgendaWeekPage() {
               }}
             />
           </div>
-          <div className="col-12 col-sm-6 col-md">
+          <div className="col-12 col-sm-6 col-md agenda-filter">
             <SelectField
               label="Agenda"
               value={chosen === undefined ? '' : String(chosen.id)}
@@ -324,7 +271,7 @@ export function AgendaWeekPage() {
               }}
             />
           </div>
-          <div className="col-12 col-sm-6 col-md">
+          <div className="col-12 col-sm-6 col-md agenda-filter">
             <SelectField
               label="Veterinario"
               value={search.veterinario === undefined ? '' : String(search.veterinario)}
@@ -358,30 +305,14 @@ export function AgendaWeekPage() {
           <AppointmentPanel
             appointment={selectedNow.appointment}
             inBlock={selectedNow.inBlock}
-            headingRef={panelRef}
-            onClose={() => {
-              setSelected(null);
-              openerRef.current?.focus();
-            }}
+            headingRef={panel.headingRef}
+            onClose={panel.close}
           />
         </div>
       ) : null}
-      <div
-        className="mt-3"
-        onKeyDown={onContentKeyDown}
-        onFocus={() => {
-          keyboardInContent.current = true;
-        }}
-        onBlur={(event) => {
-          const next = event.relatedTarget;
-
-          if (next !== null && !event.currentTarget.contains(next)) {
-            keyboardInContent.current = false;
-          }
-        }}
-      >
+      <AgendaContent emptyShown={emptyShown} emptyRef={emptyRef} onStep={step}>
         {content}
-      </div>
+      </AgendaContent>
     </>
   );
 }
@@ -444,7 +375,11 @@ function WeekList({
                         type="button"
                         data-key={`a:${String(item.appointment.id)}`}
                         data-status={item.appointment.status.value}
-                        className={weekItemClass(item)}
+                        className={appointmentItemClass(
+                          item.appointment,
+                          item.inBlock,
+                          'agenda-week-item',
+                        )}
                         aria-label={appointmentLabel(item, column.itemContext)}
                         style={
                           column.schedule.color === null
@@ -467,18 +402,4 @@ function WeekList({
       })}
     </div>
   );
-}
-
-function weekItemClass(item: GridItem): string {
-  const status = item.appointment.status.value;
-
-  return [
-    'agenda-item',
-    'agenda-week-item',
-    status === 'no_show' ? 'agenda-item-dimmed' : '',
-    status === 'cancelled' ? 'agenda-item-cancelled' : '',
-    item.inBlock ? 'agenda-item-in-block' : '',
-  ]
-    .filter((name) => name !== '')
-    .join(' ');
 }

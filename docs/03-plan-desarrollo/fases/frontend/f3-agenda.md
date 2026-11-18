@@ -497,8 +497,51 @@ repositorio (scratchpad de la sesión, `capturas-3-3`): `01-semana-1280.png`, `0
 `search-params.test.ts`, `client.test.ts` (127 en 5 archivos), `AgendaWeekPage.test.tsx` 18, `AppointmentListPage.test.tsx` 18 y
 `AgendaDayPage.test.tsx` 22 (sin cambios, en verde después del refactor). Corrida final (2026-11-18, desde `frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1584 tests en 76 archivos, en verde, a la primera. Desde `backend/`, `FictitiousDocumentsTest` 3 de 3.
 
-**Pendiente:** la revisión; la documentación de la entrega (`frontend/CLAUDE.md` §1 y §5 con las listas en la URL, este documento,
-el resultado, el roadmap, `modulos.md` y el handoff), con `/cerrar-entrega`.
+**Revisión (2026-11-18), con las decisiones del usuario.** Resultado de cada desvío:
+
+| # | Resultado |
+|---|---|
+| 1 | Aceptado (decisión del usuario): la sucursal de la lista es la actual de la barra, sin selector (decisión 2) |
+| 2 | Aceptado (decisión del usuario), **aclaración para el cierre**: la lista sigue el diseño aprobado (R-085): paginada de a 20, con los cancelados visibles y filtrables por las casillas de estado, sin la vista por defecto del veterinario (`todos=1`). El "en las dos vistas" del prompt de implementación aplicaba solo a la semana (la grilla y la lista por día del celular). El veterinario usa el filtro de veterinario de la lista; no se agrega nada |
+| 3 | Aceptado: el nombre del spec lo pidió el usuario |
+| 4 | Aceptado: la URL en castellano, como `tipo=persona`; los desconocidos, los repetidos y la lista vacía, en `search.test.ts` y `search-params.test.ts` |
+| 5 | Aceptado: es la regla de la API (`IndexAppointmentRequest::range()` toma `to` hasta las 23:59:59 y rechaza `to > from + 31 días`: del 01/11, el 01/12 pasa y el 02/12 no); tests en `search.test.ts` y `AppointmentListPage.test.tsx` |
+| 6 | Aceptado: decisión 4 |
+| 7 | Aceptado: `cancelados` y `todos` no tienen equivalente en la lista |
+| 8 | Aceptado; el panel, ahora con `useAppointmentPanel` (abajo) |
+| 9 a 11 | Aceptados: ya corregidos en la implementación, cada uno con su test |
+| 12 | **Corregido**: `.agenda-toolbar .agenda-filter { min-width: 15rem }` desde 768 px (los selectores de agenda y veterinario del día y la semana); a 1280 px el selector de la semana mide 230 px y "Demo Guardia" se lee completo (la casilla baja a la segunda fila); a 375 px, 315 px, sin desplazamiento. Es CSS: lo verifican los controles 1 a 3 en Edge |
+| 13 | Aceptado: es lo que genera el plugin de Vite |
+| 14 | Aceptado: fallas del script de Edge, sin efecto en el producto |
+
+**Hallazgos de la revisión, corregidos:**
+
+* `paginaSchema` de la lista tenía `/^d+$/` (sin la barra): `?pagina` como texto ("3") se descartaba. Ahora `/^\d+$/`; test nuevo
+  en `search.test.ts` (falla sin la corrección).
+* El vacío de la lista decía "No hay turnos en estas fechas." con el filtro de veterinario; ahora, "No hay turnos que coincidan con
+  los filtros."; test nuevo en `AppointmentListPage.test.tsx`.
+* Duplicación entre el día, la semana y la lista: a `AgendaShared.tsx`, `AgendaHeader` (el título y el anuncio), `AgendaStepper`
+  (anterior, hoy y siguiente), `RangeLoadError`, `AgendaEmpty` y `AgendaContent` (el foco al aviso sin agendas y Re Pág / Av Pág
+  sobre él); a `agenda-shared.ts`, `useAppointmentPanel` (abrir y cerrar el panel con el foco) y `appointmentItemClass` (las clases
+  de la tarjeta, que estaban en la grilla, la semana y las tarjetas de la lista). Las tarjetas de la lista en el celular ahora
+  tachan los cancelados, como la semana. `DAY_BLOCKS_PER_PAGE` pasó a `RANGE_BLOCKS_PER_PAGE` (sirve también a la semana y la lista).
+* Revisado sin cambios: las listas en la URL y en el cliente (un valor, inválido, repetido, vacía; los otros listados igual), la
+  semana en Asunción (lunes a domingo, 167 y 169 horas, fecha inválida descartada), el rango antes de pedir, el teclado y los
+  anuncios, el token solo en `sessionStorage`, sin `dangerouslySetInnerHTML` ni `fetch` fuera del cliente.
+
+**Pruebas de la revisión.** `vitest related` de los archivos tocados: 658 tests en 31 archivos. Corrida final (2026-11-18, desde
+`frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1586 tests en 76
+archivos, en verde, a la primera. Desde `backend/`, `FictitiousDocumentsTest` 3 de 3. Playwright `e2e/semana-lista.spec.ts`, 2 de 2.
+En Edge (sin ventana, `es-PY`, `America/Asuncion`, contra `syncvet.test` con un Vite propio en `:5180`, detenido por su PID; antes,
+`php artisan demo:agenda`): 5 de 5. (1) la semana a 1280 px con "Demo Guardia" completa; (2) la semana a 375 px, lista por día (7
+días, sin grilla), el selector completo y sin desplazamiento; (3) el día a 1280 px sin desplazamiento; (4) la lista a 375 px con
+`estados=cancelado`: 20 tarjetas, tachadas, sin desplazamiento; (5) del 01/11 al 02/12: "El rango no puede superar los 31 días." en
+"Hasta", el foco ahí, ningún pedido y la URL sin cambiar. La consola sin errores; un ingreso de `admin-a`, su token revocado
+(`logout` 200); los tres usuarios sin cambios. Capturas fuera del repositorio (scratchpad de la sesión, `capturas-3-3-rev`):
+`01-semana-1280.png`, `02-semana-375.png`, `03-dia-1280.png` y `04-lista-375.png`.
+
+**Pendiente:** la documentación de la entrega (`frontend/CLAUDE.md` §1 y §5 con las listas en la URL, este documento, el
+resultado, el roadmap, `modulos.md` y el handoff), con `/cerrar-entrega`.
 
 ### 3.4 El turno: detalle, alta, edición y reprogramación
 

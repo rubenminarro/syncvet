@@ -129,7 +129,7 @@ const buscarSchema = z
   .transform((value) => normalizeSearchText(String(value)))
   .pipe(z.string().min(1));
 const paginaSchema = z
-  .union([z.number(), z.string().regex(/^d+$/)])
+  .union([z.number(), z.string().regex(/^\d+$/)])
   .transform(Number)
   .pipe(z.number().int().min(2).max(Number.MAX_SAFE_INTEGER));
 

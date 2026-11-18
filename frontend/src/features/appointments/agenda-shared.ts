@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
 import type { SelectOption } from '../../components/ui';
 import type { Me } from '../auth/types';
 import { branchScheduleOptionsQueryOptions } from './api';
@@ -82,6 +83,51 @@ export function veterinarianOptions(schedules: readonly ColumnSchedule[]): Selec
   }
 
   return options;
+}
+
+/**
+ * El panel de solo lectura de un turno (el día, la semana y la lista): abrirlo guarda el elemento que tenía el foco y pasa
+ * el foco al título del panel; cerrarlo lo devuelve.
+ */
+export function useAppointmentPanel<T>() {
+  const [selected, setSelected] = useState<T | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  const open = (item: T) => {
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelected(item);
+    window.setTimeout(() => headingRef.current?.focus(), 0);
+  };
+  const close = () => {
+    setSelected(null);
+    openerRef.current?.focus();
+  };
+
+  return { selected, setSelected, headingRef, open, close };
+}
+
+/**
+ * Las clases de la tarjeta de un turno (la grilla, la semana en el celular y las tarjetas de la lista): los ausentes
+ * atenuados, los cancelados tachados y la marca del bloqueo, más las de cada vista.
+ */
+export function appointmentItemClass(
+  appointment: Pick<Appointment, 'status'>,
+  inBlock: boolean,
+  ...extra: string[]
+): string {
+  const status = appointment.status.value;
+
+  return [
+    'agenda-item',
+    ...extra,
+    status === 'no_show' ? 'agenda-item-dimmed' : '',
+    status === 'cancelled' ? 'agenda-item-cancelled' : '',
+    inBlock ? 'agenda-item-in-block' : '',
+  ]
+    .filter((name) => name !== '')
+    .join(' ');
 }
 
 /** Un id de un `<select>` (vacío: ninguno). */

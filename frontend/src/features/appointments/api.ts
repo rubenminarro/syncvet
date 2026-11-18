@@ -21,7 +21,7 @@ export const AGENDA_STALE_MS = 30_000;
 export const SCHEDULE_OPTIONS_PER_PAGE = 100;
 
 /** Los bloqueos de una agenda en el día, la semana o el rango de la lista: en un pedido. */
-export const DAY_BLOCKS_PER_PAGE = 100;
+export const RANGE_BLOCKS_PER_PAGE = 100;
 
 /** Los turnos por página de la lista (/turnos, 3.3), como los demás listados. */
 export const LIST_PER_PAGE = 20;
@@ -112,7 +112,7 @@ export function rangeBlocksQueryOptions(
       (
         await getPage<ScheduleBlock>(`schedules/${String(scheduleId)}/blocks`, {
           signal,
-          query: { from: range.from, to: range.to, per_page: DAY_BLOCKS_PER_PAGE },
+          query: { from: range.from, to: range.to, per_page: RANGE_BLOCKS_PER_PAGE },
         })
       ).items,
     staleTime: AGENDA_STALE_MS,

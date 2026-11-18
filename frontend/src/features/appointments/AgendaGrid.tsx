@@ -1,6 +1,7 @@
 import { IconLock } from '@tabler/icons-react';
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AppointmentSummary } from './AgendaShared';
+import { appointmentItemClass } from './agenda-shared';
 import { minutesToClock } from './dates';
 import {
   appointmentLabel,
@@ -341,12 +342,6 @@ const AgendaItem = memo(function AgendaItem({
 }) {
   const { appointment } = item;
   const status = appointment.status.value;
-  const classes = [
-    'agenda-item',
-    status === 'no_show' ? 'agenda-item-dimmed' : '',
-    status === 'cancelled' ? 'agenda-item-cancelled' : '',
-    item.inBlock ? 'agenda-item-in-block' : '',
-  ].filter((name) => name !== '');
   const width = 100 / item.lanes;
 
   return (
@@ -355,7 +350,7 @@ const AgendaItem = memo(function AgendaItem({
       data-key={itemKey(appointment.id)}
       data-status={status}
       tabIndex={focusable ? 0 : -1}
-      className={classes.join(' ')}
+      className={appointmentItemClass(appointment, item.inBlock)}
       aria-label={appointmentLabel(item, context)}
       style={{
         top: `${String(((item.start - rowStart) / ROW_MINUTES) * ROW_PX)}px`,

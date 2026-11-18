@@ -108,6 +108,14 @@ describe('validateAppointmentListSearch (/turnos, 3.3)', () => {
     });
   });
 
+  it('la página: un número o un texto de dígitos, desde 2; lo demás se descarta', () => {
+    expect(validateAppointmentListSearch({ pagina: 3 }).pagina).toBe(3);
+    expect(validateAppointmentListSearch({ pagina: '3' }).pagina).toBe(3);
+    expect(validateAppointmentListSearch({ pagina: 'd' }).pagina).toBeUndefined();
+    expect(validateAppointmentListSearch({ pagina: 1 }).pagina).toBeUndefined();
+    expect(validateAppointmentListSearch({ pagina: '-4' }).pagina).toBeUndefined();
+  });
+
   it('descarta los estados desconocidos y, sin ninguno conocido, la clave', () => {
     expect(validateAppointmentListSearch({ estados: ['ausente', 'borrado'] }).estados).toEqual([
       'ausente',

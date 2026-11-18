@@ -1,7 +1,14 @@
-import { IconAlertTriangle, IconClock, IconLock } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconChevronLeft,
+  IconChevronRight,
+  IconClock,
+  IconLock,
+} from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
-import type { RefObject } from 'react';
-import { Alert, Button, CheckboxField } from '../../components/ui';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { Alert, Button, Card, CheckboxField } from '../../components/ui';
+import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import { formatTime } from '../../lib/format/dates';
 import { dayTitle, wallDay, weekEndOf, weekStartOf } from './dates';
 import { appointmentWho } from './grid';
@@ -11,8 +18,9 @@ import { MISSING_APPOINTMENTS_MESSAGE } from './agenda-shared';
 import type { Appointment } from './types';
 
 /**
- * Lo que comparten el día (3.2), la semana y la lista (3.3): el cambio de vista, las agendas de la sucursal con la vista por
- * defecto del veterinario, los filtros, el aviso de los turnos que faltan y el panel de solo lectura del turno.
+ * Los componentes que comparten el día (3.2), la semana y la lista (3.3): el título con el anuncio, el cambio de vista,
+ * anterior y siguiente, los filtros, la falla de la carga, el aviso sin agendas con el foco, el aviso de los turnos que faltan,
+ * las tarjetas y el panel de solo lectura del turno. Lo que no es un componente, en `agenda-shared.ts`.
  */
 
 /** El router marca `active` todo enlace a /agenda (el día y la semana son la misma ruta): la vista la marca `current`. */
@@ -76,6 +84,162 @@ export function AgendaViewSwitch({
       >
         Lista
       </Link>
+    </div>
+  );
+}
+
+/** El título de la página y la región que anuncia lo que cambió (`role="status"`, siempre en el DOM). */
+export function AgendaHeader({
+  title,
+  announcement,
+  titleClassName = 'agenda-title',
+}: {
+  title: string;
+  announcement: string;
+  titleClassName?: string;
+}) {
+  return (
+    <>
+      <div className="page-header mb-3">
+        <div className="row g-2 align-items-center">
+          <div className="col">
+            <div className="page-pretitle">Agenda</div>
+            <h2 className={`page-title ${titleClassName}`.trim()}>{title}</h2>
+          </div>
+        </div>
+      </div>
+      <div className="visually-hidden" role="status" aria-live="polite">
+        {announcement}
+      </div>
+    </>
+  );
+}
+
+/** Anterior, el de hoy y siguiente (el día de a uno, la semana de a siete). */
+export function AgendaStepper({
+  label,
+  previousLabel,
+  nextLabel,
+  todayLabel,
+  onStep,
+  onToday,
+}: {
+  /** "Día" o "Semana". */
+  label: string;
+  previousLabel: string;
+  nextLabel: string;
+  todayLabel: string;
+  onStep: (direction: -1 | 1) => void;
+  onToday: () => void;
+}) {
+  return (
+    <div className="btn-group w-100" role="group" aria-label={label}>
+      <Button
+        variant="secondary"
+        className="agenda-previous"
+        aria-label={previousLabel}
+        onClick={() => {
+          onStep(-1);
+        }}
+      >
+        <IconChevronLeft size={18} aria-hidden="true" />
+      </Button>
+      <Button variant="secondary" className="agenda-today" onClick={onToday}>
+        {todayLabel}
+      </Button>
+      <Button
+        variant="secondary"
+        className="agenda-next"
+        aria-label={nextLabel}
+        onClick={() => {
+          onStep(1);
+        }}
+      >
+        <IconChevronRight size={18} aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+/** La falla del pedido de los turnos (sin datos anteriores): el mensaje y "Probá de nuevo". */
+export function RangeLoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <Alert title={isApiError(error) ? userMessage(error) : MESSAGES.programming}>
+      <Button variant="secondary" onClick={onRetry}>
+        Probá de nuevo
+      </Button>
+    </Alert>
+  );
+}
+
+/** El aviso de un día o una semana sin agendas que mostrar: enfocable, para que el teclado no se pierda. */
+export function AgendaEmpty({
+  emptyRef,
+  text,
+}: {
+  emptyRef: RefObject<HTMLParagraphElement | null>;
+  text: string;
+}) {
+  return (
+    <Card>
+      <p className="text-secondary mb-0 agenda-empty" ref={emptyRef} tabIndex={-1}>
+        {text}
+      </p>
+    </Card>
+  );
+}
+
+/**
+ * Lo que va debajo de los filtros (la grilla, la lista o el aviso). Sin agendas que mostrar no hay grilla: si el foco venía
+ * de ella (Av Pág), pasa al aviso, que sigue respondiendo a Re Pág y Av Pág; nunca se pierde en el body.
+ */
+export function AgendaContent({
+  emptyShown,
+  emptyRef,
+  onStep,
+  children,
+}: {
+  emptyShown: boolean;
+  emptyRef: RefObject<HTMLParagraphElement | null>;
+  onStep: (direction: -1 | 1) => void;
+  children: ReactNode;
+}) {
+  // ¿El foco estaba en la grilla (o en el aviso)? Para no perderlo al cambiar de día o de semana con el teclado.
+  const keyboardInContent = useRef(false);
+
+  useEffect(() => {
+    if (emptyShown && keyboardInContent.current && document.activeElement === document.body) {
+      emptyRef.current?.focus();
+    }
+  }, [emptyShown, emptyRef]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.target !== emptyRef.current) {
+      return;
+    }
+
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      event.preventDefault();
+      onStep(event.key === 'PageUp' ? -1 : 1);
+    }
+  };
+
+  return (
+    <div
+      className="mt-3"
+      onKeyDown={onKeyDown}
+      onFocus={() => {
+        keyboardInContent.current = true;
+      }}
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+
+        if (next !== null && !event.currentTarget.contains(next)) {
+          keyboardInContent.current = false;
+        }
+      }}
+    >
+      {children}
     </div>
   );
 }

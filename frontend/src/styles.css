@@ -207,6 +207,14 @@
   margin-top: 0.75rem;
 }
 
+/* Los selectores de agenda y veterinario de la barra (revisión de la 3.3, desvío 12): con un ancho mínimo, en una pantalla
+   ancha bajan a la fila siguiente antes de cortar el nombre ("Demo Guarc…" a 1280 px). En el celular van a todo el ancho. */
+@media (min-width: 768px) {
+  .agenda-toolbar .agenda-filter {
+    min-width: 15rem;
+  }
+}
+
 /* La semana en el celular y la lista en tarjetas (3.3): las mismas tarjetas de turno de la grilla, en el flujo de la página
    (sin la posición absoluta de la grilla) y a todo el ancho. */
 .agenda-week-item {

@@ -1,9 +1,7 @@
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Alert, Button, Card, DateField, Loading, SelectField } from '../../components/ui';
-import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { useRef, useState } from 'react';
+import { Card, DateField, Loading, SelectField } from '../../components/ui';
 import { todayInAppZone } from '../../lib/format/dates';
 import { useAutoRefreshPaused } from '../../lib/hooks/auto-refresh';
 import { useMediaQuery } from '../../lib/hooks/use-media-query';
@@ -11,10 +9,15 @@ import { meQueryOptions } from '../auth/api';
 import { scheduleDetailQueryOptions } from '../schedules/api';
 import { AgendaGrid } from './AgendaGrid';
 import {
+  AgendaContent,
+  AgendaEmpty,
   AgendaFlags,
+  AgendaHeader,
+  AgendaStepper,
   AgendaViewSwitch,
   AppointmentPanel,
   MissingAppointments,
+  RangeLoadError,
 } from './AgendaShared';
 import {
   countText,
@@ -23,6 +26,7 @@ import {
   selectedId,
   SINGLE_COLUMN_QUERY,
   useAgendaSchedules,
+  useAppointmentPanel,
 } from './agenda-shared';
 import { appointmentRangeQueryOptions, rangeBlocksQueryOptions } from './api';
 import { addDaysToDay, dayName, dayTitle, isAgendaDay } from './dates';
@@ -43,17 +47,14 @@ export function AgendaDayPage() {
   const navigate = useNavigate({ from: '/agenda/' });
   const { data: me } = useQuery({ ...meQueryOptions(), enabled: false });
   const branchId = me?.current_branch?.id ?? null;
-  const day = search.fecha ?? todayInAppZone();
+  const today = todayInAppZone();
+  const day = search.fecha ?? today;
   const showCancelled = search.cancelados === 1;
   const paused = useAutoRefreshPaused();
   const singleColumn = useMediaQuery(SINGLE_COLUMN_QUERY);
   const [mobileScheduleId, setMobileScheduleId] = useState<number | null>(null);
-  const [selected, setSelected] = useState<GridItem | null>(null);
-  const panelRef = useRef<HTMLHeadingElement>(null);
+  const panel = useAppointmentPanel<GridItem>();
   const emptyRef = useRef<HTMLParagraphElement>(null);
-  // ¿El foco estaba en la grilla (o en el aviso del día sin agendas)? Para no perderlo al cambiar de día con el teclado.
-  const keyboardInContent = useRef(false);
-  const openerRef = useRef<HTMLElement | null>(null);
   const [announced, setAnnounced] = useState<{ key: string; text: string } | null>(null);
 
   const rangeQuery = useQuery({
@@ -121,10 +122,16 @@ export function AgendaDayPage() {
 
   // La fecha va siempre en la URL, también la de hoy ("Hoy"): un enlace copiado muestra el mismo día al otro día.
   const goToDay = (next: string) => {
-    setSelected(null);
+    panel.setSelected(null);
     void navigate({ search: (previous) => ({ ...previous, fecha: next }) });
   };
-  const today = todayInAppZone();
+  const step = (direction: -1 | 1) => {
+    goToDay(addDaysToDay(day, direction));
+  };
+  const setFilter = (patch: Partial<AgendaSearch>) => {
+    panel.setSelected(null);
+    void navigate({ search: (previous) => ({ ...previous, ...patch }) });
+  };
 
   let content;
 
@@ -133,30 +140,25 @@ export function AgendaDayPage() {
     content = null;
   } else if (rangeQuery.isError && rangeQuery.data === undefined) {
     content = (
-      <Alert
-        title={isApiError(rangeQuery.error) ? userMessage(rangeQuery.error) : MESSAGES.programming}
-      >
-        <Button
-          variant="secondary"
-          onClick={() => {
-            void rangeQuery.refetch();
-          }}
-        >
-          Probá de nuevo
-        </Button>
-      </Alert>
+      <RangeLoadError
+        error={rangeQuery.error}
+        onRetry={() => {
+          void rangeQuery.refetch();
+        }}
+      />
     );
   } else if (rangeQuery.data === undefined || schedulesQuery.data === undefined) {
     content = <Loading label="Cargando la agenda…" />;
   } else if (filtered.length === 0) {
     content = (
-      <Card>
-        <p className="text-secondary mb-0 agenda-empty" ref={emptyRef} tabIndex={-1}>
-          {candidates.length === 0
+      <AgendaEmpty
+        emptyRef={emptyRef}
+        text={
+          candidates.length === 0
             ? 'La sucursal no tiene agendas activas ni turnos este día.'
-            : 'Ninguna agenda coincide con los filtros.'}
-        </p>
-      </Card>
+            : 'Ninguna agenda coincide con los filtros.'
+        }
+      />
     );
   } else {
     content = (
@@ -165,67 +167,28 @@ export function AgendaDayPage() {
         label={`Agenda del ${dayTitle(day).toLowerCase()}`}
         busy={rangeQuery.isPlaceholderData}
         onPrevious={() => {
-          goToDay(addDaysToDay(day, -1));
+          step(-1);
         }}
         onNext={() => {
-          goToDay(addDaysToDay(day, 1));
+          step(1);
         }}
-        onOpen={(item) => {
-          openerRef.current =
-            document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          setSelected(item);
-          window.setTimeout(() => panelRef.current?.focus(), 0);
-        }}
+        onOpen={panel.open}
       />
     );
   }
 
-  // Un día sin agendas que mostrar no tiene grilla: si el foco venía de ella (Av Pág), pasa al aviso, que sigue
-  // respondiendo a Re Pág y Av Pág; nunca se pierde en el body.
   const emptyShown = content !== null && filtered.length === 0 && rangeQuery.data !== undefined;
-
-  useEffect(() => {
-    if (emptyShown && keyboardInContent.current && document.activeElement === document.body) {
-      emptyRef.current?.focus();
-    }
-  }, [emptyShown]);
-
-  const onContentKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented || event.target !== emptyRef.current) {
-      return;
-    }
-
-    if (event.key === 'PageUp' || event.key === 'PageDown') {
-      event.preventDefault();
-      goToDay(addDaysToDay(day, event.key === 'PageUp' ? -1 : 1));
-    }
-  };
-
   const selectedNow =
-    selected === null
+    panel.selected === null
       ? null
       : (grid.columns
           .flatMap((column) => column.items)
-          .find((item) => item.appointment.id === selected.appointment.id) ?? selected);
-
-  const setFilter = (patch: Partial<AgendaSearch>) => {
-    setSelected(null);
-    void navigate({ search: (previous) => ({ ...previous, ...patch }) });
-  };
+          .find((item) => item.appointment.id === panel.selected?.appointment.id) ??
+        panel.selected);
 
   return (
     <>
-      <div className="page-header mb-3">
-        <div className="row g-2 align-items-center">
-          <div className="col">
-            <div className="page-pretitle">Agenda</div>
-            <h2 className="page-title agenda-title">{dayTitle(day)}</h2>
-          </div>
-        </div>
-      </div>
-      <div className="visually-hidden" role="status" aria-live="polite">
-        {announced?.text ?? ''}
-      </div>
+      <AgendaHeader title={dayTitle(day)} announcement={announced?.text ?? ''} />
       <Card>
         <div className="row g-2 align-items-end agenda-toolbar">
           <div className="col-12 col-md-auto">
@@ -238,37 +201,16 @@ export function AgendaDayPage() {
             />
           </div>
           <div className="col-12 col-md-auto">
-            <div className="btn-group w-100" role="group" aria-label="Día">
-              <Button
-                variant="secondary"
-                className="agenda-previous"
-                aria-label="Día anterior"
-                onClick={() => {
-                  goToDay(addDaysToDay(day, -1));
-                }}
-              >
-                <IconChevronLeft size={18} aria-hidden="true" />
-              </Button>
-              <Button
-                variant="secondary"
-                className="agenda-today"
-                onClick={() => {
-                  goToDay(today);
-                }}
-              >
-                Hoy
-              </Button>
-              <Button
-                variant="secondary"
-                className="agenda-next"
-                aria-label="Día siguiente"
-                onClick={() => {
-                  goToDay(addDaysToDay(day, 1));
-                }}
-              >
-                <IconChevronRight size={18} aria-hidden="true" />
-              </Button>
-            </div>
+            <AgendaStepper
+              label="Día"
+              previousLabel="Día anterior"
+              nextLabel="Día siguiente"
+              todayLabel="Hoy"
+              onStep={step}
+              onToday={() => {
+                goToDay(today);
+              }}
+            />
           </div>
           <div className="col-12 col-sm-6 col-md-auto agenda-date">
             <DateField
@@ -281,7 +223,7 @@ export function AgendaDayPage() {
               }}
             />
           </div>
-          <div className="col-12 col-sm-6 col-md">
+          <div className="col-12 col-sm-6 col-md agenda-filter">
             <SelectField
               label="Agenda"
               value={search.agenda === undefined ? '' : String(search.agenda)}
@@ -297,7 +239,7 @@ export function AgendaDayPage() {
               }}
             />
           </div>
-          <div className="col-12 col-sm-6 col-md">
+          <div className="col-12 col-sm-6 col-md agenda-filter">
             <SelectField
               label="Veterinario"
               value={search.veterinario === undefined ? '' : String(search.veterinario)}
@@ -344,30 +286,14 @@ export function AgendaDayPage() {
           <AppointmentPanel
             appointment={selectedNow.appointment}
             inBlock={selectedNow.inBlock}
-            headingRef={panelRef}
-            onClose={() => {
-              setSelected(null);
-              openerRef.current?.focus();
-            }}
+            headingRef={panel.headingRef}
+            onClose={panel.close}
           />
         </div>
       ) : null}
-      <div
-        className="mt-3"
-        onKeyDown={onContentKeyDown}
-        onFocus={() => {
-          keyboardInContent.current = true;
-        }}
-        onBlur={(event) => {
-          const next = event.relatedTarget;
-
-          if (next !== null && !event.currentTarget.contains(next)) {
-            keyboardInContent.current = false;
-          }
-        }}
-      >
+      <AgendaContent emptyShown={emptyShown} emptyRef={emptyRef} onStep={step}>
         {content}
-      </div>
+      </AgendaContent>
     </>
   );
 }
