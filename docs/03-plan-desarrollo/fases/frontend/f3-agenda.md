@@ -320,6 +320,47 @@ y `vet-a` sin cambios. Capturas fuera del repositorio (scratchpad de la sesión,
 **Pruebas.** Vitest de lo tocado: 70 de 70 en `features/schedules` (3 archivos) y `vitest related` del permiso y la tarjeta, 600
 de 600 en 28 archivos. Playwright: `agendas.spec.ts` 1 de 1 (repetido después de las correcciones de los desvíos 6 y 7, 1 de 1 en 1,1 min) y `permisos.spec.ts` 7 de 7. Corrida final, el 2026-11-17, desde `frontend/`: `npm test`, 1401 tests en 67 archivos, en verde; `typecheck`, `lint` y `build` sin errores ni avisos; desde `backend/`, `FictitiousDocumentsTest`, 3 de 3. La línea de la corrida para `/validar-docs` se registra en el Resultado, al cerrar la entrega.
 
+**Revisión** (2026-11-18, sobre el WIP `549f1c6`, contra `df2588a`, con el presupuesto por entrega). `syncvet.test` respondió después
+de que el usuario reiniciara Laragon (la primera petición tardó 23 s; las siguientes, 0,2 s): el desvío 8 queda resuelto.
+
+* **Paridad del horario con la API** (`ScheduleMessages::validateHours`): bien. El mismo orden (la forma de cada hora; si alguna
+  falla, nada más; el fin antes del inicio o igual, en su tramo y fuera de su día; por día, más de 6 o, si no, la superposición
+  ordenando por inicio y comparando como texto, con tocarse permitido); 23:55 válida; el horario se manda entero en el orden del
+  formulario (`hours: []` al vaciarlo) y las claves con índice del 422 caen en su tramo. El total de 42 sale del tope de 6 por día.
+* **Veterinario por sucursal**: los activos con el usuario activo de la sucursal elegida (la API devuelve solo los activos sin
+  `include_inactive`); al cambiar de sucursal se suelta el que no trabaja en ella, y en la edición se conserva el actual si se vuelve a
+  su sucursal. Con turnos, cambiar la sucursal manda `veterinarian_id: null` y la API responde `SCHEDULE_NOT_EDITABLE`, que va a la
+  alerta de arriba (con test).
+* **Inactivar, activar y baja**: solo `{ is_active }`, con el aviso de los turnos que siguen (la API inactiva aunque haya turnos
+  futuros); la baja con `SCHEDULE_IN_USE` muestra el mensaje de la API y "Inactivar" (o solo "Cerrar" si ya está inactiva).
+* **Color**: validado por la API (`#RRGGBB`), así que el `style` de la muestra no recibe otra cosa; sin la casilla va en `null`.
+* **Permisos**: la tarjeta con `schedules.update` (y `/configuracion` ya pide `system-settings.update`: los otros roles no llegan);
+  las cuatro rutas con `requirePermission`; "Nueva agenda" y "Eliminar" con `useCan()`.
+* **Foco y teclado**: "Sumar un tramo" lleva el foco a "Desde"; "Quitar" lo devuelve a "Sumar un tramo" del día (con 6 tramos el botón
+  sigue enfocable, `focusableWhenInactive`).
+
+**Hallazgo y corrección** (1, menor): el test de permisos de `SchedulePages.test.tsx` recorría la lista, el detalle y el alta, pero
+no `/configuracion/agendas/$id/editar`; se sumó (2 casos nuevos: el recepcionista y el veterinario). Sin cambios en `src/` fuera de
+los tests: ni el menú ni el permiso de una ruta cambiaron, así que no corresponde Playwright.
+
+**Mutaciones de la revisión** (3 de 3 detectadas, revertidas): tocarse contado como superposición (`<` → `<=`, 4 fallas);
+`SCHEDULE_IN_USE` ofrece "Inactivar" aunque ya esté inactiva (1 falla); el color mandado sin la casilla (2 fallas).
+
+**En Edge, contra `syncvet.test`** (los controles del desvío 8, repetidos; sin ventana, `es-PY`, con un Vite propio en `:5180`
+detenido por su PID; 8 de 8): (1) la tarjeta lleva al listado; (2) "Sumar un tramo" con Enter deja el foco en "Desde" y las horas se
+escriben con el teclado (08:00 a 12:00 y 12:00 a 16:00); (2b) "Quitar" con Enter devuelve el foco a "Sumar un tramo al lunes"; (3) el
+color deshabilitado sin la casilla, mandado `#E8590C` y mostrado en el detalle; (3b) "Copiar el lunes": dos tramos de lunes a viernes,
+el sábado y el domingo sin tramos; (4) a 375 px, el detalle, el formulario y el listado sin desplazamiento horizontal, y la edición
+con "Víctor Acosta" sin "(actual)"; (5) la agenda temporal eliminada por la interfaz (0 en la base); (6) la consola sin errores. La
+captura `05-formulario-375.png` se rehízo ya sin "(actual)" (fuera del repositorio, en el scratchpad de la sesión, `capturas-3-1a`).
+Nota del script, no de la interfaz: en Edge con `es-PY`, el campo de hora tiene el segmento a. m./p. m. y Tab lo recorre antes de
+pasar al campo siguiente. Ingresó y salió `admin-a` (el token revocado; el ingreso queda en la auditoría); `admin-a`, `recepcion-a`
+y `vet-a` sin cambios; ninguna agenda "Control Edge" en la demo.
+
+**Corrida final de la revisión** (2026-11-18, desde `frontend/`): `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`,
+la primera vez 1 falla en `ClientDetailPage.test.tsx` ("una persona: sus datos…", ajena a la 3.1a; pasó sola), y repetida la suite
+completa: 1403 tests en 67 archivos, en verde. Desde `backend/`, `FictitiousDocumentsTest`, 3 de 3.
+
 ### 3.1b Bloqueos de una agenda
 
 **En el detalle de la agenda**, la tarjeta "Bloqueos" (`schedule-blocks.index`, los tres roles; la pantalla es del administrador):

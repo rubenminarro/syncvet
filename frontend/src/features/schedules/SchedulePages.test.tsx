@@ -162,9 +162,12 @@ describe('/configuracion: la tarjeta de Agendas', () => {
 
   it.each(
     (['recepcionista', 'veterinario'] as Role[]).flatMap((role) =>
-      ['/configuracion/agendas', '/configuracion/agendas/7', '/configuracion/agendas/nueva'].map(
-        (url) => [role, url] as const,
-      ),
+      [
+        '/configuracion/agendas',
+        '/configuracion/agendas/7',
+        '/configuracion/agendas/nueva',
+        '/configuracion/agendas/7/editar',
+      ].map((url) => [role, url] as const),
     ),
   )('%s en %s va a /sin-permiso', async (role, url) => {
     server.use(meHandler(meFor(role)));
