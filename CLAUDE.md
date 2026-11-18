@@ -142,6 +142,7 @@ de una PC.
   `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
   Sigue la F3 (agenda y turnos): el diseño aprobado (R-085), en `docs/front-f3-diseno`, las entregas 3.1a (agendas, R-086) y
   3.1b (bloqueos, R-087), cerradas en `feature/front-3-1a-agendas` y `feature/front-3-1b-bloqueos`, y front-03 (soporte del
-  backend: `per_page` hasta 500 en `GET appointments`, R-088), cerrada en `feature/front-03-turnos-por-pagina`, sin integrar a
-  `main`; sigue la 3.2 (la agenda del día); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+  backend: `per_page` hasta 500 en `GET appointments`, R-088), cerrada en `feature/front-03-turnos-por-pagina`, y la 3.2
+  (la agenda del día, R-089), cerrada en `feature/front-3-2-agenda-dia`, sin integrar a `main`; sigue demo-02 (backend: `php artisan
+  demo:agenda`, agendas y turnos ficticios en la demo) y, después, la 3.3 (la semana y la lista de turnos); el detalle, en [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).
