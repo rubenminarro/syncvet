@@ -111,6 +111,8 @@ export const PERMISSIONS = {
   scheduleBlocksStore: 'schedule-blocks.store',
   /** Eliminar un bloqueo (F3, entrega 3.1b): solo el administrador. */
   scheduleBlocksDestroy: 'schedule-blocks.destroy',
+  /** /agenda, la agenda del día, y "Agenda" en el menú (F3, entrega 3.2): los tres roles. */
+  appointmentsIndex: 'appointments.index',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

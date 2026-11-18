@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from 'react';
+import { usePauseAutoRefresh } from '../../lib/hooks/auto-refresh';
 import { Alert } from './Alert';
 import { Button } from './Button';
 
@@ -64,6 +65,9 @@ export function ConfirmDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const wasBusy = useRef(busy);
+
+  // Abierto, pausa la actualización periódica de la agenda (pregunta 9 del diseño de la F3).
+  usePauseAutoRefresh(open);
 
   const close = () => {
     if (!busy) {

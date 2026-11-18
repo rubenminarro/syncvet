@@ -360,7 +360,72 @@ recorrer con el teclado; el lector de pantalla con el nombre de un turno (Narrad
 
 #### Pendiente para el cierre (3.2)
 
-Vacío.
+Implementación del 2026-11-18 en `feature/front-3-2-agenda-dia` (desde `d30e578`), commit WIP. Sin cambios en el backend ni
+paquetes nuevos. El diseño coincide con la API real (`AppointmentResource`, `GET appointments` con `per_page` hasta 500,
+`GET schedules/{id}/blocks` con `from`/`to` por superposición, `me.veterinarian.id`): no hubo que frenar.
+
+**Hecho.** `/agenda` (`appointments.index`, los tres roles) y "Agenda" en el menú, después de "Pacientes"
+(`PERMISSIONS.appointmentsIndex`). `features/appointments/`: `dates.ts` (el día, sumar días con `addDays` sobre `TZDate` al
+mediodía, la semana desde el lunes, el comienzo real del día, los días de 23 y 25 horas, la hora de pared), `grid.ts` (puro: las
+columnas, el rango de horas, lo sombreado fuera del horario y por los bloqueos, la fila, el alto y el carril de cada turno, la marca
+"Dentro de un bloqueo" con la regla de la API y los estados que ocupan el horario, los filtros y el nombre accesible), `search.ts`
+(`validateSearch`), `api.ts` (un pedido del día con `per_page=500` y `branchKey`, las agendas de la sucursal, los bloqueos del día;
+`staleTime` de 30 s, cada 60 s sin correr en segundo plano y `keepPreviousData`), `AgendaGrid.tsx` (el patrón *grid* con un solo
+punto de tabulación) y `AgendaDayPage.tsx` (la barra, los filtros, el aviso de los turnos que faltan, el anuncio en
+`role="status"`, el panel de solo lectura y una agenda por vez por debajo de 768 px). `fecha` en `TEXT_SEARCH_PARAMS`. La pausa de
+la actualización, común: `src/lib/hooks/auto-refresh.ts` (`usePauseAutoRefresh`, que ya usa `ConfirmDialog`, y la pestaña oculta).
+Playwright: `e2e/agenda-dia.spec.ts` (2 casos) con los ayudantes `createAgendaDay`, `retireAgendasNamed` y `asuncionDay` en
+`e2e/support/api.ts`; `e2e/permisos.spec.ts`, con "Agenda" en el menú de los tres roles.
+
+**Desvíos y decisiones para revisar:**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El spec es `e2e/agenda-dia.spec.ts`, no `e2e/agenda.spec.ts` | Lo pidió así el usuario en el pedido de la entrega |
+| 2 | La fecha va **siempre** en la URL, también la de hoy ("Hoy" escribe `fecha=<hoy>`); sin `fecha`, la página muestra hoy | Lo pide el pedido ("con la fecha en la URL como texto"). La convención de los listados deja fuera los valores por defecto, pero "hoy" cambia a la medianoche: un enlace copiado mostraría otro día. El test lo encontró: el día siguiente era el de hoy (18/11) y la fecha desaparecía de la URL |
+| 3 | `todos=1` en la URL para "Ver toda la sucursal" (la URL del diseño no lo nombra) | Es el nombre que el diseño ya da en la cola (`/agenda/cola?todos=`), con el mismo valor |
+| 4 | Además de las agendas activas, se suman al final, marcadas "(inactivada)", las agendas que no están entre ellas pero tienen turnos **visibles** ese día (una con solo cancelados, solo con "Mostrar los cancelados") | El diseño habla de "una columna por agenda activa"; una agenda inactivada conserva sus turnos (pregunta 24 del backend) y se perderían de la grilla sin aviso (decisión 1: nunca cortar en silencio). Con test |
+| 5 | El día de 25 horas es el **23/03/2024**, no el 24/03 (H9) | `TZDate`: el atraso fue a las 00:00 del 24 y repitió las 23:00 del 23; el 24 dura 24 horas. Los tests de la 2.6 y la 3.1b ya usaban el 23/03 |
+| 6 | Un turno que cruce la medianoche se corta a las 24:00 con "sigue el día siguiente" en su nombre accesible | La API no lo permite (H10); la grilla igual lo trata sin romperse, con test de datos armados |
+| 7 | La barra no muestra todavía "Semana" ni "Lista"; `vista=semana` se descarta | Llegan en la 3.3 |
+| 8 | Los bloqueos del día también se vuelven a pedir cada 60 s (y con la misma pausa) | La marca "Dentro de un bloqueo" depende de ellos; son pocos pedidos (uno por agenda que se ve) |
+| 9 | La pausa por diálogo o formulario se prueba con `pauseAutoRefresh()` en la página y con `ConfirmDialog` en `auto-refresh.test.tsx` | En la 3.2 la agenda no abre diálogos ni formularios propios (el panel del turno es de solo lectura, no es un diálogo y no pausa); la 3.4 y la 3.5 los suman y ya quedan cubiertos por `ConfirmDialog` |
+| 10 | Enter en una celda libre no hace nada | El alta desde la grilla es de la 3.4 (con `appointments.store`) |
+| 11 | La limpieza de Playwright cancela los turnos, elimina el bloqueo e **inactiva** la agenda (no la elimina) | Los turnos no tienen baja (`DELETE` → 405) y una agenda con turnos no se elimina (`SCHEDULE_IN_USE`). `syncvet_e2e` se vacía en la corrida siguiente; la demo no se toca |
+| 12 | Hallazgo en Edge, corregido: un día sin ninguna agenda que mostrar no tiene grilla y, después de Av Pág, el foco caía en `body` (Re Pág ya no volvía) | Ahora el foco pasa al aviso del día vacío, que responde a Re Pág y Av Pág. Test nuevo en `AgendaDayPage.test.tsx` |
+| 13 | Ajuste visual en Edge: en un turno de 30 minutos con sobreturno y dentro de un bloqueo, las dos marcas van en una sola línea | En dos líneas no entraban y se cortaban (captura `02-bloqueo-1280.png`, antes y después) |
+| 14 | En Edge, la grilla a 1280 px se vio con **3** agendas (no 4) y la de muchas columnas, con 15 | La demo no tiene agendas activas (las de Newman están inactivadas): se usaron los turnos que dejó Newman el 23/11 (tres agendas con turnos visibles; con los cancelados, 15) y un bloqueo temporal, sin crear turnos (no se pueden borrar) |
+| 15 | El script de Edge se corrió 6 veces hasta el 8 de 8 | Fallas del script, no de la pantalla: el bloqueo temporal en otra hora (la base guarda la hora de Asunción, no UTC), `waitForURL` espera un `load` que la navegación del router no dispara y a 375 px el nombre del usuario está oculto en la barra; más el hallazgo 12 y el ajuste 13. Por eso hubo 19 ingresos de `admin-a` en la auditoría, y 7 tokens de las corridas cortadas quedaron sin revocar (el "Salir" manda el `logout` sin esperarlo y el navegador se cerraba antes): se borraron de `personal_access_tokens` (solo los de la sesión, ids 675 a 686) |
+| 16 | En desarrollo salen dos pedidos de turnos al abrir la agenda, el primero cancelado (`ERR_ABORTED`) | El `StrictMode` de React monta dos veces y Query cancela el primero; queda uno solo. En el build de producción, uno |
+| 17 | Mutación 4 (la pausa ignorada): falló el test del diálogo; el de la pestaña oculta siguió en verde | TanStack Query ya no corre el intervalo en segundo plano (`refetchIntervalInBackground: false`): son dos protecciones, y la pestaña oculta queda cubierta igual |
+
+**Mutaciones** (4 de 4 detectadas, revertidas): la hora de pared con la zona de la PC (`new Date(...)` en `wallMinutes`, 11
+fallas); la marca de bloqueo con `<=`/`>=` (tocarse cuenta, 1 falla); el aviso de los turnos que faltan apagado (1 falla); la pausa
+ignorada (`refreshInterval` siempre 60 s, 1 falla, desvío 17).
+
+**En Edge** (sin ventana, `es-PY`, zona `America/Asuncion`, contra `syncvet.test` (200 en `/` y `/up`) con un Vite propio en
+`:5180`, detenido por su PID; 8 de 8 en la corrida final): (1) a 1280 px, una columna por agenda con turnos visibles, un pedido con
+`per_page=500` y sin desplazamiento de la página; (2) el bloqueo sombreado con su motivo y los dos turnos adentro con la marca
+(texto e ícono); (3) el foco visible con el teclado (borde de 3 px) entrando con Tab en un solo punto; (4) Enter abre el panel de
+solo lectura con el foco en el título y "Cerrar" lo devuelve al turno; (5) Av Pág y Re Pág cambian de día y se anuncia
+("Martes 24 de noviembre: sin turnos." y "Lunes 23 de noviembre: 15 turnos."); (6) con 15 columnas, la grilla se desplaza en su caja
+y la página no; (7) a 375 px, una agenda por vez con "Agenda que se ve", sin desplazamiento horizontal; (8) la consola sin errores.
+El bloqueo temporal ("Control Edge 3.2", agenda 105) se creó y se eliminó por la API en cada corrida (0 bloqueos después).
+`admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at` del 2026-11-12). Capturas fuera del repositorio (scratchpad de la
+sesión, `capturas-3-2`): `01-dia-1280.png`, `02-bloqueo-1280.png`, `03-foco-1280.png`, `04-panel-1280.png`,
+`05-cancelados-1280.png` y `06-dia-375.png`.
+
+**Pruebas.** Durante el trabajo, `vitest related` de lo tocado (666 en 34 archivos, con las 9 fallas esperadas del menú, corregidas)
+y los archivos nuevos: `dates.test.ts` 12, `grid.test.ts` 20, `search.test.ts` 12, `AgendaDayPage.test.tsx` 22 y
+`auto-refresh.test.tsx` 4. Playwright: `e2e/agenda-dia.spec.ts` 2 de 2 y `e2e/permisos.spec.ts` 7 de 7, a la primera (9 de 9 en
+1,6 min); 34 casos en 17 archivos (`--list`). Corrida final (2026-11-18, desde `frontend/`): Prettier de los archivos cambiados,
+`typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1510 tests en 74 archivos, en verde, a la primera. Desde
+`backend/`, `FictitiousDocumentsTest` falló 1 vez por un comentario de `dates.ts` (los milisegundos de un día, 8 dígitos): se
+reescribió el comentario y dio 3 de 3 (con `dates.test.ts`, 12 de 12; solo cambió un comentario, sin repetir la suite).
+
+**Para el cierre (`/cerrar-entrega`):** `frontend/CLAUDE.md` (§1 y §4; §5: la grilla y su teclado, `dates.ts` de la agenda, la
+fecha siempre en la URL, la pausa común de la actualización y la precisión de D3 ya aplicada), el Resultado de este documento, el
+roadmap, `modulos.md` y el handoff.
 
 ### 3.3 La semana y la lista de turnos
 

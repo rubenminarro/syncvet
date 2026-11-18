@@ -9,6 +9,7 @@ const ROLES = [
       'Inicio',
       'Clientes',
       'Pacientes',
+      'Agenda',
       'Especies',
       'Servicios',
       'Veterinarios',
@@ -18,12 +19,12 @@ const ROLES = [
   {
     role: 'recepcionista',
     user: USERS.recepcion,
-    menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios'],
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Agenda', 'Especies', 'Servicios', 'Veterinarios'],
   },
   {
     role: 'veterinario',
     user: USERS.vet,
-    menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios'],
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Agenda', 'Especies', 'Servicios', 'Veterinarios'],
   },
 ] as const;
 

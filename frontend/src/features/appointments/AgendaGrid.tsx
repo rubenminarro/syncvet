@@ -1,0 +1,413 @@
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconCircleX,
+  IconClock,
+  IconDoorEnter,
+  IconLock,
+  IconStethoscope,
+  IconUserX,
+  type Icon,
+} from '@tabler/icons-react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { formatTime } from '../../lib/format/dates';
+import { minutesToClock } from './dates';
+import {
+  appointmentLabel,
+  appointmentWho,
+  ROW_MINUTES,
+  type DayGrid,
+  type GridColumn,
+  type GridItem,
+} from './grid';
+
+/** El alto de una fila de 15 minutos, en píxeles (una hora, 96 px). Va también en `styles.css` (`--agenda-row`). */
+const ROW_PX = 24;
+
+const STATUS_ICONS: Record<string, Icon> = {
+  pending_confirmation: IconClock,
+  confirmed: IconCircleCheck,
+  checked_in: IconDoorEnter,
+  attended: IconStethoscope,
+  no_show: IconUserX,
+  cancelled: IconCircleX,
+};
+
+interface Position {
+  col: number;
+  row: number;
+}
+
+const cellKey = (row: number, col: number) => `c:${String(row)}:${String(col)}`;
+const itemKey = (id: number) => `a:${String(id)}`;
+
+/** ¿El tramo de la fila [inicio, inicio + 15) se superpone con alguno de los intervalos? */
+function overlaps(intervals: readonly { start: number; end: number }[], start: number): boolean {
+  return intervals.some((interval) => interval.start < start + ROW_MINUTES && interval.end > start);
+}
+
+/**
+ * El orden del teclado: en cada columna, de arriba abajo, cada celda seguida de los turnos que empiezan en ella (por
+ * carril). Flecha arriba y abajo recorren ese orden; a los costados, la celda de la misma fila de la columna vecina.
+ */
+function navigation(grid: DayGrid) {
+  const sequences: string[][] = [];
+  const positions = new Map<string, Position & { index: number }>();
+
+  grid.columns.forEach((column, col) => {
+    const sequence: string[] = [];
+
+    grid.rows.forEach((rowStart, row) => {
+      sequence.push(cellKey(row, col));
+
+      for (const item of startingItems(column, rowStart)) {
+        sequence.push(itemKey(item.appointment.id));
+      }
+    });
+
+    sequence.forEach((key, index) => {
+      const [kind, a = '0', b = '0'] = key.split(':');
+      const row =
+        kind === 'c'
+          ? Number(a)
+          : grid.rows.findIndex((rowStart) =>
+              startingItems(column, rowStart).some((item) => item.appointment.id === Number(a)),
+            );
+
+      positions.set(key, { col: kind === 'c' ? Number(b) : col, row, index });
+    });
+
+    sequences.push(sequence);
+  });
+
+  return { sequences, positions };
+}
+
+/** Los turnos que empiezan en la fila, en el orden de sus carriles. */
+function startingItems(column: GridColumn, rowStart: number): GridItem[] {
+  return column.items
+    .filter((item) => item.start >= rowStart && item.start < rowStart + ROW_MINUTES)
+    .sort((a, b) => a.lane - b.lane || a.start - b.start);
+}
+
+interface AgendaGridProps {
+  grid: DayGrid;
+  /** "Agenda del martes 17 de noviembre de 2026". */
+  label: string;
+  onPreviousDay: () => void;
+  onNextDay: () => void;
+  onOpen: (item: GridItem, scheduleName: string) => void;
+  /** Mientras llega otro día (la grilla sigue con el anterior). */
+  busy: boolean;
+}
+
+/**
+ * La grilla del día (diseño de la F3, "Accesibilidad"): el patrón *grid* de WAI-ARIA, con las agendas como encabezados de
+ * columna y las horas como encabezados de fila, y **un solo punto de tabulación** (*roving tabindex*). Las flechas recorren
+ * las celdas y los turnos; Inicio y Fin van al comienzo y al fin de la fila (con Ctrl, de la grilla); Re Pág y Av Pág
+ * cambian de día; Enter abre el turno (en la 3.2, el panel de solo lectura). Si el turno con el foco desaparece con la
+ * actualización (otra PC lo movió o lo canceló), el foco va a su celda; la actualización nunca mueve el foco si no estaba
+ * en la grilla.
+ */
+export function AgendaGrid({
+  grid,
+  label,
+  onPreviousDay,
+  onNextDay,
+  onOpen,
+  busy,
+}: AgendaGridProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  // La clave con el punto de tabulación y dónde estaba al elegirla (para ir a su celda si el turno desaparece).
+  const [focus, setFocus] = useState<(Position & { key: string }) | null>(null);
+  const focusKey = focus?.key ?? null;
+  const hadFocus = useRef(false);
+  const { sequences, positions } = navigation(grid);
+
+  // La clave que tiene el punto de tabulación: la elegida, si sigue; si el turno desapareció, su celda; si no, la primera.
+  let effectiveKey = cellKey(0, 0);
+
+  if (focus !== null && positions.has(focus.key)) {
+    effectiveKey = focus.key;
+  } else if (focus !== null) {
+    const row = Math.max(Math.min(focus.row, grid.rows.length - 1), 0);
+    const col = Math.max(Math.min(focus.col, grid.columns.length - 1), 0);
+    effectiveKey = cellKey(row, col);
+  }
+
+  function remember(key: string) {
+    const position = positions.get(key);
+
+    if (position !== undefined && key !== focusKey) {
+      setFocus({ key, row: position.row, col: position.col });
+    }
+  }
+
+  // El turno con el foco desapareció: el foco va a su celda, solo si estaba en la grilla.
+  useEffect(() => {
+    const active = document.activeElement;
+    const inside = gridRef.current?.contains(active) === true;
+
+    if ((inside || (hadFocus.current && active === document.body)) && focusKey !== effectiveKey) {
+      gridRef.current?.querySelector<HTMLElement>(`[data-key="${effectiveKey}"]`)?.focus();
+    }
+  }, [effectiveKey, focusKey]);
+
+  function moveTo(key: string | undefined) {
+    if (key === undefined) {
+      return;
+    }
+
+    remember(key);
+    gridRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`)?.focus();
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const current = positions.get(effectiveKey);
+
+    if (current === undefined) {
+      return;
+    }
+
+    const lastRow = grid.rows.length - 1;
+    const lastCol = grid.columns.length - 1;
+    const sequence = sequences[current.col] ?? [];
+    let target: string | undefined;
+
+    switch (event.key) {
+      case 'ArrowDown':
+        target = sequence[Math.min(current.index + 1, sequence.length - 1)];
+        break;
+      case 'ArrowUp':
+        target = sequence[Math.max(current.index - 1, 0)];
+        break;
+      case 'ArrowRight':
+        target = cellKey(current.row, Math.min(current.col + 1, lastCol));
+        break;
+      case 'ArrowLeft':
+        target = cellKey(current.row, Math.max(current.col - 1, 0));
+        break;
+      case 'Home':
+        target = event.ctrlKey ? cellKey(0, 0) : cellKey(current.row, 0);
+        break;
+      case 'End':
+        target = event.ctrlKey ? cellKey(lastRow, lastCol) : cellKey(current.row, lastCol);
+        break;
+      case 'PageUp':
+        event.preventDefault();
+        onPreviousDay();
+
+        return;
+      case 'PageDown':
+        event.preventDefault();
+        onNextDay();
+
+        return;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    moveTo(target);
+  }
+
+  const columnCount = grid.columns.length;
+
+  return (
+    <div className="agenda-grid-scroll">
+      <div
+        ref={gridRef}
+        role="grid"
+        aria-label={label}
+        aria-rowcount={grid.rows.length + 1}
+        aria-colcount={columnCount + 1}
+        aria-busy={busy}
+        className={`agenda-grid${busy ? ' agenda-grid-busy' : ''}`}
+        style={{ ['--agenda-columns' as string]: String(columnCount) }}
+        onKeyDown={onKeyDown}
+        onFocus={(event) => {
+          hadFocus.current = true;
+          const key = (event.target as HTMLElement).dataset.key;
+
+          if (key !== undefined) {
+            remember(key);
+          }
+        }}
+        onBlur={(event) => {
+          const next = event.relatedTarget;
+
+          if (next instanceof Node && gridRef.current?.contains(next) === true) {
+            return;
+          }
+
+          // Sin destino: el usuario salió (el elemento sigue en la página) o el elemento desapareció con la actualización.
+          const target = event.target;
+          window.setTimeout(() => {
+            if (target.isConnected || next !== null) {
+              hadFocus.current = false;
+            }
+          }, 0);
+        }}
+      >
+        <div role="row" className="agenda-row agenda-head" aria-rowindex={1}>
+          <div role="columnheader" className="agenda-corner" aria-colindex={1}>
+            <span className="visually-hidden">Hora</span>
+          </div>
+          {grid.columns.map((column, col) => (
+            <div
+              key={column.schedule.id}
+              role="columnheader"
+              className="agenda-column-head"
+              aria-colindex={col + 2}
+              style={
+                column.schedule.color === null
+                  ? undefined
+                  : { borderTopColor: column.schedule.color }
+              }
+            >
+              <div className="fw-bold text-truncate agenda-column-name">{column.schedule.name}</div>
+              <div className="small text-secondary text-truncate">
+                {column.schedule.veterinarian?.name ?? 'Sin veterinario'}
+                {column.schedule.is_active ? '' : ' (inactivada)'}
+              </div>
+            </div>
+          ))}
+        </div>
+        {grid.rows.map((rowStart, row) => {
+          const clock = minutesToClock(rowStart);
+
+          return (
+            <div key={rowStart} role="row" className="agenda-row" aria-rowindex={row + 2}>
+              <div
+                role="rowheader"
+                className={`agenda-time${rowStart % 60 === 0 ? ' agenda-time-hour' : ''}`}
+                aria-colindex={1}
+              >
+                <span className={rowStart % 60 === 0 ? undefined : 'visually-hidden'}>{clock}</span>
+              </div>
+              {grid.columns.map((column, col) => {
+                const key = cellKey(row, col);
+                const closed = overlaps(column.closed, rowStart);
+                const block = column.blocks.find(
+                  (item) => item.start < rowStart + ROW_MINUTES && item.end > rowStart,
+                );
+                const blockStartsHere =
+                  block !== undefined && (block.start >= rowStart || rowStart === grid.start);
+                const states = [
+                  block === undefined ? '' : `bloqueado${block.reason ? ` (${block.reason})` : ''}`,
+                  closed && block === undefined ? 'fuera del horario' : '',
+                ].filter((text) => text !== '');
+
+                return (
+                  <div
+                    key={column.schedule.id}
+                    role="gridcell"
+                    data-key={key}
+                    tabIndex={effectiveKey === key ? 0 : -1}
+                    aria-colindex={col + 2}
+                    aria-label={[clock, column.schedule.name, ...states].join(', ')}
+                    className={`agenda-cell${closed ? ' agenda-closed' : ''}${block === undefined ? '' : ' agenda-blocked'}`}
+                  >
+                    {blockStartsHere ? (
+                      <span className="agenda-block-label" aria-hidden="true">
+                        <IconLock size={14} className="me-1" />
+                        {block.reason ?? 'Bloqueado'}
+                      </span>
+                    ) : null}
+                    {startingItems(column, rowStart).map((item) => (
+                      <AgendaItem
+                        key={item.appointment.id}
+                        item={item}
+                        rowStart={rowStart}
+                        color={column.schedule.color}
+                        scheduleName={column.schedule.name}
+                        focusable={effectiveKey === itemKey(item.appointment.id)}
+                        onOpen={() => {
+                          onOpen(item, column.schedule.name);
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AgendaItem({
+  item,
+  rowStart,
+  color,
+  scheduleName,
+  focusable,
+  onOpen,
+}: {
+  item: GridItem;
+  rowStart: number;
+  color: string | null;
+  scheduleName: string;
+  focusable: boolean;
+  onOpen: () => void;
+}) {
+  const { appointment } = item;
+  const StatusIcon = STATUS_ICONS[appointment.status.value] ?? IconClock;
+  const status = appointment.status.value;
+  const classes = [
+    'agenda-item',
+    status === 'no_show' ? 'agenda-item-dimmed' : '',
+    status === 'cancelled' ? 'agenda-item-cancelled' : '',
+    item.inBlock ? 'agenda-item-in-block' : '',
+  ].filter((name) => name !== '');
+  const width = 100 / item.lanes;
+
+  return (
+    <button
+      type="button"
+      data-key={itemKey(appointment.id)}
+      data-status={status}
+      tabIndex={focusable ? 0 : -1}
+      className={classes.join(' ')}
+      aria-label={appointmentLabel(item, scheduleName)}
+      style={{
+        top: `${String(((item.start - rowStart) / ROW_MINUTES) * ROW_PX)}px`,
+        height: `${String(Math.max(((item.end - item.start) / ROW_MINUTES) * ROW_PX - 2, ROW_PX - 2))}px`,
+        left: `calc(${String(width * item.lane)}% + 2px)`,
+        width: `calc(${String(width)}% - 4px)`,
+        ...(color === null ? {} : { borderLeftColor: color }),
+      }}
+      onClick={onOpen}
+    >
+      <span className="agenda-item-line">
+        <span className="agenda-item-time">
+          {formatTime(appointment.starts_at)}–{formatTime(appointment.ends_at)}
+        </span>{' '}
+        <strong>{appointmentWho(appointment)}</strong>
+      </span>
+      <span className="agenda-item-line">
+        <StatusIcon size={14} className="me-1" aria-hidden="true" />
+        {appointment.status.label}
+        {appointment.service === null ? '' : ` · ${appointment.service.name}`}
+      </span>
+      {appointment.is_overbooked || item.inBlock ? (
+        <span className="agenda-item-line agenda-item-flag">
+          {item.inBlock ? (
+            <span className="agenda-item-block-flag me-2">
+              <IconLock size={14} className="me-1" aria-hidden="true" />
+              Dentro de un bloqueo
+            </span>
+          ) : null}
+          {appointment.is_overbooked ? (
+            <span>
+              <IconAlertTriangle size={14} className="me-1" aria-hidden="true" />
+              Sobreturno
+            </span>
+          ) : null}
+        </span>
+      ) : null}
+    </button>
+  );
+}
