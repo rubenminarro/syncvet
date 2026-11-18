@@ -221,8 +221,8 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 | 3.1b | Bloqueos de una agenda: listar, crear (con los turnos afectados) y eliminar | No | `feature/front-3-1b-bloqueos`, desde la 3.1a | COMPLETADO (R-087, [resultado](#entrega-31b)) |
 | front-03 | Soporte del backend: `per_page` hasta 500 en `GET appointments` ([pregunta 1](#preguntas-del-diseño)) | — | `feature/front-03-turnos-por-pagina`, desde la 3.1b | COMPLETADO (R-088, [resultado](#entrega-front-03)) |
 | 3.2 | La agenda del día: grilla por agenda, filtros, la sucursal actual, el teclado y "Agenda" en el menú (solo lectura) | front-03 | `feature/front-3-2-agenda-dia`, desde front-03 | COMPLETADO (R-089, [resultado](#entrega-32)) |
-| demo-02 | Soporte del backend para la demo: un comando `php artisan demo:agenda` que crea en la demo agendas para las sucursales y turnos ficticios de la semana en curso (varios estados, un bloqueo y un sobreturno), idempotente y sin tocar `admin-a`, `recepcion-a` ni `vet-a`. La demo no tiene agendas activas ni turnos propios (H6, desvío 14 de la 3.2) | — | `feature/demo-02-agenda`, desde la 3.2 | APROBADA (siguiente; decisión del usuario del 2026-11-18, R-089) |
-| 3.3 | La semana y la lista de turnos (`/turnos`, con los filtros de la API y las listas en la URL) | No | `feature/front-3-3-semana-lista`, desde la 3.2 | APROBADA (después de demo-02) |
+| demo-02 | Soporte del backend para la demo: un comando `php artisan demo:agenda` que crea en la demo agendas para las sucursales y turnos ficticios de la semana en curso (varios estados, un bloqueo y un sobreturno), idempotente y sin tocar `admin-a`, `recepcion-a` ni `vet-a`. La demo no tiene agendas activas ni turnos propios (H6, desvío 14 de la 3.2) | — | `feature/demo-02-agenda`, desde la 3.2 | EN CURSO (implementada, WIP; [pendiente para el cierre](#pendiente-para-el-cierre-demo-02)) |
+| 3.3 | La semana y la lista de turnos (`/turnos`, con los filtros de la API y las listas en la URL) | No | `feature/front-3-3-semana-lista`, desde demo-02 (decisión del usuario del 2026-11-18) | APROBADA (después de demo-02) |
 | 3.4 | El turno: detalle, alta (paciente, cliente o contacto; servicio y duración; horario con la disponibilidad; sobreturno), edición y reprogramación | No | `feature/front-3-4-turnos`, desde la 3.3 | APROBADA |
 | 3.5 | Los estados: confirmar, fichar, atendido, ausente y deshacerlo, cancelar con motivo | No | `feature/front-3-5-estados`, desde la 3.4 | APROBADA |
 | 3.6 | Las series: el alta con repetición, los conflictos de la serie y cancelar con alcance | No | `feature/front-3-6-series`, desde la 3.5 | APROBADA |
@@ -362,6 +362,81 @@ recorrer con el teclado; el lector de pantalla con el nombre de un turno (Narrad
 #### Pendiente para el cierre (3.2)
 
 Vacío: la entrega se cerró (R-089) y todo lo que había acá pasó a su [resultado](#entrega-32).
+
+### demo-02 Soporte del backend: la agenda de la demo
+
+**Comando** `php artisan demo:agenda` (`app/Console/Commands/DemoAgendaCommand.php`), en la Clínica A del `DemoSeeder` (por su RUC
+y su marca). Sin rutas, permisos, migraciones ni `error_code` nuevos.
+
+* **Lo que crea**, por los Services (`ScheduleService`, `ScheduleBlockService`, `ServiceCatalogService`, `AppointmentService` y
+  `AppointmentTransitionService`) y con `admin-a` como usuario (la auditoría es la de la API): los servicios "Demo Consulta
+  general", "Demo Baño y corte", "Demo Guardia" y "Demo Vacunación"; en la sucursal por defecto, "Demo Consultorio 1" (con la
+  ficha de `vet-a`), "Demo Consultorio 2", "Demo Peluquería" y "Demo Guardia" (abierta todos los días, sin veterinario), y "Demo
+  Vacunación" en cada una de las demás sucursales activas, cada una con su horario semanal; los turnos de la semana en curso
+  (lunes a domingo en `America/Asuncion`), uno cada dos o tres horarios, con los pacientes del `DemoSeeder`. El estado sale de la
+  hora: los que ya terminaron, atendidos, ausentes o cancelados; el que está en curso, fichado; los que vienen, a confirmar,
+  confirmados o cancelados. Siempre hay un turno en cada estado (lo que falta va en la guardia de ayer, de la semana pasada si es
+  lunes temprano), un fichado hoy, un sobreturno en la agenda de `vet-a`, un turno solo con contacto (primera vez, nombre y
+  teléfono inventados) y un bloqueo sobre un turno que ocupa el horario (en la peluquería o la guardia, el primero de hoy por
+  venir).
+* **Idempotente.** La marca es el prefijo "Demo " del nombre. Al correrlo de nuevo borra los turnos y los bloqueos de las agendas
+  "Demo …", actualiza esas agendas (conservan su id), elimina las "Demo …" que ya no están en la definición, reutiliza los
+  servicios y regenera la semana actual. No toca otras agendas ni sus turnos, ni la Clínica B, ni `admin-a`, `recepcion-a` o
+  `vet-a`. Si un turno de una agenda "Demo …" tiene una consulta (FASE 4), se niega.
+* **Se niega** fuera de `local` y `testing` (los entornos del `DemoSeeder`) y sin la clínica de la demo; todo va en una
+  transacción.
+* **Resumen** al final: las agendas con su sucursal, su veterinario y sus turnos; los turnos por estado; los de hoy, los
+  sobreturnos, los de un contacto y el bloqueo.
+
+**Tests** (`tests/Feature/Console/DemoAgendaCommandTest.php`, 8): lo que crea y los estados con el reloj fijo (miércoles
+18/11/2026 10:15); dos corridas iguales (las agendas con el mismo id); otra corrida, otro lunes, que regenera la semana; que no toca
+otros datos ni los tres usuarios; la negativa en `production` y sin la clínica de la demo; la semana de Asunción con el domingo
+22:30 (lunes 01:30 en UTC); el lunes temprano, con el atendido y el ausente del domingo anterior.
+
+#### Pendiente para el cierre (demo-02)
+
+Implementada el 2026-11-18 en `feature/demo-02-agenda` (commit WIP). Falta que el usuario valide, la revisión y el cierre (el
+registro R-090, el estado en el roadmap y en los `CLAUDE.md`).
+
+**Corrida en la demo** (`syncvet.test`, 2026-11-18 a las 18:28 en Asunción): 5 agendas (Consultorio 1 de Víctor Acosta, 45
+turnos; Consultorio 2, 27; Peluquería, 22; Guardia, 57; Vacunación, en "Sucursal de usuarios (Postman)", 20) y 171 turnos: 34 a
+confirmar, 33 confirmados, 1 fichado, 53 atendidos, 17 ausentes y 33 cancelados; 30 de hoy, 1 sobreturno, 1 de un contacto y 1
+bloqueo ("Demo Guardia", 18/11 19:00–19:30, con 1 turno adentro). La segunda corrida dio las mismas cifras; ningún turno salteado.
+`admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at` del 12/11 y del 05/11).
+
+**En Edge** (sin ventana, `es-PY`, zona `America/Asuncion`, contra `syncvet.test` con un Vite propio en `:5180`, detenido por su
+PID; 5 de 5): (1) `/agenda` de hoy a 1280 px con 4 columnas (las cuatro "Demo …" de Casa central) y 21 turnos visibles, sin
+desplazamiento horizontal; (2) el turno fichado de las 19:00 de la guardia con "Dentro de un bloqueo" y el bloqueo con su motivo;
+(3) "Mostrar los cancelados": 0 antes y 5 después, con `?cancelados=1` en la URL; (4) a 375 px, sin desplazamiento horizontal;
+(5) `vet-a` en su vista por defecto ve "Demo Consultorio 1" y las agendas sin veterinario (4 columnas, 21 turnos). Consola sin
+errores. Capturas fuera del repositorio (scratchpad de la sesión, `capturas-demo-02`): `01-dia-1280.png`, `02-bloqueo-1280.png`,
+`03-cancelados-1280.png`, `04-dia-375.png` y `05-vet-1280.png`.
+
+**Desvíos y decisiones a validar:**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | Los turnos que ya empezaron se dan con el reloj de PHP corrido (`Carbon::setTestNow`) a las 07:00 de su día, y cada transición, a la hora en que habría pasado (fichado 10 min antes, atendido 20 min después, ausente 15 min después); el reloj vuelve a su valor después de cada paso | El alta rechaza un día que ya pasó y el fichado exige el día del turno: sin eso, por los Services no hay atendidos ni ausentes de días anteriores. Las fechas de la auditoría y `created_at` de esos turnos son las simuladas |
+| 2 | Los turnos de las agendas "Demo …" se borran con el modelo (uno por uno, con su auditoría), no con un Service | La API no tiene baja de turnos. Un turno dado a mano en una agenda "Demo …" también se borra en la corrida siguiente |
+| 3 | Crea 4 servicios "Demo …" (se reutilizan, no se borran) | Las agendas sin veterinario necesitan un servicio (P10) y la demo no tiene servicios activos propios |
+| 4 | Se niega fuera de `local` y `testing`, no solo en `production` | Los mismos entornos que el `DemoSeeder`; el test cubre `production` |
+| 5 | "Demo Vacunación" queda en "Sucursal de usuarios (Postman)", la otra sucursal activa de la demo | Los tres usuarios de la demo trabajan solo en Casa central: esa agenda no se ve en su `/agenda` (sí en `/configuracion/agendas`) |
+| 6 | El bloqueo va en la peluquería o en la guardia, el primero de hoy por venir: a las 18:28 quedó en la guardia | La peluquería cierra a las 17:00; así el bloqueo se ve en "hoy" a cualquier hora hasta las 20:00 |
+| 7 | En Edge, el control 2 falló en la primera corrida por la espera del script (la grilla dibuja los turnos antes de que lleguen los bloqueos); se corrigió la espera y se repitió solo ese control (en total, 2 ingresos de `admin-a` y 1 de `vet-a`, los 3 tokens revocados, 0 al terminar). La captura `01-dia-1280.png` es de antes de que llegaran los bloqueos (sin el sombreado de las 19:00); el bloqueo está en `02-bloqueo-1280.png` | Falla del script, no de la pantalla |
+| 8 | El comando se corrió 3 veces en la demo (dos con el código final del alta de turnos y una después de mover el bloqueo a "hoy") | La segunda, para ver la idempotencia con los datos reales |
+
+**Mutaciones** (3, con los tests relacionados): la semana calculada en UTC (falla
+`test_the_week_is_the_one_of_asuncion_with_a_fixed_clock`), la limpieza sin el filtro del prefijo (falla
+`test_it_does_not_touch_other_data_nor_the_three_demo_users`) y sin la negativa de entornos (falla
+`test_it_refuses_to_run_in_production`). Las tres, restauradas.
+
+**Pruebas** (2026-11-18, desde `backend/`, sin Xdebug). Durante el trabajo, `DemoAgendaCommandTest`, 8 de 8 (410 aserciones).
+Corrida final, `composer test` en SQLite y en serie: 1493 casos, 1476 pasan, 16 omitidos (solo de MySQL) y 1 falla, 14826
+aserciones: `VoseoTest` marcó "crea" en el mensaje de la negativa del comando (lo toma por tuteo); se reescribió el mensaje y se
+repitieron solo `VoseoTest` y `DemoAgendaCommandTest`, 10 de 10 (434 aserciones), sin repetir la suite (el Presupuesto por
+entrega). `FictitiousDocumentsTest`, 3 de 3. MySQL no se corrió (sin migraciones, concurrencia ni búsqueda de texto); Newman
+tampoco (sin rutas nuevas). Desvío 9: la falla de `VoseoTest` en la corrida final, por la que la cifra de `composer test` no es
+de una corrida entera en verde.
 
 ### 3.3 La semana y la lista de turnos
 
