@@ -11,11 +11,13 @@ import { formatDayHours, formatSlot } from './form';
 import { useScheduleListSearch, withScheduleList } from './navigation';
 import { ScheduleActions } from './ScheduleActions';
 import { ScheduleColor, ScheduleInactiveBadge } from './ScheduleBadges';
+import { ScheduleBlocks } from './ScheduleBlocks';
 import { WEEKDAYS, type ScheduleDetail } from './types';
 
 /**
  * /configuracion/agendas/$id (3.1a, solo el administrador): los datos, el horario semanal (de lunes a domingo, con sus
- * tramos), el alta y la última modificación; "Editar", inactivar o activar y eliminar (`ScheduleActions`).
+ * tramos), el alta y la última modificación; "Editar", inactivar o activar y eliminar (`ScheduleActions`); desde la 3.1b, la
+ * tarjeta "Bloqueos" (`ScheduleBlocks`).
  */
 export function ScheduleDetailPage({ id }: { id: number }) {
   const { data: schedule } = useSuspenseQuery(scheduleDetailQueryOptions(id));
@@ -63,6 +65,11 @@ export function ScheduleDetailPage({ id }: { id: number }) {
         <div className="col-lg-6">
           <ScheduleWeek schedule={schedule} />
         </div>
+        {can(PERMISSIONS.scheduleBlocksIndex) ? (
+          <div className="col-12">
+            <ScheduleBlocks schedule={schedule} />
+          </div>
+        ) : null}
       </div>
     </>
   );

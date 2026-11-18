@@ -123,11 +123,19 @@ function detailHandler(current: () => ScheduleDetail) {
   );
 }
 
+/** Los bloqueos de la tarjeta del detalle (3.1b): ninguno. Sus casos están en ScheduleBlocks.test.tsx. */
+function noBlocksHandler() {
+  return http.get('/api/schedules/:id/blocks', () =>
+    success([], { meta: pagination({ total: 0 }) }),
+  );
+}
+
 async function openDetail(schedule: ScheduleDetail, extra: Parameters<typeof server.use> = []) {
   server.use(
     ...extra,
     meHandler(ADMIN),
     detailHandler(() => schedule),
+    noBlocksHandler(),
   );
   const app = renderApp(`/configuracion/agendas/${String(schedule.id)}`, { session: sessionFor() });
   await screen.findByText(schedule.name, { selector: '.schedule-title' });
@@ -229,6 +237,7 @@ describe('/configuracion/agendas/$id: detalle', () => {
     server.use(
       meHandler(ADMIN),
       detailHandler(() => ROOM_ONE),
+      noBlocksHandler(),
     );
     renderApp('/configuracion/agendas/99', { session: sessionFor() });
 
@@ -249,6 +258,7 @@ describe('/configuracion/agendas/nueva: alta', () => {
         return success(created, { status: 201, message: 'Agenda creada correctamente.' });
       }),
       detailHandler(() => created),
+      noBlocksHandler(),
     );
     const { history } = renderApp('/configuracion/agendas/nueva', { session: sessionFor() });
 
@@ -412,6 +422,7 @@ describe('/configuracion/agendas/$id/editar', () => {
       meHandler(ADMIN),
       ...optionHandlers(),
       detailHandler(() => ROOM_ONE),
+      noBlocksHandler(),
       http.patch('/api/schedules/:id', async ({ request }) => {
         bodies.push(await request.json());
 
@@ -454,6 +465,7 @@ describe('/configuracion/agendas/$id/editar', () => {
       meHandler(ADMIN),
       ...optionHandlers(),
       detailHandler(() => ROOM_ONE),
+      noBlocksHandler(),
       http.patch('/api/schedules/:id', () =>
         failure(422, 'SCHEDULE_NOT_EDITABLE', NOT_EDITABLE_MESSAGE),
       ),
@@ -476,6 +488,7 @@ describe('/configuracion/agendas/$id/editar', () => {
       meHandler(ADMIN),
       ...optionHandlers(),
       detailHandler(() => ROOM_ONE),
+      noBlocksHandler(),
       http.patch('/api/schedules/:id', async ({ request }) => {
         bodies.push(await request.json());
 

@@ -83,3 +83,31 @@ export interface SchedulePayload {
   color: string | null;
   hours: ScheduleHourPayload[];
 }
+
+/** El cuerpo de POST schedules/{id}/blocks: los instantes con su desplazamiento (`toApiDateTime`) y el motivo o null. */
+export interface ScheduleBlockPayload {
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+}
+
+/**
+ * Un turno que quedó dentro del bloqueo recién creado (StoredScheduleBlockResource, pregunta 22 del backend): los de la
+ * agenda que ocupan el horario (a confirmar, confirmado, fichado y atendido) y se superponen con él. La API no los cambia
+ * ni rechaza el bloqueo: los lista para que la recepción los reprograme o los cancele.
+ */
+export interface AffectedAppointment {
+  id: number;
+  starts_at: string;
+  ends_at: string;
+  status: { value: string; label: string };
+  patient: { id: number; code: string; name: string } | null;
+  client: { id: number; display_name: string } | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+}
+
+/** La respuesta del alta (201): el bloqueo con los turnos que quedaron adentro (vacío si no hay). */
+export interface StoredScheduleBlock extends ScheduleBlock {
+  affected_appointments: AffectedAppointment[];
+}

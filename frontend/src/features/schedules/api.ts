@@ -2,7 +2,15 @@ import { keepPreviousData, queryOptions, type QueryClient } from '@tanstack/reac
 import { api, getPage } from '../../lib/api/client';
 import type { Service } from '../services/types';
 import type { Veterinarian } from '../veterinarians/types';
-import type { Schedule, ScheduleDetail, ScheduleListFilters, SchedulePayload } from './types';
+import type {
+  Schedule,
+  ScheduleBlock,
+  ScheduleBlockPayload,
+  ScheduleDetail,
+  ScheduleListFilters,
+  SchedulePayload,
+  StoredScheduleBlock,
+} from './types';
 
 /** Agendas por página: fijo, como los demás listados. */
 export const SCHEDULES_PER_PAGE = 20;
@@ -20,7 +28,53 @@ export const scheduleKeys = {
   lists: ['schedules', 'list'] as const,
   list: (filters: ScheduleListFilters) => ['schedules', 'list', filters] as const,
   detail: (id: number) => ['schedules', 'detail', id] as const,
+  /** Lo de una agenda que cambia con un bloqueo: sus bloqueos y su disponibilidad (desde la 3.2). */
+  ofSchedule: (id: number) => ['schedules', id] as const,
+  /** Los bloqueos de la tarjeta del detalle: sin `from` ni `to` (los que terminan desde hoy), por página. */
+  blocks: (id: number, filters: { from: string | null; to: string | null; page: number }) =>
+    ['schedules', id, 'blocks', filters] as const,
 };
+
+/** Bloqueos por página en la tarjeta del detalle. */
+export const BLOCKS_PER_PAGE = 20;
+
+/**
+ * GET schedules/{id}/blocks: sin `from` ni `to`, los que terminan desde hoy (Asunción), por `starts_at`. Mientras llega otra
+ * página, la tabla sigue con la anterior.
+ */
+export function scheduleBlocksQueryOptions(scheduleId: number, page: number) {
+  return queryOptions({
+    queryKey: scheduleKeys.blocks(scheduleId, { from: null, to: null, page }),
+    queryFn: ({ signal }) =>
+      getPage<ScheduleBlock>(`schedules/${String(scheduleId)}/blocks`, {
+        signal,
+        query: { page, per_page: BLOCKS_PER_PAGE },
+      }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** POST schedules/{id}/blocks (201): el bloqueo, con los turnos que quedaron adentro (`affected_appointments`). */
+export function createScheduleBlock(scheduleId: number, payload: ScheduleBlockPayload) {
+  return api.post<StoredScheduleBlock>(`schedules/${String(scheduleId)}/blocks`, payload);
+}
+
+/** DELETE schedule-blocks/{id}: no se editan; se eliminan y se crea otro. */
+export function deleteScheduleBlock(blockId: number) {
+  return api.delete<null>(`schedule-blocks/${String(blockId)}`);
+}
+
+/**
+ * Después de crear o eliminar un bloqueo (diseño de la F3, "Invalidaciones": un bloqueo → sus bloqueos, el detalle de la
+ * agenda y la disponibilidad). El detalle a la vista no muestra `upcoming_blocks`: queda viejo, sin otro pedido.
+ */
+export function afterBlocksChanged(queryClient: QueryClient, scheduleId: number) {
+  void queryClient.invalidateQueries({ queryKey: scheduleKeys.ofSchedule(scheduleId) });
+  void queryClient.invalidateQueries({
+    queryKey: scheduleKeys.detail(scheduleId),
+    refetchType: 'none',
+  });
+}
 
 export const scheduleOptionKeys = {
   veterinarians: ['veterinarians', 'options'] as const,
