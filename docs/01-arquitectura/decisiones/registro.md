@@ -1868,3 +1868,24 @@ Segunda entrega de pantallas de la F3 del frontend (R-085), en `feature/front-3-
 
 **Qué no cambió.** Backend (solo la fila 25 de la tabla de deuda de `backend/CLAUDE.md`), rutas y permisos de la API, `error_code`,
 códigos HTTP, contrato de respuesta, el menú, el permiso de las rutas, colecciones y paquetes.
+
+# R-088 Cierre de la entrega front-03 del backend (más turnos por página en el listado) (2026-11-18)
+
+Entrega de soporte del backend pedida por la F3 del frontend (pregunta 1 de su diseño, R-085), en
+`feature/front-03-turnos-por-pagina` (desde `c71e71d`, el cierre de la 3.1b), sin integrar a `main`: se integra al cerrar la F3. El
+detalle, en su [resultado](../../03-plan-desarrollo/fases/frontend/f3-agenda.md#entrega-front-03).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | `GET appointments` acepta `per_page` de 1 a 500 (`IndexAppointmentRequest::MAX_PER_PAGE`), para que la semana de una sucursal entre en un pedido; fuera de rango, un decimal o un texto → 422 en `per_page` con un solo mensaje, "Pedí de 1 a 500 turnos por página." Los demás listados siguen hasta 100 (`ListFilters` sin cambios) y el valor por defecto sigue en 10. `meta.pagination.total` cuenta todos los del filtro. Sin N+1: el `with` del listado ya traía las relaciones del Resource (desde la 3.2a). Sin rutas, permisos, migraciones ni `error_code` nuevos (78, 135, 36) | Diseño (R-085) |
+| Índices | EXPLAIN en MySQL 8.4 (una base temporal con 60.000 turnos, borrada después, y la demo): la semana usa `appointments_branch_id_starts_at_index` o, con `schedule_id`, `appointments_schedule_id_starts_at_ends_at_index`; no falta ningún índice, sin migración | Implementación |
+| El pedido lento de la 3.1b | `DELETE /api/schedules/{id}` tarda de 0,1 a 0,4 s fuera de Playwright: los 10,8 s de la 3.1b son del entorno (`php artisan serve` de un solo proceso en Windows, con Xdebug cargado, y la PC cargada), no del backend; sin corrección en el backend. Los 30 s de `SAVED` de la 3.1b quedan | Implementación; el usuario, los 30 s |
+| Playwright sin Xdebug | `XDEBUG_MODE: 'off'` en el `env` del `webServer` del backend (`frontend/playwright.config.ts`; con `--no-reload`, `php artisan serve` pasa el entorno a `php -S`). Medido con `e2e/agendas.spec.ts` y `e2e/permisos.spec.ts`, dos corridas de cada lado: 100 s antes y 99,5 s después en total; `agendas.spec.ts`, de 37,6 a 33,8 s; `permisos.spec.ts`, sin cambio. Regla en `frontend/CLAUDE.md` §8 | Usuario |
+| Desvíos | Los 5, aceptados: el mensaje propio de `per_page` (uno solo para `integer`, `min` y `max`); sin cambios en `AppointmentController`; el EXPLAIN en una base temporal además de la demo; el pedido lento sin corregir (la causa es el entorno); las mediciones contra la demo | Usuario: aceptados |
+| Revisión | Con el presupuesto por entrega, sobre `60b3615` (diff con `c71e71d`), en `4a05e9c`: sin otra vía para pasar más de 500 (también probados `600.5`, `-0.5`, `500.0`, `1e2`, `5e2` y `0500`, con un solo mensaje), `ListFilters` y los otros 10 listados sin cambios, el conteo de consultas que falla de verdad con el N+1 y los pedidos "22a" a "22c" que se pueden repetir. Hallazgo 1 (menor, corregido): una línea larga de `backend/CLAUDE.md` §6.10 | Revisión |
+| Mutaciones | De la implementación, 3 de 3 (el tope en 501; `ListFilters` con 500 para todos; sin `veterinarian.user` ni `patient` en el `with`); de la revisión, 2 de 2 (`numeric` en lugar de `integer`; sin `client` en el `with`, de 9 a 208 consultas) | Implementación y revisión |
+| Validación | El usuario aceptó los desvíos, decidió Playwright sin Xdebug y pidió la revisión y el cierre. Backend, sobre el código de `60b3615` (después, solo cambió su `CLAUDE.md`): `composer test` en serie, 1485 casos, 1469 pasan, 16 omitidos (solo MySQL), 14416 aserciones; Newman de turnos, 61 pedidos y 113 aserciones, sin fallas; en la revisión, los tests relacionados, 54 de 54. Frontend, sobre `4a05e9c`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1439 tests en 69 archivos, en verde; Playwright, `e2e/agendas.spec.ts` y `e2e/permisos.spec.ts`, 9 de 9 en cuatro corridas | Usuario y Claude Code |
+| Siguiente | La entrega 3.2 del frontend (la agenda del día), en `feature/front-3-2-agenda-dia`, creada desde el cierre de front-03 y subida; sin código hasta la autorización del usuario | Diseño (R-085) |
+
+**Qué no cambió.** Rutas, permisos, migraciones, `error_code`, códigos HTTP, el contrato de respuesta, los demás listados, el
+frontend (salvo `playwright.config.ts`) y los paquetes.
