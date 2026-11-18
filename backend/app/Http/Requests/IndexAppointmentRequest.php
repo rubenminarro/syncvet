@@ -17,12 +17,20 @@ use Illuminate\Validation\Validator;
  * solo, el otro es el mismo día. schedule_id, branch_id, veterinarian_id, service_id,
  * patient_id y client_id de la clínica (también inactivos o eliminados); status, uno o varios
  * (status=confirmed o status[]=confirmed&status[]=checked_in); series_id.
+ *
+ * per_page llega hasta 500, no hasta 100 como los demás listados (entrega front-03, pregunta 1
+ * de la F3 del frontend): la semana de una sucursal entra en un solo pedido. El resto de
+ * ListFilters (search, page y el valor por defecto) no cambia.
  */
 class IndexAppointmentRequest extends FormRequest
 {
     public const MAX_DAYS = 31;
 
     public const RANGE_TOO_LONG = 'El rango no puede superar los ' . self::MAX_DAYS . ' días.';
+
+    public const MAX_PER_PAGE = 500;
+
+    public const PER_PAGE_OUT_OF_RANGE = 'Pedí de 1 a ' . self::MAX_PER_PAGE . ' turnos por página.';
 
     public function authorize(): bool
     {
@@ -35,6 +43,7 @@ class IndexAppointmentRequest extends FormRequest
 
         return [
             ...ListFilters::rules(),
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
             'from' => ['nullable', 'string', 'regex:' . ApiDateTime::FILTER_FORMAT, 'date'],
             'to' => ['nullable', 'string', 'regex:' . ApiDateTime::FILTER_FORMAT, 'date'],
             'schedule_id' => ['nullable', 'integer', Rule::exists('schedules', 'id')->where('clinic_id', $clinicId)],
@@ -54,6 +63,9 @@ class IndexAppointmentRequest extends FormRequest
         $statuses = implode(', ', AppointmentStatus::values());
 
         return [
+            'per_page.integer' => self::PER_PAGE_OUT_OF_RANGE,
+            'per_page.min' => self::PER_PAGE_OUT_OF_RANGE,
+            'per_page.max' => self::PER_PAGE_OUT_OF_RANGE,
             'from.string' => IndexAuditLogRequest::DATE_FORMAT,
             'from.regex' => IndexAuditLogRequest::DATE_FORMAT,
             'from.date' => IndexAuditLogRequest::DATE_FORMAT,

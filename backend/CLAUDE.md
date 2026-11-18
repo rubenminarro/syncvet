@@ -137,6 +137,7 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 * Toda validación de un pedido va en un **Form Request**, también la de los filtros de un listado; un Controller no llama a
   `validate()` (`ValidationTranslationsTest`). Los listados validan además los filtros comunes de `ListFilters`: `search`
   texto de hasta 100, `per_page` de 1 a 100 (10 por defecto) y `page` desde 1; un filtro mal formado responde 422, nunca 500.
+  La única excepción es `GET appointments`, con `per_page` de 1 a 500 (front-03, §6.10).
   `search` es literal: se busca con `whereContains`/`orWhereContains` (`App\Support\SearchTerm`), que escapan `%` y `_` y dejan
   la barra invertida como un carácter más, nunca con `like` y el texto sin escapar (R-021).
 * Las migraciones no llaman a Services ni Models: solo estructura (y filas por defecto con `DB::table`).
@@ -807,7 +808,13 @@ módulo (2.2a, 2.2b, 2.3, 2.4, 2.5, 3.1, 3.2a, 3.2b, 3.3 y 3.4):
   * **Listado** paginado con `ListFilters`, por `starts_at` e id: filtra por `starts_at` con `from` y `to` (`ApiDateTime`; sin ninguno,
     hoy; con uno solo, solo ese día; hasta 31 días); `schedule_id`, `branch_id`, `veterinarian_id`, `service_id`, `patient_id`,
     `client_id`, `status` (uno o varios) y `series_id`; `search` literal en el nombre y el código del paciente, el nombre y el documento
-    del cliente y el nombre y el teléfono de contacto. El detalle (`ShowAppointmentResource`) suma las notas, quién lo creó y las
+    del cliente y el nombre y el teléfono de contacto. **`per_page` de 1 a 500** (front-03; el único listado que pasa de 100, para
+    que la semana de una sucursal entre en un pedido; 10 por defecto, como los demás): fuera de rango, un decimal o un texto → 422 en
+    `per_page`, "Pedí de 1 a 500 turnos por página." (`IndexAppointmentRequest::PER_PAGE_OUT_OF_RANGE`). `meta.pagination.total`
+    cuenta todos los del filtro: si supera lo traído, el frontend avisa que faltan turnos. Las relaciones del Resource (agenda,
+    sucursal, veterinario con su usuario, servicio, paciente y cliente) van en el `with`: las mismas consultas con 1 turno que con
+    300 (`AppointmentPerPageTest`). La consulta de la semana usa `appointments_branch_id_starts_at_index` o, con `schedule_id`,
+    `appointments_schedule_id_starts_at_ends_at_index` (EXPLAIN en MySQL, front-03). El detalle (`ShowAppointmentResource`) suma las notas, quién lo creó y las
     fechas de los estados (`confirmed_at`, `checked_in_at`, `attended_at`, `no_show_at` y `cancelled_at`, en UTC con `Z`).
 * **Estados del turno** (3.2b; `AppointmentTransitionController`, `AppointmentTransitionService` y `App\Enums\AppointmentTransition`,
   cada acción con sus estados de origen y su destino): `POST appointments/{appointment}/` + `confirm`, `check-in`, `attend`,

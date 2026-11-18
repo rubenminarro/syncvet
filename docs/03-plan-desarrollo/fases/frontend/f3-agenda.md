@@ -322,7 +322,77 @@ con 300 turnos (sin N+1, `InspectsQueries`). Postman: un pedido de la colección
 
 #### Pendiente para el cierre (front-03)
 
-Vacío.
+Implementación (2026-11-18) en `feature/front-03-turnos-por-pagina`, desde `c71e71d` (el cierre de la 3.1b); sin revisión ni cierre
+todavía.
+
+**Hecho.** `IndexAppointmentRequest`: `per_page` de 1 a 500 (`MAX_PER_PAGE`), con su mensaje propio para el entero, el mínimo y el
+máximo (`PER_PAGE_OUT_OF_RANGE`, "Pedí de 1 a 500 turnos por página.", uno solo aunque fallen dos reglas); `ListFilters` no cambia
+(los demás listados, hasta 100; 10 por defecto en todos). La respuesta es la misma (`meta.pagination` en `snake_case`, con
+`total`). El `with` del listado ya traía las seis relaciones de `AppointmentResource` (desde la 3.2a): no hubo que cambiar el
+controlador. Sin rutas, permisos, migraciones ni `error_code` nuevos (78, 135, 36).
+
+**Pruebas.** `tests/Feature/Appointments/AppointmentPerPageTest.php` (nuevo, 18 casos): 10, 100 y 500 pasan; 501, 0, -1, `abc` y
+`10.5` → 422 con el mensaje (un solo mensaje en `errors.per_page`); los otros diez listados con `ListFilters` (clientes, pacientes,
+sucursales, depósitos, usuarios, veterinarios, servicios, agendas, bloqueos y auditoría) aceptan 100 y rechazan 101 y 500; el
+`total` con más turnos que los pedidos; y la cantidad de consultas con 1 turno y con 300 (tres agendas, con y sin veterinario o
+servicio; con paciente, solo con cliente y con un contacto): **9 y 9**, después de un pedido que llena la caché de permisos (como
+front-02). Durante el trabajo: `AppointmentPerPageTest` 18 de 18; `AppointmentIndexTest`, `ValidationTranslationsTest`,
+`VoseoTest`, `ListFiltersTest` y `PaginationMetaTest`, 47 de 47. Corrida final: `composer test` (SQLite, en serie),
+1485 casos, 1469 pasan y 16 omitidos (solo de MySQL), 14416 aserciones, en 5 min 56 s (frente al cierre de la F2, 18 casos más: los de `AppointmentPerPageTest`). `FictitiousDocumentsTest`, 3 de 3 (también por la colección de Postman). MySQL no se corrió: la entrega no tiene migraciones, concurrencia ni búsqueda de texto.
+
+**Mutaciones** (3 de 3 detectadas, revertidas): el tope en 501 (1 falla: el caso 501); `ListFilters` con 500 para todos los
+listados (10 fallas, una por listado); sin `veterinarian.user` ni `patient` en el `with` (de 9 a 506 consultas con 300 turnos).
+
+**EXPLAIN en MySQL 8.4** (la consulta que arma Laravel: `clinic_id` del scope, `branch_id`, `schedule_id` y el rango de
+`starts_at` de una semana, `order by starts_at, id limit 500`, y su `count(*)`). En una base temporal propia
+(`syncvet_explain_tmp`, `CREATE TABLE LIKE` de `appointments`, con sus índices, y 60.000 turnos de 3 clínicas, 12 sucursales y 48
+agendas en 26 días; `ANALYZE TABLE`; borrada después) y en la demo (193 turnos): con `schedule_id`, `range` sobre
+`appointments_schedule_id_starts_at_ends_at_index` (336 filas estimadas, con `filesort` de esas filas por el `id` del orden); sin
+`schedule_id`, `range` sobre `appointments_branch_id_starts_at_index` (1344 filas, sin `filesort`; `EXPLAIN ANALYZE`, 5,7 ms para
+500 filas). Los dos `count(*)`, los mismos índices. **No falta ningún índice: sin migración.**
+
+**Postman.** Colección de turnos: "22a" (`per_page=500`, 200 con los cuatro turnos y `per_page` 500), "22b" (501) y "22c" (0),
+422 con el mensaje. Newman, solo esa colección, servidor propio en el puerto 8001 (`XDEBUG_MODE=off php artisan serve`, detenido
+por su PID): **61 pedidos y 113 aserciones, sin fallas** (antes, 58 y 107). La guía, con las cifras y los casos.
+
+**El pedido lento de la 3.1b (hallazgo 2 de su revisión): `DELETE /api/schedules/{id}`, 10.803 ms en `e2e/agendas.spec.ts`.**
+Medido sin Playwright con un script de Node (en el scratchpad de la sesión, fuera del repositorio): entra con `admin-a`, arma la
+agenda como el caso de la 3.1a (dos tramos del lunes, editada a un tramo y el miércoles, inactivada), la elimina y sale; pedidos en
+serie, salvo donde se dice. Milisegundos, mediana (máximo):
+
+| Servidor | Baja sola | Baja con 3 `GET` en paralelo | Los demás pedidos |
+|---|---|---|---|
+| `syncvet.test` (Laragon, Xdebug en `debug` con `start_with_request=trigger`), 5 vueltas | 300 (357) | — | 155 a 523 |
+| `php artisan serve` (como Playwright) con Xdebug, 5 y 3 vueltas | 343 (403) | 1162 (1184) | 179 a 491 |
+| `php artisan serve` con `XDEBUG_MODE=off` (solo ese proceso), 5 y 3 vueltas | 122 (132) | 575 (658) | 63 a 281 |
+
+**Causa: no es el backend.** La baja hace poco (bloquea la fila, `exists` de turnos, borra 2 tramos y los bloqueos uno por uno con
+su auditoría) y tarda 0,1 a 0,4 s. Lo que la estira es el entorno de Playwright: (1) `php artisan serve` en Windows es **un solo
+proceso** (`php -S`, sin `PHP_CLI_SERVER_WORKERS`): los pedidos que la pantalla dispara a la vez hacen cola, y la baja con 3 `GET`
+delante tarda 3,4 veces más; (2) el `webServer` de Playwright levanta PHP **con Xdebug cargado** (`debug`), unas 2,5 a 3 veces más
+lento que sin él; (3) con Playwright, Edge y Vite en la misma PC, todo es más lento (en las corridas de la 3.1b los demás pedidos
+tardaban de 0,3 a 3,7 s, y la misma baja, 1,1 a 1,6 s en las verdes). Los 10,8 s no se reprodujeron fuera de Playwright. **Sin
+corrección en el backend** (no hay nada lento en la baja). **Para decidir (usuario):** sumar `XDEBUG_MODE: 'off'` al `env` del
+`webServer` del backend en `frontend/playwright.config.ts` (una línea del frontend, fuera de esta entrega; bajaría todos los pedidos
+de Playwright a menos de la mitad). Los 30 s de `SAVED` de la 3.1b quedan igual.
+
+**Demo.** La medición creó y eliminó sus agendas por la API (0 "Medición baja…" después) y revocó sus tokens (6 ingresos y 6
+salidas de `admin-a` en la auditoría, como en la 3.1b); Newman dejó lo que deja cada corrida de la colección de turnos (sus turnos,
+clientes y paciente, guía de Postman) y sus 3 tokens se borraron. `admin-a`, `recepcion-a` y `vet-a`, sin cambios (`updated_at`
+del 2026-11-12). Ningún servidor propio quedó escuchando (8001 y 8021 libres).
+
+**Desvíos.**
+
+| # | Desvío | Motivo |
+|---|---|---|
+| 1 | El mensaje de `per_page` es propio del listado de turnos ("Pedí de 1 a 500 turnos por página."), no el genérico de `lang/es/validation.php` que usan los demás listados ("El campo resultados por página no puede ser mayor que 100.") | El diseño dice "con su mensaje" y el pedido, en voseo; uno solo para las tres reglas (`integer`, `min`, `max`), así `abc` no da dos mensajes |
+| 2 | No se cambió `AppointmentController`: el `with` ya traía las relaciones del Resource | La carga anticipada es de la 3.2a; el test nuevo la fija (mutación 3) |
+| 3 | El EXPLAIN se hizo en una base temporal con datos sintéticos, además de la demo | Con 193 turnos el optimizador elige cualquier plan; la base se creó con `CREATE TABLE LIKE` (los índices de `appointments`, sin las claves foráneas) y se borró |
+| 4 | El pedido lento no se corrigió | La causa es el servidor de Playwright, no el código de la baja (arriba); la línea de `playwright.config.ts` queda para decidir |
+| 5 | Las mediciones con `php artisan serve` fueron contra la demo (`syncvet`), no contra `syncvet_e2e` | Para medir el mismo código y los mismos datos que `syncvet.test` cambiando solo el servidor y Xdebug |
+
+**Para el cierre:** la revisión (`composer test:fast` y el diff), el registro R-0xx, `backend/CLAUDE.md` §1 (la entrega y las
+cifras), el roadmap y el handoff.
 
 ### 3.2 La agenda del día
 

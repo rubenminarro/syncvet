@@ -1343,6 +1343,185 @@
             }
         },
         {
+            "name": "22a Listado del lunes con per_page=500 (front-03) → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const json = pm.response.json();",
+                            "pm.test('per_page 500 y el total de la agenda (los cuatro turnos)', () => {",
+                            "    pm.expect(json.meta.pagination).to.eql({ total: 4, per_page: 500, current_page: 1, last_page: 1 });",
+                            "    pm.expect(json.data).to.have.lengthOf(4);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments?from={{monday}}&schedule_id={{schedule_id}}&per_page=500",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "schedule_id",
+                            "value": "{{schedule_id}}"
+                        },
+                        {
+                            "key": "per_page",
+                            "value": "500"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22b per_page=501 → 422 (front-03: el tope del listado de turnos es 500)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "const json = pm.response.json();",
+                            "pm.test('VALIDATION_ERROR con el mensaje en per_page', () => {",
+                            "    pm.expect(json.error_code).to.eql('VALIDATION_ERROR');",
+                            "    pm.expect(json.errors.per_page).to.eql(['Pedí de 1 a 500 turnos por página.']);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments?from={{monday}}&schedule_id={{schedule_id}}&per_page=501",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "schedule_id",
+                            "value": "{{schedule_id}}"
+                        },
+                        {
+                            "key": "per_page",
+                            "value": "501"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22c per_page=0 → 422 (front-03)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('El mensaje en per_page', () => pm.expect(pm.response.json().errors.per_page).to.eql(['Pedí de 1 a 500 turnos por página.']));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments?from={{monday}}&schedule_id={{schedule_id}}&per_page=0",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{monday}}"
+                        },
+                        {
+                            "key": "schedule_id",
+                            "value": "{{schedule_id}}"
+                        },
+                        {
+                            "key": "per_page",
+                            "value": "0"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "23 Detalle del turno con paciente",
             "event": [
                 {
