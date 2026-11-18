@@ -219,6 +219,10 @@ describe('/agenda: la grilla del día', () => {
       ]);
     });
     expect(document.body.textContent).toContain('(inactivada)');
+    // En el selector de agenda, con la misma marca que su columna.
+    expect([...document.querySelectorAll('option')].map((option) => option.textContent)).toContain(
+      'Consultorio viejo (inactivada)',
+    );
   });
 
   it('los ausentes, atenuados', async () => {
@@ -336,6 +340,25 @@ describe('/agenda: la sucursal', () => {
 });
 
 describe('/agenda: el teclado y los anuncios', () => {
+  it('un turno que no empieza en un múltiplo de 15 va en la celda de su fila, corrido, y el teclado lo alcanza', async () => {
+    await openAgenda('/agenda?fecha=2026-11-17', {
+      appointments: () => [appointment(40, { at: '10:05' })],
+    });
+    await waitFor(() => {
+      expect(item(40)).not.toBeNull();
+    });
+    const button = element(item(40));
+    const cell = element(button.closest('[role="gridcell"]'));
+
+    expect(cell.getAttribute('aria-label')).toMatch(/^10:00, Consultorio 1/);
+    expect(button.style.top).toBe('8px');
+    act(() => {
+      cell.focus();
+    });
+    fireEvent.keyDown(active(), { key: 'ArrowDown' });
+    expect(active().dataset.key).toBe('a:40');
+  });
+
   it('un solo punto de tabulación; las flechas, Inicio y Fin recorren las celdas y los turnos', async () => {
     await openAgenda();
     await waitFor(() => {

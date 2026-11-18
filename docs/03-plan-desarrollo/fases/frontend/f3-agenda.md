@@ -108,7 +108,7 @@ documento de la FASE 3 del backend (como precisiones, sin reescribir lo aprobado
 | H6 | El **`DemoSeeder` no crea agendas, servicios ni turnos** | [Pregunta 13](#preguntas-del-diseño): Playwright los crea por la API en un ayudante de `e2e/support` (sin cambios en el backend) |
 | H7 | La disponibilidad no ofrece un horario de hoy que ya empezó, pero el alta lo acepta (pregunta 16 del backend: el que llegó sin turno) | El selector de horario ofrece "Otra hora" escrita a mano ([pregunta 7](#preguntas-del-diseño)) |
 | H8 | `APPOINTMENT_SERIES_CONFLICT` trae `errors.conflicts` (una lista), no claves de campos: `applyValidationErrors` lo mandaría entero a la alerta como texto | Un trato propio que muestra la lista con la fecha en Asunción y el `message` de cada una |
-| H9 | Paraguay es UTC-3 todo el año desde el 15/10/2024, pero las fechas anteriores tenían horario de verano (el 01/10/2023 tuvo 23 horas y el 24/03/2024, 25) | Toda cuenta de días con `TZDate` (`addDays`, `startOfDay` en la zona), nunca sumando 24 horas ni con un `-03:00` fijo; tests con esos dos días (como la 2.6) |
+| H9 | Paraguay es UTC-3 todo el año desde el 15/10/2024, pero las fechas anteriores tenían horario de verano (el 01/10/2023 tuvo 23 horas y el 23/03/2024, 25: el atraso fue a las 00:00 del 24 y repitió las 23:00 del 23; corregido en la revisión de la 3.2, desvío 5) | Toda cuenta de días con `TZDate` (`addDays`, `startOfDay` en la zona), nunca sumando 24 horas ni con un `-03:00` fijo; tests con esos dos días (como la 2.6) |
 | H10 | Un turno no cruza la medianoche (`ends_at` del día siguiente → 422 en `ends_at`, también a las 00:00) y los tramos van hasta las 23:55 | La grilla nunca dibuja un turno partido; Zod rechaza el fin en otro día con el mensaje de la API |
 | H11 | `ShowAppointmentResource` no trae el teléfono del cliente (solo el del contacto) | Sin cambio: el detalle enlaza al cliente (`/clientes/$id`), que lo muestra |
 | H12 | El rol `veterinario` puede listar todos los turnos (pregunta 25 del backend: la cola es una vista por defecto, no una restricción) | [Pregunta 3](#preguntas-del-diseño): la vista por defecto del veterinario, como la cola |
@@ -342,7 +342,7 @@ ocupan el horario) con "Dentro de un bloqueo" (texto e ícono, no solo color), c
 se piden para el sombreado. Test: un turno adentro, uno que solo toca el bloqueo (sin la marca) y uno cancelado (sin la marca).
 
 **Tests (Vitest).** `dates.ts`: el día, la semana desde el lunes, sumar días, el día de 23 horas (2023-10-01) y el de 25
-(2024-03-24), la posición de un turno por su hora de pared, con la PC en UTC; `validateSearch` (fecha mal formada, vista desconocida);
+(2024-03-23), la posición de un turno por su hora de pared, con la PC en UTC; `validateSearch` (fecha mal formada, vista desconocida);
 la grilla: las columnas, el sombreado fuera del horario y de un bloqueo, el rango de horas ampliado por un turno afuera, los
 sobreturnos lado a lado, los cancelados ocultos y con el filtro, los ausentes atenuados; el teclado (flechas, Inicio, Fin, Re Pág y Av
 Pág; un solo punto de tabulación); el anuncio al cambiar de día; el aviso de "Hay más turnos…"; el veterinario con su vista por
@@ -427,6 +427,40 @@ reescribió el comentario y dio 3 de 3 (con `dates.test.ts`, 12 de 12; solo camb
 fecha siempre en la URL, la pausa común de la actualización y la precisión de D3 ya aplicada), el Resultado de este documento, el
 roadmap, `modulos.md` y el handoff.
 
+**Revisión (2026-11-18, sobre el WIP `cdc184a`, `git diff d30e578`).** Decisiones del usuario: se aceptan los 17 desvíos; H9
+corregido en el diseño (el día de 25 horas es el 23/03/2024, también en los tests de la 3.2, la 3.3 y la 3.6 del diseño); regla
+nueva para los controles en Edge (un ingreso por rol, los tokens revocados siempre en un `finally` y, si falla el script, se
+repite solo el control que falló), en `frontend/CLAUDE.md` §8 y en el "Presupuesto por entrega" del `CLAUDE.md` raíz.
+
+Revisado sin hallazgos: las filas de 15 minutos y el turno que no empieza en un múltiplo de 15 (va en su fila, corrido); los
+sobreturnos lado a lado (`assignLanes`, por grupos de superpuestos); la medianoche (corte a las 24:00, desvío 6); los días de 23
+y 25 horas (la hora de pared y el fin por la duración); la marca "Dentro de un bloqueo", igual a `affectedAppointments` de
+`ScheduleBlockService` (`occupyingValues()`, `starts_at < ends_at` y `ends_at > starts_at`, estrictos, con los bloqueos sin
+recortar); el aviso de los turnos que faltan; la vista del veterinario y `todos=1`; `auto-refresh.ts` (el intervalo es de Query:
+se limpia al desmontar el observador y no se duplica; cada pausa se suelta una sola vez y en la limpieza del efecto, también al
+desmontar `ConfirmDialog` abierto; la pestaña, por `visibilitychange`); el foco (el día vacío, desvío 12, y el turno que
+desaparece); el anuncio sin la actualización periódica; los permisos del menú y de la ruta (`appointments.index`, los tres
+roles, con `schedules.show` y `schedule-blocks.index` para el detalle y los bloqueos); 375 px (una agenda por vez). Detalle
+cosmético sin corregir: el 01/10/2023, un bloqueo que empieza con el día se dibuja desde la fila de las 00:00, una hora que ese
+día no existió.
+
+| # | Hallazgo | Corrección |
+|---|---|---|
+| R1 | **Rendimiento con 300 turnos.** `navigation()` buscaba la fila de cada turno recorriendo todas las filas y todos los turnos de la columna (cuadrático) y se recalculaba en cada render, y cada tecla volvía a dibujar todos los turnos (con `formatTime` en la zona). Medido en jsdom con 300 turnos en una columna: 10 flechas, 1232 ms (en 4 columnas, 917 ms) | La fila sale directo del inicio (`startingItemsByRow`), `navigation` en `useMemo` sobre la grilla y `AgendaItem` en `memo` con el `onOpen` de la página: 10 flechas, 143 ms (123 ms en 4 columnas). Medido con un test temporal, borrado (un límite de tiempo en un test sería frágil). Test nuevo: el turno de las 10:05 va en la celda de las 10:00, corrido 8 px, y la flecha lo alcanza |
+| R2 | Los selectores "Agenda" y "Agenda que se ve" mostraban la agenda inactivada sin la marca que tiene su columna | `scheduleOptionLabel`: "Consultorio viejo (inactivada)"; el test de la agenda inactivada lo comprueba |
+
+**Mutaciones de la revisión** (3 de 3 detectadas, revertidas): la marca de bloqueo sin filtrar por estado (2 fallas en
+`grid.test.ts`); la vista por defecto del veterinario sin las agendas sin veterinario (2 fallas, `grid.test.ts` y
+`AgendaDayPage.test.tsx`); la pausa que nunca se suelta (`usePauseAutoRefresh` sin la limpieza: 1 falla, en
+`auto-refresh.test.tsx`).
+
+**Pruebas de la revisión.** `vitest related` de `AgendaGrid.tsx` y `AgendaDayPage.tsx`, 595 en 28 archivos. Corrida final
+(2026-11-18, desde `frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos;
+`npm test`, 1511 tests en 74 archivos, en verde, a la primera. Desde `backend/`, `FictitiousDocumentsTest` 3 de 3. Playwright
+(se tocó la grilla): `e2e/agenda-dia.spec.ts` 2 de 2 (1,5 min); `permisos.spec.ts` no se corrió (el menú y los permisos no
+cambiaron). Sin Edge ni cambios en la demo; `admin-a`, `recepcion-a` y `vet-a` sin tocar; los puertos de Playwright, libres al
+terminar.
+
 ### 3.3 La semana y la lista de turnos
 
 **Semana** ([pregunta 4](#preguntas-del-diseño)): `/agenda?vista=semana&fecha=` (cualquier día de la semana; se muestra de lunes a
@@ -447,7 +481,7 @@ aunque ya se haya cerrado el diálogo de la 3.1b. Test: la marca en la semana y 
 **Cliente de la API** (H5): `buildUrl` admite listas (`status: ['confirmed', 'checked_in']` → `status[]=confirmed&status[]=checked_in`),
 con sus tests; las llamadas de hoy no cambian.
 
-**Tests (Vitest).** La semana de lunes a domingo (también la que contiene el 24/03/2024); `buildUrl` con listas, una lista vacía (sin
+**Tests (Vitest).** La semana de lunes a domingo (también la que contiene el 23/03/2024); `buildUrl` con listas, una lista vacía (sin
 clave) y los valores de siempre; `validateSearch` de la lista (`estados` desconocido, rango invertido, 32 días); el pedido con
 `status[]`; la búsqueda con la espera de 300 ms y "Buscando…"; el cambio de vista conserva la fecha.
 
@@ -578,7 +612,7 @@ la serie" (`scope`), con el aviso de que de los demás se cancelan solo los a co
 aviso del 200 es el `message` de la API ("Se cancelaron N turnos de la serie."). El detalle muestra "Turno de una serie" con el enlace
 a la lista filtrada por la serie (`/turnos?serie=`, `series_id`).
 
-**Tests (Vitest).** El resumen y la cuenta de fechas (también una serie que cruza el 24/03/2024, con la hora de pared); 52 y 53
+**Tests (Vitest).** El resumen y la cuenta de fechas (también una serie que cruza el 23/03/2024, con la hora de pared); 52 y 53
 turnos; "hasta" a un año y un día; el cuerpo con `recurrence`; la lista de conflictos con sus fechas en Asunción; el alcance en el
 cuerpo y oculto sin serie.
 

@@ -49,6 +49,11 @@ function countText(count: number): string {
   return count === 1 ? '1 turno' : `${String(count)} turnos`;
 }
 
+/** El nombre de una agenda en los selectores: la inactivada, con la misma marca que su columna. */
+function scheduleOptionLabel(schedule: ColumnSchedule): string {
+  return schedule.is_active ? schedule.name : schedule.name + ' (inactivada)';
+}
+
 interface Selected {
   item: GridItem;
   scheduleName: string;
@@ -330,7 +335,7 @@ export function AgendaDayPage() {
                 { value: '', label: 'Todas' },
                 ...candidates.map((schedule) => ({
                   value: String(schedule.id),
-                  label: schedule.name,
+                  label: scheduleOptionLabel(schedule),
                 })),
               ]}
               onChange={(event) => {
@@ -398,7 +403,7 @@ export function AgendaDayPage() {
             value={String(shown[0]?.id ?? '')}
             options={filtered.map((schedule) => ({
               value: String(schedule.id),
-              label: schedule.name,
+              label: scheduleOptionLabel(schedule),
             }))}
             onChange={(event) => {
               setMobileScheduleId(Number(event.target.value));

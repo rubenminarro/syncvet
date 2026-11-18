@@ -9,7 +9,7 @@ import {
   IconUserX,
   type Icon,
 } from '@tabler/icons-react';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { formatTime } from '../../lib/format/dates';
 import { minutesToClock } from './dates';
 import {
@@ -53,41 +53,53 @@ function overlaps(intervals: readonly { start: number; end: number }[], start: n
 function navigation(grid: DayGrid) {
   const sequences: string[][] = [];
   const positions = new Map<string, Position & { index: number }>();
+  const starting = new Map<string, GridItem[]>();
 
   grid.columns.forEach((column, col) => {
+    const byRow = startingItemsByRow(column, grid);
     const sequence: string[] = [];
 
-    grid.rows.forEach((rowStart, row) => {
-      sequence.push(cellKey(row, col));
+    grid.rows.forEach((_, row) => {
+      const cell = cellKey(row, col);
+      positions.set(cell, { col, row, index: sequence.length });
+      sequence.push(cell);
 
-      for (const item of startingItems(column, rowStart)) {
-        sequence.push(itemKey(item.appointment.id));
+      const items = byRow.get(row) ?? [];
+      starting.set(cell, items);
+
+      for (const item of items) {
+        const key = itemKey(item.appointment.id);
+        positions.set(key, { col, row, index: sequence.length });
+        sequence.push(key);
       }
-    });
-
-    sequence.forEach((key, index) => {
-      const [kind, a = '0', b = '0'] = key.split(':');
-      const row =
-        kind === 'c'
-          ? Number(a)
-          : grid.rows.findIndex((rowStart) =>
-              startingItems(column, rowStart).some((item) => item.appointment.id === Number(a)),
-            );
-
-      positions.set(key, { col: kind === 'c' ? Number(b) : col, row, index });
     });
 
     sequences.push(sequence);
   });
 
-  return { sequences, positions };
+  return { sequences, positions, starting };
 }
 
-/** Los turnos que empiezan en la fila, en el orden de sus carriles. */
-function startingItems(column: GridColumn, rowStart: number): GridItem[] {
-  return column.items
-    .filter((item) => item.start >= rowStart && item.start < rowStart + ROW_MINUTES)
-    .sort((a, b) => a.lane - b.lane || a.start - b.start);
+/**
+ * Los turnos de la columna por la fila en que empiezan (la fila sale directo del inicio: con cientos de turnos, buscarla
+ * fila por fila trababa cada tecla), en el orden de sus carriles.
+ */
+function startingItemsByRow(column: GridColumn, grid: DayGrid): Map<number, GridItem[]> {
+  const byRow = new Map<number, GridItem[]>();
+  const lastRow = grid.rows.length - 1;
+
+  for (const item of column.items) {
+    const row = Math.min(Math.floor((item.start - grid.start) / ROW_MINUTES), lastRow);
+    const list = byRow.get(row) ?? [];
+    list.push(item);
+    byRow.set(row, list);
+  }
+
+  for (const list of byRow.values()) {
+    list.sort((a, b) => a.lane - b.lane || a.start - b.start);
+  }
+
+  return byRow;
 }
 
 interface AgendaGridProps {
@@ -122,7 +134,7 @@ export function AgendaGrid({
   const [focus, setFocus] = useState<(Position & { key: string }) | null>(null);
   const focusKey = focus?.key ?? null;
   const hadFocus = useRef(false);
-  const { sequences, positions } = navigation(grid);
+  const { sequences, positions, starting } = useMemo(() => navigation(grid), [grid]);
 
   // La clave que tiene el punto de tabulación: la elegida, si sigue; si el turno desapareció, su celda; si no, la primera.
   let effectiveKey = cellKey(0, 0);
@@ -314,7 +326,7 @@ export function AgendaGrid({
                         {block.reason ?? 'Bloqueado'}
                       </span>
                     ) : null}
-                    {startingItems(column, rowStart).map((item) => (
+                    {(starting.get(key) ?? []).map((item) => (
                       <AgendaItem
                         key={item.appointment.id}
                         item={item}
@@ -322,9 +334,7 @@ export function AgendaGrid({
                         color={column.schedule.color}
                         scheduleName={column.schedule.name}
                         focusable={effectiveKey === itemKey(item.appointment.id)}
-                        onOpen={() => {
-                          onOpen(item, column.schedule.name);
-                        }}
+                        onOpen={onOpen}
                       />
                     ))}
                   </div>
@@ -338,7 +348,8 @@ export function AgendaGrid({
   );
 }
 
-function AgendaItem({
+/** En `memo`: una tecla vuelve a dibujar solo los turnos cuyo punto de tabulación cambió (con 300 turnos, todos trababan). */
+const AgendaItem = memo(function AgendaItem({
   item,
   rowStart,
   color,
@@ -351,7 +362,7 @@ function AgendaItem({
   color: string | null;
   scheduleName: string;
   focusable: boolean;
-  onOpen: () => void;
+  onOpen: (item: GridItem, scheduleName: string) => void;
 }) {
   const { appointment } = item;
   const StatusIcon = STATUS_ICONS[appointment.status.value] ?? IconClock;
@@ -379,7 +390,9 @@ function AgendaItem({
         width: `calc(${String(width)}% - 4px)`,
         ...(color === null ? {} : { borderLeftColor: color }),
       }}
-      onClick={onOpen}
+      onClick={() => {
+        onOpen(item, scheduleName);
+      }}
     >
       <span className="agenda-item-line">
         <span className="agenda-item-time">
@@ -410,4 +423,4 @@ function AgendaItem({
       ) : null}
     </button>
   );
-}
+});

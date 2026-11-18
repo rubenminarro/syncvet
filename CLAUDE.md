@@ -86,7 +86,10 @@ alguna pide más corridas, vale esta.
   recién falló en el cierre de la fase).
 * **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
 * **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
-  cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales).
+  cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales). El script de los
+  controles ingresa **una sola vez por rol**, **revoca siempre sus tokens al terminar** (en un `finally`, también si falla) y, si
+  falla por un error del propio script, se corrige y se repite **solo el control que falló**, no la corrida entera (en la 3.2, seis
+  corridas dejaron 19 ingresos y 7 tokens sin revocar, desvío 15).
 * **Mutaciones**: 3 o 4, de las reglas más importantes.
 * **Revisión**: lee el diff y corre solo `composer test:fast` o `npm test`; no repite suites, Playwright ni el navegador.
 * **Esperas**: mientras corre algo largo, no se consulta en bucle; se espera el aviso de fin.

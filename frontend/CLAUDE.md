@@ -297,6 +297,12 @@ repetidas):
   completo, al cerrar la fase. Si la entrega cambia el menú (`src/app/menu.ts`) o el permiso de una ruta (`requirePermission`, un
   permiso de `PERMISSIONS`), corre también `e2e/permisos.spec.ts` (`npx playwright test e2e/<archivo>.spec.ts e2e/permisos.spec.ts`;
   R-084). **Navegador** (Edge sin ventana): hasta 10 controles, con capturas solo si cambió una pantalla.
+* **El script de los controles en Edge** (revisión de la 3.2): ingresa **una sola vez por rol** (un token por rol para toda la
+  corrida, no uno por control); **revoca siempre sus tokens al terminar**, en un `finally` que espera el `POST logout` de cada uno
+  (también si un control o el script fallan: no alcanza el "Salir" de la interfaz, que lo manda sin esperarlo, ni cerrar el
+  navegador); y, si falla por un error del propio script (un selector, una espera, un dato de prueba), se corrige y se repite
+  **solo el control que falló**, no la corrida entera. En la 3.2, seis corridas completas dejaron 19 ingresos de `admin-a` en la
+  auditoría y 7 tokens sin revocar (desvío 15).
 * **El backend de Playwright corre sin Xdebug** (`XDEBUG_MODE: 'off'` en el `env` de su `webServer`, front-03; con `--no-reload`,
   `php artisan serve` pasa el entorno entero a `php -S`). Laragon carga Xdebug en modo `debug` y cada pedido tardaba de 2,5 a 3
   veces más (la medición de front-03, fuera de Playwright). En la corrida, la mejora es chica porque manda la interfaz:
