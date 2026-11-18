@@ -1830,3 +1830,22 @@ en `docs/front-f3-diseno`, con las 15 preguntas respondidas: todas con la recome
 | Siguiente | La entrega 3.1a (agendas), en `feature/front-3-1a-agendas` desde `docs/front-f3-diseno` | Usuario |
 
 **Qué no cambió.** Código, tests, rutas, permisos, `error_code` y colecciones: solo documentación.
+
+# R-086 Cierre de la entrega 3.1a del frontend (agendas) (2026-11-18)
+
+Primera entrega de pantallas de la F3 del frontend (R-085), en `feature/front-3-1a-agendas` (desde `docs/front-f3-diseno`, en
+`df2588a`), sin integrar a `main`: se integra al cerrar la F3. El detalle, en su
+[resultado](../../03-plan-desarrollo/fases/frontend/f3-agenda.md#entrega-31a).
+
+| Tema | Decisión o resultado | Quién |
+|---|---|---|
+| Alcance | La tarjeta "Agendas" en `/configuracion` y `/configuracion/agendas` (`schedules.update`): el listado (búsqueda, sucursal e "Incluir las inactivas", en la URL), el detalle con el horario semanal de lunes a domingo, el alta (`schedules.store`) y la edición con el horario, inactivar o activar y la baja (`schedules.destroy`; con `SCHEDULE_IN_USE`, el mensaje y "Inactivar"), solo para el administrador. El horario se manda entero (`hours: []` lo vacía), con las reglas de `ScheduleMessages::validateHours` repetidas en el navegador. `PERMISSIONS` suma `schedules.update`, `.store` y `.destroy` | Diseño (R-085) |
+| Playwright | El ayudante `e2e/support/api.ts` (sesión por la API en `syncvet_e2e` y limpieza de las agendas de un spec, pregunta 13) y `e2e/agendas.spec.ts`; `e2e/permisos.spec.ts` suma la tarjeta y el recepcionista y el veterinario en `/configuracion/agendas` (R-084) | Diseño (R-084, R-085) |
+| Desvíos | Los 9, aceptados; ninguno cambia el comportamiento del diseño. Entre ellos: el error de un día del horario en el tramo que lo provoca (1); la casilla "Con color en la agenda" (2); los veterinarios y los servicios activos de un solo pedido, filtrados en el navegador por la sucursal, que suelta el veterinario que no trabaja en ella (3); "Copiar el lunes" deshabilitado con el lunes vacío (4); el test de la mutación 4 reforzado para mirar el cuerpo del `PATCH` (5); el foco de "Sumar un tramo" y "(actual)" con la lista cargada, corregidos en la implementación (6 y 7) | Usuario |
+| Laragon | Durante los controles en Edge de la implementación, el PHP de Laragon dejó de responder (`syncvet.test` con 502, sin `php-cgi`): no se tocó Laragon y los controles siguieron con un `php artisan serve` propio en `:8020` sobre la base de la demo, detenido por su PID (desvío 8). El usuario reinició Laragon y la revisión repitió los controles contra `syncvet.test` (8 de 8) | Usuario y Claude Code |
+| Revisión | Con el presupuesto por entrega, sobre `549f1c6` (diff con `df2588a`), corregido en `f0f463a`: sin cambios de comportamiento. El test de permisos de `SchedulePages.test.tsx` no recorría `/configuracion/agendas/$id/editar`: se sumó (el recepcionista y el veterinario). La captura del formulario a 375 px se rehízo sin "(actual)" | Revisión |
+| Mutaciones | De la implementación, 4 de 4 (el horario vacío sin la clave `hours`; la superposición sin controlar; 23:55 rechazado; el veterinario sin soltar al cambiar de sucursal); de la revisión, 3 de 3 (tocarse contado como superposición; "Inactivar" ofrecido en una agenda ya inactiva; el color mandado sin la casilla) | Implementación y revisión |
+| Validación | El usuario aceptó los desvíos, pidió la revisión y el cierre. Claude Code: 8 de 8 en Edge sin ventana en la implementación y 8 de 8 contra `syncvet.test` en la revisión; Playwright, `e2e/agendas.spec.ts` 1 de 1 y `e2e/permisos.spec.ts` 7 de 7. Corrida de la revisión, sobre `f0f463a`: `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, 1403 tests en 67 archivos, en verde (la primera vez, 1 falla intermitente en `ClientDetailPage.test.tsx`, ajena a la entrega; repetida la suite completa); `FictitiousDocumentsTest`, 3 de 3 | Usuario y Claude Code |
+| Siguiente | La entrega 3.1b (bloqueos de una agenda), en `feature/front-3-1b-bloqueos`, creada desde el cierre de la 3.1a | Diseño (R-085) |
+
+**Qué no cambió.** Backend, rutas y permisos de la API, `error_code`, códigos HTTP, contrato de respuesta, colecciones y paquetes.
