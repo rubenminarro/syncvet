@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { delay, http } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../lib/api/errors';
 import { todayInAppZone } from '../../lib/format/dates';
@@ -15,7 +15,7 @@ import { meHandler, renderApp, sessionFor } from '../../test/session';
 import type { Me } from '../auth/types';
 import type { ScheduleBlock, ScheduleDetail } from '../schedules/types';
 import { addDaysToDay } from './dates';
-import { OVERBOOK_QUESTION } from './AppointmentFormPages';
+import { OVERBOOK_QUESTION, RELOADED_MESSAGE } from './AppointmentFormPages';
 import type { AppointmentDetail } from './types';
 
 // El alta, la edición, la reprogramación y el detalle del turno (3.4). Mañana en Asunción: un día que no pasó. Por
@@ -283,6 +283,33 @@ describe('/turnos/nuevo', () => {
     expect(field('Duración (minutos)').value).toBe('20');
     fireEvent.change(field('Servicio'), { target: { value: '5' } });
     expect(field('Duración (minutos)').value).toBe('45');
+  });
+
+  it('el foco: al elegir el paciente, en "Cambiar"; al cambiarlo, en el buscador', async () => {
+    await newFromCell();
+
+    const change = present(button('Cambiar'));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(change);
+    });
+    fireEvent.click(change);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(field('Buscar el paciente'));
+    });
+  });
+
+  it('sin conexión: el aviso y lo cargado sigue (el paciente, la hora y el motivo)', async () => {
+    const app = await newFromCell({ responses: [() => HttpResponse.error()] });
+    fireEvent.change(field('Motivo'), { target: { value: 'Control anual' } });
+
+    await submit('Dar el turno');
+
+    await screen.findByText(MESSAGES.network);
+    expect(app.bodies).toHaveLength(1);
+    expect(screen.getByText('Luna (PAC-0009)')).toBeTruthy();
+    expect(slot('09:30')?.checked).toBe(true);
+    expect(field('Motivo').value).toBe('Control anual');
+    expect(app.history.location.pathname).toBe('/turnos/nuevo');
   });
 
   it('"Otra hora": se escribe a mano y la API decide', async () => {
@@ -558,11 +585,25 @@ describe('/turnos/$id/editar', () => {
     await submit('Guardar');
 
     await screen.findByText('Turno actualizado correctamente.');
-    expect(app.bodies).toHaveLength(1);
-    expect(app.bodies[0]).not.toHaveProperty('starts_at');
-    expect(app.bodies[0]).not.toHaveProperty('ends_at');
-    expect(app.bodies[0]).not.toHaveProperty('schedule_id');
-    expect(app.bodies[0]).toMatchObject({ patient_id: 9, client_id: 3, reason: 'Control anual' });
+    // Solo lo que cambió: ni el horario ni quién ni los demás datos.
+    expect(app.bodies).toEqual([{ reason: 'Control anual' }]);
+  });
+
+  it('un turno de ayer que quedó confirmado: las notas se corrigen sin "un día que ya pasó"', async () => {
+    const yesterday = appointment(1, {
+      at: '09:30',
+      until: '10:00',
+      day: addDaysToDay(todayInAppZone(), -1),
+    });
+    const app = open('/turnos/1/editar', {
+      current: detail({ starts_at: yesterday.starts_at, ends_at: yesterday.ends_at }),
+    });
+    fireEvent.change(await findField('Notas'), { target: { value: 'Llegó tarde.' } });
+
+    await submit('Guardar');
+
+    await screen.findByText('Turno actualizado correctamente.');
+    expect(app.bodies).toEqual([{ notes: 'Llegó tarde.' }]);
   });
 
   it('reprogramar: el foco en la fecha, otra hora libre y la agenda del día se vuelve a pedir', async () => {
@@ -611,10 +652,28 @@ describe('/turnos/$id/editar', () => {
     expect(app.bodies[0]).not.toHaveProperty('schedule_id');
   });
 
-  it('el 409 de un cambio concurrente: el aviso y lo cargado sigue', async () => {
-    const app = open('/turnos/1/editar', {
-      responses: [() => failure(409, 'CONFLICT', 'El turno cambió mientras guardabas.')],
-    });
+  it('el 409 de un cambio concurrente: el aviso y lo cargado sigue; guardar de nuevo no pisa lo del otro', async () => {
+    const conflict = () => failure(409, 'CONFLICT', 'El turno cambió mientras guardabas.');
+    const app = open('/turnos/1/editar', { responses: [conflict] });
+    // Después del 409, la API tiene la versión del otro: movido a las 11:00, con sus notas.
+    const eleven = appointment(1, { at: '11:00', until: '11:30', day: DAY });
+    let fetched = 0;
+    server.use(
+      http.get('/api/appointments/:id', ({ params }) => {
+        // Solo el turno 1 (el caso anterior puede seguir pidiendo el 101 al que navegó).
+        if (params.id !== '1') {
+          return success(detail({ id: Number(params.id) }));
+        }
+
+        fetched += 1;
+
+        return success(
+          fetched === 1
+            ? detail()
+            : detail({ starts_at: eleven.starts_at, ends_at: eleven.ends_at, notes: 'Del otro' }),
+        );
+      }),
+    );
     fireEvent.change(await findField('Motivo'), { target: { value: 'Control anual' } });
 
     await submit('Guardar');
@@ -622,28 +681,85 @@ describe('/turnos/$id/editar', () => {
     await screen.findByText(`${MESSAGES.conflict} El turno cambió mientras guardabas.`);
     expect(field('Motivo').value).toBe('Control anual');
     expect(app.history.location.pathname).toBe('/turnos/1/editar');
+    // El detalle ya es la versión del otro (se volvió a pedir); el formulario sigue con lo cargado.
+    await waitFor(() => {
+      expect(fetched).toBeGreaterThan(1);
+    });
+    // Guardar de nuevo: solo el motivo (ni las 09:30 ni las notas vacías de esta pantalla pisan lo del otro).
+    await submit('Guardar');
+    await waitFor(() => {
+      expect(app.bodies).toHaveLength(2);
+    });
+    expect(app.bodies).toEqual([{ reason: 'Control anual' }, { reason: 'Control anual' }]);
   });
 
-  it('APPOINTMENT_NOT_EDITABLE: el aviso y el turno de nuevo (ya fichado, sin el formulario)', async () => {
-    let fetched = 0;
-    open('/turnos/1/editar', {
+  it('el 409 de un cambio concurrente: "Cargar la versión actual" rearma el formulario con la del otro', async () => {
+    const app = open('/turnos/1/editar', {
       responses: [
-        () =>
-          failure(
-            422,
-            'APPOINTMENT_NOT_EDITABLE',
-            'Solo se modifican los turnos a confirmar o confirmados.',
-          ),
+        () => failure(409, 'CONFLICT', 'El turno cambió mientras guardabas.'),
+        (body) => saved(body, 200),
       ],
     });
+    const eleven = appointment(1, { at: '11:00', until: '11:30', day: DAY });
+    let fetched = 0;
     server.use(
-      http.get('/api/appointments/:id', () => {
+      http.get('/api/appointments/:id', ({ params }) => {
+        // Solo el turno 1 (el caso anterior puede seguir pidiendo el 101 al que navegó).
+        if (params.id !== '1') {
+          return success(detail({ id: Number(params.id) }));
+        }
+
         fetched += 1;
 
         return success(
-          fetched === 1 ? detail() : detail({ status: { value: 'checked_in', label: 'Fichado' } }),
+          fetched === 1
+            ? detail()
+            : detail({ starts_at: eleven.starts_at, ends_at: eleven.ends_at, notes: 'Del otro' }),
         );
       }),
+    );
+    fireEvent.change(await findField('Motivo'), { target: { value: 'Control anual' } });
+    await submit('Guardar');
+    await screen.findByText(`${MESSAGES.conflict} El turno cambió mientras guardabas.`);
+
+    fireEvent.click(present(button('Cargar la versión actual')));
+
+    await screen.findByText(RELOADED_MESSAGE);
+    await waitFor(() => {
+      expect(field('Notas').value).toBe('Del otro');
+    });
+    expect(field('Motivo').value).toBe('');
+    expect(field('Escribí la hora').value).toBe('11:00');
+    expect(document.activeElement).toBe(document.querySelector('.appointment-alert'));
+    // Con la versión nueva como base, un cambio manda solo ese cambio.
+    fireEvent.change(field('Motivo'), { target: { value: 'Control' } });
+    await submit('Guardar');
+    await screen.findByText('Turno actualizado correctamente.');
+    expect(app.bodies.at(-1)).toEqual({ reason: 'Control' });
+  });
+
+  it('APPOINTMENT_NOT_EDITABLE: el aviso y el turno de nuevo (ya fichado, sin el formulario)', async () => {
+    // Otra PC lo fichó: la API lo devuelve fichado desde que rechazó la edición.
+    let rejected = false;
+    open('/turnos/1/editar', {
+      responses: [
+        () => {
+          rejected = true;
+
+          return failure(
+            422,
+            'APPOINTMENT_NOT_EDITABLE',
+            'Solo se modifican los turnos a confirmar o confirmados.',
+          );
+        },
+      ],
+    });
+    server.use(
+      http.get('/api/appointments/:id', () =>
+        success(
+          rejected ? detail({ status: { value: 'checked_in', label: 'Fichado' } }) : detail(),
+        ),
+      ),
     );
     await findField('Motivo');
 

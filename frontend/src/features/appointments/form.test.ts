@@ -96,6 +96,16 @@ describe('el esquema del turno', () => {
     expect(errors({ date: '' })).toEqual({ date: M.startRequired });
   });
 
+  it('la edición de un turno de ayer que no se mueve pasa (la API revisa el día solo al mover); moverlo, no', () => {
+    const original: AppointmentFormValues = { ...VALID, date: '2026-11-16', reason: '' };
+    const schema = appointmentFormSchema('2026-11-17', original);
+
+    expect(schema.safeParse({ ...original, reason: 'Llegó tarde' }).success).toBe(true);
+    expect(schema.safeParse({ ...original, time: '10:00' }).success).toBe(false);
+    expect(schema.safeParse({ ...original, duration_minutes: '45' }).success).toBe(false);
+    expect(schema.safeParse({ ...original, schedule_id: '8' }).success).toBe(false);
+  });
+
   it('"hoy" es el de Asunción, no el de la PC: con la PC en UTC ya en el 18, el 17 sigue siendo hoy', () => {
     // El 17/11 a las 22:30 en Asunción son las 01:30 del 18 en UTC: la página calcula `today` con todayInAppZone().
     expect(errors({ date: '2026-11-17' }, '2026-11-17')).toEqual({});
@@ -202,21 +212,49 @@ describe('el cuerpo del turno', () => {
     expect(appointmentFormToPayload(VALID, { overbook: true }).overbook).toBe(true);
   });
 
-  it('la edición sin cambiar el horario no manda la agenda, el inicio ni el fin', () => {
-    const original = detail();
-    const payload = appointmentFormToPayload(appointmentToForm(original), { original });
+  it('la edición manda solo lo que cambió: sin tocar nada, un cuerpo vacío; el motivo, solo el motivo', () => {
+    const original = detail({ reason: 'Vacuna anual' });
+    const values = appointmentToForm(original);
 
-    expect(payload).not.toHaveProperty('schedule_id');
-    expect(payload).not.toHaveProperty('starts_at');
-    expect(payload).not.toHaveProperty('ends_at');
-    expect(payload).toMatchObject({ patient_id: 9, client_id: 3, source: 'reception' });
+    expect(appointmentFormToPayload(values, { original })).toEqual({});
+    expect(appointmentFormToPayload({ ...values, reason: '  Control  ' }, { original })).toEqual({
+      reason: 'Control',
+    });
+    expect(appointmentFormToPayload({ ...values, reason: '' }, { original })).toEqual({
+      reason: null,
+    });
+    expect(
+      appointmentFormToPayload({ ...values, service_id: '', source: 'phone' }, { original }),
+    ).toEqual({ service_id: null, source: 'phone' });
+  });
+
+  it('la edición: "quién" va entero si cambió (de contacto a paciente, el contacto en null)', () => {
+    const original = detail({
+      patient: null,
+      client: null,
+      contact_name: 'Rosa Benítez',
+      contact_phone: '981100001',
+    });
+    const values = appointmentToForm(original);
+
+    expect(
+      appointmentFormToPayload({ ...values, contact_phone: '981 100 001' }, { original }),
+    ).toEqual({});
+    expect(
+      appointmentFormToPayload({ ...values, who: 'patient', patient: LUNA }, { original }),
+    ).toEqual({
+      patient_id: 9,
+      client_id: 3,
+      contact_name: null,
+      contact_phone: null,
+    });
   });
 
   it('reprogramar: solo lo que cambió', () => {
     const original = detail();
     const values = appointmentToForm(original);
 
-    expect(appointmentFormToPayload({ ...values, time: '11:00' }, { original })).toMatchObject({
+    expect(appointmentFormToPayload({ ...values, time: '11:00' }, { original })).toEqual({
       starts_at: '2026-11-17T11:00:00.000-03:00',
       ends_at: '2026-11-17T11:30:00.000-03:00',
     });

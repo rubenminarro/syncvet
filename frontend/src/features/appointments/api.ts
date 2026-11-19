@@ -4,7 +4,13 @@ import type { Page } from '../../lib/api/types';
 import { branchKey, BRANCH_SCOPE } from '../../lib/api/query-keys';
 import type { Patient } from '../patients/types';
 import type { Schedule, ScheduleBlock } from '../schedules/types';
-import type { Appointment, AppointmentDetail, AppointmentPayload, Availability } from './types';
+import type {
+  Appointment,
+  AppointmentDetail,
+  AppointmentPayload,
+  AppointmentUpdatePayload,
+  Availability,
+} from './types';
 
 /**
  * Los turnos de la agenda por pedido (front-03, pregunta 1): hasta 500, el máximo de GET appointments. Si
@@ -238,7 +244,7 @@ export function createAppointment(payload: AppointmentPayload) {
   return api.post<AppointmentDetail>('appointments', payload);
 }
 
-export function updateAppointment(id: number, payload: AppointmentPayload) {
+export function updateAppointment(id: number, payload: AppointmentUpdatePayload) {
   return api.patch<AppointmentDetail>(`appointments/${String(id)}`, payload);
 }
 

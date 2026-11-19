@@ -298,3 +298,4 @@ Resumen; el detalle está en [`docs/03-plan-desarrollo/deuda-tecnica.md`](../doc
 | 17 | Tope de 2038 de las columnas `timestamp`; prioridad baja (las columnas nuevas de hora de negocio van en `datetime`, R-047) |
 | 21 | Tests: `countQueries` copiado en tres tests (turnos, agenda y pacientes); prioridad baja: unificarlo cuando se toquen esos tests |
 | 25 | Bloqueos: sin una consulta previa (`dry_run` o similar) de los turnos que quedarían adentro antes de crear el bloqueo; mejora no urgente (revisión de la 3.1b del frontend) |
+| 26 | Disponibilidad: no excluye el propio turno al reprogramar (su horario y los que se pisan con él no figuran entre los libres; mover sí lo excluye); mejora no urgente (revisión de la 3.4 del frontend) |

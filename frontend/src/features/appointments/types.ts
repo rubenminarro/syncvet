@@ -58,22 +58,25 @@ export type AppointmentSource = 'reception' | 'phone' | 'whatsapp';
 /**
  * El cuerpo de POST appointments y de PATCH appointments/{id} (3.4): uno de los tres (paciente, cliente o contacto; los demás,
  * null), los instantes con el desplazamiento de Asunción (`toApiDateTime`) y `overbook` solo después del 409 y con el permiso.
- * En la edición, `schedule_id`, `starts_at` y `ends_at` van solo si cambiaron.
+ * La edición manda solo lo que cambió (`AppointmentUpdatePayload`).
  */
 export interface AppointmentPayload {
-  schedule_id?: number;
+  schedule_id: number;
   service_id: number | null;
   patient_id: number | null;
   client_id: number | null;
   contact_name: string | null;
   contact_phone: string | null;
-  starts_at?: string;
-  ends_at?: string;
+  starts_at: string;
+  ends_at: string;
   source: AppointmentSource;
   reason: string | null;
   notes: string | null;
   overbook?: true;
 }
+
+/** El cuerpo de PATCH appointments/{id}: solo lo que cambió (la API valida solo lo que llega, P7). */
+export type AppointmentUpdatePayload = Partial<AppointmentPayload>;
 
 /** GET schedules/{id}/availability: los horarios que el alta aceptaría, día por día (UTC). */
 export interface Availability {

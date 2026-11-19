@@ -237,18 +237,50 @@ function isClassList(text: string): boolean {
 
 /**
  * Los nombres de tecla de `KeyboardEvent.key` que coinciden con una palabra en inglés de la lista (`'Enter'`, en la grilla
- * de la agenda desde la 3.4): son un identificador del navegador, no texto para el usuario.
+ * de la agenda desde la 3.4): son un identificador del navegador, no texto para el usuario, pero solo donde se usan como
+ * tecla (`isKeyName`): la misma cadena en un `label` o en un mensaje se sigue revisando.
  */
 const KEY_NAMES: ReadonlySet<string> = new Set(['Enter']);
+
+/**
+ * ¿La cadena es un nombre de tecla usado como tecla? En un `case 'Enter':` o comparada con `.key`
+ * (`event.key === 'Enter'`, `'Enter' !== event.key`).
+ */
+function isKeyName(node: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral): boolean {
+  if (!KEY_NAMES.has(node.text)) {
+    return false;
+  }
+
+  const parent = node.parent;
+
+  if (ts.isCaseClause(parent) && parent.expression === node) {
+    return true;
+  }
+
+  if (
+    ts.isBinaryExpression(parent) &&
+    [
+      ts.SyntaxKind.EqualsEqualsEqualsToken,
+      ts.SyntaxKind.ExclamationEqualsEqualsToken,
+      ts.SyntaxKind.EqualsEqualsToken,
+      ts.SyntaxKind.ExclamationEqualsToken,
+    ].includes(parent.operatorToken.kind)
+  ) {
+    const other = parent.left === node ? parent.right : parent.left;
+
+    return ts.isPropertyAccessExpression(other) && other.name.text === 'key';
+  }
+
+  return false;
+}
 
 /**
  * Un texto que llega al usuario: el de JSX siempre (un botón "Guardar"); una cadena, si tiene un espacio o es una sola
  * palabra con mayúscula inicial ("Ingresar", label="Elija"). Una cadena de una palabra en minúsculas o en mayúsculas
  * ("json", "GET", "Content-Type", "ApiError") es un identificador, no texto.
  */
-
 function isUserText(text: string, jsx: boolean): boolean {
-  if (text === '' || isClassList(text) || (!jsx && KEY_NAMES.has(text))) {
+  if (text === '' || isClassList(text)) {
     return false;
   }
 
@@ -273,14 +305,9 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** Las cadenas y el texto de JSX con al menos un espacio, con su línea. */
-function texts(path: string): [number, string][] {
-  const source = ts.createSourceFile(
-    path,
-    readFileSync(path, 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-  );
+/** Las cadenas y el texto de JSX con al menos un espacio, con su línea (`content`: el código, si no se lee del archivo). */
+function texts(path: string, content = readFileSync(path, 'utf8')): [number, string][] {
+  const source = ts.createSourceFile(path, content, ts.ScriptTarget.Latest, true);
   const found: [number, string][] = [];
 
   const visit = (node: ts.Node): void => {
@@ -288,7 +315,7 @@ function texts(path: string): [number, string][] {
     let jsx = false;
 
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      text = node.text;
+      text = isKeyName(node) ? null : node.text;
     } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
       text = node.text;
     } else if (ts.isJsxText(node)) {
@@ -334,6 +361,21 @@ describe('voseo', () => {
     expect(isUserText('json', false)).toBe(false);
     expect(forbiddenForms('Ingrese')).toEqual(['ingrese']);
     expect(forbiddenForms('Elija')).toEqual(['elija']);
+  });
+
+  it('un nombre de tecla no es texto solo donde se usa como tecla', () => {
+    const found = (code: string) =>
+      texts('ejemplo.tsx', code).flatMap(([, text]) => forbiddenForms(text));
+
+    expect(found("switch (event.key) { case 'Enter': break; }")).toEqual([]);
+    expect(found("if (event.key === 'Enter') {}")).toEqual([]);
+    expect(found("if ('Enter' !== event.key) {}")).toEqual([]);
+    // La misma cadena como texto de la interfaz sigue fallando.
+    expect(found("const label = 'Enter';")).toEqual(['english']);
+    expect(found('<Button label="Enter" />')).toEqual(['english']);
+    expect(found("toast.show('Enter');")).toEqual(['english']);
+    expect(found("if (mode === 'Enter') {}")).toEqual(['english']);
+    expect(found('<p>Enter</p>')).toEqual(['english']);
   });
 
   it('las clases de CSS no son texto', () => {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Alert, Button, ConfirmDialog, Loading, useToast } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
@@ -41,11 +41,20 @@ interface SaveVariables {
   overbook: boolean;
 }
 
-/** Lo que muestra arriba del formulario: el texto y si el 409 de la superposición ofrece el sobreturno. */
+/**
+ * Lo que muestra arriba del formulario: el texto, si el 409 de la superposición ofrece el sobreturno y si el 409 de un
+ * cambio concurrente ofrece cargar la versión actual (`reloaded`: ya se cargó).
+ */
 interface SaveAlert {
   message: string;
   overlap: boolean;
+  conflict?: boolean;
+  reloaded?: boolean;
 }
+
+/** El aviso después de "Cargar la versión actual". */
+export const RELOADED_MESSAGE =
+  'Se cargó la versión actual del turno: revisala y, si hace falta, volvé a hacer tus cambios.';
 
 /**
  * El guardado del alta y de la edición: un solo envío (`useSingleAction`), cada error de la API según su `error_code`
@@ -59,6 +68,8 @@ function useAppointmentSave(options: {
   ) => Promise<{ data: AppointmentDetail; message: string }>;
   previousScheduleId?: number;
   detailId?: number;
+  /** La edición: después del 409 de un cambio concurrente, "Cargar la versión actual" (pide el turno y rearma el formulario). */
+  reload?: () => Promise<void>;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -68,6 +79,7 @@ function useAppointmentSave(options: {
   const canOverbook = can(PERMISSIONS.appointmentsOverbook);
   const [alert, setAlert] = useState<SaveAlert | null>(null);
   const [confirmOverbook, setConfirmOverbook] = useState(false);
+  const alertRef = useRef<HTMLDivElement>(null);
   const last = useRef<{
     values: AppointmentFormValues;
     form: UseFormReturn<AppointmentFormValues>;
@@ -134,11 +146,18 @@ function useAppointmentSave(options: {
           setAlert({ message: error.message, overlap: false });
           break;
         case 'conflict':
-          // Otra PC cambió el turno o la agenda en el medio: el aviso, lo cargado sigue y se vuelven a pedir los datos.
-          setAlert({ message: userMessage(error), overlap: false });
+          // Otra PC cambió el turno o la agenda en el medio: el aviso y lo cargado sigue (guardar de nuevo manda solo lo
+          // que se cambió acá, sin pisar lo del otro); los horarios libres, de nuevo; en la edición, "Cargar la versión
+          // actual" para verla antes de guardar.
+          setAlert({
+            message: userMessage(error),
+            overlap: false,
+            conflict: options.reload !== undefined,
+          });
           refreshAvailability(values);
 
           if (options.detailId !== undefined) {
+            // Si el otro lo fichó o lo canceló, la página pasa a "Este turno ya no se modifica".
             void queryClient.invalidateQueries({
               queryKey: appointmentDetailKeys.detail(options.detailId),
             });
@@ -183,11 +202,48 @@ function useAppointmentSave(options: {
     }
   };
 
+  const reload = async () => {
+    if (options.reload === undefined || !single.tryStart()) {
+      return;
+    }
+
+    try {
+      await options.reload();
+      setAlert({ message: RELOADED_MESSAGE, overlap: false, reloaded: true });
+      // El botón desaparece con el formulario rearmado: el foco, al aviso.
+      window.setTimeout(() => alertRef.current?.focus(), 0);
+    } catch (error) {
+      setAlert({
+        message: isApiError(error) ? userMessage(error) : MESSAGES.programming,
+        overlap: false,
+        conflict: true,
+      });
+    } finally {
+      single.release();
+    }
+  };
+
   const alertNode: ReactNode =
     alert === null ? null : (
-      <div className="mb-3 appointment-alert">
-        <Alert tone="danger" {...(alert.overlap ? { title: 'El horario ya está ocupado' } : {})}>
+      <div className="mb-3 appointment-alert" ref={alertRef} tabIndex={-1}>
+        <Alert
+          tone={alert.reloaded === true ? 'info' : 'danger'}
+          {...(alert.overlap ? { title: 'El horario ya está ocupado' } : {})}
+        >
           {alert.message}
+          {alert.conflict === true ? (
+            <div className="mt-2">
+              <Button
+                variant="secondary"
+                className="appointment-reload"
+                onClick={() => {
+                  void reload();
+                }}
+              >
+                Cargar la versión actual
+              </Button>
+            </div>
+          ) : null}
           {alert.overlap && canOverbook ? (
             <div className="mt-2">
               <Button
@@ -307,20 +363,33 @@ export function AppointmentCreatePage({ search }: { search: NewAppointmentSearch
 }
 
 /**
- * /turnos/$id/editar (3.4, administrador y recepción): el formulario completo, salvo la agenda, el inicio y el fin si no
- * cambiaron. "Reprogramar" (`?reprogramar=1`) es el mismo formulario con el foco en la fecha. Un turno que ya no es editable
- * (otro lo fichó o lo canceló) muestra el motivo en lugar del formulario.
+ * /turnos/$id/editar (3.4, administrador y recepción): manda solo lo que cambió contra la versión que se cargó en el
+ * formulario (`base`). "Reprogramar" (`?reprogramar=1`) es el mismo formulario con el foco en la fecha. Un turno que ya no es
+ * editable (otro lo fichó o lo canceló) muestra el motivo en lugar del formulario. Después del 409 de un cambio concurrente,
+ * lo cargado sigue y "Cargar la versión actual" pide el turno y rearma el formulario con él.
  */
 export function AppointmentEditPage({ id, reschedule }: { id: number; reschedule: boolean }) {
+  const queryClient = useQueryClient();
   const { data: appointment } = useSuspenseQuery(appointmentDetailQueryOptions(id));
+  // La versión del formulario: se toma una sola vez (si el detalle se vuelve a pedir, lo cargado no se pierde) y cambia solo
+  // con "Cargar la versión actual" (con `version`, el formulario se rearma).
+  const [base, setBase] = useState(appointment);
+  const [version, setVersion] = useState(0);
+  const defaults = useMemo(() => appointmentToForm(base), [base]);
   const save = useAppointmentSave({
     save: (values, overbook) =>
-      updateAppointment(id, appointmentFormToPayload(values, { original: appointment, overbook })),
+      updateAppointment(id, appointmentFormToPayload(values, { original: base, overbook })),
     previousScheduleId: appointment.schedule.id,
     detailId: id,
+    reload: async () => {
+      const fresh = await queryClient.query({
+        ...appointmentDetailQueryOptions(id),
+        staleTime: 0,
+      });
+      setBase(fresh);
+      setVersion((value) => value + 1);
+    },
   });
-  // Los valores del formulario se toman una sola vez: si el detalle se vuelve a pedir (un 409), lo cargado no se pierde.
-  const [defaults] = useState(() => appointmentToForm(appointment));
   const title = reschedule ? 'Reprogramar el turno' : 'Editar el turno';
   const cancel = (
     <Link
@@ -341,8 +410,9 @@ export function AppointmentEditPage({ id, reschedule }: { id: number; reschedule
       </div>
       {EDITABLE_STATUSES.has(appointment.status.value) ? (
         <AppointmentForm
+          key={version}
           defaultValues={defaults}
-          current={appointment}
+          current={base}
           focusTime={reschedule}
           alert={save.alertNode}
           saving={save.saving}

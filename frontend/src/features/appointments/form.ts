@@ -10,7 +10,12 @@ import {
   parseClock,
   sameInstant,
 } from './times';
-import type { AppointmentDetail, AppointmentPayload, AppointmentSource } from './types';
+import type {
+  AppointmentDetail,
+  AppointmentPayload,
+  AppointmentSource,
+  AppointmentUpdatePayload,
+} from './types';
 
 /**
  * El formulario del turno (3.4): el alta y la edición (también "Reprogramar", el mismo formulario con el foco en el
@@ -143,10 +148,32 @@ const patientChoice = z.object({
 const clientChoice = z.object({ id: z.number(), display_name: z.string() });
 
 /**
- * Las reglas del formulario. `today` es el día de Asunción (`todayInAppZone()`), no el de la PC: un turno de un día que ya
- * pasó se rechaza (la API acepta cualquier hora de hoy, también una que ya empezó: el que llegó sin turno, H7).
+ * ¿El formulario mueve el turno? Como la API (`AppointmentService::updateLocked`): otra agenda, otro inicio u otra duración.
+ * Sin `original` (el alta), siempre.
  */
-export function appointmentFormSchema(today: string) {
+export function movesAppointment(
+  values: Pick<AppointmentFormValues, 'schedule_id' | 'date' | 'time' | 'duration_minutes'>,
+  original: AppointmentFormValues | undefined,
+): boolean {
+  if (original === undefined) {
+    return true;
+  }
+
+  return (
+    values.schedule_id !== original.schedule_id ||
+    values.date !== original.date ||
+    values.time !== original.time ||
+    Number(values.duration_minutes.trim()) !== Number(original.duration_minutes)
+  );
+}
+
+/**
+ * Las reglas del formulario. `today` es el día de Asunción (`todayInAppZone()`), no el de la PC: un turno de un día que ya
+ * pasó se rechaza (la API acepta cualquier hora de hoy, también una que ya empezó: el que llegó sin turno, H7). En la
+ * edición (`original`, el turno como formulario), uno que no se mueve no se rechaza por su día: la API revisa el horario
+ * solo al mover (así se corrigen las notas de un turno de ayer que quedó confirmado).
+ */
+export function appointmentFormSchema(today: string, original?: AppointmentFormValues) {
   return z
     .object({
       who: z.enum(['patient', 'client', 'contact']),
@@ -178,7 +205,7 @@ export function appointmentFormSchema(today: string) {
 
       if (!dateOk) {
         issue('date', APPOINTMENT_MESSAGES.startRequired);
-      } else if (values.date < today) {
+      } else if (values.date < today && movesAppointment(values, original)) {
         issue('date', APPOINTMENT_MESSAGES.pastDay);
       }
 
@@ -298,49 +325,91 @@ function isSource(value: string): value is AppointmentSource {
   return value === 'reception' || value === 'phone' || value === 'whatsapp';
 }
 
-/**
- * El cuerpo del alta y de la edición. Uno de los tres va con sus datos y los otros en null (pasar de contacto a paciente
- * vacía el contacto). Con `original` (la edición), `schedule_id`, `starts_at` y `ends_at` van solo si cambiaron: así el cuerpo
- * dice lo que se quiso cambiar (la API igual no mueve con los mismos valores). `overbook: true`, solo si se pide.
- */
-export function appointmentFormToPayload(
-  values: AppointmentFormValues,
-  options: { original?: AppointmentDetail; overbook?: boolean } = {},
-): AppointmentPayload {
+/** El cuerpo completo (el alta): uno de los tres "quién" con sus datos y los otros en null. */
+function fullPayload(values: AppointmentFormValues): AppointmentPayload {
   const times = appointmentTimes(values.date, values.time, Number(values.duration_minutes));
 
   if (times === null) {
     throw new Error('El formulario del turno llegó sin validar.');
   }
 
-  const who = whoPayload(values);
-  const scheduleId = Number(values.schedule_id);
-  const payload: AppointmentPayload = {
+  return {
+    schedule_id: Number(values.schedule_id),
     service_id: values.service_id === '' ? null : Number(values.service_id),
-    ...who,
+    ...whoPayload(values),
+    starts_at: times.starts_at,
+    ends_at: times.ends_at,
     source: values.source,
     reason: textOrNull(values.reason),
     notes: textOrNull(values.notes),
   };
+}
+
+/** "Quién" va entero o no va: pasar de contacto a paciente vacía el contacto. */
+const WHO_KEYS = ['patient_id', 'client_id', 'contact_name', 'contact_phone'] as const;
+const DATA_KEYS = ['service_id', 'source', 'reason', 'notes'] as const;
+
+/**
+ * El cuerpo del alta (completo) y de la edición. Con `original` (el turno que se cargó en el formulario), solo lo que cambió
+ * contra él (la API valida solo lo que llega, P7): "quién" entero si cambió algo de él; el servicio, el origen, el motivo y
+ * las notas, cada uno si cambió; `schedule_id`, `starts_at` y `ends_at`, cada uno si cambió. Así el cuerpo dice lo que se
+ * quiso cambiar y un guardado no pisa lo que otra PC cambió en los campos que no se tocaron. `overbook: true`, solo si se pide.
+ */
+export function appointmentFormToPayload(
+  values: AppointmentFormValues,
+  options?: { overbook?: boolean },
+): AppointmentPayload;
+export function appointmentFormToPayload(
+  values: AppointmentFormValues,
+  options: { original: AppointmentDetail; overbook?: boolean },
+): AppointmentUpdatePayload;
+export function appointmentFormToPayload(
+  values: AppointmentFormValues,
+  options: { original?: AppointmentDetail; overbook?: boolean } = {},
+): AppointmentUpdatePayload {
+  const full = fullPayload(values);
   const { original } = options;
+  let payload: AppointmentUpdatePayload = full;
 
-  if (original?.schedule.id !== scheduleId) {
-    payload.schedule_id = scheduleId;
+  if (original !== undefined) {
+    const before = fullPayload(appointmentToForm(original));
+    const changed: AppointmentUpdatePayload = {};
+
+    if (WHO_KEYS.some((key) => full[key] !== before[key])) {
+      Object.assign(changed, pick(full, WHO_KEYS));
+    }
+
+    Object.assign(
+      changed,
+      pick(
+        full,
+        DATA_KEYS.filter((key) => full[key] !== before[key]),
+      ),
+    );
+
+    if (full.schedule_id !== original.schedule.id) {
+      changed.schedule_id = full.schedule_id;
+    }
+
+    if (!sameInstant(original.starts_at, full.starts_at)) {
+      changed.starts_at = full.starts_at;
+    }
+
+    if (!sameInstant(original.ends_at, full.ends_at)) {
+      changed.ends_at = full.ends_at;
+    }
+
+    payload = changed;
   }
 
-  if (original === undefined || !sameInstant(original.starts_at, times.starts_at)) {
-    payload.starts_at = times.starts_at;
-  }
+  return options.overbook === true ? { ...payload, overbook: true } : payload;
+}
 
-  if (original === undefined || !sameInstant(original.ends_at, times.ends_at)) {
-    payload.ends_at = times.ends_at;
-  }
-
-  if (options.overbook === true) {
-    payload.overbook = true;
-  }
-
-  return payload;
+function pick<K extends keyof AppointmentPayload>(
+  payload: AppointmentPayload,
+  keys: readonly K[],
+): Pick<AppointmentPayload, K> {
+  return Object.fromEntries(keys.map((key) => [key, payload[key]])) as Pick<AppointmentPayload, K>;
 }
 
 function whoPayload(

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Controller, useForm, useWatch, type Control, type UseFormReturn } from 'react-hook-form';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
 import {
   Button,
   Card,
@@ -77,7 +77,12 @@ export function AppointmentForm({
   cancel,
 }: AppointmentFormProps) {
   const today = todayInAppZone();
-  const resolver = useMemo(() => zodResolver(appointmentFormSchema(today)), [today]);
+  // En la edición, el turno como se cargó: uno que no se mueve no se rechaza por su día (la API tampoco).
+  const original = current === undefined ? undefined : defaultValues;
+  const resolver = useMemo(
+    () => zodResolver(appointmentFormSchema(today, original)),
+    [today, original],
+  );
   const form = useForm<AppointmentFormValues>({ resolver, defaultValues });
   const {
     control,
@@ -290,7 +295,6 @@ export function AppointmentForm({
                   name="time"
                   render={({ field, fieldState }) => (
                     <SlotPicker
-                      control={control}
                       scheduleId={scheduleValue === '' ? null : Number(scheduleValue)}
                       serviceId={serviceValue === '' ? null : Number(serviceValue)}
                       duration={duration}
@@ -362,7 +366,6 @@ function SlotPicker({
   error,
   current,
 }: {
-  control: Control<AppointmentFormValues>;
   scheduleId: number | null;
   serviceId: number | null;
   duration: number;
@@ -487,12 +490,40 @@ function SlotPicker({
   );
 }
 
-/** Lo común de los dos buscadores: el texto con la espera y el estado. */
-function useOptionsSearch() {
+/**
+ * Lo común de los dos buscadores: el texto con la espera y el foco. Al elegir uno o al tocar "Cambiar", el control que se
+ * ve desaparece: el foco pasa al que aparece ("Cambiar" o el buscador), en lugar de perderse en el cuerpo de la página.
+ */
+function useOptionsSearch(value: unknown, inputRef: (element: HTMLElement | null) => void) {
   const [text, setText] = useState('');
   const search = useDebouncedValue(normalizeSearchText(text), SEARCH_DEBOUNCE_MS);
+  const element = useRef<HTMLElement | null>(null);
+  const focusNext = useRef(false);
 
-  return { text, setText, search };
+  useEffect(() => {
+    if (focusNext.current) {
+      focusNext.current = false;
+      element.current?.focus();
+    }
+  }, [value]);
+
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      element.current = node;
+      inputRef(node);
+    },
+    [inputRef],
+  );
+
+  return {
+    text,
+    setText,
+    search,
+    ref,
+    moveFocus: () => {
+      focusNext.current = true;
+    },
+  };
 }
 
 function SelectedChoice({
@@ -539,7 +570,7 @@ function PatientPicker({
   error: string | undefined;
   inputRef: (element: HTMLElement | null) => void;
 }) {
-  const { text, setText, search } = useOptionsSearch();
+  const { text, setText, search, ref, moveFocus } = useOptionsSearch(value, inputRef);
   const query = useQuery({
     ...patientOptionsQueryOptions(search),
     enabled: search !== '' && value === null,
@@ -552,8 +583,9 @@ function PatientPicker({
         label={`${value.name} (${value.code})`}
         detail={value.client === null ? '' : `de ${value.client.display_name}`}
         error={error}
-        inputRef={inputRef}
+        inputRef={ref}
         onChange={() => {
+          moveFocus();
           onChange(null);
         }}
       />
@@ -571,13 +603,14 @@ function PatientPicker({
       search={search}
       query={query}
       error={error}
-      inputRef={inputRef}
+      inputRef={ref}
       empty="No hay pacientes con esa búsqueda."
       options={options.map((patient) => ({
         id: patient.id,
         label: `${patient.name} (${patient.code})`,
         detail: patient.client === null ? '' : `de ${patient.client.display_name}`,
         pick: () => {
+          moveFocus();
           onChange({
             id: patient.id,
             code: patient.code,
@@ -602,7 +635,7 @@ function ClientPicker({
   error: string | undefined;
   inputRef: (element: HTMLElement | null) => void;
 }) {
-  const { text, setText, search } = useOptionsSearch();
+  const { text, setText, search, ref, moveFocus } = useOptionsSearch(value, inputRef);
   const query = useQuery({
     ...clientOptionsQueryOptions(search),
     enabled: search !== '' && value === null,
@@ -615,8 +648,9 @@ function ClientPicker({
         label={value.display_name}
         detail=""
         error={error}
-        inputRef={inputRef}
+        inputRef={ref}
         onChange={() => {
+          moveFocus();
           onChange(null);
         }}
       />
@@ -634,13 +668,14 @@ function ClientPicker({
       search={search}
       query={query}
       error={error}
-      inputRef={inputRef}
+      inputRef={ref}
       empty="No hay clientes con esa búsqueda."
       options={options.map((client) => ({
         id: client.id,
         label: client.display_name,
         detail: client.document_number,
         pick: () => {
+          moveFocus();
           onChange({ id: client.id, display_name: client.display_name });
         },
       }))}
