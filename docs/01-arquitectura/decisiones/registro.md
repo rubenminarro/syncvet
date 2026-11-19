@@ -102,3 +102,4 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-090](registro/R-051-100.md#r-090-cierre-de-la-entrega-demo-02-del-backend-la-agenda-de-la-demo-2026-11-18) | 2026-11-18 | Cierre de la entrega demo-02 del backend (la agenda de la demo) |
 | [R-091](registro/R-051-100.md#r-091-reorganización-de-la-documentación-para-leer-menos-contexto-por-sesión-2026-11-18) | 2026-11-18 | Reorganización de la documentación para leer menos contexto por sesión |
 | [R-092](registro/R-051-100.md#r-092-cierre-de-la-entrega-33-del-frontend-la-semana-y-la-lista-de-turnos-2026-11-18) | 2026-11-18 | Cierre de la entrega 3.3 del frontend (la semana y la lista de turnos) |
+| [R-093](registro/R-051-100.md#r-093-cierre-de-la-entrega-34-del-frontend-el-turno-detalle-alta-edición-y-reprogramación-2026-11-19) | 2026-11-19 | Cierre de la entrega 3.4 del frontend (el turno: detalle, alta, edición y reprogramación) |

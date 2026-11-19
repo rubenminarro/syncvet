@@ -8,9 +8,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2, demo-02 y la 3.3 (R-086 a R-090 y R-092), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | La 3.3 (la semana y la lista de turnos), cerrada en `feature/front-3-3-semana-lista` (R-092); sigue la 3.4 (el turno: detalle, alta, edición y reprogramación, [diseño](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#34-el-turno-detalle-alta-edición-y-reprogramación)), sin código hasta la autorización del usuario |
-| Tests | Vitest: 1586 tests en 76 archivos, en verde (cierre de la 3.3, R-092, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-33)); Playwright: 36 casos en 18 archivos; la corrida completa, al cerrar la F3 |
+| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2, demo-02, la 3.3 y la 3.4 (R-086 a R-090, R-092 y R-093), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
+| Entrega | La 3.4 (el turno: detalle, alta, edición y reprogramación), cerrada en `feature/front-3-4-turno` (R-093); sigue la 3.5 (los estados del turno, [diseño](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#35-los-estados-del-turno)), sin código hasta la autorización del usuario |
+| Tests | Vitest: 1650 tests en 79 archivos, en verde (cierre de la 3.4, R-093, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-34)); Playwright: 38 casos en 19 archivos; la corrida completa, al cerrar la F3 |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
 [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend); el resultado de cada entrega, en el `fN-resultados.md` de su fase;

@@ -459,9 +459,12 @@ Vacío: la entrega se cerró (R-092) y todo lo que había acá pasó a su [resul
   (`GET schedules/{id}/availability?from=&to=&service_id=&duration_minutes=`) como botones (un grupo de radios accesible), y "Otra
   hora" para escribirla (la API decide). Se mandan `starts_at` y `ends_at` con `toApiDateTime`.
 * **Origen** (Recepción, Teléfono, WhatsApp; Recepción por defecto), **motivo** y **notas**.
-* Al editar, el formulario se manda completo **salvo** `starts_at`, `ends_at` y `schedule_id` si no cambiaron (no hace falta: la API no
-  mueve con los mismos valores, pero así el cuerpo dice lo que se quiso cambiar); `client_id` se reenvía como está (la API acepta el
-  guardado después de un cambio de dueño).
+* Al editar, se mandan **solo los campos que cambiaron** contra la versión del turno cargada en el formulario: "quién" entero si
+  cambió algo de él (pasar de contacto a paciente vacía el contacto); el servicio, el origen, el motivo, las notas, `schedule_id`,
+  `starts_at` y `ends_at`, cada uno si cambió (la API valida solo lo que llega, P7). Así un guardado no pisa lo que otra PC cambió
+  en los campos que no se tocaron. Decisión del usuario en el cierre de la 3.4 ([R-093](../../../01-arquitectura/decisiones/registro/R-051-100.md#r-093-cierre-de-la-entrega-34-del-frontend-el-turno-detalle-alta-edición-y-reprogramación-2026-11-19)),
+  que reemplaza lo aprobado en R-085: "el formulario se manda completo salvo `starts_at`, `ends_at` y `schedule_id` si no
+  cambiaron; `client_id` se reenvía como está".
 
 **Validación.**
 
@@ -497,170 +500,7 @@ reprogramación.
 
 #### Pendiente para el cierre (3.4)
 
-Implementación del 2026-11-19 en `feature/front-3-4-turno` (desde `2dcea6d`, el cierre de la 3.3). El diseño coincidía con
-la API real (`StoreAppointmentRequest`, `UpdateAppointmentRequest`, `AppointmentMessages`, `AppointmentService::updateLocked`
-y `who()`, `ScheduleAvailabilityService`, `ShowAppointmentResource`): no hubo que frenar. Sin cambios en el backend ni paquetes
-nuevos.
-
-**Qué se hizo.** Tres rutas: `/turnos/$id` (`appointments.show`, los tres roles), `/turnos/nuevo?agenda=&inicio=`
-(`appointments.store`) y `/turnos/$id/editar?reprogramar=1` (`appointments.update`); cuatro permisos nuevos en `PERMISSIONS`
-(`appointments.show`, `.store`, `.update` y `.overbook`, de la API); `inicio` en `TEXT_SEARCH_PARAMS`. El menú no cambió.
-`features/appointments/`: `times.ts` (la fecha y la hora de pared de Asunción ↔ los instantes de la API con el desplazamiento
-de cada fecha; el fin como la API, el inicio más la duración en instantes; la medianoche por el día de pared del fin),
-`form.ts` (el esquema Zod con los mensajes de `AppointmentMessages`, el cuerpo del alta y de la edición, que manda la agenda,
-el inicio y el fin solo si cambiaron, y `mapAppointmentErrors`, que reparte un 422: `starts_at` a la hora, `ends_at` a la
-duración, `schedule` a la agenda y un campo que no se ve con ese "quién", a la alerta), `AppointmentForm.tsx` (quién: paciente,
-cliente sin paciente o primera vez, con los buscadores; la agenda de la sucursal actual con su servicio y su duración; la
-fecha con los horarios libres como radios y "Otra hora"; origen, motivo y notas), `AppointmentFormPages.tsx` (el alta y la
-edición, un solo envío, cada `error_code` y el sobreturno), `AppointmentDetailPage.tsx`, `AppointmentLinks.tsx` ("Ver el
-turno", "Reprogramar" y "Editar") y `loader.ts`. El panel de la 3.2 suma esas acciones según el permiso y el estado; la grilla
-(día y semana) da un turno con Enter o un clic en una celda; "Nuevo turno" en el encabezado del día, la semana y la lista;
-el diálogo de los turnos afectados de la 3.1b enlaza a cada turno. Las invalidaciones de un alta o una edición, las del
-diseño (`afterAppointmentSaved`: el detalle con la respuesta, las consultas de turnos de las sucursales que se ven y la
-disponibilidad de la agenda de origen y la de destino). Playwright: `e2e/turno.spec.ts` (2 casos).
-
-**Desvíos y decisiones para revisar:**
-
-| # | Desvío | Motivo |
-|---|---|---|
-| 1 | La rama es `feature/front-3-4-turno` y el spec `e2e/turno.spec.ts` (el diseño decía `feature/front-3-4-turnos` y `e2e/turnos.spec.ts`) | Lo pidió así el usuario |
-| 2 | Al reprogramar, el horario actual del turno no está entre los libres (la disponibilidad lo cuenta como ocupado por él mismo): el formulario lo muestra en "Otra hora", con "La hora actual del turno." | `GET schedules/{id}/availability` no tiene un parámetro para ignorar un turno. Sin cambio en el backend; si se quiere, una entrega de soporte aditiva (`ignore_appointment_id`) |
-| 3 | El campo de la hora a mano se llama "Escribí la hora" (el radio que lo abre, "Otra hora") | Dos controles con el mismo nombre se confunden en un lector de pantalla; el test lo encontró |
-| 4 | Además de Enter, un clic en una celda (no en un turno) lleva al alta; una columna de una agenda inactivada no responde. "Nuevo turno" también va en el encabezado del día, la semana y la lista, con la agenda que se ve | El diseño solo nombra la celda; con el mouse y en el celular hace falta un camino sin teclado |
-| 5 | La lista (`/turnos`) sigue abriendo el panel de la 3.2 (que ahora tiene "Ver el turno"), en lugar de enlazar cada fila directo al detalle | El pedido es que el panel sume las acciones; así la lista, el día y la semana abren lo mismo. Playwright recorre lista → panel → detalle |
-| 6 | La deuda 25 no se tocó: es la consulta previa del backend antes de crear un bloqueo, y el diseño de la 3.4 no la pide. "El enlace desde la lista de turnos que quedan dentro de un bloqueo" es el del diálogo de los afectados (3.1b) y la marca de la lista y del detalle | Sigue abierta, sin cambios |
-| 7 | El 409 `APPOINTMENT_OVERLAP` sin `appointments.overbook` dice además "Elegí otro horario: no tenés permiso para dar sobreturnos." | Hoy ningún rol propio tiene el alta sin el sobreturno; con un rol nuevo, el motivo queda claro |
-| 8 | El detalle de un turno sin paciente ofrece "Nuevo cliente" (un contacto) o "Nuevo paciente" (un cliente sin paciente), con "Editar el turno" | El diseño nombra "Nuevo cliente"; con un cliente ya cargado falta el paciente, no el cliente |
-| 9 | La edición de un turno que ya no es editable (otro lo fichó o lo canceló) muestra el motivo en lugar del formulario; `APPOINTMENT_NOT_EDITABLE` vuelve a pedir el turno y lleva a esa vista | Un formulario que la API va a rechazar confunde |
-| 10 | El `loader` del detalle y de la edición pide el turno de nuevo al entrar (`staleTime` de 0): después de guardar sale un GET más | Otra PC pudo moverlo o ficharlo; el detalle de un turno cambia más que el de un cliente |
-| 11 | `SearchField` acepta `ref` (el foco de un error en el buscador del paciente) | Lo necesita `applyValidationErrors`/`setError` con `shouldFocus` |
-| 12 | `routeTree.gen.ts` se regeneró con `@tanstack/router-generator` (las opciones del plugin de `vite.config.ts`) | Como en la 3.3: el plugin solo corre con Vite |
-| 13 | `src/test/voseo.test.ts` suma `KEY_NAMES` (`'Enter'`): un nombre de tecla de `KeyboardEvent.key` no es texto para el usuario | La corrida final falló por `case 'Enter'` de la grilla ("enter" está en la lista de palabras en inglés); corregido y repetida la suite completa |
-| 14 | Hallazgo en Edge, corregido: mientras llegaban las agendas, la edición mostraba la del turno como "(la actual)"; ahora la marca, "(no está entre las activas de tu sucursal)", aparece solo cuando llegó la lista y la agenda no está | Captura `03-reprogramar-375.png`, de antes de la corrección; test nuevo en `AppointmentPages.test.tsx` |
-| 15 | Playwright falló a la primera en los dos casos de `turno.spec.ts`: buscaba a "Luna" (es de la Clínica B; en la A, Firulais) y marcaba el radio de "Otra hora" que tapa su etiqueta. Se corrigió el spec y se repitió solo ese archivo (2 de 2) | Fallas del spec, no de la pantalla |
-| 16 | El script de Edge falló en los controles 3 y 6 (eligió "10:00", que no estaba libre en "Demo Consultorio 2", y buscó la celda de las 07:00, fuera del rango de la grilla): se corrigió y se repitieron solo esos dos (con un segundo ingreso de `recepcion-a` y de `vet-a`; los 4 tokens, revocados) | Regla de §8 |
-
-**Mutaciones** (4 de 4 detectadas, revertidas): la hora de pared con la zona de la PC en `wallToInstant` (16 fallas en
-`times.test.ts`, `form.test.ts` y `AppointmentPages.test.tsx`); el 409 sin volver a pedir la disponibilidad (1 falla); `starts_at`
-de un 422 a la fecha en lugar de la hora (2 fallas); "Dar como sobreturno" sin mirar `appointments.overbook` (1 falla).
-
-**Playwright** (con `e2e/permisos.spec.ts`, por las rutas y los permisos nuevos, R-084): `permisos.spec.ts` 7 de 7;
-`turno.spec.ts` 2 de 2 en la segunda corrida (desvío 15), 1,2 min. 38 casos en 19 archivos.
-
-**En Edge** (sin ventana, `es-PY`, zona `America/Asuncion`, contra `syncvet.test` (200 en `/` y `/up`) con un Vite propio en
-`:5180`, detenido por su PID; antes, `php artisan demo:agenda`): 8 de 8. (1) el alta a 1280 px con los horarios libres como
-radios: la flecha pasa de 09:00 a 09:30 y el foco se ve; (2) el alta de un contacto: en la pestaña Red, `starts_at`
-`2026-11-20T09:00:00.000-03:00` y `ends_at` `…09:30:00.000-03:00`, y al detalle; (3) "Reprogramar" a 375 px: el foco en la fecha,
-sin desplazamiento horizontal y el PATCH solo con `starts_at` y `ends_at` (sin `schedule_id`); (4) el detalle a 375 px sin
-desplazamiento, con "Para fichar, cargá el paciente."; (5) el turno de la demo dentro del bloqueo de "Demo Guardia": el aviso y
-"Reprogramar"; (6) el panel de la agenda con "Ver el turno", "Reprogramar" y "Editar", y Enter en una celda libre a
-`/turnos/nuevo?agenda=108&inicio=2026-11-20T09:00`; (7) `vet-a`: el detalle sin "Editar" ni "Reprogramar", la agenda sin "Nuevo
-turno" y `/turnos/nuevo` a `/sin-permiso`; (8) la consola sin errores. Ingresos: `recepcion-a` 2 y `vet-a` 2 (desvío 16), los 4
-tokens revocados (`logout` 200; 0 tokens nuevos en `personal_access_tokens`). La demo, restaurada con `php artisan demo:agenda`
-(171 turnos; el turno 373 del control 2 se borró con la corrida). `admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at`
-del 12/11). Capturas fuera del repositorio (scratchpad de la sesión, `capturas-3-4`): `01-alta-1280.png`,
-`02-detalle-1280.png`, `03-reprogramar-375.png`, `04-detalle-375.png`, `05-bloqueo-1280.png` y `06-panel-1280.png`.
-
-**Pruebas.** Durante el trabajo, `vitest related` de lo tocado (772 en 38 archivos, con las 2 fallas esperadas del enlace
-nuevo de `ScheduleBlocks.test.tsx`, corregidas) y los archivos nuevos: `times.test.ts` 10, `form.test.ts` 21,
-`AppointmentPages.test.tsx` 22 y `AgendaDayPage.test.tsx` 27 (4 nuevos). Corrida final (2026-11-19, desde `frontend/`): Prettier
-de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos; `npm test` falló la primera vez en
-`voseo.test.ts` (desvío 13), se corrigió y la suite completa dio 1642 tests en 79 archivos, en verde; después del hallazgo 14,
-otra corrida completa, `typecheck`, `lint` y `build` sin errores ni avisos y `npm test`, **1643 tests en 79 archivos, en verde**. Desde `backend/`, `FictitiousDocumentsTest` 3 de 3 (69 aserciones).
-
-**Revisión (2026-11-19, sobre `a657c12`).** Diff contra `2dcea6d` y las decisiones de Ruben sobre los desvíos.
-
-*Reprogramar sobre el propio horario:* se guarda. `AppointmentService::updateLocked` excluye el propio turno al mover
-(`ensureFits(..., $appointment)`); `AppointmentUpdateTest::test_moving_within_the_schedule_does_not_collide_with_itself_and_keeps_its_status`
-mueve de 10:00–10:30 a 10:15 (–10:45, conserva la duración) y da 200 (corrido: 1 de 1). La disponibilidad no tiene cómo excluirlo:
-**deuda 26** ("los horarios libres no excluyen el propio turno al reprogramar"), sin tocar el backend.
-
-*Los 16 desvíos:*
-
-| # | Estado |
-|---|---|
-| 1 | Aceptado: lo pidió el usuario |
-| 2 | Aceptado: verificado contra la API (mover excluye el propio turno); la mejora es la deuda 26 |
-| 3 | Aceptado: dos controles con el mismo nombre se confunden en un lector de pantalla |
-| 4 | Aceptado: hace falta un camino sin teclado; la agenda inactiva no responde (tests de `AgendaDayPage.test.tsx`) |
-| 5 | Aceptado (decisión de Ruben): la lista abre el panel, igual que el día y la semana |
-| 6 | Aceptado (decisión de Ruben): la deuda 25 no corresponde a la 3.4 |
-| 7 | Aceptado: el texto está en voseo y lo cubre el test del 409 sin `appointments.overbook` |
-| 8 | Aceptado: con un cliente cargado falta el paciente, no el cliente |
-| 9 | Aceptado: el test de `APPOINTMENT_NOT_EDITABLE` se rehízo (era frágil, ver la corrección 6) |
-| 10 | Aceptado: el `loader` pide el turno al entrar; el montaje no lo repite |
-| 11 | Aceptado: `SearchField` con `ref`; ahora también lo usa el foco del buscador (corrección 4) |
-| 12 | Aceptado: como en la 3.3 |
-| 13 | Corregido: la excepción valía para cualquier cadena `'Enter'` fuera de JSX (un `label="Enter"` o un `toast.show('Enter')` pasaban). Ahora solo en un `case 'Enter':` o comparada con `.key`; test "un nombre de tecla no es texto solo donde se usa como tecla" (8 casos) y una mutación |
-| 14 | Corregido (en la implementación); captura `03-reprogramar-375.png` repetida con la corrección: la agenda del turno sin marca |
-| 15 | Aceptado: fallas del spec, no de la pantalla; `turno.spec.ts` 2 de 2 otra vez en esta revisión |
-| 16 | Aceptado: se cumplió la regla de §8 |
-
-Ninguno necesita una decisión de Ruben.
-
-*Correcciones:*
-
-1. **La edición manda solo lo que cambió.** Antes mandaba todo el formulario salvo la agenda y el horario sin cambios (como
-   decía el diseño), así que un guardado pisaba lo que otra PC había cambiado en los campos que no se tocaron. Ahora
-   `appointmentFormToPayload` compara contra el turno que se cargó en el formulario: "quién" va entero si cambió algo de él (de
-   contacto a paciente, el contacto en null); el servicio, el origen, el motivo, las notas, la agenda, el inicio y el fin, cada uno
-   si cambió (`AppointmentUpdatePayload`, parcial; la API valida solo lo que llega, P7). Desvío del diseño ("el formulario se manda
-   completo salvo…"), a pedido de la revisión. Tests: 2 nuevos en `form.test.ts` y el de la edición de `AppointmentPages.test.tsx`
-   (`[{ reason: 'Control anual' }]`); en Edge, el PATCH de un motivo es `{"reason": …}`.
-2. **El 409 por cambio concurrente** (`CONFLICT`). El usuario ve "Alguien cambió estos datos mientras guardabas. Revisalos y
-   probá de nuevo." con el mensaje de la API, y lo cargado sigue. El turno se vuelve a pedir (si el otro lo fichó o lo canceló, la
-   página pasa a "Este turno ya no se modifica"), y se vuelven a pedir los horarios libres. Antes la alerta pedía revisar sin
-   mostrar la versión nueva, y guardar de nuevo la pisaba. Ahora la alerta ofrece **"Cargar la versión actual"**: pide el turno
-   (`staleTime` 0), rearma el formulario con esa versión como base y pone el foco en el aviso "Se cargó la versión actual del
-   turno: revisala y, si hace falta, volvé a hacer tus cambios.". Si se guarda sin cargarla, va solo lo que se cambió en esta
-   pantalla (la corrección 1), así que no pisa lo del otro. Tests: "guardar de nuevo no pisa lo del otro" y "Cargar la versión
-   actual rearma el formulario con la del otro". Con la misma base, el sobreturno y "Reprogramar" comparan contra la versión
-   cargada.
-3. **Un turno de ayer que quedó confirmado no se podía editar:** Zod daba "No podés dar un turno en un día que ya pasó." aunque el
-   horario no cambiara, y la API lo acepta (revisa el día solo al mover). `movesAppointment` (otra agenda, fecha, hora o duración,
-   como `updateLocked`) y el esquema lo usan en la edición. Tests: 1 en `form.test.ts` (sin moverlo pasa; moverlo por hora,
-   duración o agenda, no) y 1 de página.
-4. **El foco en los buscadores del paciente y del cliente:** al elegir uno, o al tocar "Cambiar", el control que tenía el foco
-   desaparecía y el foco quedaba en el cuerpo de la página. Ahora pasa a "Cambiar" y, después, al buscador (`useOptionsSearch`).
-   Test de página y control 3 en Edge (con el teclado).
-5. **Código muerto:** la prop `control` de `SlotPicker`, que no se usaba, se quitó.
-6. **Tests frágiles:** `APPOINTMENT_NOT_EDITABLE` contaba todos los GET de `appointments/:id`, y el caso anterior todavía pedía
-   el turno 101 al que había navegado: en la corrida del archivo completo el formulario no llegaba a verse. Ahora el turno sale
-   fichado recién después del PATCH rechazado; los dos casos del 409 cuentan solo el turno 1.
-7. **Test nuevo:** sin conexión (`NETWORK_ERROR`), el aviso y lo cargado sigue (el paciente, la hora y el motivo).
-
-*Revisado sin cambios:* `times.ts`: el desplazamiento de cada fecha con `TZDate` (nunca un `-03:00` fijo), los días de 23 y 25
-horas, la medianoche por el día de pared del fin (como `toDateString()` de la API) y un fin a las 00:00 del día siguiente, todo con
-tests. Una hora que no existió (de 00:00 a 00:59 del 01/10/2023) no se puede elegir, porque es un día que ya pasó. Cada 422, a su
-campo (`starts_at` a la hora, también el día que pasó, como dice el diseño; un campo oculto, a la alerta). El sobreturno: solo con
-`appointments.overbook`, con `ConfirmDialog`, y la marca en el día, la semana y la lista (`AppointmentFlags`, con las invalidaciones
-de `afterAppointmentSaved`). Los cuatro permisos coinciden con `RolesAndPermissionsSeeder` (recepción, los cuatro; veterinario, solo
-`appointments.show`), y `/turnos/nuevo` y `/editar` sin el permiso llevan a `/sin-permiso`, como las demás rutas (tests de página).
-Sin duplicación con `AgendaShared`/`agenda-shared` (`useCanEditAppointment` y `useCreateFromCell`, una vez). A 375 px, sin
-desplazamiento horizontal. Seguridad: sin `dangerouslySetInnerHTML` ni `fetch` fuera del cliente, y `overbook` nunca va sin el
-permiso.
-
-*Mutaciones* (4 de 4 detectadas, revertidas): la edición con el cuerpo completo (3 fallas en `form.test.ts`); el día que pasó sin
-mirar si se mueve (2 fallas); la excepción de voseo sin el contexto (1 falla); "Cargar la versión actual" sin rearmar el formulario
-(1 falla).
-
-*Pruebas.* Durante la corrección, `vitest related` de lo tocado: 718 tests en 34 archivos. Corrida final (2026-11-19, desde
-`frontend/`): Prettier de los archivos cambiados, `typecheck`, `lint` y `build` sin errores ni avisos, y `npm test` **1650 tests en
-79 archivos, en verde** (a la primera). Desde `backend/`, `FictitiousDocumentsTest` 3 de 3 (69 aserciones). Playwright
-`turno.spec.ts` 2 de 2 (49 s); `permisos.spec.ts` no, porque no cambiaron rutas, permisos ni el menú.
-
-*En Edge* (sin ventana, `es-PY`, `America/Asuncion`, contra `syncvet.test` con un Vite propio en `:5180`, detenido por su PID;
-antes, `php artisan demo:agenda`): 4 de 4. (C1) "Reprogramar" a 375 px: la agenda "Demo Consultorio 1" sin marca, el foco en la
-fecha, sin desplazamiento horizontal y el PATCH solo con `starts_at` y `ends_at`; (C2) la edición del motivo: el PATCH es
-`{"reason": …}`; (C3) el buscador del paciente con el teclado: el foco en "Cambiar" y, después, en el buscador; (C4) la consola sin
-errores. La primera corrida falló en el script antes de ingresar (el selector de la contraseña también tomaba "Mostrar la
-contraseña"): se corrigió y se repitió. Un ingreso de `recepcion-a`, con su token revocado (`logout` 200; 279 tokens antes y
-después). La demo, restaurada con `php artisan demo:agenda`. `admin-a`, `recepcion-a` y `vet-a`, sin cambios (`updated_at` del
-12/11). La captura nueva, fuera del repositorio:
-`C:\Users\ruben.minarro\AppData\Local\Temp\claude\59ee5951b6d279f6\c5a5c34b-d341-465d-831e-1b0209166fbe\scratchpad\capturas-3-4\03-reprogramar-375.png`.
-
-**Para la 3.5** (pedido del usuario en la 3.4): unificar el tachado de los cancelados entre las tarjetas de la lista (375 px,
-`appointmentItemClass`, tachadas desde la revisión de la 3.3) y la tabla (1280 px, sin tachar).
+Vacío: la entrega se cerró (R-093) y todo lo que había acá pasó a su [resultado](f3-resultados.md#entrega-34).
 
 ### 3.5 Los estados del turno
 
@@ -696,7 +536,8 @@ turno ya empezado (el ayudante lo crea a una hora pasada de hoy) y deshacerlo; c
 
 #### Pendiente para el cierre (3.5)
 
-Vacío.
+**Para la 3.5** (pedido del usuario en la 3.4): unificar el tachado de los cancelados entre las tarjetas de la lista (375 px,
+`appointmentItemClass`, tachadas desde la revisión de la 3.3) y la tabla (1280 px, sin tachar).
 
 ### 3.6 Las series
 
