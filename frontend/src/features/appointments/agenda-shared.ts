@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import type { SelectOption } from '../../components/ui';
+import { PERMISSIONS } from '../../lib/auth/permissions';
+import { useCan } from '../auth/permissions';
 import type { Me } from '../auth/types';
 import { branchScheduleOptionsQueryOptions } from './api';
-import { isVisible, selectColumns, type ColumnSchedule } from './grid';
-import type { Appointment } from './types';
+import { minutesToClock } from './dates';
+import { isVisible, selectColumns, type ColumnSchedule, type GridColumn } from './grid';
+import { EDITABLE_STATUSES, type Appointment } from './types';
 
 /** Lo que comparten el día (3.2), la semana y la lista (3.3), sin componentes (los componentes, en `AgendaShared.tsx`). */
 
@@ -133,4 +137,37 @@ export function appointmentItemClass(
 /** Un id de un `<select>` (vacío: ninguno). */
 export function selectedId(value: string): number | undefined {
   return value === '' ? undefined : Number(value);
+}
+
+/**
+ * Dar un turno desde una celda de la grilla (3.4; diseño de la F3, "Accesibilidad": Enter en una celda libre): a
+ * /turnos/nuevo con la agenda y el inicio de la celda (la hora de pared de Asunción). Sin `appointments.store`, nada
+ * (undefined: la celda no responde). Una agenda inactivada no recibe turnos.
+ */
+export function useCreateFromCell(): ((column: GridColumn, rowStart: number) => void) | undefined {
+  const can = useCan();
+  const navigate = useNavigate();
+
+  if (!can(PERMISSIONS.appointmentsStore)) {
+    return undefined;
+  }
+
+  return (column, rowStart) => {
+    if (!column.schedule.is_active) {
+      return;
+    }
+
+    void navigate({
+      to: '/turnos/nuevo',
+      search: { agenda: column.schedule.id, inicio: `${column.day}T${minutesToClock(rowStart)}` },
+    });
+  };
+}
+
+/** ¿Se puede editar o reprogramar? Con `appointments.update` y a confirmar o confirmado (si no, la API: NOT_EDITABLE). */
+export function useCanEditAppointment(): (appointment: Pick<Appointment, 'status'>) => boolean {
+  const can = useCan();
+
+  return (appointment) =>
+    can(PERMISSIONS.appointmentsUpdate) && EDITABLE_STATUSES.has(appointment.status.value);
 }

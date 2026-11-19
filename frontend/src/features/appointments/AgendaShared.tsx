@@ -4,11 +4,15 @@ import {
   IconChevronRight,
   IconClock,
   IconLock,
+  IconPlus,
 } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Alert, Button, Card, CheckboxField } from '../../components/ui';
 import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { PERMISSIONS } from '../../lib/auth/permissions';
+import { useCan } from '../auth/permissions';
+import { AppointmentEditLinks } from './AppointmentLinks';
 import { formatTime } from '../../lib/format/dates';
 import { dayTitle, wallDay, weekEndOf, weekStartOf } from './dates';
 import { appointmentWho } from './grid';
@@ -93,11 +97,16 @@ export function AgendaHeader({
   title,
   announcement,
   titleClassName = 'agenda-title',
+  newAppointment,
 }: {
   title: string;
   announcement: string;
   titleClassName?: string;
+  /** "Nuevo turno" (3.4, con `appointments.store`), con la agenda que se ve. */
+  newAppointment?: { agenda: number | undefined };
 }) {
+  const can = useCan();
+
   return (
     <>
       <div className="page-header mb-3">
@@ -106,6 +115,18 @@ export function AgendaHeader({
             <div className="page-pretitle">Agenda</div>
             <h2 className={`page-title ${titleClassName}`.trim()}>{title}</h2>
           </div>
+          {newAppointment !== undefined && can(PERMISSIONS.appointmentsStore) ? (
+            <div className="col-auto">
+              <Link
+                to="/turnos/nuevo"
+                search={{ agenda: newAppointment.agenda, inicio: undefined }}
+                className="btn btn-primary agenda-new"
+              >
+                <IconPlus size={18} className="me-2" aria-hidden="true" />
+                Nuevo turno
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="visually-hidden" role="status" aria-live="polite">
@@ -361,7 +382,10 @@ export function AppointmentFlags({
   );
 }
 
-/** Los datos del turno, de solo lectura (desde la 3.2; el detalle con las acciones llega en la 3.4). */
+/**
+ * Los datos del turno (desde la 3.2) y, desde la 3.4, "Ver el turno" (el detalle) y "Reprogramar" y "Editar" según el
+ * permiso (`appointments.update`) y el estado (a confirmar o confirmado). Las acciones de estado, desde la 3.5.
+ */
 export function AppointmentPanel({
   appointment,
   inBlock,
@@ -415,6 +439,9 @@ export function AppointmentPanel({
               </div>
             ))}
         </dl>
+        <div className="d-flex gap-2 flex-wrap mt-3 agenda-panel-actions">
+          <AppointmentEditLinks appointment={appointment} withDetail size="sm" />
+        </div>
       </div>
     </section>
   );

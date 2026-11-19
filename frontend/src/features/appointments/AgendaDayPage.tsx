@@ -27,6 +27,7 @@ import {
   SINGLE_COLUMN_QUERY,
   useAgendaSchedules,
   useAppointmentPanel,
+  useCreateFromCell,
 } from './agenda-shared';
 import { appointmentRangeQueryOptions, rangeBlocksQueryOptions } from './api';
 import { addDaysToDay, dayName, dayTitle, isAgendaDay } from './dates';
@@ -54,6 +55,7 @@ export function AgendaDayPage() {
   const singleColumn = useMediaQuery(SINGLE_COLUMN_QUERY);
   const [mobileScheduleId, setMobileScheduleId] = useState<number | null>(null);
   const panel = useAppointmentPanel<GridItem>();
+  const createFromCell = useCreateFromCell();
   const emptyRef = useRef<HTMLParagraphElement>(null);
   const [announced, setAnnounced] = useState<{ key: string; text: string } | null>(null);
 
@@ -173,6 +175,7 @@ export function AgendaDayPage() {
           step(1);
         }}
         onOpen={panel.open}
+        onCreate={createFromCell}
       />
     );
   }
@@ -188,7 +191,11 @@ export function AgendaDayPage() {
 
   return (
     <>
-      <AgendaHeader title={dayTitle(day)} announcement={announced?.text ?? ''} />
+      <AgendaHeader
+        title={dayTitle(day)}
+        announcement={announced?.text ?? ''}
+        newAppointment={{ agenda: search.agenda }}
+      />
       <Card>
         <div className="row g-2 align-items-end agenda-toolbar">
           <div className="col-12 col-md-auto">

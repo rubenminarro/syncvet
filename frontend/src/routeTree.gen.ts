@@ -28,6 +28,8 @@ import { Route as SesionServiciosIndexRouteImport } from './routes/_sesion/servi
 import { Route as SesionServiciosIdRouteImport } from './routes/_sesion/servicios/$id'
 import { Route as SesionServiciosNuevoRouteImport } from './routes/_sesion/servicios/nuevo'
 import { Route as SesionTurnosIndexRouteImport } from './routes/_sesion/turnos/index'
+import { Route as SesionTurnosIdRouteImport } from './routes/_sesion/turnos/$id'
+import { Route as SesionTurnosNuevoRouteImport } from './routes/_sesion/turnos/nuevo'
 import { Route as SesionVeterinariosIndexRouteImport } from './routes/_sesion/veterinarios/index'
 import { Route as SesionVeterinariosIdRouteImport } from './routes/_sesion/veterinarios/$id'
 import { Route as SesionVeterinariosNuevoRouteImport } from './routes/_sesion/veterinarios/nuevo'
@@ -45,6 +47,7 @@ import { Route as SesionConfiguracionUsuariosIdRouteImport } from './routes/_ses
 import { Route as SesionConfiguracionUsuariosNuevoRouteImport } from './routes/_sesion/configuracion/usuarios/nuevo'
 import { Route as SesionPacientesIdEditarRouteImport } from './routes/_sesion/pacientes/$id_.editar'
 import { Route as SesionServiciosIdEditarRouteImport } from './routes/_sesion/servicios/$id_.editar'
+import { Route as SesionTurnosIdEditarRouteImport } from './routes/_sesion/turnos/$id_.editar'
 import { Route as SesionVeterinariosIdEditarRouteImport } from './routes/_sesion/veterinarios/$id_.editar'
 import { Route as SesionClientesIdPacientesNuevoRouteImport } from './routes/_sesion/clientes/$id_.pacientes.nuevo'
 import { Route as SesionConfiguracionAgendasIdEditarRouteImport } from './routes/_sesion/configuracion/agendas/$id_.editar'
@@ -146,6 +149,16 @@ const SesionTurnosIndexRoute = SesionTurnosIndexRouteImport.update({
   path: '/turnos/',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionTurnosIdRoute = SesionTurnosIdRouteImport.update({
+  id: '/turnos/$id',
+  path: '/turnos/$id',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionTurnosNuevoRoute = SesionTurnosNuevoRouteImport.update({
+  id: '/turnos/nuevo',
+  path: '/turnos/nuevo',
+  getParentRoute: () => SesionRoute,
+} as any)
 const SesionVeterinariosIndexRoute = SesionVeterinariosIndexRouteImport.update({
   id: '/veterinarios/',
   path: '/veterinarios/',
@@ -242,6 +255,11 @@ const SesionServiciosIdEditarRoute = SesionServiciosIdEditarRouteImport.update({
   path: '/servicios/$id/editar',
   getParentRoute: () => SesionRoute,
 } as any)
+const SesionTurnosIdEditarRoute = SesionTurnosIdEditarRouteImport.update({
+  id: '/turnos/$id_/editar',
+  path: '/turnos/$id/editar',
+  getParentRoute: () => SesionRoute,
+} as any)
 const SesionVeterinariosIdEditarRoute =
   SesionVeterinariosIdEditarRouteImport.update({
     id: '/veterinarios/$id_/editar',
@@ -285,6 +303,8 @@ export interface FileRoutesByFullPath {
   '/pacientes/$id': typeof SesionPacientesIdRoute
   '/servicios/$id': typeof SesionServiciosIdRoute
   '/servicios/nuevo': typeof SesionServiciosNuevoRoute
+  '/turnos/$id': typeof SesionTurnosIdRoute
+  '/turnos/nuevo': typeof SesionTurnosNuevoRoute
   '/veterinarios/$id': typeof SesionVeterinariosIdRoute
   '/veterinarios/nuevo': typeof SesionVeterinariosNuevoRoute
   '/agenda/': typeof SesionAgendaIndexRoute
@@ -304,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/configuracion/usuarios/nuevo': typeof SesionConfiguracionUsuariosNuevoRoute
   '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
   '/servicios/$id/editar': typeof SesionServiciosIdEditarRoute
+  '/turnos/$id/editar': typeof SesionTurnosIdEditarRoute
   '/veterinarios/$id/editar': typeof SesionVeterinariosIdEditarRoute
   '/configuracion/agendas/': typeof SesionConfiguracionAgendasIndexRoute
   '/configuracion/auditoria/': typeof SesionConfiguracionAuditoriaIndexRoute
@@ -326,6 +347,8 @@ export interface FileRoutesByTo {
   '/pacientes/$id': typeof SesionPacientesIdRoute
   '/servicios/$id': typeof SesionServiciosIdRoute
   '/servicios/nuevo': typeof SesionServiciosNuevoRoute
+  '/turnos/$id': typeof SesionTurnosIdRoute
+  '/turnos/nuevo': typeof SesionTurnosNuevoRoute
   '/veterinarios/$id': typeof SesionVeterinariosIdRoute
   '/veterinarios/nuevo': typeof SesionVeterinariosNuevoRoute
   '/agenda': typeof SesionAgendaIndexRoute
@@ -345,6 +368,7 @@ export interface FileRoutesByTo {
   '/configuracion/usuarios/nuevo': typeof SesionConfiguracionUsuariosNuevoRoute
   '/pacientes/$id/editar': typeof SesionPacientesIdEditarRoute
   '/servicios/$id/editar': typeof SesionServiciosIdEditarRoute
+  '/turnos/$id/editar': typeof SesionTurnosIdEditarRoute
   '/veterinarios/$id/editar': typeof SesionVeterinariosIdEditarRoute
   '/configuracion/agendas': typeof SesionConfiguracionAgendasIndexRoute
   '/configuracion/auditoria': typeof SesionConfiguracionAuditoriaIndexRoute
@@ -370,6 +394,8 @@ export interface FileRoutesById {
   '/_sesion/pacientes/$id': typeof SesionPacientesIdRoute
   '/_sesion/servicios/$id': typeof SesionServiciosIdRoute
   '/_sesion/servicios/nuevo': typeof SesionServiciosNuevoRoute
+  '/_sesion/turnos/$id': typeof SesionTurnosIdRoute
+  '/_sesion/turnos/nuevo': typeof SesionTurnosNuevoRoute
   '/_sesion/veterinarios/$id': typeof SesionVeterinariosIdRoute
   '/_sesion/veterinarios/nuevo': typeof SesionVeterinariosNuevoRoute
   '/_sesion/agenda/': typeof SesionAgendaIndexRoute
@@ -389,6 +415,7 @@ export interface FileRoutesById {
   '/_sesion/configuracion/usuarios/nuevo': typeof SesionConfiguracionUsuariosNuevoRoute
   '/_sesion/pacientes/$id_/editar': typeof SesionPacientesIdEditarRoute
   '/_sesion/servicios/$id_/editar': typeof SesionServiciosIdEditarRoute
+  '/_sesion/turnos/$id_/editar': typeof SesionTurnosIdEditarRoute
   '/_sesion/veterinarios/$id_/editar': typeof SesionVeterinariosIdEditarRoute
   '/_sesion/configuracion/agendas/': typeof SesionConfiguracionAgendasIndexRoute
   '/_sesion/configuracion/auditoria/': typeof SesionConfiguracionAuditoriaIndexRoute
@@ -413,6 +440,8 @@ export interface FileRouteTypes {
     | '/pacientes/$id'
     | '/servicios/$id'
     | '/servicios/nuevo'
+    | '/turnos/$id'
+    | '/turnos/nuevo'
     | '/veterinarios/$id'
     | '/veterinarios/nuevo'
     | '/agenda/'
@@ -432,6 +461,7 @@ export interface FileRouteTypes {
     | '/configuracion/usuarios/nuevo'
     | '/pacientes/$id/editar'
     | '/servicios/$id/editar'
+    | '/turnos/$id/editar'
     | '/veterinarios/$id/editar'
     | '/configuracion/agendas/'
     | '/configuracion/auditoria/'
@@ -454,6 +484,8 @@ export interface FileRouteTypes {
     | '/pacientes/$id'
     | '/servicios/$id'
     | '/servicios/nuevo'
+    | '/turnos/$id'
+    | '/turnos/nuevo'
     | '/veterinarios/$id'
     | '/veterinarios/nuevo'
     | '/agenda'
@@ -473,6 +505,7 @@ export interface FileRouteTypes {
     | '/configuracion/usuarios/nuevo'
     | '/pacientes/$id/editar'
     | '/servicios/$id/editar'
+    | '/turnos/$id/editar'
     | '/veterinarios/$id/editar'
     | '/configuracion/agendas'
     | '/configuracion/auditoria'
@@ -497,6 +530,8 @@ export interface FileRouteTypes {
     | '/_sesion/pacientes/$id'
     | '/_sesion/servicios/$id'
     | '/_sesion/servicios/nuevo'
+    | '/_sesion/turnos/$id'
+    | '/_sesion/turnos/nuevo'
     | '/_sesion/veterinarios/$id'
     | '/_sesion/veterinarios/nuevo'
     | '/_sesion/agenda/'
@@ -516,6 +551,7 @@ export interface FileRouteTypes {
     | '/_sesion/configuracion/usuarios/nuevo'
     | '/_sesion/pacientes/$id_/editar'
     | '/_sesion/servicios/$id_/editar'
+    | '/_sesion/turnos/$id_/editar'
     | '/_sesion/veterinarios/$id_/editar'
     | '/_sesion/configuracion/agendas/'
     | '/_sesion/configuracion/auditoria/'
@@ -667,6 +703,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SesionTurnosIndexRouteImport
       parentRoute: typeof SesionRoute
     }
+    '/_sesion/turnos/$id': {
+      id: '/_sesion/turnos/$id'
+      path: '/turnos/$id'
+      fullPath: '/turnos/$id'
+      preLoaderRoute: typeof SesionTurnosIdRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/turnos/nuevo': {
+      id: '/_sesion/turnos/nuevo'
+      path: '/turnos/nuevo'
+      fullPath: '/turnos/nuevo'
+      preLoaderRoute: typeof SesionTurnosNuevoRouteImport
+      parentRoute: typeof SesionRoute
+    }
     '/_sesion/veterinarios/': {
       id: '/_sesion/veterinarios/'
       path: '/veterinarios'
@@ -786,6 +836,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SesionServiciosIdEditarRouteImport
       parentRoute: typeof SesionRoute
     }
+    '/_sesion/turnos/$id_/editar': {
+      id: '/_sesion/turnos/$id_/editar'
+      path: '/turnos/$id/editar'
+      fullPath: '/turnos/$id/editar'
+      preLoaderRoute: typeof SesionTurnosIdEditarRouteImport
+      parentRoute: typeof SesionRoute
+    }
     '/_sesion/veterinarios/$id_/editar': {
       id: '/_sesion/veterinarios/$id_/editar'
       path: '/veterinarios/$id/editar'
@@ -846,6 +903,8 @@ interface SesionRouteChildren {
   SesionPacientesIdRoute: typeof SesionPacientesIdRoute
   SesionServiciosIdRoute: typeof SesionServiciosIdRoute
   SesionServiciosNuevoRoute: typeof SesionServiciosNuevoRoute
+  SesionTurnosIdRoute: typeof SesionTurnosIdRoute
+  SesionTurnosNuevoRoute: typeof SesionTurnosNuevoRoute
   SesionVeterinariosIdRoute: typeof SesionVeterinariosIdRoute
   SesionVeterinariosNuevoRoute: typeof SesionVeterinariosNuevoRoute
   SesionAgendaIndexRoute: typeof SesionAgendaIndexRoute
@@ -865,6 +924,7 @@ interface SesionRouteChildren {
   SesionConfiguracionUsuariosNuevoRoute: typeof SesionConfiguracionUsuariosNuevoRoute
   SesionPacientesIdEditarRoute: typeof SesionPacientesIdEditarRoute
   SesionServiciosIdEditarRoute: typeof SesionServiciosIdEditarRoute
+  SesionTurnosIdEditarRoute: typeof SesionTurnosIdEditarRoute
   SesionVeterinariosIdEditarRoute: typeof SesionVeterinariosIdEditarRoute
   SesionConfiguracionAgendasIndexRoute: typeof SesionConfiguracionAgendasIndexRoute
   SesionConfiguracionAuditoriaIndexRoute: typeof SesionConfiguracionAuditoriaIndexRoute
@@ -887,6 +947,8 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionPacientesIdRoute: SesionPacientesIdRoute,
   SesionServiciosIdRoute: SesionServiciosIdRoute,
   SesionServiciosNuevoRoute: SesionServiciosNuevoRoute,
+  SesionTurnosIdRoute: SesionTurnosIdRoute,
+  SesionTurnosNuevoRoute: SesionTurnosNuevoRoute,
   SesionVeterinariosIdRoute: SesionVeterinariosIdRoute,
   SesionVeterinariosNuevoRoute: SesionVeterinariosNuevoRoute,
   SesionAgendaIndexRoute: SesionAgendaIndexRoute,
@@ -907,6 +969,7 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionConfiguracionUsuariosNuevoRoute: SesionConfiguracionUsuariosNuevoRoute,
   SesionPacientesIdEditarRoute: SesionPacientesIdEditarRoute,
   SesionServiciosIdEditarRoute: SesionServiciosIdEditarRoute,
+  SesionTurnosIdEditarRoute: SesionTurnosIdEditarRoute,
   SesionVeterinariosIdEditarRoute: SesionVeterinariosIdEditarRoute,
   SesionConfiguracionAgendasIndexRoute: SesionConfiguracionAgendasIndexRoute,
   SesionConfiguracionAuditoriaIndexRoute:

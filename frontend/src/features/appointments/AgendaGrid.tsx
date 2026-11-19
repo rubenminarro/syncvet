@@ -91,6 +91,8 @@ interface AgendaGridProps {
   onPrevious: () => void;
   onNext: () => void;
   onOpen: (item: GridItem, scheduleName: string) => void;
+  /** Enter o un clic en una celda (no en un turno): dar un turno ahí (3.4, solo con `appointments.store`). */
+  onCreate?: ((column: GridColumn, rowStart: number) => void) | undefined;
   /** Mientras llega otro día (la grilla sigue con el anterior). */
   busy: boolean;
 }
@@ -103,7 +105,15 @@ interface AgendaGridProps {
  * actualización (otra PC lo movió o lo canceló), el foco va a su celda; la actualización nunca mueve el foco si no estaba
  * en la grilla.
  */
-export function AgendaGrid({ grid, label, onPrevious, onNext, onOpen, busy }: AgendaGridProps) {
+export function AgendaGrid({
+  grid,
+  label,
+  onPrevious,
+  onNext,
+  onOpen,
+  onCreate,
+  busy,
+}: AgendaGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   // La clave con el punto de tabulación y dónde estaba al elegirla (para ir a su celda si el turno desaparece).
   const [focus, setFocus] = useState<(Position & { key: string }) | null>(null);
@@ -190,6 +200,23 @@ export function AgendaGrid({ grid, label, onPrevious, onNext, onOpen, busy }: Ag
         onNext();
 
         return;
+      case 'Enter': {
+        const column = grid.columns[current.col];
+        const rowStart = grid.rows[current.row];
+
+        // En un turno, Enter es su clic (abre el panel); en una celda, dar un turno ahí.
+        if (
+          onCreate !== undefined &&
+          (event.target as HTMLElement).getAttribute('role') === 'gridcell' &&
+          column !== undefined &&
+          rowStart !== undefined
+        ) {
+          event.preventDefault();
+          onCreate(column, rowStart);
+        }
+
+        return;
+      }
       default:
         return;
     }
@@ -291,6 +318,11 @@ export function AgendaGrid({ grid, label, onPrevious, onNext, onOpen, busy }: Ag
                     aria-colindex={col + 2}
                     aria-label={[clock, column.cellLabel, ...states].join(', ')}
                     className={`agenda-cell${closed ? ' agenda-closed' : ''}${block === undefined ? '' : ' agenda-blocked'}`}
+                    onClick={(event) => {
+                      if (onCreate !== undefined && event.target === event.currentTarget) {
+                        onCreate(column, rowStart);
+                      }
+                    }}
                   >
                     {blockStartsHere ? (
                       <span className="agenda-block-label" aria-hidden="true">

@@ -1,5 +1,6 @@
 import { IconPlus } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { format } from 'date-fns';
 import { useRef, useState } from 'react';
 import {
@@ -446,6 +447,7 @@ function AffectedAppointmentsDialog({
   onClose: () => void;
 }) {
   const count = block.affected_appointments.length;
+  const can = useCan();
 
   return (
     <ConfirmDialog
@@ -471,6 +473,15 @@ function AffectedAppointmentsDialog({
             <div className="text-break">
               {appointmentWho(appointment)} · {appointment.status.label}
             </div>
+            {can(PERMISSIONS.appointmentsShow) ? (
+              <Link
+                to="/turnos/$id"
+                params={{ id: String(appointment.id) }}
+                className="block-affected-link"
+              >
+                Ver el turno
+              </Link>
+            ) : null}
           </li>
         ))}
       </ul>

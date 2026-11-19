@@ -236,12 +236,19 @@ function isClassList(text: string): boolean {
 }
 
 /**
+ * Los nombres de tecla de `KeyboardEvent.key` que coinciden con una palabra en inglés de la lista (`'Enter'`, en la grilla
+ * de la agenda desde la 3.4): son un identificador del navegador, no texto para el usuario.
+ */
+const KEY_NAMES: ReadonlySet<string> = new Set(['Enter']);
+
+/**
  * Un texto que llega al usuario: el de JSX siempre (un botón "Guardar"); una cadena, si tiene un espacio o es una sola
  * palabra con mayúscula inicial ("Ingresar", label="Elija"). Una cadena de una palabra en minúsculas o en mayúsculas
  * ("json", "GET", "Content-Type", "ApiError") es un identificador, no texto.
  */
+
 function isUserText(text: string, jsx: boolean): boolean {
-  if (text === '' || isClassList(text)) {
+  if (text === '' || isClassList(text) || (!jsx && KEY_NAMES.has(text))) {
     return false;
   }
 

@@ -30,6 +30,7 @@ import {
   SINGLE_COLUMN_QUERY,
   useAgendaSchedules,
   useAppointmentPanel,
+  useCreateFromCell,
 } from './agenda-shared';
 import { appointmentRangeQueryOptions, rangeBlocksQueryOptions } from './api';
 import {
@@ -70,6 +71,7 @@ export function AgendaWeekPage() {
   const paused = useAutoRefreshPaused();
   const asList = useMediaQuery(SINGLE_COLUMN_QUERY);
   const panel = useAppointmentPanel<GridItem>();
+  const createFromCell = useCreateFromCell();
   const emptyRef = useRef<HTMLParagraphElement>(null);
   const [announced, setAnnounced] = useState<{ key: string; text: string } | null>(null);
 
@@ -204,6 +206,7 @@ export function AgendaWeekPage() {
           step(1);
         }}
         onOpen={panel.open}
+        onCreate={createFromCell}
       />
     );
   }
@@ -219,7 +222,11 @@ export function AgendaWeekPage() {
 
   return (
     <>
-      <AgendaHeader title={weekTitle(day)} announcement={announced?.text ?? ''} />
+      <AgendaHeader
+        title={weekTitle(day)}
+        announcement={announced?.text ?? ''}
+        newAppointment={{ agenda: chosen?.is_active === true ? chosen.id : undefined }}
+      />
       <Card>
         <div className="row g-2 align-items-end agenda-toolbar">
           <div className="col-12 col-md-auto">

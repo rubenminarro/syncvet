@@ -13,6 +13,7 @@ export const TEXT_SEARCH_PARAMS: ReadonlySet<string> = new Set([
   'desde',
   'hasta',
   'fecha',
+  'inicio',
 ]);
 
 /**

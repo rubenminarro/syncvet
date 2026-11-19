@@ -264,7 +264,12 @@ export function AppointmentListPage() {
 
   return (
     <>
-      <AgendaHeader title="Turnos" titleClassName="" announcement={announced?.text ?? ''} />
+      <AgendaHeader
+        title="Turnos"
+        titleClassName=""
+        announcement={announced?.text ?? ''}
+        newAppointment={{ agenda: search.agenda }}
+      />
       <Card flush>
         <div className="card-body border-bottom">
           <div className="mb-3 appointment-list-views">

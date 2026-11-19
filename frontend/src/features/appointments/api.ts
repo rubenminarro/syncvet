@@ -1,9 +1,10 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query';
-import { getPage } from '../../lib/api/client';
+import { keepPreviousData, queryOptions, type QueryClient } from '@tanstack/react-query';
+import { api, getPage } from '../../lib/api/client';
 import type { Page } from '../../lib/api/types';
-import { branchKey } from '../../lib/api/query-keys';
+import { branchKey, BRANCH_SCOPE } from '../../lib/api/query-keys';
+import type { Patient } from '../patients/types';
 import type { Schedule, ScheduleBlock } from '../schedules/types';
-import type { Appointment } from './types';
+import type { Appointment, AppointmentDetail, AppointmentPayload, Availability } from './types';
 
 /**
  * Los turnos de la agenda por pedido (front-03, pregunta 1): hasta 500, el máximo de GET appointments. Si
@@ -165,4 +166,104 @@ export function appointmentListQueryOptions(
     refetchIntervalInBackground: false,
     placeholderData: keepPreviousData,
   });
+}
+
+/**
+ * Las claves del turno (3.4): el detalle no lleva `branchKey` (un turno se abre desde cualquier sucursal); la disponibilidad
+ * cuelga de su agenda (`['schedules', id, …]`), así un bloqueo nuevo también la invalida.
+ */
+export const appointmentDetailKeys = {
+  detail: (id: number) => ['appointments', 'detail', id] as const,
+  availability: (
+    scheduleId: number,
+    filters: { from: string; to: string; service_id: number | null; duration_minutes: number },
+  ) => ['schedules', scheduleId, 'availability', filters] as const,
+  patientOptions: (search: string) => ['patients', 'options', search] as const,
+};
+
+/** Los pacientes del buscador del turno: los 10 primeros (`GET patients?search=`, que también busca por el dueño). */
+export const PATIENT_OPTIONS_PER_PAGE = 10;
+
+/** GET appointments/{id}: el detalle (las horas de cada estado, quién lo creó). */
+export function appointmentDetailQueryOptions(id: number) {
+  return queryOptions({
+    queryKey: appointmentDetailKeys.detail(id),
+    queryFn: async ({ signal }) =>
+      (await api.get<AppointmentDetail>(`appointments/${String(id)}`, { signal })).data,
+  });
+}
+
+/**
+ * GET schedules/{id}/availability?from=&to=&service_id=&duration_minutes=: los horarios libres de un día, `staleTime` de 0
+ * (otra PC pudo dar uno hace un segundo). La agenda o el servicio inactivos responden 422 (`schedule`, `service_id`).
+ */
+export function availabilityQueryOptions(
+  scheduleId: number,
+  day: string,
+  serviceId: number | null,
+  durationMinutes: number,
+) {
+  const filters = { from: day, to: day, service_id: serviceId, duration_minutes: durationMinutes };
+
+  return queryOptions({
+    queryKey: appointmentDetailKeys.availability(scheduleId, filters),
+    queryFn: async ({ signal }) =>
+      (
+        await api.get<Availability>(`schedules/${String(scheduleId)}/availability`, {
+          signal,
+          query: filters,
+        })
+      ).data,
+    staleTime: 0,
+    retry: false,
+  });
+}
+
+/** GET patients?search=&per_page=10 (sin los fallecidos: la API no les da turnos). */
+export function patientOptionsQueryOptions(search: string) {
+  return queryOptions({
+    queryKey: appointmentDetailKeys.patientOptions(search),
+    queryFn: async ({ signal }) =>
+      (
+        await getPage<Patient>('patients', {
+          signal,
+          query: { search, per_page: PATIENT_OPTIONS_PER_PAGE },
+        })
+      ).items,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function createAppointment(payload: AppointmentPayload) {
+  return api.post<AppointmentDetail>('appointments', payload);
+}
+
+export function updateAppointment(id: number, payload: AppointmentPayload) {
+  return api.patch<AppointmentDetail>(`appointments/${String(id)}`, payload);
+}
+
+/** ¿Es una consulta de turnos de una sucursal (la agenda del día o de la semana, la lista o la cola)? */
+function isBranchAppointmentsKey(queryKey: readonly unknown[]): boolean {
+  return queryKey[0] === BRANCH_SCOPE && queryKey[2] === 'appointments';
+}
+
+/**
+ * Después de un alta, una edición o una reprogramación (diseño de la F3, "Invalidaciones"; nunca toda la caché): el detalle,
+ * con la respuesta; la agenda del día, la semana, la lista y la cola (las que se ven se piden de nuevo); la disponibilidad
+ * de la agenda de origen y la de destino.
+ */
+export function afterAppointmentSaved(
+  queryClient: QueryClient,
+  saved: AppointmentDetail,
+  previousScheduleId?: number,
+) {
+  queryClient.setQueryData(appointmentDetailKeys.detail(saved.id), saved);
+  void queryClient.invalidateQueries({
+    predicate: (query) => isBranchAppointmentsKey(query.queryKey),
+    refetchType: 'active',
+  });
+
+  for (const scheduleId of new Set([saved.schedule.id, previousScheduleId ?? saved.schedule.id])) {
+    void queryClient.invalidateQueries({ queryKey: ['schedules', scheduleId, 'availability'] });
+  }
 }

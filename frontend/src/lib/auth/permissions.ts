@@ -113,6 +113,14 @@ export const PERMISSIONS = {
   scheduleBlocksDestroy: 'schedule-blocks.destroy',
   /** /agenda, la agenda del día, y "Agenda" en el menú (F3, entrega 3.2): los tres roles. */
   appointmentsIndex: 'appointments.index',
+  /** /turnos/$id, el detalle del turno (F3, entrega 3.4): los tres roles. */
+  appointmentsShow: 'appointments.show',
+  /** /turnos/nuevo, "Nuevo turno" y una celda libre de la grilla (F3, entrega 3.4): administrador y recepcionista. */
+  appointmentsStore: 'appointments.store',
+  /** /turnos/$id/editar, "Editar" y "Reprogramar" (F3, entrega 3.4): administrador y recepcionista. */
+  appointmentsUpdate: 'appointments.update',
+  /** "Dar como sobreturno" después del 409 APPOINTMENT_OVERLAP (F3, entrega 3.4): administrador y recepcionista. */
+  appointmentsOverbook: 'appointments.overbook',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

@@ -476,6 +476,87 @@ describe('/agenda: el teclado y los anuncios', () => {
   });
 });
 
+describe('/agenda: dar y editar un turno (3.4)', () => {
+  /** La celda de las 08:00 de Consultorio 2 (libre). */
+  const freeCell = () =>
+    element(
+      Array.from(document.querySelectorAll('[role="gridcell"]')).find((cell) =>
+        cell.getAttribute('aria-label')?.startsWith('08:00, Consultorio 2'),
+      ),
+    );
+
+  it('Enter en una celda libre lleva a /turnos/nuevo con la agenda y el inicio de la celda', async () => {
+    const { history } = await openAgenda();
+    const cell = freeCell();
+
+    act(() => {
+      cell.focus();
+    });
+    fireEvent.keyDown(active(), { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/turnos/nuevo');
+    });
+    expect(history.location.search).toBe('?agenda=8&inicio=2026-11-17T08%3A00');
+  });
+
+  it('"Nuevo turno" con la agenda filtrada; el panel suma "Ver el turno", "Reprogramar" y "Editar"', async () => {
+    await openAgenda('/agenda?fecha=2026-11-17&agenda=7');
+
+    expect(document.querySelector('.agenda-new')?.getAttribute('href')).toBe(
+      '/turnos/nuevo?agenda=7',
+    );
+    await waitFor(() => {
+      expect(item(1)).not.toBeNull();
+    });
+    fireEvent.click(element(item(1)));
+    await screen.findByText('Turno de las 09:00', { selector: 'h3' });
+
+    const actions = document.querySelector('.agenda-panel-actions');
+    expect(actions?.querySelector('.appointment-view')?.getAttribute('href')).toBe('/turnos/1');
+    expect(actions?.querySelector('.appointment-reschedule')?.getAttribute('href')).toBe(
+      '/turnos/1/editar?reprogramar=1',
+    );
+    expect(actions?.querySelector('.appointment-edit')).not.toBeNull();
+  });
+
+  it('el veterinario: sin "Nuevo turno", Enter en una celda no da turnos y el panel solo tiene "Ver el turno"', async () => {
+    const { history } = await openAgenda('/agenda?fecha=2026-11-17&todos=1', {
+      me: meFor('veterinario', { veterinarian: { id: 4, code: 'VET-0001' } }),
+    });
+
+    expect(document.querySelector('.agenda-new')).toBeNull();
+    const cell = freeCell();
+    act(() => {
+      cell.focus();
+    });
+    fireEvent.keyDown(active(), { key: 'Enter' });
+    fireEvent.click(cell);
+    expect(history.location.pathname).toBe('/agenda');
+
+    await waitFor(() => {
+      expect(item(1)).not.toBeNull();
+    });
+    fireEvent.click(element(item(1)));
+    await screen.findByText('Turno de las 09:00', { selector: 'h3' });
+    const actions = document.querySelector('.agenda-panel-actions');
+    expect(actions?.querySelector('.appointment-view')).not.toBeNull();
+    expect(actions?.querySelector('.appointment-reschedule')).toBeNull();
+    expect(actions?.querySelector('.appointment-edit')).toBeNull();
+  });
+
+  it('un turno cancelado no se reprograma desde el panel', async () => {
+    await openAgenda('/agenda?fecha=2026-11-17&cancelados=1');
+    await waitFor(() => {
+      expect(item(3)).not.toBeNull();
+    });
+    fireEvent.click(element(item(3)));
+    await screen.findByText('Turno de las 11:00', { selector: 'h3' });
+
+    expect(document.querySelector('.agenda-panel-actions .appointment-reschedule')).toBeNull();
+  });
+});
+
 describe('/agenda: la actualización cada 60 s', () => {
   function hide(hidden: boolean) {
     Object.defineProperty(document, 'visibilityState', {

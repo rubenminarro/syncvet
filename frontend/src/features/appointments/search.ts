@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { normalizeSearchText } from '../../lib/search-text';
 import type { AppointmentListFilters } from './api';
 import { daysBetween, isAgendaDay } from './dates';
+import { parseInicio } from './times';
 
 /**
  * La búsqueda de /agenda en la URL (diseño de la F3, "URL en castellano"):
@@ -193,4 +194,36 @@ export function toAppointmentListFilters(search: AppointmentListSearch): Appoint
     search: search.buscar ?? '',
     page: search.pagina ?? 1,
   };
+}
+
+/**
+ * /turnos/nuevo?agenda=7&inicio=2026-11-17T09:30 (3.4): la celda libre de la grilla llena la agenda y el inicio (la hora de
+ * pared de Asunción, como texto: `TEXT_SEARCH_PARAMS`). Un valor inválido se descarta; las dos claves van siempre.
+ */
+export interface NewAppointmentSearch {
+  agenda?: number | undefined;
+  inicio?: string | undefined;
+}
+
+const inicioSchema = z.string().refine((value) => parseInicio(value) !== null);
+
+export function validateNewAppointmentSearch(raw: Record<string, unknown>): NewAppointmentSearch {
+  const agenda = idSchema.safeParse(raw.agenda);
+  const inicio = inicioSchema.safeParse(raw.inicio);
+
+  return {
+    agenda: agenda.success ? agenda.data : undefined,
+    inicio: inicio.success ? inicio.data : undefined,
+  };
+}
+
+/** /turnos/$id/editar?reprogramar=1: "Reprogramar" lleva al mismo formulario, con el foco en el horario. */
+export interface EditAppointmentSearch {
+  reprogramar?: 1 | undefined;
+}
+
+export function validateEditAppointmentSearch(raw: Record<string, unknown>): EditAppointmentSearch {
+  const reprogramar = flagSchema.safeParse(raw.reprogramar);
+
+  return { reprogramar: reprogramar.success ? reprogramar.data : undefined };
 }

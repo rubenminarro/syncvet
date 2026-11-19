@@ -1,5 +1,5 @@
 import { IconSearch } from '@tabler/icons-react';
-import { useId, type InputHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes, type Ref } from 'react';
 
 interface SearchFieldProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -10,6 +10,8 @@ interface SearchFieldProps extends Omit<
   onChange: (value: string) => void;
   /** Un pedido en curso con lo escrito: el indicador de carga chico, a la derecha. */
   busy?: boolean;
+  /** Para el foco de un error (el buscador del paciente del turno, 3.4). */
+  ref?: Ref<HTMLInputElement>;
 }
 
 /** El campo de búsqueda de un listado (el input-icon de Tabler): la lupa a la izquierda y la carga a la derecha. */

@@ -272,9 +272,15 @@ describe('Nuevo bloqueo', () => {
         .join(' | '),
     );
     expect(items).toEqual([
-      'Viernes 20/11/2026, 09:00 a 09:30 | Luna, de Laura Martínez · Confirmado',
-      'Viernes 20/11/2026, 09:30 a 10:00 | Pedro Gómez, +595981100001 · A confirmar',
+      'Viernes 20/11/2026, 09:00 a 09:30 | Luna, de Laura Martínez · Confirmado | Ver el turno',
+      'Viernes 20/11/2026, 09:30 a 10:00 | Pedro Gómez, +595981100001 · A confirmar | Ver el turno',
     ]);
+    // 3.4: cada turno enlaza a su detalle, para reprogramarlo o cancelarlo.
+    expect(
+      Array.from(document.querySelectorAll('.block-affected-link')).map((link) =>
+        link.getAttribute('href'),
+      ),
+    ).toEqual([`/turnos/${String(LUNA.id)}`, `/turnos/${String(CONTACT.id)}`]);
     expect(dialog()?.textContent).toContain(
       'Estos turnos quedaron dentro del bloqueo: reprogramalos o cancelalos.',
     );

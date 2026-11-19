@@ -31,3 +31,53 @@ export interface Appointment {
   series_id: string | null;
   reason: string | null;
 }
+
+/** Los estados que se editan y se mueven (`AppointmentService::EDITABLE`): a confirmar y confirmado. */
+export const EDITABLE_STATUSES: ReadonlySet<string> = new Set([
+  'pending_confirmation',
+  'confirmed',
+]);
+
+/** GET appointments/{id} (ShowAppointmentResource): suma las notas, quién lo creó y las horas de cada estado (UTC). */
+export interface AppointmentDetail extends Appointment {
+  notes: string | null;
+  created_by: { id: number; name: string } | null;
+  confirmed_at: string | null;
+  checked_in_at: string | null;
+  attended_at: string | null;
+  no_show_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: { id: number; name: string } | null;
+  cancellation_reason: string | null;
+  created_at: string | null;
+}
+
+/** Los orígenes que acepta la API (`AppointmentMessages::sources()`: sin la reserva online). */
+export type AppointmentSource = 'reception' | 'phone' | 'whatsapp';
+
+/**
+ * El cuerpo de POST appointments y de PATCH appointments/{id} (3.4): uno de los tres (paciente, cliente o contacto; los demás,
+ * null), los instantes con el desplazamiento de Asunción (`toApiDateTime`) y `overbook` solo después del 409 y con el permiso.
+ * En la edición, `schedule_id`, `starts_at` y `ends_at` van solo si cambiaron.
+ */
+export interface AppointmentPayload {
+  schedule_id?: number;
+  service_id: number | null;
+  patient_id: number | null;
+  client_id: number | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  starts_at?: string;
+  ends_at?: string;
+  source: AppointmentSource;
+  reason: string | null;
+  notes: string | null;
+  overbook?: true;
+}
+
+/** GET schedules/{id}/availability: los horarios que el alta aceptaría, día por día (UTC). */
+export interface Availability {
+  schedule_id: number;
+  duration_minutes: number;
+  days: { date: string; slots: { starts_at: string; ends_at: string }[] }[];
+}
