@@ -267,15 +267,20 @@ export function runAppointmentTransition(
  */
 export function refreshAppointment(queryClient: QueryClient, id: number) {
   void queryClient.invalidateQueries({ queryKey: appointmentDetailKeys.detail(id) });
-  void queryClient.invalidateQueries({
-    predicate: (query) => isBranchAppointmentsKey(query.queryKey),
-    refetchType: 'active',
-  });
+  invalidateBranchAppointments(queryClient);
 }
 
 /** ¿Es una consulta de turnos de una sucursal (la agenda del día o de la semana, la lista o la cola)? */
 function isBranchAppointmentsKey(queryKey: readonly unknown[]): boolean {
   return queryKey[0] === BRANCH_SCOPE && queryKey[2] === 'appointments';
+}
+
+/** El día, la semana, la lista y la cola de cualquier sucursal: solo las que se ven se piden de nuevo. */
+function invalidateBranchAppointments(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({
+    predicate: (query) => isBranchAppointmentsKey(query.queryKey),
+    refetchType: 'active',
+  });
 }
 
 /**
@@ -289,10 +294,7 @@ export function afterAppointmentSaved(
   previousScheduleId?: number,
 ) {
   queryClient.setQueryData(appointmentDetailKeys.detail(saved.id), saved);
-  void queryClient.invalidateQueries({
-    predicate: (query) => isBranchAppointmentsKey(query.queryKey),
-    refetchType: 'active',
-  });
+  invalidateBranchAppointments(queryClient);
 
   for (const scheduleId of new Set([saved.schedule.id, previousScheduleId ?? saved.schedule.id])) {
     void queryClient.invalidateQueries({ queryKey: ['schedules', scheduleId, 'availability'] });

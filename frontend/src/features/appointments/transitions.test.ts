@@ -241,6 +241,26 @@ describe('las reglas de hora y del paciente (deshabilitadas con el motivo, u ocu
       reasons(appointment(1, { status: 'no_show', day: '2026-11-17' })).undo_no_show,
     ).toBeNull();
   });
+
+  it('deshacer el ausente de un sobreturno: solo con appointments.overbook (la API responde 403)', () => {
+    const overbooked = appointment(1, {
+      status: 'no_show',
+      day: '2026-11-17',
+      is_overbooked: true,
+    });
+    const recepcion = contextFor('recepcionista');
+    const sinSobreturno = {
+      ...recepcion,
+      can: (permission: string) =>
+        permission !== 'appointments.overbook' && recepcion.can(permission),
+    };
+
+    expect(names(overbooked, recepcion)).toEqual(['undo_no_show']);
+    expect(names(overbooked, sinSobreturno)).toEqual([]);
+    expect(names(appointment(1, { status: 'no_show', day: '2026-11-17' }), sinSobreturno)).toEqual([
+      'undo_no_show',
+    ]);
+  });
 });
 
 describe('el motivo de la cancelación', () => {
@@ -252,6 +272,13 @@ describe('el motivo de la cancelación', () => {
     expect(cancellationReasonError('ñ'.repeat(500))).toBeNull();
     expect(cancellationReasonError('😀'.repeat(500))).toBeNull();
     expect(cancellationReasonError('a'.repeat(501))).toBe(CANCELLATION_MESSAGES.max);
+    expect(cancellationReasonError(` ${'a'.repeat(500)}\n`)).toBeNull();
+  });
+
+  it('los invisibles de los extremos no cuentan, como en la API (TrimStrings): "\\u200Bab" tiene 2', () => {
+    expect(cancellationReasonError('​ab')).toBe(CANCELLATION_MESSAGES.min);
+    expect(cancellationReasonError('ㅤab﻿')).toBe(CANCELLATION_MESSAGES.min);
+    expect(cancellationReasonError('<b>&"')).toBeNull();
   });
 });
 

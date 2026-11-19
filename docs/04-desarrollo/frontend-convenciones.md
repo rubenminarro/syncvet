@@ -100,7 +100,11 @@ su [§5](../../frontend/CLAUDE.md#5-convenciones)). Si una convención contradic
   `disabled`, el botón suelta el foco. El error de negocio (`*_IN_USE`) va dentro del diálogo, con la acción que corresponda o solo
   "Cerrar" (`canConfirm={false}`). Desde la 2.3, `dialogError` (`src/lib/api/dialog-error.ts`) decide qué hace un diálogo con el error de su acción: el 404, aviso y al listado; un 422 o un error de negocio, el mensaje y solo "Cerrar"; lo demás, el mensaje y el botón para probar de nuevo (lo usan sucursales, usuarios y veterinarios). Desde la 1.3b: `tone` (`danger` por defecto; `primary` para lo que no borra), `size` (`md`, con
   campos o una lista) y `confirmDisabled` (falta elegir algo); al terminar la espera con un error, el foco va al primer campo con
-  error del diálogo (`aria-invalid`) o, si no hay, a "Cancelar".
+  error del diálogo (`aria-invalid`) o, si no hay, a "Cancelar". Desde la 3.5: `cancelLabel` (el texto de "Cancelar"; "Volver"
+  cuando la acción misma es cancelar, como "Cancelar el turno") e `initialFocusRef` (el campo que recibe el foco al abrir, como el
+  motivo de la cancelación; lo pone el propio diálogo, porque un efecto de afuera lo perdía con el doble efecto de `StrictMode`).
+  El texto del motivo, como lo cuenta la API: `apiLength` y `trimLikeApi` (`src/lib/format/text.ts`, el recorte de `TrimStrings`,
+  con los invisibles que `String.prototype.trim` deja).
 * **Caché después de borrar o mover un registro hijo** (desde la 1.2 y la 1.3b): los listados y los detalles que lo mostraban y no
   están a la vista se vacían con `resetQueries` (no se invalidan), así al entrar se espera la lista nueva y no se ve un momento la
   vieja: la baja de un paciente vacía el detalle de su dueño, y el cambio de dueño, los de los dos clientes (`resetClientDetails`).

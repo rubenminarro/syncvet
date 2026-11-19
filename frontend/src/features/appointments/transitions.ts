@@ -1,6 +1,7 @@
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatDate, formatTime, todayInAppZone } from '../../lib/format/dates';
+import { apiLength } from '../../lib/format/text';
 import type { Me } from '../auth/types';
 import { wallDay } from './dates';
 import type { Appointment } from './types';
@@ -100,7 +101,7 @@ export const NOT_TODAY_HINT = 'Solo se fichan los turnos del día.';
 /** Lo que una acción necesita saber del turno. */
 export type TransitionAppointment = Pick<
   Appointment,
-  'status' | 'starts_at' | 'patient' | 'veterinarian'
+  'status' | 'starts_at' | 'patient' | 'veterinarian' | 'is_overbooked'
 >;
 
 /** Quién pide y cuándo: `can` del usuario, su ficha y sus roles, y "ahora" (la hora del navegador). */
@@ -172,7 +173,11 @@ function disabledReasonOf(
   }
 }
 
-/** ¿Se oculta por una regla conocida? El turno ajeno (fichar y atendido) y deshacer el ausente de otro día. */
+/**
+ * ¿Se oculta por una regla conocida? El turno ajeno (fichar y atendido); deshacer el ausente de otro día
+ * (`APPOINTMENT_NO_SHOW_NOT_UNDOABLE`) o el de un sobreturno sin `appointments.overbook` (la API responde 403:
+ * `AppointmentService::undoNoShow`; revisión de la 3.5).
+ */
 function hiddenByRule(
   transition: Transition,
   appointment: TransitionAppointment,
@@ -183,7 +188,10 @@ function hiddenByRule(
     case 'attend':
       return isSomeoneElses(appointment, context);
     case 'undo_no_show':
-      return wallDay(appointment.starts_at) !== todayInAppZone(context.now);
+      return (
+        wallDay(appointment.starts_at) !== todayInAppZone(context.now) ||
+        (appointment.is_overbooked && !context.can(PERMISSIONS.appointmentsOverbook))
+      );
     default:
       return false;
   }
@@ -230,12 +238,12 @@ export const CANCELLATION_REASON_MIN = 3;
 export const CANCELLATION_REASON_MAX = 500;
 
 /**
- * El motivo de la cancelación, con la regla de la API (`required|string|min:3|max:500`, en caracteres, como `mb_strlen`;
- * Laravel recorta los espacios de los extremos y un texto vacío es "requerido"). null: válido.
+ * El motivo de la cancelación, con la regla de la API (`required|string|min:3|max:500`, en caracteres, como `mb_strlen`,
+ * después de que `TrimStrings` recorte los espacios y los invisibles de los extremos: `apiLength`; un texto vacío es
+ * "requerido"). null: válido.
  */
 export function cancellationReasonError(reason: string): string | null {
-  // En puntos de código, como mb_strlen (no en unidades UTF-16).
-  const length = Array.from(reason.trim()).length;
+  const length = apiLength(reason);
 
   if (length === 0) {
     return CANCELLATION_MESSAGES.required;

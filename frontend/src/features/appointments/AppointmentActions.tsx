@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { Button, ConfirmDialog, TextareaField, useToast } from '../../components/ui';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatTime } from '../../lib/format/dates';
+import { trimLikeApi } from '../../lib/format/text';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { meQueryOptions } from '../auth/api';
 import { useCan } from '../auth/permissions';
@@ -211,7 +212,7 @@ export function AppointmentActions({
       return;
     }
 
-    run({ name: 'cancel', body: { cancellation_reason: reason.trim() } });
+    run({ name: 'cancel', body: { cancellation_reason: trimLikeApi(reason) } });
   };
 
   const hints = available.filter((item) => item.disabledReason !== null);

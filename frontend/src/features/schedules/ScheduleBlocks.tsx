@@ -22,6 +22,7 @@ import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatTime, inAppZone, todayInAppZone } from '../../lib/format/dates';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
+import { StatusLabel } from '../appointments/StatusLabel';
 import { useCan } from '../auth/permissions';
 import {
   afterBlocksChanged,
@@ -471,7 +472,7 @@ function AffectedAppointmentsDialog({
           <li key={appointment.id} className="mb-2">
             <div className="fw-bold text-body">{appointmentWhen(appointment)}</div>
             <div className="text-break">
-              {appointmentWho(appointment)} · {appointment.status.label}
+              {appointmentWho(appointment)} · <StatusLabel status={appointment.status} />
             </div>
             {can(PERMISSIONS.appointmentsShow) ? (
               <Link

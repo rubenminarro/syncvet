@@ -137,6 +137,7 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 |---|---|---|
 | 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta una vez por paquete: 9 al cerrar la F1); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
 | 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
+| 27 | Estados del turno: las reglas de `transitions.ts` (turno ajeno, el día, la hora del ausente, el paciente, deshacer el ausente) copian las del backend sin un test que falle si cambian (la tabla, las rutas y los permisos sí lo tienen). Se resuelve al cerrar la F3 | Media |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
 [resultado](../docs/03-plan-desarrollo/fases/frontend/f0-resultados.md#entrega-01).

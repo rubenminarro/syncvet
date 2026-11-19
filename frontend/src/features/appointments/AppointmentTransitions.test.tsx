@@ -271,6 +271,18 @@ describe('las acciones directas', () => {
     expect(document.querySelector('.appointment-title .agenda-item-dimmed')).not.toBeNull();
   });
 
+  it('en el detalle, el 200 no pide nada más: el turno sale de la respuesta y la agenda no se ve', async () => {
+    const { recorded } = await openDetail({ current: detail({}, 'pending_confirmation') });
+    const gets = { detail: recorded.detailGets, range: recorded.rangeGets };
+    fireEvent.click(present(button('Confirmar')));
+
+    await waitFor(() => {
+      expect(titleStatus()).toBe('Confirmado');
+    });
+    await delay(100);
+    expect({ detail: recorded.detailGets, range: recorded.rangeGets }).toEqual(gets);
+  });
+
   it('un doble clic manda un solo pedido', async () => {
     const { recorded } = await openDetail({
       responses: [
@@ -383,6 +395,9 @@ describe('cancelar con motivo', () => {
 
     expect(await screen.findByText(CANCELLATION_MESSAGES.min)).toBeTruthy();
     expect(reason.getAttribute('aria-invalid')).toBe('true');
+    // El 422 no borra lo escrito: se corrige y se vuelve a mandar.
+    expect(reason.value).toBe('abc');
+    expect(button('Cancelar el turno', present(dialog()))).toBeDefined();
   });
 
   it('el 409 (otra PC lo cambió): el mensaje, el motivo sigue, "Probá de nuevo" y el turno vuelto a pedir', async () => {
@@ -573,6 +588,30 @@ describe('el panel de la agenda del día', () => {
     expect(hints.textContent).toContain(PATIENT_REQUIRED_HINT);
     expect(button('Nuevo cliente', hints)?.getAttribute('href')).toBe('/clientes/nuevo');
     expect(button('Editar el turno', hints)?.getAttribute('href')).toBe('/turnos/1/editar');
+  });
+
+  it('confirmar desde el panel: un solo pedido del día (la grilla que se ve), ninguno del detalle; el foco en el título', async () => {
+    const { recorded } = open('/agenda?fecha=2026-11-17', {
+      current: detail({}, 'pending_confirmation'),
+    });
+    fireEvent.click(
+      await waitFor(() => present(document.querySelector<HTMLElement>('[data-key="a:1"]'))),
+    );
+    const panel = await waitFor(() => present(document.querySelector('.agenda-panel')));
+    const before = { detail: recorded.detailGets, range: recorded.rangeGets };
+    const confirm = present(button('Confirmar', panel));
+    confirm.focus();
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(recorded.rangeGets).toBe(before.range + 1);
+    });
+    await delay(100);
+    expect(recorded.rangeGets).toBe(before.range + 1);
+    expect(recorded.detailGets).toBe(before.detail);
+    await waitFor(() => {
+      expect(document.activeElement?.id).toBe('agenda-panel-title');
+    });
   });
 
   it('cancelar desde el panel: la grilla se vuelve a pedir y el cancelado se oculta; el panel muestra "Cancelado"', async () => {
