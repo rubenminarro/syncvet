@@ -1,18 +1,29 @@
 import { IconAlertTriangle, IconLock } from '@tabler/icons-react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useRef, type ReactNode } from 'react';
 import { Alert, Card, ErrorPage } from '../../components/ui';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatDateTime, formatTime } from '../../lib/format/dates';
 import { useCan } from '../auth/permissions';
 import { appointmentDetailQueryOptions, rangeBlocksQueryOptions } from './api';
 import { useCanEditAppointment } from './agenda-shared';
-import { AppointmentEditLinks } from './AppointmentLinks';
+import { AppointmentActions } from './AppointmentActions';
+import { AppointmentEditLinks, PatientRequiredLinks } from './AppointmentLinks';
+import { StatusLabel } from './StatusLabel';
+import { statusLook } from './status-icons';
+import { TRANSITIONS } from './transitions';
 import { dayTitle, wallDay } from './dates';
 import { appointmentWho, isInBlock } from './grid';
 import { durationText, minutesBetween } from './times';
 import type { AppointmentDetail } from './types';
+
+/** El título como las tarjetas (3.5): el ausente, atenuado; el cancelado, atenuado y tachado (el estado, al lado, sin tachar). */
+function lookClass(status: string): string | undefined {
+  const look = statusLook(status);
+
+  return look === null ? undefined : `agenda-item-${look}`;
+}
 
 /** Un dato vacío se muestra con una raya: la fila sigue a la vista. */
 function orDash(value: string | null | undefined): string {
@@ -47,6 +58,11 @@ export function AppointmentDetailPage({ id }: { id: number }) {
     enabled: can(PERMISSIONS.scheduleBlocksIndex),
   });
   const inBlock = blocksQuery.data !== undefined && isInBlock(appointment, blocksQuery.data);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // El aviso del paciente, solo mientras se puede fichar (a confirmar o confirmado).
+  const checkInFrom = TRANSITIONS.find((item) => item.name === 'check_in')?.from ?? [];
+  const needsPatient =
+    appointment.patient === null && checkInFrom.includes(appointment.status.value);
   const editable = canEdit(appointment);
 
   return (
@@ -63,8 +79,11 @@ export function AppointmentDetailPage({ id }: { id: number }) {
                 Turnos
               </Link>
             </div>
-            <h2 className="page-title appointment-title">
-              {dayTitle(day)}, {formatTime(appointment.starts_at)}
+            <h2 className="page-title appointment-title" ref={titleRef} tabIndex={-1}>
+              <span className={lookClass(appointment.status.value)}>
+                {dayTitle(day)}, {formatTime(appointment.starts_at)}
+              </span>{' '}
+              <StatusLabel status={appointment.status} size={20} />
             </h2>
           </div>
           <div className="col-12 col-md-auto d-flex gap-2 flex-wrap appointment-actions">
@@ -81,41 +100,19 @@ export function AppointmentDetailPage({ id }: { id: number }) {
           </Alert>
         </div>
       ) : null}
-      {appointment.patient === null ? (
+      {needsPatient ? (
         <div className="mb-3 appointment-no-patient">
           <Alert tone="info" title="Para fichar, cargá el paciente.">
             {appointment.client === null
               ? 'El turno es de un contacto, sin cliente: cargá el cliente y su paciente, y después editá el turno.'
               : 'El turno es del cliente, sin paciente: cargá el paciente y después editá el turno.'}
-            <div className="d-flex gap-2 flex-wrap mt-2">
-              {appointment.client === null && can(PERMISSIONS.clientsStore) ? (
-                <Link to="/clientes/nuevo" className="btn btn-sm btn-outline-primary">
-                  Nuevo cliente
-                </Link>
-              ) : null}
-              {appointment.client !== null && can(PERMISSIONS.patientsStore) ? (
-                <Link
-                  to="/clientes/$id/pacientes/nuevo"
-                  params={{ id: String(appointment.client.id) }}
-                  className="btn btn-sm btn-outline-primary"
-                >
-                  Nuevo paciente
-                </Link>
-              ) : null}
-              {editable ? (
-                <Link
-                  to="/turnos/$id/editar"
-                  params={{ id: String(appointment.id) }}
-                  search={{ reprogramar: undefined }}
-                  className="btn btn-sm btn-outline-primary"
-                >
-                  Editar el turno
-                </Link>
-              ) : null}
-            </div>
+            <PatientRequiredLinks appointment={appointment} />
           </Alert>
         </div>
       ) : null}
+      <div className="mb-3 appointment-detail-transitions">
+        <AppointmentActions appointment={appointment} focusAfter={titleRef} />
+      </div>
       <div className="row row-cards">
         <div className="col-lg-7">
           <AppointmentData appointment={appointment} />
@@ -203,7 +200,9 @@ function AppointmentData({ appointment }: { appointment: AppointmentDetail }) {
 }
 
 function AppointmentStatusCard({ appointment }: { appointment: AppointmentDetail }) {
-  const rows: [string, ReactNode][] = [['Estado', appointment.status.label]];
+  const rows: [string, ReactNode][] = [
+    ['Estado', <StatusLabel key="status" status={appointment.status} />],
+  ];
   const optional: [string, string][] = [
     ['Confirmado', whenBy(appointment.confirmed_at)],
     ['Fichado', whenBy(appointment.checked_in_at)],

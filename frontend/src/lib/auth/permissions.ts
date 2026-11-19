@@ -121,6 +121,16 @@ export const PERMISSIONS = {
   appointmentsUpdate: 'appointments.update',
   /** "Dar como sobreturno" después del 409 APPOINTMENT_OVERLAP (F3, entrega 3.4): administrador y recepcionista. */
   appointmentsOverbook: 'appointments.overbook',
+  /** "Confirmar" un turno a confirmar (F3, entrega 3.5): administrador y recepcionista. */
+  appointmentsConfirm: 'appointments.confirm',
+  /** "Fichar" (F3, entrega 3.5): los tres roles; el veterinario, solo sus turnos y los de agendas sin veterinario. */
+  appointmentsCheckIn: 'appointments.check-in',
+  /** "Marcar atendido" (F3, entrega 3.5): administrador y veterinario (el veterinario, como al fichar). */
+  appointmentsAttend: 'appointments.attend',
+  /** "Ausente" y "Deshacer el ausente" (F3, entrega 3.5): administrador y recepcionista. */
+  appointmentsNoShow: 'appointments.no-show',
+  /** "Cancelar el turno", con el motivo (F3, entrega 3.5): administrador y recepcionista. */
+  appointmentsCancel: 'appointments.cancel',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

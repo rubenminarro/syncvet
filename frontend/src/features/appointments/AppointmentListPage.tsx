@@ -1,4 +1,3 @@
-import { IconClock } from '@tabler/icons-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useState, type ReactNode, type SyntheticEvent } from 'react';
@@ -50,7 +49,8 @@ import {
   type AppointmentListSearch,
   type StatusParam,
 } from './search';
-import { STATUS_ICONS } from './status-icons';
+import { statusRowClass } from './status-icons';
+import { StatusLabel } from './StatusLabel';
 import type { Appointment } from './types';
 
 export { SEARCH_DEBOUNCE_MS } from '../../lib/hooks/use-search-text';
@@ -173,16 +173,7 @@ export function AppointmentListPage() {
     { header: 'Servicio', cell: (appointment) => appointment.service?.name ?? '' },
     {
       header: 'Estado',
-      cell: (appointment) => {
-        const StatusIcon = STATUS_ICONS[appointment.status.value] ?? IconClock;
-
-        return (
-          <span className="text-nowrap">
-            <StatusIcon size={16} className="me-1" aria-hidden="true" />
-            {appointment.status.label}
-          </span>
-        );
-      },
+      cell: (appointment) => <StatusLabel status={appointment.status} size={16} />,
     },
     {
       header: 'Marcas',
@@ -230,9 +221,7 @@ export function AppointmentListPage() {
         columns={columns}
         rows={items}
         rowKey={(appointment) => appointment.id}
-        rowClassName={(appointment) =>
-          appointment.status.value === 'no_show' ? 'appointment-row-dimmed' : undefined
-        }
+        rowClassName={(appointment) => statusRowClass(appointment.status.value)}
         pagination={query.data.pagination}
         onPageChange={goToPage}
         empty={emptyText}

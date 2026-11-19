@@ -248,6 +248,31 @@ export function updateAppointment(id: number, payload: AppointmentUpdatePayload)
   return api.patch<AppointmentDetail>(`appointments/${String(id)}`, payload);
 }
 
+/**
+ * POST appointments/{id}/<acción> (3.5): responde 200 con el detalle y el aviso ("Turno confirmado."). Cancelar manda el
+ * motivo (sin `scope`: la API toma "solo este turno"; el alcance es de la 3.6); deshacer el ausente, `overbook: true` solo
+ * después del 409 y con el permiso.
+ */
+export function runAppointmentTransition(
+  id: number,
+  path: string,
+  body: { cancellation_reason?: string; overbook?: true } = {},
+) {
+  return api.post<AppointmentDetail>(`appointments/${String(id)}/${path}`, body);
+}
+
+/**
+ * Después de una acción rechazada (el turno cambió en otra PC: un 409 o un 422 de negocio): el detalle y la agenda del día,
+ * la semana, la lista y la cola se vuelven a pedir (las que se ven), para mostrar el estado actual.
+ */
+export function refreshAppointment(queryClient: QueryClient, id: number) {
+  void queryClient.invalidateQueries({ queryKey: appointmentDetailKeys.detail(id) });
+  void queryClient.invalidateQueries({
+    predicate: (query) => isBranchAppointmentsKey(query.queryKey),
+    refetchType: 'active',
+  });
+}
+
 /** ¿Es una consulta de turnos de una sucursal (la agenda del día o de la semana, la lista o la cola)? */
 function isBranchAppointmentsKey(queryKey: readonly unknown[]): boolean {
   return queryKey[0] === BRANCH_SCOPE && queryKey[2] === 'appointments';

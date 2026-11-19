@@ -165,6 +165,16 @@ describe('/turnos: la lista', () => {
     expect(rowOf('Pedro Gómez')?.className).toBe('');
   });
 
+  it('el cancelado, tachado en la tabla como en las tarjetas (3.5), con su estado en ícono y texto', async () => {
+    await openList();
+    const cancelled = rowOf('Cancelado');
+
+    expect(cancelled?.className).toBe('appointment-row-cancelled');
+    const label = cancelled?.querySelector('.appointment-status-label');
+    expect(label?.textContent).toBe('Cancelado');
+    expect(label?.querySelector('svg')).not.toBeNull();
+  });
+
   it('"Dentro de un bloqueo" con los bloqueos del rango de cada agenda; sin la marca, el que solo lo toca', async () => {
     const { urls } = await openList('/turnos?desde=2026-11-16&hasta=2026-11-22');
 
@@ -348,7 +358,7 @@ describe('/turnos: la búsqueda', () => {
 });
 
 describe('/turnos: el turno, las vistas y el anuncio', () => {
-  it('un turno abre el panel de solo lectura de la 3.2 (sin acciones); "Cerrar" devuelve el foco', async () => {
+  it('un turno abre el panel con sus acciones de estado (3.5); "Cerrar" devuelve el foco', async () => {
     await openList();
     const opener = rowOf('Pedro Gómez')?.querySelector<HTMLButtonElement>('.appointment-open');
     opener?.focus();
@@ -359,8 +369,8 @@ describe('/turnos: el turno, las vistas y el anuncio', () => {
     });
     const panel = document.querySelector('.agenda-panel');
     expect(panel?.textContent).toContain('Pedro Gómez');
-    expect(panel?.querySelectorAll('button')).toHaveLength(1);
-    fireEvent.click(panel?.querySelector('button') ?? document.body);
+    expect(panel?.querySelector('.appointment-transitions')).not.toBeNull();
+    fireEvent.click(panel?.querySelector('.card-actions button') ?? document.body);
     expect(document.activeElement).toBe(opener);
   });
 
@@ -413,6 +423,11 @@ describe('/turnos: el turno, las vistas y el anuncio', () => {
       expect(document.querySelectorAll('.appointment-card')).toHaveLength(4);
     });
     expect(document.querySelector('table')).toBeNull();
+    // Los mismos estados que la tabla (3.5): el cancelado tachado, el ausente atenuado.
+    const card = (status: string) =>
+      document.querySelector(`.appointment-card[data-status="${status}"]`)?.className ?? '';
+    expect(card('cancelled')).toContain('agenda-item-cancelled');
+    expect(card('no_show')).toContain('agenda-item-dimmed');
     await waitFor(() => {
       expect(document.querySelector('.appointment-cards')?.textContent).toContain(
         'Dentro de un bloqueo',

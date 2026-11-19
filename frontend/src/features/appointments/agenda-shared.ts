@@ -8,6 +8,7 @@ import type { Me } from '../auth/types';
 import { branchScheduleOptionsQueryOptions } from './api';
 import { minutesToClock } from './dates';
 import { isVisible, selectColumns, type ColumnSchedule, type GridColumn } from './grid';
+import { statusLook } from './status-icons';
 import { EDITABLE_STATUSES, type Appointment } from './types';
 
 /** Lo que comparten el día (3.2), la semana y la lista (3.3), sin componentes (los componentes, en `AgendaShared.tsx`). */
@@ -121,13 +122,12 @@ export function appointmentItemClass(
   inBlock: boolean,
   ...extra: string[]
 ): string {
-  const status = appointment.status.value;
+  const look = statusLook(appointment.status.value);
 
   return [
     'agenda-item',
     ...extra,
-    status === 'no_show' ? 'agenda-item-dimmed' : '',
-    status === 'cancelled' ? 'agenda-item-cancelled' : '',
+    look === null ? '' : `agenda-item-${look}`,
     inBlock ? 'agenda-item-in-block' : '',
   ]
     .filter((name) => name !== '')

@@ -2,24 +2,31 @@ import {
   IconAlertTriangle,
   IconChevronLeft,
   IconChevronRight,
-  IconClock,
   IconLock,
   IconPlus,
 } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { Alert, Button, Card, CheckboxField } from '../../components/ui';
 import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { useCan } from '../auth/permissions';
+import { AppointmentActions } from './AppointmentActions';
 import { AppointmentEditLinks } from './AppointmentLinks';
 import { formatTime } from '../../lib/format/dates';
 import { dayTitle, wallDay, weekEndOf, weekStartOf } from './dates';
 import { appointmentWho } from './grid';
 import type { AgendaSearch } from './search';
-import { STATUS_ICONS } from './status-icons';
+import { StatusLabel } from './StatusLabel';
 import { MISSING_APPOINTMENTS_MESSAGE } from './agenda-shared';
-import type { Appointment } from './types';
+import { OCCUPYING_STATUSES, type Appointment } from './types';
 
 /**
  * Los componentes que comparten el día (3.2), la semana y la lista (3.3): el título con el anuncio, el cambio de vista,
@@ -332,8 +339,6 @@ export function AppointmentSummary({
   appointment: Appointment;
   inBlock: boolean;
 }) {
-  const StatusIcon = STATUS_ICONS[appointment.status.value] ?? IconClock;
-
   return (
     <>
       <span className="agenda-item-line">
@@ -343,8 +348,7 @@ export function AppointmentSummary({
         <strong>{appointmentWho(appointment)}</strong>
       </span>
       <span className="agenda-item-line">
-        <StatusIcon size={14} className="me-1" aria-hidden="true" />
-        {appointment.status.label}
+        <StatusLabel status={appointment.status} />
         {appointment.service === null ? '' : ` · ${appointment.service.name}`}
       </span>
       <AppointmentFlags appointment={appointment} inBlock={inBlock} />
@@ -384,7 +388,9 @@ export function AppointmentFlags({
 
 /**
  * Los datos del turno (desde la 3.2) y, desde la 3.4, "Ver el turno" (el detalle) y "Reprogramar" y "Editar" según el
- * permiso (`appointments.update`) y el estado (a confirmar o confirmado). Las acciones de estado, desde la 3.5.
+ * permiso (`appointments.update`) y el estado (a confirmar o confirmado). Desde la 3.5, las acciones de estado: con el 200, el
+ * panel muestra el turno nuevo hasta que llega la agenda actualizada (un cancelado oculto deja de estar en la grilla, pero el
+ * panel sigue abierto con su estado).
  */
 export function AppointmentPanel({
   appointment,
@@ -397,24 +403,29 @@ export function AppointmentPanel({
   headingRef: RefObject<HTMLHeadingElement | null>;
   onClose: () => void;
 }) {
-  const rows: [string, string][] = [
-    ['Fecha', dayTitle(wallDay(appointment.starts_at))],
-    ['Horario', `${formatTime(appointment.starts_at)} a ${formatTime(appointment.ends_at)}`],
-    ['Agenda', appointment.schedule.name],
-    ['Quién', appointmentWho(appointment)],
-    ['Teléfono de contacto', appointment.contact_phone ?? ''],
-    ['Servicio', appointment.service?.name ?? ''],
-    ['Veterinario', appointment.veterinarian?.name ?? ''],
-    ['Estado', appointment.status.label],
-    ['Origen', appointment.source.label],
-    ['Motivo', appointment.reason ?? ''],
+  // El turno de la respuesta, mientras el de la agenda sea el mismo objeto que había al cambiarlo (uno nuevo, de la agenda
+  // vuelta a pedir, manda).
+  const [changed, setChanged] = useState<{ from: Appointment; value: Appointment } | null>(null);
+  const current = changed !== null && changed.from === appointment ? changed.value : appointment;
+  const showInBlock = inBlock && OCCUPYING_STATUSES.has(current.status.value);
+  const rows: [string, ReactNode][] = [
+    ['Fecha', dayTitle(wallDay(current.starts_at))],
+    ['Horario', `${formatTime(current.starts_at)} a ${formatTime(current.ends_at)}`],
+    ['Agenda', current.schedule.name],
+    ['Quién', appointmentWho(current)],
+    ['Teléfono de contacto', current.contact_phone ?? ''],
+    ['Servicio', current.service?.name ?? ''],
+    ['Veterinario', current.veterinarian?.name ?? ''],
+    ['Estado', <StatusLabel key="status" status={current.status} />],
+    ['Origen', current.source.label],
+    ['Motivo', current.reason ?? ''],
   ];
 
   return (
     <section className="card agenda-panel" aria-labelledby="agenda-panel-title">
       <div className="card-header">
         <h3 className="card-title" id="agenda-panel-title" tabIndex={-1} ref={headingRef}>
-          Turno de las {formatTime(appointment.starts_at)}
+          Turno de las {formatTime(current.starts_at)}
         </h3>
         <div className="card-actions">
           <Button variant="secondary" onClick={onClose}>
@@ -423,12 +434,12 @@ export function AppointmentPanel({
         </div>
       </div>
       <div className="card-body">
-        {inBlock ? (
+        {showInBlock ? (
           <Alert tone="warning" title="Dentro de un bloqueo">
             El turno quedó dentro de un bloqueo de la agenda: reprogramalo o cancelalo.
           </Alert>
         ) : null}
-        {appointment.is_overbooked ? <p className="mb-2 fw-bold">Sobreturno</p> : null}
+        {current.is_overbooked ? <p className="mb-2 fw-bold">Sobreturno</p> : null}
         <dl className="row mb-0">
           {rows
             .filter(([, value]) => value !== '')
@@ -439,8 +450,19 @@ export function AppointmentPanel({
               </div>
             ))}
         </dl>
+        <div className="mt-3 agenda-panel-transitions">
+          <AppointmentActions
+            appointment={current}
+            focusAfter={headingRef}
+            size="sm"
+            withPatientLinks
+            onChanged={(saved) => {
+              setChanged({ from: appointment, value: saved });
+            }}
+          />
+        </div>
         <div className="d-flex gap-2 flex-wrap mt-3 agenda-panel-actions">
-          <AppointmentEditLinks appointment={appointment} withDetail size="sm" />
+          <AppointmentEditLinks appointment={current} withDetail size="sm" />
         </div>
       </div>
     </section>

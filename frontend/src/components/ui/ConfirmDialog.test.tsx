@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { StrictMode, useRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -277,5 +277,47 @@ describe('ConfirmDialog', () => {
     fireEvent.click(button('Cancelar'));
     expect(document.body.style.overflow).toBe('auto');
     document.body.style.overflow = '';
+  });
+});
+
+describe('ConfirmDialog: el foco inicial y el botón de cierre propios (3.5)', () => {
+  function WithField() {
+    const [open, setOpen] = useState(false);
+    const fieldRef = useRef<HTMLTextAreaElement>(null);
+
+    return (
+      <StrictMode>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
+          Abrir
+        </button>
+        <ConfirmDialog
+          open={open}
+          title="Cancelar el turno"
+          confirmLabel="Cancelar el turno"
+          cancelLabel="Volver"
+          initialFocusRef={fieldRef}
+          onConfirm={vi.fn()}
+          onClose={() => {
+            setOpen(false);
+          }}
+        >
+          <textarea ref={fieldRef} aria-label="Motivo" />
+        </ConfirmDialog>
+      </StrictMode>
+    );
+  }
+
+  it('con initialFocusRef, el foco va al campo (también en StrictMode); "Volver" en lugar de "Cancelar"', () => {
+    render(<WithField />);
+    fireEvent.click(screen.getByText('Abrir'));
+
+    expect(document.activeElement).toBe(screen.getByLabelText('Motivo'));
+    expect(screen.getByText('Volver')).toBeTruthy();
+    expect(screen.queryByText('Cancelar')).toBeNull();
   });
 });

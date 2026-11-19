@@ -187,6 +187,15 @@
   text-decoration: line-through;
 }
 
+/*
+ * El estado de un turno (3.5): siempre con su ícono y su texto. En un cancelado tachado (la tarjeta o la fila), el estado
+ * sigue legible: un inline-block no hereda el tachado del contenedor.
+ */
+.appointment-status-label {
+  display: inline-block;
+  text-decoration: none;
+}
+
 .agenda-item-flag {
   font-weight: 600;
 }
@@ -231,9 +240,14 @@
   color: var(--tblr-orange);
 }
 
-/* Los ausentes de la lista, atenuados como en la grilla (pregunta 5). */
-.appointment-row-dimmed > td {
+/* Los ausentes y los cancelados de la lista, como en la grilla y las tarjetas (pregunta 5; unificado en la 3.5). */
+.appointment-row-dimmed > td,
+.appointment-row-cancelled > td {
   opacity: 0.55;
+}
+
+.appointment-row-cancelled > td {
+  text-decoration: line-through;
 }
 
 /* "Filtrar", alineado con las fechas (que tienen la etiqueta arriba). */

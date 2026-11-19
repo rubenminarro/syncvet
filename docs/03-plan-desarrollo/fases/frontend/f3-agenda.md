@@ -536,8 +536,74 @@ turno ya empezado (el ayudante lo crea a una hora pasada de hoy) y deshacerlo; c
 
 #### Pendiente para el cierre (3.5)
 
-**Para la 3.5** (pedido del usuario en la 3.4): unificar el tachado de los cancelados entre las tarjetas de la lista (375 px,
-`appointmentItemClass`, tachadas desde la revisión de la 3.3) y la tabla (1280 px, sin tachar).
+Implementada el 2026-11-19 en `feature/front-3-5-estados` (desde `d067957`, el cierre de la 3.4, subida), con el presupuesto por
+entrega; falta la revisión y el cierre.
+
+**Lo hecho.** `transitions.ts` (la tabla pura, espejo de `AppointmentTransition`: origen, destino, ruta y permiso de cada una;
+`availableTransitions` con las reglas de la pregunta 14; `transitionFailure`, el trato de cada error; el motivo con la regla de
+`CancelAppointmentRequest`); `AppointmentActions.tsx` (las acciones en el panel del día, la semana y la lista, y en el detalle:
+confirmar, fichar, atendido y ausente directo; cancelar con el motivo; deshacer el ausente con la confirmación y, después del 409
+`APPOINTMENT_OVERLAP` y con `appointments.overbook`, "Volver como sobreturno"); los permisos `appointments.confirm`, `.check-in`,
+`.attend`, `.no-show` y `.cancel` en `PERMISSIONS`; `runAppointmentTransition` y `refreshAppointment` en `api.ts` (con el 200,
+`afterAppointmentSaved`: el detalle, la agenda, la lista, la cola y la disponibilidad); `StatusLabel.tsx` y `statusLook` /
+`statusRowClass` (cada estado con su ícono y su texto, igual en el día, la semana, la tabla, las tarjetas, el panel y el
+detalle); `PatientRequiredLinks` (sacado del aviso de la 3.4). **El tachado unificado** (el pedido de la 3.4): la tabla de la lista
+tacha y atenúa los cancelados como las tarjetas (`appointment-row-cancelled`); el estado queda sin tachar (`inline-block`).
+
+**Desvíos y decisiones para el cierre.**
+
+| # | Desvío | Qué se hizo |
+|---|---|---|
+| 1 | El cierre de la 3.4 (R-093) estaba sin commitear en `feature/front-3-4-turno` | A pedido del usuario: commit `d067957` con push, y la rama de la 3.5 desde ahí |
+| 2 | El diseño nombra el spec `e2e/turnos-estados.spec.ts`; el pedido de la entrega, `e2e/estados.spec.ts` | Se usó el del pedido; corregir el nombre en este diseño al cerrar |
+| 3 | El diseño pide el aviso del 200 "también en la región `role="status"`" de la agenda | Va solo en el aviso (toast), que ya es `role="status"` dentro de una región `aria-live` siempre en el DOM: con las dos, el lector lo leería dos veces. A decidir en la revisión |
+| 4 | El motivo del ausente en un turno de otro día | "Se marca desde el 20/11/2026 a las 09:30." (el diseño da solo "Se marca desde las 09:30.", que hoy vale y otro día confunde) |
+| 5 | `ConfirmDialog` suma dos props: `cancelLabel` ("Volver": junto a "Cancelar el turno", "Cancelar" confundía) e `initialFocusRef` (el foco al motivo al abrir) | El foco al motivo con un efecto propio pasaba en Vitest pero no en el navegador: con `StrictMode`, React vuelve a correr el efecto del diálogo recién montado y el foco volvía a "Volver" (la primera corrida de Playwright, 1 falla); test nuevo en `ConfirmDialog.test.tsx` con `StrictMode` |
+| 6 | Encontrado en Edge (control 5): después de confirmar desde el panel, el foco quedaba en `body` (el botón desaparece) | El `setTimeout(0)` que lo llevaba al título corría antes del render que sacaba el botón; ahora lo hace un efecto después de cada render. Después, `vitest related` mostró una carrera en el detalle (el turno nuevo llega por `setQueryData`, que React Query avisa en un render posterior): la marca espera mientras el foco siga en un botón del grupo, hasta 3 s. El control 5 se repitió en verde con el primer arreglo; el segundo, con los tests (sin repetir Edge) |
+| 7 | El aviso "Para fichar, cargá el paciente." del detalle (3.4) se mostraba en cualquier estado | Ahora, solo mientras se puede fichar (a confirmar o confirmado). Debajo de "Fichar" deshabilitado, en el panel, los mismos enlaces (`PatientRequiredLinks`); en el error `APPOINTMENT_PATIENT_REQUIRED`, también |
+| 8 | El título del detalle lleva el estado (ícono y texto) y se atenúa o se tacha como las tarjetas | Para que el detalle se vea igual que las demás vistas |
+| 9 | Cancelar no manda `scope` (la API toma "solo este turno") | El alcance es de la 3.6 |
+| 10 | El script de Edge se corrió 4 veces: una completa y tres parciales (el control 5 dos veces por el desvío 6 y por quedarse sin turnos a confirmar con paciente; los controles 1 y 2 una vez, por un turno mal elegido por el script) | Cada corrida ingresó una vez por rol (también las parciales: el script entra siempre con los dos): 4 ingresos de `recepcion-a` y 4 de `vet-a`, los 8 tokens revocados (`logout` 200; 0 tokens nuevos en `personal_access_tokens`). Que el script entre solo con los roles de los controles pedidos queda para la próxima |
+| 11 | La mutación del 409 sin volver a pedir cambió también el trato del servidor (las dos líneas eran iguales) | Igual la detectaron los dos tests del 409 |
+
+**Pruebas.** Durante el trabajo, `vitest related` de lo tocado (683 en 34 archivos al empezar, con la falla esperada del panel
+"sin acciones" de `AppointmentListPage.test.tsx`, actualizada; al final, 725 en 33) y los archivos nuevos: `transitions.test.ts`
+37 (la tabla, las rutas y los permisos contra `AppointmentTransition.php`, el controlador y `routes/api.php`; las acciones por estado
+y por rol con `clinic-roles.json`; las reglas de hora con un "ahora" fijo, también el 22:30 de Asunción que en UTC ya es mañana; el
+motivo; el trato de cada error; cómo se ve cada estado) y `AppointmentTransitions.test.tsx` 25 (cada transición en el detalle, el
+motivo, la confirmación, el 409 con el motivo conservado, los 422 de negocio, `NOT_YOURS`, `PATIENT_REQUIRED`, la red, el sobreturno
+con y sin el permiso, los tres roles, un solo pedido con doble clic y el panel del día: el cancelado que se oculta sin recargar);
+más 1 en `AppointmentListPage.test.tsx` (el tachado de la tabla y de las tarjetas) y 1 en `ConfirmDialog.test.tsx`.
+`FictitiousDocumentsTest`, 3 casos (69 aserciones), en verde. **Corrida final** (2026-11-19, desde `frontend/`, sobre el código del
+WIP, repetida entera después del desvío 6): `typecheck`, `lint` y `build` sin errores ni avisos; `npm test`, **1714 tests en 81
+archivos**, en verde.
+
+**Mutaciones** (4, todas detectadas; el código restaurado): cancelar admitido desde atendido (3 fallas en `transitions.test.ts`);
+las acciones sin controlar el permiso (10 fallas); el 409 sin volver a pedir el turno (2: el trato y la página); el cancelado sin
+tachar en la tabla (2: `statusRowClass` y la lista).
+
+**Playwright.** `e2e/estados.spec.ts` (nuevo, 3 casos, con el ayudante `createStatesDay` de `e2e/support/api.ts`, en
+`syncvet_e2e`, y la limpieza de `retireAgendasNamed`): la recepción confirma y ficha desde el panel y `vet-a` lo marca atendido en
+otro contexto; ausente en un turno ya empezado y deshacerlo; cancelar con motivo desde el panel, oculto en la grilla, tachado con
+"Mostrar los cancelados" y en la lista. 3 de 3 en la segunda corrida (desvío 5), 1,2 min. `e2e/permisos.spec.ts` (por los permisos
+nuevos de `PERMISSIONS`, R-084), 7 de 7. 41 casos en 20 archivos.
+
+**En Edge** (sin ventana, `es-PY`, `America/Asuncion`, contra `syncvet.test` (200 en `/` y `/up`) con un Vite propio en `:5180`,
+detenido por su PID; antes, `php artisan demo:agenda`): 7 de 7. (1) El detalle a 375 px con "Fichar", "Ausente" (con su motivo) y
+"Cancelar el turno", botones de 40 px, sin desplazamiento horizontal; (2) cancelar con el teclado a 375 px: el foco en el motivo, Tab
+dentro del diálogo, Escape cierra y el foco vuelve a "Cancelar el turno"; (3) el panel a 1280 px de un turno de contacto: "Fichar"
+con `aria-disabled`, enfocable, con "Para fichar, cargá el paciente." y "Nuevo cliente" y "Editar el turno"; (4) la lista a 1280 y
+375 px: el cancelado tachado y atenuado igual en la tabla y en las tarjetas, sin desplazamiento a 375; (5) confirmar con Enter desde
+el panel: el aviso en `role="status"`, el foco en el título del panel y la grilla al día sin recargar (después del desvío 6); (6)
+`vet-a`: en el fichado de una agenda sin veterinario, solo "Marcar atendido"; en un confirmado de la suya, solo "Fichar"; (7) la
+consola sin errores. La demo, restaurada con `php artisan demo:agenda` (171 turnos; los turnos 917, 1011 y 1056, confirmados en los
+controles, se regeneraron). `admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at` del 12/11). Capturas fuera del repositorio
+(scratchpad de la sesión, `capturas-3-5`): `01-detalle-acciones-375.png`, `02-cancelar-375.png`, `03-panel-sin-paciente-1280.png`,
+`04-lista-1280.png` y `05-lista-375.png`.
+
+**Para el cierre** (`/cerrar-entrega`): `frontend/CLAUDE.md` §5 (`transitions.ts` y el estado con `StatusLabel`), la tabla de
+errores de §6 si hace falta, el desvío 2 en este diseño, el resultado en `f3-resultados.md`, el roadmap, `modulos.md` y el
+handoff.
 
 ### 3.6 Las series
 

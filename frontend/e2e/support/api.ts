@@ -239,3 +239,96 @@ export async function retireAgendasNamed(prefix: string): Promise<void> {
     await api.dispose();
   }
 }
+
+/** Lo que arma `createStatesDay`: la agenda, el día y los ids de los tres turnos. */
+export interface StatesDay {
+  scheduleId: number;
+  day: string;
+  /** 00:30 a 01:00, a confirmar, con Firulais (del DemoSeeder): se confirma, se ficha y lo atiende vet-a. */
+  toAttend: number;
+  /** 00:00 a 00:30, confirmado, con un contacto: ya empezó (se marca ausente y se deshace). */
+  toNoShow: number;
+  /** 01:00 a 01:30, confirmado, con un contacto: se cancela con motivo. */
+  toCancel: number;
+  /** El contacto de `toNoShow` y el de `toCancel`. */
+  noShowContact: string;
+  cancelContact: string;
+}
+
+/**
+ * Los turnos de los estados (3.5) por la API, en syncvet_e2e (como el administrador): una agenda de `vet-a` en la Casa
+ * central abierta todos los días de 00:00 a 23:55 y tres turnos de hoy a las 00:00, 00:30 y 01:00 (la API acepta hoy una
+ * hora que ya pasó; así el de las 00:00 ya empezó y se puede marcar ausente sin depender de la hora en que corre). La
+ * limpieza es `retireAgendasNamed`.
+ */
+export async function createStatesDay(name: string): Promise<StatesDay> {
+  const api = await apiAs(USERS.admin);
+
+  try {
+    const branches = await api.get<{ id: number; name: string }[]>('branches?per_page=100');
+    const branch = branches.find((item) => item.name === 'Casa central');
+    const vets = await api.get<{ id: number; user: { name: string } }[]>(
+      'veterinarians?per_page=100',
+    );
+    const vet = vets.find((item) => item.user.name === USERS.vet.name);
+    const patients = await api.get<{ id: number; name: string }[]>(
+      'patients?search=Firulais&per_page=10',
+    );
+    const patient = patients.find((item) => item.name === 'Firulais');
+
+    if (branch === undefined || vet === undefined || patient === undefined) {
+      throw new Error('Sin la Casa central, la ficha de vet-a o Firulais en syncvet_e2e.');
+    }
+
+    const schedule = await api.post<{ id: number }>('schedules', {
+      branch_id: branch.id,
+      name,
+      veterinarian_id: vet.id,
+      slot_minutes: 30,
+      hours: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+        weekday,
+        starts_at: '00:00',
+        ends_at: '23:55',
+      })),
+    });
+    const day = asuncionDay();
+    const suffix = name.slice(-6);
+    const at = (clock: string) => `${day}T${clock}:00-03:00`;
+    const noShowContact = `Contacto ausente ${suffix}`;
+    const cancelContact = `Contacto cancelar ${suffix}`;
+
+    const toAttend = await api.post<{ id: number }>('appointments', {
+      schedule_id: schedule.id,
+      patient_id: patient.id,
+      starts_at: at('00:30'),
+    });
+    const toNoShow = await api.post<{ id: number }>('appointments', {
+      schedule_id: schedule.id,
+      contact_name: noShowContact,
+      contact_phone: '+595981100094',
+      starts_at: at('00:00'),
+    });
+    const toCancel = await api.post<{ id: number }>('appointments', {
+      schedule_id: schedule.id,
+      contact_name: cancelContact,
+      contact_phone: '+595981100095',
+      starts_at: at('01:00'),
+    });
+
+    for (const turn of [toNoShow, toCancel]) {
+      await api.post(`appointments/${String(turn.id)}/confirm`, {});
+    }
+
+    return {
+      scheduleId: schedule.id,
+      day,
+      toAttend: toAttend.id,
+      toNoShow: toNoShow.id,
+      toCancel: toCancel.id,
+      noShowContact,
+      cancelContact,
+    };
+  } finally {
+    await api.dispose();
+  }
+}
