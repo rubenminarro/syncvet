@@ -112,7 +112,8 @@ alguna pide más corridas, vale esta.
 ### Documentación por cambio
 
 Cada entrega actualiza, en la misma rama, lo que indica la tabla **Mantenimiento** de [`docs/README.md`](docs/README.md). La skill
-`/cerrar-entrega` lo hace sobre una entrega ya validada; `/validar-docs` audita enlaces y cifras; `/retomar` informa el estado al
+`/cerrar-entrega` lo hace sobre una entrega ya validada y termina siempre con el commit y el push del cierre ("git status limpio,
+commit y push confirmados"); `/validar-docs` audita enlaces y cifras; `/retomar` informa el estado al
 empezar una sesión.
 
 Los desvíos, decisiones pendientes y notas para el cierre se escriben en el repositorio (sección "Pendiente para el cierre" de la
@@ -128,7 +129,8 @@ de una PC.
 ### Git
 
 * Nunca trabajar ni commitear en `main`. Una rama por tarea: `feature/…`, `fix/…`, `docs/…`, `test/…`, `chore/…`.
-* Commit y push solo cuando el usuario lo pide. Mensajes en español, describiendo el porqué.
+* Commit y push solo cuando el usuario lo pide (invocar `/cerrar-entrega` es ese pedido para el cierre). Mensajes en español,
+  describiendo el porqué.
 * Un movimiento de archivos va en un commit propio, sin cambios de contenido, para que Git conserve la historia; los merges a `main`,
   con `--no-ff` y sin squash.
 

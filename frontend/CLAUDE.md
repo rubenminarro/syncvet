@@ -150,7 +150,12 @@ Lo esencial; el detalle y el motivo de cada regla, en [`testing.md`](../docs/04-
 * **`environment: node` para los tests sin DOM**; jsdom, solo los `.test.tsx` o el `.test.ts` que lo pide.
 * **Durante el trabajo, `npx vitest related <archivos tocados> --run`**; la suite completa, `typecheck`, `lint` y `build`, una vez al final.
 * **Playwright**: solo los casos nuevos o tocados, más `e2e/permisos.spec.ts` si cambia el menú o el permiso de una ruta; completo, al cerrar la fase.
-* **Controles en Edge**: hasta 10, un ingreso por rol, los tokens revocados en un `finally` y, si falla el script, se repite solo ese control.
+* **Controles en Edge**: hasta 10, numerados, cada uno con el rol que usa y el dato que busca él mismo. El script recibe qué
+  controles correr (`node controles.mjs 5` o `5,6`; sin argumentos, todos) e **ingresa solo con los roles de esos controles**, una
+  vez por rol, con los tokens revocados en un `finally`. Si un control falla (el script, el dato o un arreglo del código), se
+  corrige y se corre **solo ese control** (`node controles.mjs 5`), nunca el script entero; si a la demo le falta el dato, primero
+  `php artisan demo:agenda`. Cada corrida anota en "Pendiente para el cierre" qué controles corrió y cuántos ingresos hizo (en la
+  3.5, el script sin esa opción entraba siempre con los dos roles: 4 corridas, 8 ingresos, desvío 10).
 * **El backend de Playwright corre sin Xdebug** (`XDEBUG_MODE: 'off'` en su `webServer`).
 * **Prettier solo sobre los archivos cambiados.**
 * **Una entrega, un tema**: el validador, las skills y la documentación general, aparte del código.

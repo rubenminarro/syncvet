@@ -96,7 +96,10 @@ repetidas):
   (también si un control o el script fallan: no alcanza el "Salir" de la interfaz, que lo manda sin esperarlo, ni cerrar el
   navegador); y, si falla por un error del propio script (un selector, una espera, un dato de prueba), se corrige y se repite
   **solo el control que falló**, no la corrida entera. En la 3.2, seis corridas completas dejaron 19 ingresos de `admin-a` en la
-  auditoría y 7 tokens sin revocar (desvío 15).
+  auditoría y 7 tokens sin revocar (desvío 15). Para eso el script **recibe los controles a correr** (`node controles.mjs 5`, o
+  `5,6`; sin argumentos, todos) y entra solo con los roles que esos controles declaran: repetir el control 5 de la recepción no
+  ingresa con `vet-a`. En la 3.5 el script no tenía esa opción y entraba siempre con los dos roles: una corrida completa y tres
+  parciales dejaron 8 ingresos (desvío 10).
 * **El backend de Playwright corre sin Xdebug** (`XDEBUG_MODE: 'off'` en el `env` de su `webServer`, front-03; con `--no-reload`,
   `php artisan serve` pasa el entorno entero a `php -S`). Laragon carga Xdebug en modo `debug` y cada pedido tardaba de 2,5 a 3
   veces más (la medición de front-03, fuera de Playwright). En la corrida, la mejora es chica porque manda la interfaz:
