@@ -100,6 +100,15 @@ repetidas):
   `5,6`; sin argumentos, todos) y entra solo con los roles que esos controles declaran: repetir el control 5 de la recepción no
   ingresa con `vet-a`. En la 3.5 el script no tenía esa opción y entraba siempre con los dos roles: una corrida completa y tres
   parciales dejaron 8 ingresos (desvío 10).
+* **Los scripts de Edge reutilizan los selectores y ayudantes de Playwright que ya pasaron** (revisión de la 3.6): el ingreso,
+  la espera de la pantalla y cada selector de un flujo que un spec ya cubre se copian del spec en verde (o se importan de
+  `e2e/support`), no se escriben de nuevo. En la 3.6, el script falló por un `getByLabel('Cantidad de turnos')` sin `exact` que
+  el spec ya había corregido, por capturas antes del render y por errores de consola acumulados (desvíos 4 y 6): 6 corridas y
+  9 ingresos para 7 controles.
+* **Las mutaciones se revierten con el editor** (Edit/Write), nunca con `git checkout`, `git restore` ni `git stash` sobre
+  archivos con cambios propios sin commitear: esos comandos devuelven el archivo al último commit y borran también el trabajo de
+  la entrega (front-04, desvío 1: el permiso automático rechazó un `git checkout --`). La regla común, en el
+  [`CLAUDE.md`](../../CLAUDE.md#ritmo-de-las-entregas) de la raíz.
 * **El backend de Playwright corre sin Xdebug** (`XDEBUG_MODE: 'off'` en el `env` de su `webServer`, front-03; con `--no-reload`,
   `php artisan serve` pasa el entorno entero a `php -S`). Laragon carga Xdebug en modo `debug` y cada pedido tardaba de 2,5 a 3
   veces más (la medición de front-03, fuera de Playwright). En la corrida, la mejora es chica porque manda la interfaz:

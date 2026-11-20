@@ -192,19 +192,20 @@ export function AppointmentListPage() {
     },
   ];
 
-  const emptyText = inSeries
-    ? filters.search === '' &&
-      filters.status.length === 0 &&
-      filters.schedule_id === null &&
-      filters.veterinarian_id === null
+  const unfiltered =
+    filters.search === '' &&
+    filters.status.length === 0 &&
+    filters.schedule_id === null &&
+    filters.veterinarian_id === null;
+  let emptyText = unfiltered
+    ? 'No hay turnos en estas fechas.'
+    : 'No hay turnos que coincidan con los filtros.';
+
+  if (inSeries) {
+    emptyText = unfiltered
       ? 'No hay turnos de esta serie.'
-      : 'No hay turnos de la serie que coincidan con los filtros.'
-    : filters.search === '' &&
-        filters.status.length === 0 &&
-        filters.schedule_id === null &&
-        filters.veterinarian_id === null
-      ? 'No hay turnos en estas fechas.'
-      : 'No hay turnos que coincidan con los filtros.';
+      : 'No hay turnos de la serie que coincidan con los filtros.';
+  }
   const firstPageLink = (
     <Link
       to="/turnos"

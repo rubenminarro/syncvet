@@ -10,6 +10,7 @@ import { useCan } from '../auth/permissions';
 import {
   afterAppointmentSaved,
   appointmentSeriesQueryOptions,
+  invalidateSeriesDetails,
   refreshAppointment,
   runAppointmentTransition,
 } from './api';
@@ -171,8 +172,17 @@ export function AppointmentActions({
       setPendingName(name);
       setFailure(null);
     },
-    onSuccess: (response) => {
+    onSuccess: (response, { body }) => {
       afterAppointmentSaved(queryClient, response.data);
+
+      if (
+        body?.scope !== undefined &&
+        body.scope !== 'single' &&
+        response.data.series_id !== null
+      ) {
+        invalidateSeriesDetails(queryClient, response.data.series_id, response.data.id);
+      }
+
       onChanged?.(response.data);
       toast.show(response.message, 'success');
       setReason('');

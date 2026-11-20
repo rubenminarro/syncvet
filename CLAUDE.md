@@ -99,6 +99,9 @@ alguna pide más corridas, vale esta.
 * En la implementación, mutaciones solo de las protecciones críticas de la entrega (3 o 4, el presupuesto); la revisión hace las
   suyas.
 * En cada mutación se corren solo los tests relacionados; la suite completa, al final.
+* **Las mutaciones se revierten con el editor** (Edit/Write), nunca con `git checkout`, `git restore` ni `git stash` sobre archivos
+  con cambios propios sin commitear: devuelven el archivo al último commit y se llevan el trabajo de la entrega (front-04, desvío 1;
+  el detalle, en `docs/04-desarrollo/testing.md`).
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 * Lo propio de cada proyecto (bases de datos, velocidad de la suite, auditoría de dependencias) está en su `CLAUDE.md`.
 

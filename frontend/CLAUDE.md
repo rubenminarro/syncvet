@@ -160,6 +160,9 @@ Lo esencial; el detalle y el motivo de cada regla, en [`testing.md`](../docs/04-
   corrige y se corre **solo ese control** (`node controles.mjs 5`), nunca el script entero; si a la demo le falta el dato, primero
   `php artisan demo:agenda`. Cada corrida anota en "Pendiente para el cierre" qué controles corrió y cuántos ingresos hizo (en la
   3.5, el script sin esa opción entraba siempre con los dos roles: 4 corridas, 8 ingresos, desvío 10).
+* **El script de Edge reutiliza los selectores y ayudantes de Playwright que ya pasaron** (el spec en verde o `e2e/support`): no
+  los reescribe, para no fallar por el script (3.6, desvíos 4 y 6).
+* **Las mutaciones se revierten con el editor**, nunca con `git checkout`, `git restore` ni `git stash` (regla común del `CLAUDE.md` de la raíz).
 * **El backend de Playwright corre sin Xdebug** (`XDEBUG_MODE: 'off'` en su `webServer`).
 * **Prettier solo sobre los archivos cambiados.**
 * **Una entrega, un tema**: el validador, las skills y la documentación general, aparte del código.

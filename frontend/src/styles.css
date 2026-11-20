@@ -277,6 +277,11 @@
   padding-bottom: 0.5rem;
 }
 
+/* Una fecha de la vista previa que la API rechazó: el ícono y el motivo dicen qué pasa; el color solo acompaña. */
+.appointment-series-conflict {
+  color: var(--tblr-danger);
+}
+
 /* La lista de conflictos de la serie, con el mismo tope de alto. */
 .appointment-series-conflicts {
   max-height: 16rem;

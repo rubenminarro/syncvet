@@ -346,7 +346,13 @@ function useAppointmentSave(options: {
     </ConfirmDialog>
   );
 
-  return { submit, alertNode, dialog, saving: mutation.isPending };
+  return {
+    submit,
+    alertNode,
+    dialog,
+    saving: mutation.isPending,
+    seriesConflicts: alert?.seriesConflicts,
+  };
 }
 
 /**
@@ -460,6 +466,7 @@ export function AppointmentCreatePage({ search }: { search: NewAppointmentSearch
         alert={save.alertNode}
         saving={save.saving}
         submitLabel="Dar el turno"
+        seriesConflicts={save.seriesConflicts}
         onSubmit={save.submit}
         cancel={
           <Link

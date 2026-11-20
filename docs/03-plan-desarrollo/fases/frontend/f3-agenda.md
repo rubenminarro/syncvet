@@ -613,7 +613,7 @@ a la lista filtrada por la serie (`/turnos?serie=`, `series_id`).
 turnos; "hasta" a un año y un día; el cuerpo con `recurrence`; la lista de conflictos con sus fechas en Asunción; el alcance en el
 cuerpo y oculto sin serie.
 
-**Playwright** (`e2e/turnos-series.spec.ts`). Una serie de 4 turnos semanales y verlos en la lista de la serie; otra serie que choca
+**Playwright** (`e2e/series.spec.ts`; el diseño decía `turnos-series.spec.ts`: desvío 3, aceptado). Una serie de 4 turnos semanales y verlos en la lista de la serie; otra serie que choca
 con uno (la lista de conflictos); cancelar "Este y los siguientes" desde el tercero.
 
 **Mutaciones a probar.** La cuenta de fechas con milisegundos; `scope` mandado en un turno sin serie; la lista de conflictos con la hora
@@ -691,8 +691,67 @@ de la PC.
   (como el detalle); (b) los bloqueos de la lista de la serie se piden del primer al último día de la página; (c) la vista previa no
   marca las fechas en conflicto (están solo en la alerta); (d) la cuenta del alcance sale de la serie leída al abrir el diálogo: la
   cifra real es la del `message` del 200.
+* **Revisión (2026-11-20)**, corregida en el mismo paso (con la de front-04, traída con un merge):
+  * **Decisiones del usuario**: la frecuencia solo semanal y la edición y la reprogramación de a un turno (preguntas 16 y 17),
+    aceptadas; `e2e/series.spec.ts`, aceptado (el diseño, corregido); `?serie=` sin sucursal, aceptado porque front-04 confirmó
+    que el backend limita solo a la clínica (H11).
+  * **Vista previa con los conflictos** (pedido del usuario): con el 409, las fechas de la vista previa que la API rechazó
+    llevan el ícono de alerta y "No se puede dar: " con el `message` de la API (no solo color), y el resumen (`role="status"`)
+    anuncia "2 de las 4 fechas no se pueden dar: están marcadas en la lista.". Se comparan por el instante de inicio
+    (`conflictsByDay` en `series.ts`): si el formulario cambia después del 409, no queda marcada una fecha vieja.
+    Tests: `la vista previa marca las fechas que chocan…` (`AppointmentSeries.test.tsx`) y `los conflictos en la vista previa`
+    (`series.test.ts`, 2).
+  * **Corregido: la caché después de cancelar con alcance.** Con "Este y los siguientes" o "Toda la serie", los detalles ya
+    abiertos de los otros turnos de la serie seguían como antes (confirmados) hasta vencer la caché. Ahora se invalidan esos y
+    solo esos (`invalidateSeriesDetails`: la misma `series_id`, sin el pedido, que llega en la respuesta); con "Solo este
+    turno", ninguno. Tests: `después de "Toda la serie", solo los detalles…` y `con "Solo este turno", los otros…`.
+  * **Corregido: el lector de pantalla** habría leído "2026.2 de las…" y "10:30No se puede dar": un espacio real antes de cada
+    texto en bloque (en el mismo test de la vista previa).
+  * **Duplicación y nada muerto**: el armado de `seriesError` desde el formulario, repetido en el esquema y en `seriesInputOf`,
+    pasó a `seriesFormError`; la condición del texto de la lista vacía, repetida para la serie, a `unfiltered`;
+    `appointmentSeriesKeys.all` no se usaba (borrado).
+  * **Revisado sin cambios**: las fechas en Asunción (días de calendario con `addDaysToDay`, como `AppointmentRecurrence::shift`, y
+    la cuenta de `until` sin horas); el tope de 2 a 52, el año (`addYear` con el desborde del 29/02) y la fecha de fin, con los
+    mensajes y los campos de `validateRecurrence`; el sobreturno de la serie solo con `appointments.overbook` y todas
+    superposiciones; la cuenta del alcance contra `AppointmentTransitionService::cancel` (el pedido más los
+    `pending_confirmation`/`confirmed` con `starts_at > now`, los siguientes por `starts_at` e id): igual; el resto de las
+    invalidaciones (el alta de la serie, la sucursal y la disponibilidad de su agenda; editar, la serie del turno); el foco (la
+    alerta, después del render); la vista previa a 375 px.
+  * **Mutaciones** (3, todas detectadas y revertidas con el editor): los conflictos por día en lugar de por instante (1 falla en
+    `series.test.ts`); invalidar todos los detalles, no solo los de la serie (1); invalidar también con "Solo este turno" (1).
+  * **Cifras**: `vitest related` de los 7 archivos tocados, 796 en 36 archivos. Corrida final: `npm test` **1770 tests en 84
+    archivos**, en verde; `typecheck`, `lint` y `build` sin errores ni avisos; `FictitiousDocumentsTest` 3 de 3 (69 aserciones);
+    Playwright `e2e/series.spec.ts` 3 de 3 (44 s). Después, solo el borrado de `appointmentSeriesKeys.all`: `typecheck`, `lint`,
+    Prettier y `AppointmentSeries.test.tsx` (18 de 18) de nuevo.
+  * **En Edge** (sin ventana, `es-PY`, `America/Asuncion`, contra `syncvet.test` (200 en `/up`) con un Vite propio en `:5180`,
+    detenido por el PID de `vite.js` y el puerto libre): 2 de 2, con `login` y `USERS` de `e2e/support/session.ts` y los
+    selectores de `series.spec.ts` (la regla nueva). (1) [recepción] la vista previa con los conflictos a 1280 (409 simulado con
+    `page.route`: un `overlap` y un `in_block`, sin crear nada): 2 fechas marcadas con ícono y motivo, el anuncio, el foco en la
+    alerta, sin desplazamiento horizontal; (2) [recepción] lo mismo a 375. La consola sin errores. Una corrida que llegó a
+    ingresar (**1 ingreso**, el token revocado: logout 200); antes, dos intentos que fallaron al cargar el script (el
+    scratchpad sin `"type": "module"` ni `node_modules`), sin ingresar. La demo, sin cambios (396 turnos, sin `demo:agenda`: no
+    se creó nada); `admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at` del 12/11). Capturas fuera del repositorio
+    (scratchpad de la sesión, `capturas-3-6-revision`): `09-vista-previa-conflictos-1280.png` y `10-vista-previa-conflictos-375.png`.
+  * **Estado de los desvíos**:
+    * Desvío 1 (el diseño contra la API): **aceptado**, el usuario eligió front-04 y "sin omitir" (preguntas 16 y 17) y la
+      frecuencia solo semanal, como la API.
+    * Desvío 2 (la edición de a un turno): **aceptado**, la API no permite otro alcance (pregunta 17 y H14).
+    * Desvío 3 (`series.spec.ts`): **aceptado** por el usuario; el diseño, corregido.
+    * Desvío 4 (el selector sin `exact`): **aceptado**, corregido en la implementación; de ahí la regla nueva de reutilizar los
+      selectores de Playwright en Edge (`testing.md` y `frontend/CLAUDE.md` §8).
+    * Desvío 5 (el foco con `setTimeout`): **corregido**, con el `useEffect` y el test `todas superposiciones, con el permiso…`
+      (el foco en la alerta); en esta revisión, también el control 1 de Edge (`toBeFocused`).
+    * Desvío 6 (los errores del script): **aceptado** (los ingresos quedaron registrados y los tokens revocados); la regla nueva
+      lo evita (esta revisión: 1 ingreso).
+    * Para la revisión (a) `?serie=` sin sucursal: **aceptado** (front-04). (b) los bloqueos de la serie del primer al último
+      día de la página: **aceptado** (`IndexScheduleBlockRequest` no tiene tope de rango). (c) la vista previa sin los
+      conflictos: **corregido** (arriba). (d) la cuenta del alcance con la serie leída al abrir el diálogo: **aceptado**, se
+      vuelve a pedir después de cada acción y de un error, y el aviso muestra la cifra de la API.
+    * Ninguno necesita decisión del usuario.
 * **Documentación para el cierre**: `frontend/CLAUDE.md` (estado, `series.ts` y la tabla de errores con el trato de la serie),
-  `f3-resultados.md`, el roadmap, `modulos.md` y el handoff; front-04, su propio cierre.
+  `f3-resultados.md`, el roadmap, `modulos.md` y el handoff; front-04, su propio cierre. Las reglas de proceso de la revisión
+  (las mutaciones con el editor y los scripts de Edge con los ayudantes de Playwright) ya están en el `CLAUDE.md` de la raíz,
+  `frontend/CLAUDE.md` §8 y `testing.md`.
 
 ### 3.7 La cola del día
 

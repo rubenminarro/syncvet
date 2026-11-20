@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
@@ -44,11 +45,14 @@ import {
   type PatientChoice,
 } from './form';
 import {
+  conflictsByDay,
+  previewConflictText,
   SERIES_MAX_COUNT,
   SERIES_MAX_EVERY_WEEKS,
   SERIES_MIN_COUNT,
   seriesOccurrences,
   seriesSummary,
+  type SeriesConflict,
 } from './series';
 import { appointmentTimes, instantToWall } from './times';
 import type { AppointmentDetail } from './types';
@@ -68,6 +72,8 @@ interface AppointmentFormProps {
   submitLabel: string;
   onSubmit: (values: AppointmentFormValues, form: UseFormReturn<AppointmentFormValues>) => void;
   cancel: ReactNode;
+  /** Los conflictos del último 409 de la serie (3.6): se marcan en la vista previa. */
+  seriesConflicts?: readonly SeriesConflict[] | undefined;
 }
 
 /**
@@ -86,6 +92,7 @@ export function AppointmentForm({
   submitLabel,
   onSubmit,
   cancel,
+  seriesConflicts,
 }: AppointmentFormProps) {
   const today = todayInAppZone();
   // En la edición, el turno como se cargó: uno que no se mueve no se rechaza por su día (la API tampoco).
@@ -330,7 +337,12 @@ export function AppointmentForm({
         </div>
         {current === undefined ? (
           <div className="col-12">
-            <SeriesFields form={form} time={time} duration={duration} />
+            <SeriesFields
+              form={form}
+              time={time}
+              duration={duration}
+              conflicts={seriesConflicts ?? []}
+            />
           </div>
         ) : null}
         <div className="col-12">
@@ -388,10 +400,12 @@ function SeriesFields({
   form,
   time,
   duration,
+  conflicts,
 }: {
   form: UseFormReturn<AppointmentFormValues>;
   time: string;
   duration: number;
+  conflicts: readonly SeriesConflict[];
 }) {
   const {
     control,
@@ -415,6 +429,9 @@ function SeriesFields({
       ? []
       : seriesOccurrences(input, time, duration);
   const summary = seriesSummary(occurrences, input?.everyWeeks ?? 1);
+  // Las fechas del último 409 de la serie que siguen en la vista previa: con ícono y el motivo de la API (no solo color).
+  const marked = conflictsByDay(occurrences, conflicts);
+  const conflictText = previewConflictText(marked.size, occurrences.length);
   const previewId = useId();
 
   let status = '';
@@ -483,6 +500,12 @@ function SeriesFields({
           </div>
           <p className="mb-2 appointment-series-summary" role="status" aria-live="polite">
             {summary === '' ? status : `${summary}.`}
+            {conflictText === '' ? null : (
+              <>
+                {' '}
+                <span className="d-block appointment-series-preview-conflicts">{conflictText}</span>
+              </>
+            )}
           </p>
           {occurrences.length > 0 ? (
             <ol
@@ -491,12 +514,26 @@ function SeriesFields({
               aria-label="Las fechas de la serie"
               tabIndex={0}
             >
-              {occurrences.map((occurrence) => (
-                <li key={occurrence.day}>
-                  {dayTitle(occurrence.day)}, {formatTime(occurrence.starts_at)} a{' '}
-                  {formatTime(occurrence.ends_at)}
-                </li>
-              ))}
+              {occurrences.map((occurrence) => {
+                const conflict = marked.get(occurrence.day);
+
+                return (
+                  <li
+                    key={occurrence.day}
+                    className={conflict === undefined ? undefined : 'appointment-series-conflict'}
+                  >
+                    {dayTitle(occurrence.day)}, {formatTime(occurrence.starts_at)} a{' '}
+                    {formatTime(occurrence.ends_at)}
+                    {conflict === undefined ? null : (
+                      <span className="d-block small">
+                        {' '}
+                        <IconAlertTriangle size={14} className="me-1" aria-hidden="true" />
+                        No se puede dar: {conflict.message}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           ) : null}
         </div>

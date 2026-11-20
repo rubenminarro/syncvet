@@ -279,6 +279,41 @@ export function seriesConflicts(error: unknown): SeriesConflict[] | null {
 }
 
 /**
+ * Los conflictos de la última respuesta que caen en la vista previa, por el día de cada fecha (revisión de la 3.6): se compara
+ * el instante de inicio, así que si el formulario cambió de hora o de fechas después del 409, no se marca nada viejo.
+ */
+export function conflictsByDay(
+  occurrences: readonly SeriesOccurrence[],
+  conflicts: readonly SeriesConflict[],
+): Map<string, SeriesConflict> {
+  const byInstant = new Map(
+    conflicts.map((conflict) => [new Date(conflict.starts_at).getTime(), conflict]),
+  );
+  const found = new Map<string, SeriesConflict>();
+
+  for (const occurrence of occurrences) {
+    const conflict = byInstant.get(new Date(occurrence.starts_at).getTime());
+
+    if (conflict !== undefined) {
+      found.set(occurrence.day, conflict);
+    }
+  }
+
+  return found;
+}
+
+/** El anuncio de cuántas fechas de la vista previa chocan ("2 de las 8 fechas no se pueden dar: …"). */
+export function previewConflictText(conflicting: number, total: number): string {
+  if (conflicting === 0) {
+    return '';
+  }
+
+  return conflicting === 1
+    ? `1 de las ${String(total)} fechas no se puede dar: está marcada en la lista.`
+    : `${String(conflicting)} de las ${String(total)} fechas no se pueden dar: están marcadas en la lista.`;
+}
+
+/**
  * ¿"Dar la serie con sobreturnos" sirve? Solo si todas las fechas chocan por superposición: `overbook` saltea solo esa
  * regla, y con una fuera del horario o en un bloqueo la API volvería a responder la lista (pregunta 17).
  */

@@ -260,7 +260,6 @@ export const SERIES_PER_PAGE = 100;
 
 /** La serie de un turno (3.6): sin `branchKey`, como el detalle (un turno se abre desde cualquier sucursal). */
 export const appointmentSeriesKeys = {
-  all: ['appointments', 'series'] as const,
   series: (seriesId: string) => ['appointments', 'series', seriesId] as const,
 };
 
@@ -327,6 +326,26 @@ function invalidateSeries(queryClient: QueryClient, seriesId: string | null | un
   if (seriesId !== null && seriesId !== undefined) {
     void queryClient.invalidateQueries({ queryKey: appointmentSeriesKeys.series(seriesId) });
   }
+}
+
+/**
+ * Después de cancelar con "Este y los siguientes" o "Toda la serie" (revisión de la 3.6): la API cambió también otros turnos de
+ * la serie, así que sus detalles en caché (y solo esos: los de la misma `series_id`, salvo el pedido, que ya llegó) se vuelven a
+ * pedir. Sin esto, "Turno 4 de 8" seguía mostrándose confirmado hasta vencer la caché.
+ */
+export function invalidateSeriesDetails(
+  queryClient: QueryClient,
+  seriesId: string,
+  exceptId: number,
+) {
+  void queryClient.invalidateQueries({
+    queryKey: ['appointments', 'detail'],
+    predicate: (query) => {
+      const data = query.state.data as Pick<AppointmentDetail, 'id' | 'series_id'> | undefined;
+
+      return data?.series_id === seriesId && data.id !== exceptId;
+    },
+  });
 }
 
 /** ¿Es una consulta de turnos de una sucursal (la agenda del día o de la semana, la lista o la cola)? */

@@ -262,13 +262,7 @@ export function appointmentFormSchema(today: string, original?: AppointmentFormV
 
       // La serie, solo en el alta (la edición no la muestra: la API rechaza `recurrence` en el PATCH).
       if (original === undefined && values.repeat) {
-        const found = seriesError({
-          firstDay: values.date,
-          everyWeeks: values.every_weeks,
-          end: values.series_end,
-          count: values.series_count,
-          until: values.series_until,
-        });
+        const found = seriesFormError(values);
 
         if (found !== null) {
           issue(SERIES_FORM_FIELDS[found.field], found.message);
@@ -335,27 +329,30 @@ const SERIES_FORM_FIELDS = {
   until: 'series_until',
 } as const satisfies Record<string, AppointmentFormField>;
 
+type SeriesFormValues = Pick<
+  AppointmentFormValues,
+  'date' | 'every_weeks' | 'series_end' | 'series_count' | 'series_until'
+>;
+
+/** El error de la repetición del formulario (`seriesError` con los campos de texto del formulario). */
+function seriesFormError(values: SeriesFormValues) {
+  return seriesError({
+    firstDay: values.date,
+    everyWeeks: values.every_weeks,
+    end: values.series_end,
+    count: values.series_count,
+    until: values.series_until,
+  });
+}
+
 /**
  * La repetición del formulario, ya leída (para la vista previa y el cuerpo), o null si "Repetir" no está marcado o algo no
  * tiene forma: la vista previa se muestra solo con la serie que la API aceptaría por su forma.
  */
 export function seriesInputOf(
-  values: Pick<
-    AppointmentFormValues,
-    'repeat' | 'date' | 'every_weeks' | 'series_end' | 'series_count' | 'series_until'
-  >,
+  values: SeriesFormValues & Pick<AppointmentFormValues, 'repeat'>,
 ): SeriesInput | null {
-  if (
-    !values.repeat ||
-    parseDay(values.date) === null ||
-    seriesError({
-      firstDay: values.date,
-      everyWeeks: values.every_weeks,
-      end: values.series_end,
-      count: values.series_count,
-      until: values.series_until,
-    }) !== null
-  ) {
+  if (!values.repeat || parseDay(values.date) === null || seriesFormError(values) !== null) {
     return null;
   }
 

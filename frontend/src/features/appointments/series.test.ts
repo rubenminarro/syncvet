@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../lib/api/errors';
 import {
+  conflictsByDay,
   oneYearAfter,
+  previewConflictText,
   onlyOverlaps,
   recurrencePayload,
   scopeAffected,
@@ -218,6 +220,35 @@ describe('los conflictos', () => {
     expect(onlyOverlaps([item('overlap'), item('overlap')])).toBe(true);
     expect(onlyOverlaps([item('overlap'), item('in_block')])).toBe(false);
     expect(onlyOverlaps([])).toBe(false);
+  });
+});
+
+describe('los conflictos en la vista previa', () => {
+  const occurrences = seriesOccurrences(weekly('2026-11-24', 3), '09:30', 30);
+  const at = (starts_at: string) => ({ starts_at, reason: 'overlap', message: 'Ocupado.' });
+
+  it('por el instante de inicio, con la Z de la API o con el desplazamiento', () => {
+    const found = conflictsByDay(occurrences, [
+      at('2026-12-01T12:30:00.000000Z'),
+      // Otra hora del 08/12: no es la de la serie, no se marca.
+      at('2026-12-08T13:00:00.000000Z'),
+    ]);
+
+    expect([...found.keys()]).toEqual(['2026-12-01']);
+    expect(conflictsByDay(occurrences, [at('2026-11-24T09:30:00-03:00')]).has('2026-11-24')).toBe(
+      true,
+    );
+    expect(conflictsByDay(occurrences, []).size).toBe(0);
+  });
+
+  it('el anuncio, en singular y en plural', () => {
+    expect(previewConflictText(0, 4)).toBe('');
+    expect(previewConflictText(1, 4)).toBe(
+      '1 de las 4 fechas no se puede dar: está marcada en la lista.',
+    );
+    expect(previewConflictText(3, 8)).toBe(
+      '3 de las 8 fechas no se pueden dar: están marcadas en la lista.',
+    );
   });
 });
 

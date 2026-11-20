@@ -405,6 +405,41 @@ describe('los conflictos de la serie', () => {
     expect(button('Dar la serie con sobreturnos')).toBeUndefined();
   });
 
+  it('la vista previa marca las fechas que chocan, con ícono y el motivo, y anuncia cuántas son', async () => {
+    await newSeries({ responses: [conflict(['overlap', 'in_block'])] });
+    fireEvent.change(labelled('Cantidad de turnos'), { target: { value: '4' } });
+    await submit();
+
+    await waitFor(() => {
+      expect(summary()).toBe(
+        '4 turnos, los martes a las 09:30, hasta el 15/12/2026. 2 de las 4 fechas no se pueden dar: están marcadas en la lista.',
+      );
+    });
+    expect(preview()).toEqual([
+      'Martes 24 de noviembre de 2026, 09:30 a 10:00',
+      'Martes 1 de diciembre de 2026, 09:30 a 10:00 No se puede dar: El horario ya está ocupado: elegí otro o dalo como sobreturno.',
+      'Martes 8 de diciembre de 2026, 09:30 a 10:00 No se puede dar: La agenda está bloqueada en ese horario.',
+      'Martes 15 de diciembre de 2026, 09:30 a 10:00',
+    ]);
+    const marked = document.querySelectorAll(
+      '.appointment-series-preview li.appointment-series-conflict',
+    );
+    expect(marked).toHaveLength(2);
+    // No solo color: cada una con su ícono (oculto al lector, que lee el texto).
+    marked.forEach((item) => {
+      expect(item.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    });
+
+    // Cada 2 semanas: del 409 queda solo el 08/12 (el instante); el 01/12 ya no está en la serie.
+    fireEvent.change(labelled('Cada cuántas semanas'), { target: { value: '2' } });
+    await waitFor(() => {
+      expect(summary()).toContain('1 de las 4 fechas no se puede dar: está marcada en la lista.');
+    });
+    expect(
+      document.querySelectorAll('.appointment-series-preview li.appointment-series-conflict'),
+    ).toHaveLength(1);
+  });
+
   it('sin appointments.overbook: el motivo, sin el botón', async () => {
     const me = meFor('recepcionista');
     await newSeries({
@@ -532,6 +567,38 @@ describe('cancelar con alcance', () => {
     await waitFor(() => {
       expect(app.actions).toEqual([{ cancellation_reason: 'Viaje', scope: 'single' }]);
     });
+  });
+
+  it('después de "Toda la serie", solo los detalles en caché de los otros turnos de la serie se vuelven a pedir', async () => {
+    const app = await openCancel();
+    const key = (id: number) => ['appointments', 'detail', id];
+    // En caché: otro turno de la serie y uno sin serie (como si se hubieran abierto antes).
+    app.queryClient.setQueryData(key(3), detail(inSeries(3, '2026-12-01')));
+    app.queryClient.setQueryData(key(99), detail(appointment(99, { day: '2026-12-01' })));
+    fireEvent.click(scopeInput('series'));
+    await waitFor(() => {
+      expect(count()).toContain('Se cancelan 4 turnos');
+    });
+    fireEvent.click(present(button('Cancelar 4 turnos', present(dialog()))));
+
+    await waitFor(() => {
+      expect(app.queryClient.getQueryState(key(3))?.isInvalidated).toBe(true);
+    });
+    expect(app.queryClient.getQueryState(key(99))?.isInvalidated).toBe(false);
+    // El pedido llega en la respuesta: se fija, no se vuelve a pedir.
+    expect(app.queryClient.getQueryState(key(2))?.isInvalidated).toBe(false);
+  });
+
+  it('con "Solo este turno", los otros turnos de la serie en caché no se tocan', async () => {
+    const app = await openCancel();
+    const key = ['appointments', 'detail', 3];
+    app.queryClient.setQueryData(key, detail(inSeries(3, '2026-12-01')));
+    fireEvent.click(present(button('Cancelar el turno', present(dialog()))));
+
+    await waitFor(() => {
+      expect(toastText()).toContain('Turno cancelado.');
+    });
+    expect(app.queryClient.getQueryState(key)?.isInvalidated).toBe(false);
   });
 
   it('un turno sin serie: sin el alcance ni el pedido de la serie, y el cuerpo sin scope', async () => {
