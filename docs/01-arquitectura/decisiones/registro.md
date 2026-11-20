@@ -4,7 +4,7 @@ Una sección por entrega o decisión, numerada `R-NNN` en orden correlativo (R-0
 registro y no coincide con la de las entregas de cada fase (0.1, 0.2…). Solo crece: las secciones viejas no se corrigen.
 
 Este archivo es el índice: una línea por decisión, con su fecha y su título. Cada decisión está en el archivo de su rango, de
-50 en 50 (`registro/R-001-050.md`, `registro/R-051-100.md`…). Una decisión nueva va al final del archivo de su rango (si no existe,
+50 en 50 ([`registro/R-001-050.md`](registro/R-001-050.md), [`registro/R-051-100.md`](registro/R-051-100.md), [`registro/R-101-150.md`](registro/R-101-150.md)…). Una decisión nueva va al final del archivo de su rango (si no existe,
 se crea) y suma su línea al final de esta tabla. El historial del handoff hasta R-090 está en
 [`historial-handoff.md`](../../03-plan-desarrollo/historial-handoff.md).
 
@@ -110,3 +110,4 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-098](registro/R-051-100.md#r-098-cierre-de-la-f3-del-frontend-agenda-y-turnos-2026-11-20) | 2026-11-20 | Cierre de la F3 del frontend (agenda y turnos) |
 | [R-099](registro/R-051-100.md#r-099-diseño-de-la-fase-4-del-backend-aprobado-historia-clínica-2026-11-20) | 2026-11-20 | Diseño de la FASE 4 del backend aprobado (historia clínica) |
 | [R-100](registro/R-051-100.md#r-100-cierre-de-la-entrega-41-del-backend-la-consulta-y-el-presupuesto-por-entrega-nuevo-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.1 del backend (la consulta) y el presupuesto por entrega nuevo |
+| [R-101](registro/R-101-150.md#r-101-cierre-de-la-entrega-42-del-backend-cierre-enmiendas-y-anulación-de-la-consulta-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.2 del backend (cierre, enmiendas y anulación de la consulta) |

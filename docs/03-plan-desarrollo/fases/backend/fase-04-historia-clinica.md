@@ -1,8 +1,8 @@
 # FASE 4 — Historia clínica
 
 Etapa: Atención. Estado: **DISEÑO APROBADO** el 2026-11-20 (R-099), en `feature/back-4-diseno` (desde `main` en `6fb4805`, con la
-F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. La entrega 4.1 (la consulta),
-COMPLETADA (R-100) en `feature/back-4-1-consulta`; sigue la 4.2. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
+F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. Las entregas 4.1 (la consulta,
+R-100) y 4.2 (cierre, enmiendas y anulación, R-101), COMPLETADAS; sigue la 4.3. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
 El estado vigente de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
@@ -323,8 +323,8 @@ corrección van en la 4.2, antes que los ítems, porque son la integridad de lo 
 | Entrega | Contenido | Migraciones | Tests (principales) | Newman | Estado |
 |---|---|---|---|---|---|
 | 4.1 | La consulta: abrir desde un turno fichado (y marcarlo atendido), desde uno atendido el mismo día o sin turno; editar abierta; listado y detalle (el Resource administrativo sin `consultations.show-clinical`); `consultation` en el detalle del turno y `has_consultation` en el listado y la cola; `consultations.show-clinical` y el comando `permissions:sync`; `postman:cleanup` borra las consultas de la corrida | La de C7 y C3 | `ConsultationStoreTest` (desde el turno, ya atendido hoy y otro día, con consulta, otro veterinario, fallecido, sin sucursal), `ConsultationUpdateTest` (otra ficha, límites), `ConsultationIndexTest` y `ConsultationShowTest` (filtros, N+1; la vista completa del administrador y del veterinario, la administrativa de la recepción), `ConsultationLockTest` y `ConsultationConcurrencyTest` (dos aperturas del mismo turno: una 201, otra 409; solo MySQL), `PermissionsSyncCommandTest`, `RoleAccessTest`, `RouteBindingTest`, `ClinicIsolation`, la foto de los roles | `syncvet-fase-04-consultas` (nueva) | COMPLETADO (R-100, [resultado](fase-04-resultados.md#entrega-41)), en `feature/back-4-1-consulta` |
-| 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | PENDIENTE (la siguiente) |
-| 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | PENDIENTE |
+| 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | COMPLETADO (R-101, [resultado](fase-04-resultados.md#entrega-42)), en `feature/back-4-2-cierre` |
+| 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | PENDIENTE (la siguiente) |
 | 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | PENDIENTE |
 | 4.5 | Los adjuntos | — | `ConsultationAttachmentTest` (el tipo por el contenido con una extensión que miente, el tamaño, el tope por consulta, la descarga con y sin permiso, el disco privado, `files:prune-orphans`) | La de consultas | PENDIENTE |
 | 4.6 | El historial del paciente | — | `PatientHistoryTest` (consultas y aplicaciones juntas, orden, paginación, anuladas marcadas, el peso de cada consulta, fallecido visible, la vista de la recepción, N+1) | La de aplicaciones | PENDIENTE |
@@ -341,46 +341,8 @@ Nada: la 4.1 quedó cerrada en R-100 ([resultado](fase-04-resultados.md#entrega-
 
 ### 4.2 — Pendiente para el cierre
 
-Implementada en `feature/back-4-2-cierre` (desde `9e7c478`, commit WIP, 2026-11-20); falta la revisión (con la corrida completa,
-R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 82 → 85 (`POST consultations/{consultation}/close`,
-`/amendments` y `/cancel`); permisos 136 → 136 (`consultations.amend` nuevo, `consultations.reopen` fuera); migraciones 37 → 38
-(`create_consultation_amendments_table`). Las reglas, en [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
-
-Desvíos y precisiones (para revisar en el cierre):
-
-1. **El peso no pasa a un paciente fallecido:** la regla del paciente (§6.2) solo deja cambiar su fecha y sus notas; la consulta se
-   cierra igual.
-2. **Cerrar bloquea el paciente antes que la consulta** (§3, paciente → consulta), para copiar el peso sin invertir el orden.
-3. **`CONSULTATION_AMENDMENT_IMMUTABLE`** (409), un `error_code` nuevo que no estaba en el diseño: lo lanza el modelo si algo intenta
-   editar o borrar una enmienda (como `AUDIT_LOG_IMMUTABLE`); ninguna ruta lo dispara.
-4. **La enmienda responde 201 con el detalle de la consulta** (con `amendments`), no con la enmienda sola.
-5. **`field`** acepta los campos que se editan en una abierta (`consulted_at` incluido) o `null`.
-6. **Anular** pasa a `no_charge` solo los ítems `pending`; uno facturado no se toca (desde la FASE 8 impedirá anular).
-7. **`postman:cleanup`** borra las enmiendas de la corrida con el constructor de consultas (sin auditoría), antes que sus consultas: el
-   modelo no se borra.
-8. **Tests:** `ConsultationImmutabilityTest` (cada escritura con una cerrada o anulada: PATCH, PUT y cerrar), además de los previstos;
-   `RouteBindingTest` suma las tres rutas; `PostmanCleanupCommandTest`, una enmienda en la corrida.
-
-**Pendiente de la 4.4:** al anular una consulta, sus aplicaciones se anulan con ella (pregunta 12), cuando exista la anulación de
-aplicaciones. La 4.2 no lo adelanta.
-
-Validación de la implementación (2026-11-20, R-100: sin la suite completa, que va en la revisión): los tests relacionados, 233 casos
-(3 omitidos de MySQL) con 3 fallas de la comparación del peso en SQLite (el test comparaba texto), corregidas y repetido su archivo
-(`ConsultationCloseTest`, 9 de 9). MySQL, los tests afectados (con la migración y el bloqueo de cerrar y anular): 60 de 60, 397
-aserciones. Newman, `syncvet-fase-04-consultas` ampliada: 45 pedidos y 84 aserciones, sin fallas; la limpieza, sin datos residuales.
-`permissions:sync` en la base local: `consultations.reopen` desaparece y `consultations.amend` queda en el administrador y el
-veterinario, no en la recepción. Mutaciones: cerrar sin diagnóstico (la detecta `ConsultationCloseTest`, "sin diagnóstico" y "sin los
-dos") y el PATCH sobre una cerrada (`ConsultationImmutabilityTest`, PATCH y PUT de una cerrada y de una anulada, y
-`ConsultationUpdateTest`).
-
-Revisión (2026-11-20): el orden de bloqueo de cerrar, editar, enmendar y anular es el de la 4.1 y el del cambio de dueño (paciente →
-consulta → ítem), sin ciclos; `ConsultationLockTest` suma la enmienda. Ya estaban los tests de enmendar una anulada (422
-`CONSULTATION_NOT_AMENDABLE`) y de la recepción sin las enmiendas. `postman:cleanup` borra las enmiendas solo después de su guardia
-(`APP_ENV=local` y la base `syncvet`); el test de la negativa suma las enmiendas y las consultas. `consultas.md`: anular una cerrada
-no revierte el peso. Del punto 9 del informe: `composer test` usa SQLite (`database/testing.sqlite`, `phpunit.xml`) y `composer
-test:mysql`, `syncvet_test_mysql`; `backend/CLAUDE.md` suma la regla de no migrar "para los tests"; la base local, intacta (2
-clínicas, los 6 usuarios de la demo, las 5 agendas "Demo" y 310 turnos). `composer test`: 1631 casos, 1613 en verde, 18 omitidos (de
-MySQL), 16085 aserciones, en una sola corrida.
+Nada: la 4.2 quedó cerrada en R-101 ([resultado](fase-04-resultados.md#entrega-42), con los desvíos, la validación y lo pendiente de
+la 4.4: las aplicaciones de una consulta anulada se anulan con ella).
 
 ## Preguntas del diseño
 
