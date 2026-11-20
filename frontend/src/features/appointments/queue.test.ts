@@ -3,7 +3,7 @@ import { appointment, block } from '../../test/appointments';
 import { appointmentKeys } from './api';
 import {
   buildQueue,
-  durationText,
+  waitingDuration,
   patientKind,
   queueChanges,
   queueFilters,
@@ -172,10 +172,10 @@ describe('la espera de los fichados', () => {
   });
 
   it('los textos de la duración', () => {
-    expect(durationText(0)).toBe('menos de 1 min');
-    expect(durationText(59)).toBe('59 min');
-    expect(durationText(60)).toBe('1 h');
-    expect(durationText(65)).toBe('1 h 05 min');
+    expect(waitingDuration(0)).toBe('menos de 1 min');
+    expect(waitingDuration(59)).toBe('59 min');
+    expect(waitingDuration(60)).toBe('1 h');
+    expect(waitingDuration(65)).toBe('1 h 05 min');
   });
 
   it('la especie y la raza del paciente; sin paciente, vacío', () => {

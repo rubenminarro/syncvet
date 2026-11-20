@@ -57,7 +57,7 @@ export interface QueueRow {
 }
 
 /** "menos de 1 min", "14 min", "1 h" o "1 h 05 min". */
-export function durationText(minutes: number): string {
+export function waitingDuration(minutes: number): string {
   if (minutes < 1) {
     return 'menos de 1 min';
   }
@@ -98,7 +98,7 @@ export function waitingText(
     Math.floor((now.getTime() - new Date(appointment.checked_in_at).getTime()) / 60_000),
   );
 
-  return `Esperando desde las ${since} (${durationText(minutes)})`;
+  return `Esperando desde las ${since} (${waitingDuration(minutes)})`;
 }
 
 /** La especie y la raza del paciente ("Canino · Mestizo"), o vacío. */

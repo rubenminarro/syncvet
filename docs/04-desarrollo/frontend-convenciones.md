@@ -136,9 +136,11 @@ su [§5](../../frontend/CLAUDE.md#5-convenciones)). Si una convención contradic
   * **La fecha va siempre en la URL** (`fecha`, en `TEXT_SEARCH_PARAMS`), también la de hoy: "hoy" cambia a la medianoche y un
     enlace copiado mostraría otro día (la excepción a "los valores por defecto no van en la URL").
   * **La actualización periódica, con pausa común** (`src/lib/hooks/auto-refresh.ts`): lo que se vuelve a pedir cada 60 s lee
-    `useAutoRefreshPaused()` y pasa `refetchInterval: false` en pausa; cada diálogo o formulario abierto suma una pausa con
-    `usePauseAutoRefresh(abierto)` (ya lo hace `ConfirmDialog`) y la pestaña oculta pausa sola. La actualización no anuncia nada ni
-    mueve el foco.
+    `useAutoRefreshPaused()` y arma su consulta con `autoRefreshQueryOptions(paused)` (el intervalo, nada en segundo plano y la
+    vuelta a la pestaña: con lo traído viejo, se pide enseguida, salvo con un diálogo abierto); cada diálogo o formulario abierto
+    suma una pausa con `usePauseAutoRefresh(abierto)` (ya lo hace `ConfirmDialog`) y la pestaña oculta pausa sola. El
+    `refetchOnWindowFocus: false` del cliente sigue para todo lo demás. La actualización no anuncia nada ni mueve el foco (la
+    cola, la 3.7, anuncia solo lo que cambió).
 * **Sesión** (0.2a, R-061; el diseño, en [Sesión (0.2)](../03-plan-desarrollo/fases/frontend/f0-base.md#sesión-02)): el
   token y `expires_at` solo en `sessionStorage` (`syncvet.session`), nunca en `localStorage`, la URL ni el log; `me` en la caché de
   Query (`['me']`). Todo pasa por el `SessionManager` (`src/lib/auth/session.ts`), creado una vez por pestaña en `main.tsx`: los

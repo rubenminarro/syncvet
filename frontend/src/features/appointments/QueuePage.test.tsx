@@ -394,6 +394,129 @@ describe('/agenda/cola: sin sucursal actual', () => {
   });
 });
 
+describe('/agenda/cola: el cambio de sucursal', () => {
+  it('con la cola abierta: ni filas de la anterior mientras llega la nueva, ni un pedido con la clave vieja', async () => {
+    const north = { id: 11, code: 'NOR', name: 'Sucursal norte' };
+    const base = meFor('recepcionista');
+    let me: Me = { ...base, branches: [...base.branches, north] };
+    const recorded: { at: string; branch: number }[] = [];
+    let releaseNorth: () => void = () => undefined;
+    const northReady = new Promise<void>((resolve) => {
+      releaseNorth = resolve;
+    });
+    const NORTH_QUEUE = [
+      queued(50, { at: '08:00', contact_name: 'Nora Norte', patient: null, client: null }),
+    ];
+
+    server.use(
+      http.get('/api/me', () => success(me)),
+      http.patch('/api/me/current-branch', () => {
+        me = { ...me, current_branch: north };
+
+        return success(me);
+      }),
+      http.get('/api/appointments/queue', async () => {
+        const branch = me.current_branch?.id ?? 0;
+        recorded.push({ at: 'queue', branch });
+
+        if (branch === north.id) {
+          await northReady;
+        }
+
+        return success(branch === north.id ? NORTH_QUEUE : RECEPTION_QUEUE, {
+          meta: {
+            date: '2026-11-17',
+            branch_id: branch,
+            veterinarian_id: null,
+            includes_unassigned: false,
+            truncated: false,
+          },
+        });
+      }),
+      http.get('/api/schedules/:id/blocks', () => success([], { meta: pagination({ total: 0 }) })),
+    );
+    const { queryClient } = renderApp('/agenda/cola', { session: sessionFor() });
+    await waitFor(() => {
+      expect(rows()).toHaveLength(4);
+    });
+
+    const selector = document.querySelector<HTMLSelectElement>('.branch-selector');
+    expect(selector).not.toBeNull();
+    fireEvent.change(selector ?? document.body, { target: { value: '11' } });
+
+    // La nueva todavía no llegó: la cola de Casa central ya no se ve.
+    await waitFor(() => {
+      expect(recorded.filter((item) => item.branch === north.id)).toHaveLength(1);
+    });
+    expect(rows()).toHaveLength(0);
+    expect(document.body.textContent).toContain('Cargando la cola…');
+
+    releaseNorth();
+    await waitFor(() => {
+      expect(rowText(50)).toContain('Nora Norte');
+    });
+    expect(rows()).toHaveLength(1);
+    // Un solo pedido después del cambio (el de la clave nueva), y la clave vieja conserva la cola de su sucursal.
+    expect(recorded).toEqual([
+      { at: 'queue', branch: 10 },
+      { at: 'queue', branch: 11 },
+    ]);
+    const old = queryClient.getQueriesData<{ items: QueueAppointment[] }>({
+      queryKey: ['branch', 10, 'appointments', 'queue'],
+    });
+    expect(old.flatMap(([, value]) => value?.items.map((item) => item.id) ?? [])).toEqual([
+      1, 2, 3, 4,
+    ]);
+  });
+});
+
+describe('/agenda/cola: una respuesta de otra sucursal', () => {
+  it('la sucursal cambió en otra pestaña antes del aviso: la cola de la otra no se muestra y se vuelve a pedir me', async () => {
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+      toFake: ['setInterval', 'clearInterval', 'Date'],
+      now: NOW,
+    });
+    let otherBranch = false;
+    let meRequests = 0;
+    await openQueue('/agenda/cola', {
+      queueResponse: () =>
+        success(
+          otherBranch
+            ? [queued(50, { at: '08:00', patient: null, client: null, contact_name: 'Nora Norte' })]
+            : RECEPTION_QUEUE,
+          {
+            meta: {
+              date: '2026-11-17',
+              branch_id: otherBranch ? 11 : 10,
+              veterinarian_id: null,
+              includes_unassigned: false,
+              truncated: false,
+            },
+          },
+        ),
+    });
+    server.use(
+      http.get('/api/me', () => {
+        meRequests += 1;
+
+        return success(meFor('recepcionista'));
+      }),
+    );
+
+    otherBranch = true;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    await waitFor(() => {
+      expect(meRequests).toBe(1);
+    });
+    expect(rows()).toHaveLength(4);
+    expect(row(50)).toBeNull();
+  });
+});
+
 describe('/agenda/cola: las acciones', () => {
   it('fichar: el pedido, el aviso, la fila con su estado, solo la cola vuelta a pedir y el foco en la fila', async () => {
     const { recorded } = await openQueue();
@@ -492,6 +615,29 @@ describe('/agenda/cola: las acciones', () => {
     });
     await waitFor(() => {
       expect(document.activeElement).toBe(row(3)?.querySelector('.queue-row-title'));
+    });
+  });
+
+  it('si sale la última fila de la cola, el foco va al aviso sin turnos (no al body)', async () => {
+    let current = RECEPTION_QUEUE.filter((item) => item.id === 3);
+    await openQueue('/agenda/cola', {
+      queue: () => current,
+      actionResponse: () => {
+        current = [];
+
+        return failure(404, 'RESOURCE_NOT_FOUND', 'El turno no existe.');
+      },
+    });
+    const fichar = buttonIn(row(3), 'Fichar');
+    fichar.focus();
+    fireEvent.focus(fichar);
+    fireEvent.click(fichar);
+
+    await waitFor(() => {
+      expect(document.querySelector('.queue-empty')?.textContent).toBe(QUEUE_EMPTY_MESSAGE);
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(document.querySelector('.queue-empty'));
     });
   });
 });

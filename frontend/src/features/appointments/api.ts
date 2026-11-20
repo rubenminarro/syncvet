@@ -2,6 +2,9 @@ import { keepPreviousData, queryOptions, type QueryClient } from '@tanstack/reac
 import { api, getPage } from '../../lib/api/client';
 import type { Page } from '../../lib/api/types';
 import { branchKey, BRANCH_SCOPE } from '../../lib/api/query-keys';
+import { autoRefreshQueryOptions } from '../../lib/hooks/auto-refresh';
+import { authKeys } from '../auth/api';
+import type { Me } from '../auth/types';
 import type { Patient } from '../patients/types';
 import type { Schedule, ScheduleBlock } from '../schedules/types';
 import type {
@@ -20,10 +23,10 @@ import type {
  */
 export const RANGE_PER_PAGE = 500;
 
-/** Cada cuánto se vuelve a pedir la agenda con la pestaña visible y sin un diálogo abierto (pregunta 9). */
-export const AUTO_REFRESH_MS = 60_000;
-
-/** Cuánto vale lo traído antes de pedirlo otra vez al volver (diseño de la F3, "Actualización"). */
+/**
+ * Cuánto vale lo traído antes de pedirlo otra vez al volver a la pestaña (diseño de la F3, "Actualización"); el intervalo y la
+ * vuelta, en `autoRefreshQueryOptions` (`lib/hooks/auto-refresh.ts`).
+ */
 export const AGENDA_STALE_MS = 30_000;
 
 /** Las agendas de una sucursal, para las columnas y los filtros: las activas, en un pedido (son pocas por sucursal). */
@@ -78,11 +81,6 @@ export interface AppointmentRange {
   total: number;
 }
 
-/** El intervalo de la actualización: 60 s, o ninguno en pausa (un diálogo abierto o la pestaña oculta). */
-export function refreshInterval(paused: boolean): number | false {
-  return paused ? false : AUTO_REFRESH_MS;
-}
-
 /**
  * GET appointments?branch_id=&from=&to=&per_page=500: todos los estados (también los cancelados: el filtro va en el
  * navegador, H2). `from` y `to` como fechas solas (la API las toma como días enteros de Asunción, también uno de 23 o 25
@@ -105,8 +103,7 @@ export function appointmentRangeQueryOptions(
       return { items: page.items, total: page.pagination.total };
     },
     staleTime: AGENDA_STALE_MS,
-    refetchInterval: refreshInterval(paused),
-    refetchIntervalInBackground: false,
+    ...autoRefreshQueryOptions(paused),
     placeholderData: keepPreviousData,
   });
 }
@@ -114,18 +111,40 @@ export function appointmentRangeQueryOptions(
 /**
  * GET appointments/queue?date=&all=1 (3.7): la cola del día de la **sucursal actual del usuario** (la API no recibe la
  * sucursal: la clave la lleva con `branchKey`, así el cambio de sucursal la invalida y no se mezclan dos). Sin paginar (hasta
- * 200, `meta.truncated`). Se actualiza como la agenda (cada 60 s, con la pausa) y, además, al volver a la pestaña si pasaron
- * más de 30 s (`refetchOnWindowFocus`, que el cliente apaga por defecto). `all` va solo si es true (sin él, la API da la
- * vista por defecto).
+ * 200, `meta.truncated`). Se actualiza como la agenda (`autoRefreshQueryOptions`: cada 60 s y al volver a la pestaña, con la
+ * pausa). `all` va solo si es true (sin él, la API da la vista por defecto).
+ *
+ * El cambio de sucursal (revisión de la 3.7): mientras llega la cola de la nueva, no se muestra la de la anterior. Como la API
+ * responde por la sucursal **actual** del servidor y no por la de la clave, la clave de otra sucursal que la de `me` no se
+ * pide (la invalidación del cambio puede llegar antes de que la pantalla pase a la clave nueva) y una respuesta de otra
+ * sucursal (la cambió otra pestaña y el aviso todavía no llegó) no se guarda con esta clave: queda lo que había y se vuelve a
+ * pedir `me`.
  */
 export function appointmentQueueQueryOptions(
   branchId: number,
   filters: QueueFilters,
   paused: boolean,
 ) {
+  const queryKey = appointmentKeys.queue(branchId, filters);
+
   return queryOptions({
-    queryKey: appointmentKeys.queue(branchId, filters),
-    queryFn: async ({ signal }): Promise<AppointmentQueue> => {
+    queryKey,
+    queryFn: async ({ signal, client }): Promise<AppointmentQueue> => {
+      const kept = () => {
+        const data = client.getQueryData<AppointmentQueue>(queryKey);
+
+        if (data === undefined) {
+          throw new Error('La sucursal actual cambió: la cola se pide con la clave nueva.');
+        }
+
+        return data;
+      };
+
+      // `me` ya dice otra sucursal (`applyBranchChange` invalida antes de que la pantalla pase a la clave nueva): ni se pide.
+      if (client.getQueryData<Me>(authKeys.me)?.current_branch?.id !== branchId) {
+        return kept();
+      }
+
       const response = await api.get<QueueAppointment[]>('appointments/queue', {
         signal,
         query: {
@@ -136,6 +155,12 @@ export function appointmentQueueQueryOptions(
         },
       });
       const meta = (response.meta ?? {}) as Partial<QueueMeta>;
+
+      if (meta.branch_id !== undefined && meta.branch_id !== branchId) {
+        void client.invalidateQueries({ queryKey: authKeys.me });
+
+        return kept();
+      }
 
       return {
         items: response.data,
@@ -149,10 +174,10 @@ export function appointmentQueueQueryOptions(
       };
     },
     staleTime: AGENDA_STALE_MS,
-    refetchInterval: refreshInterval(paused),
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
-    placeholderData: keepPreviousData,
+    ...autoRefreshQueryOptions(paused),
+    // Otro día o "Ver toda la sucursal": la cola anterior hasta que llega la nueva; otra sucursal, nunca.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === branchId ? previous : undefined,
   });
 }
 
@@ -190,8 +215,7 @@ export function rangeBlocksQueryOptions(
         })
       ).items,
     staleTime: AGENDA_STALE_MS,
-    refetchInterval: refreshInterval(paused),
-    refetchIntervalInBackground: false,
+    ...autoRefreshQueryOptions(paused),
   });
 }
 
@@ -238,8 +262,7 @@ export function appointmentListQueryOptions(
         },
       }),
     staleTime: AGENDA_STALE_MS,
-    refetchInterval: refreshInterval(paused),
-    refetchIntervalInBackground: false,
+    ...autoRefreshQueryOptions(paused),
     placeholderData: keepPreviousData,
   });
 }

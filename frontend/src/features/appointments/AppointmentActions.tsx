@@ -298,7 +298,8 @@ export function AppointmentActions({
           </Button>
         ))}
         {hints.length > 0 ? (
-          <div id={hintsId} className="small text-secondary appointment-transition-hints">
+          // Todo el ancho: los motivos siempre debajo de los botones, nunca a su lado (revisión de la 3.7, a 1280 px).
+          <div id={hintsId} className="w-100 small text-secondary appointment-transition-hints">
             {hints.map(({ transition, disabledReason, needsPatient }) => (
               <div key={transition.name}>
                 {transition.label}: {disabledReason}
