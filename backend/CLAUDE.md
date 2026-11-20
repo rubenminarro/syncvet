@@ -24,8 +24,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Stack:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`); MySQL 8, una base compartida por todas las clínicas, con `clinic_id`, scope global y fallo cerrado (D1: R-002, R-004 y R-007).
-* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03 y demo-02, cerradas sin integrar (R-088 y R-090: se integran con la F3 del frontend). Después de la F3 del frontend, la FASE 4.
-* **Hoy:** 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de demo-02, 1496 casos (14891 aserciones en SQLite, 16 omitidos de MySQL).
+* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04, cerradas sin integrar (R-088, R-090 y R-095: se integran con la F3 del frontend). Después de la F3 del frontend, la FASE 4.
+* **Hoy:** 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de front-04, 1501 casos (14939 aserciones en SQLite, 16 omitidos de MySQL).
 * **Dónde seguir:** el punto de continuidad y las próximas tareas, en el [handoff](../docs/03-plan-desarrollo/handoff.md); cada módulo, en [`modulos.md`](../docs/03-plan-desarrollo/modulos.md); los comandos (`clinic:create`, `DemoSeeder`, `demo:agenda`, `files:prune-orphans`), en [`setup.md`](../docs/04-desarrollo/setup.md).
 * **Detalle hasta R-090** (las carpetas de tests, los módulos con API y los comandos, como estaban en esta sección): [`historial-handoff.md`](../docs/03-plan-desarrollo/historial-handoff.md#estado-del-backend-backendclaudemd-1-hasta-r-090).
 
