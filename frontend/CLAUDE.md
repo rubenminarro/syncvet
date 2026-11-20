@@ -8,9 +8,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2, demo-02, la 3.3 y la 3.4 (R-086 a R-090, R-092 y R-093), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | La 3.4 (el turno: detalle, alta, edición y reprogramación), cerrada en `feature/front-3-4-turno` (R-093); sigue la 3.5 (los estados del turno, [diseño](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#35-los-estados-del-turno)), sin código hasta la autorización del usuario |
-| Tests | Vitest: 1650 tests en 79 archivos, en verde (cierre de la 3.4, R-093, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-34)); Playwright: 38 casos en 19 archivos; la corrida completa, al cerrar la F3 |
+| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2, demo-02, la 3.3, la 3.4 y la 3.5 (R-086 a R-090 y R-092 a R-094), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
+| Entrega | La 3.5 (los estados del turno), cerrada en `feature/front-3-5-estados` (R-094); sigue la 3.6 (las series, [diseño](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#36-las-series)), sin código hasta la autorización del usuario |
+| Tests | Vitest: 1721 tests en 82 archivos, en verde (cierre de la 3.5, R-094, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-35)); Playwright: 41 casos en 20 archivos; la corrida completa, al cerrar la F3 |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
 [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend); el resultado de cada entrega, en el `fN-resultados.md` de su fase;
@@ -99,6 +99,8 @@ Las reglas duras, una por línea; el detalle y los ejemplos de cada una, en
 * **Después de borrar o mover un registro hijo**, `resetQueries` de lo que lo mostraba (no invalidar).
 * **Fechas siempre en `America/Asuncion`** (`src/lib/format/dates.ts`, `toApiDateTime`); guaraníes con `formatGuaranies`; un valor vacío o inválido se muestra vacío.
 * **La agenda**: las fechas en `features/appointments/dates.ts`, la grilla pura en `grid.ts`, la fecha siempre en la URL y la actualización con la pausa común.
+* **Los estados del turno**: las acciones salen de `features/appointments/transitions.ts` (espejo de `AppointmentTransition`, con su test contra el backend; deuda 27) y se dibujan con `AppointmentActions`; el estado se muestra siempre con `StatusLabel` (ícono y texto, nunca solo color).
+* **Textos contra las reglas de largo de la API**: `trimLikeApi` y `apiLength` (`src/lib/format/text.ts`, el recorte de `TrimStrings`), no `trim()` (deuda 28).
 * **Sesión**: el token solo en `sessionStorage`; todo pasa por el `SessionManager`.
 * **Permisos**: `can` y `useCan`, `requirePermission` en cada ruta con permiso; la API vuelve a controlar todo; los tests, con los permisos reales de los roles.
 * **Sucursal actual**: `applyBranchChange` vuelve a pedir `me` e invalida solo las consultas de la sucursal.
@@ -138,6 +140,7 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 | 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta una vez por paquete: 9 al cerrar la F1); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
 | 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
 | 27 | Estados del turno: las reglas de `transitions.ts` (turno ajeno, el día, la hora del ausente, el paciente, deshacer el ausente) copian las del backend sin un test que falle si cambian (la tabla, las rutas y los permisos sí lo tienen). Se resuelve al cerrar la F3 | Media |
+| 28 | Formularios: las reglas de largo y de obligatorio recortan con `trim()`, que deja invisibles que la API recorta (U+200B, U+3164…); solo el motivo de la cancelación usa `trimLikeApi`. Se pasan al cerrar la F3, con la 27 | Baja |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
 [resultado](../docs/03-plan-desarrollo/fases/frontend/f0-resultados.md#entrega-01).

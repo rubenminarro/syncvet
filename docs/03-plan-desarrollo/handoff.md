@@ -11,12 +11,12 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-19 (R-093: cierre de la 3.4 del frontend, el turno: detalle, alta, edición y reprogramación) |
-| Rama | `feature/front-3-4-turno`, desde el cierre de la 3.3 (`2dcea6d`), con la 3.4 cerrada |
-| Sin integrar a `main` | Las ramas de la F3 del frontend (3.1a a 3.4) y las del backend front-03 y demo-02: se integran al cerrar la F3 |
-| Último checkpoint validado | La 3.4 del frontend (R-093), el 2026-11-19 ([resultado](fases/frontend/f3-resultados.md#entrega-34)) |
+| Actualizado | 2026-11-20 (R-094: cierre de la 3.5 del frontend, los estados del turno) |
+| Rama | `feature/front-3-5-estados`, desde el cierre de la 3.4 (`d067957`), con la 3.5 cerrada |
+| Sin integrar a `main` | Las ramas de la F3 del frontend (3.1a a 3.5) y las del backend front-03 y demo-02: se integran al cerrar la F3 |
+| Último checkpoint validado | La 3.5 del frontend (R-094), el 2026-11-20 ([resultado](fases/frontend/f3-resultados.md#entrega-35)) |
 | Tests del backend | Cierre de demo-02 (R-090), sobre `93e6fcd`: `composer test`, 1496 casos, 16 omitidos (solo de MySQL), 14891 aserciones, en verde |
-| Tests del frontend | Cierre de la 3.4 (R-093), sobre `4f2e2ba`: `npm test` del frontend, 1650 tests en 79 archivos, en verde; Playwright, 38 casos en 19 archivos |
+| Tests del frontend | Cierre de la 3.5 (R-094), sobre `d0f3ad2`: `npm test` del frontend, 1721 tests en 82 archivos, en verde; Playwright, 41 casos en 20 archivos |
 | Repositorio | Monorepo (R-057): `backend/`, `frontend/` y `docs/`; Claude Code, las skills y Newman, desde la raíz |
 | Historial | Cada entrega, en el `…-resultados.md` de su fase y en su R del [registro](../01-arquitectura/decisiones/registro.md); este handoff hasta R-090, en [`historial-handoff.md`](historial-handoff.md) |
 
@@ -35,7 +35,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** La 3.5 del frontend, los estados del turno ([diseño](fases/frontend/f3-agenda.md#35-los-estados-del-turno)), en una rama nueva desde el cierre de la 3.4, con el tachado de los cancelados que pidió el usuario en la 3.4 (en su "Pendiente para el cierre"); los datos de la demo, con `php artisan demo:agenda` ([`setup.md`](../04-desarrollo/setup.md#agenda-de-la-demo-demoagenda)) | La autorización del usuario (aprobada en el diseño, R-085) |
+| 2 | **Siguiente.** La 3.6 del frontend, las series ([diseño](fases/frontend/f3-agenda.md#36-las-series)), en una rama nueva desde el cierre de la 3.5; los datos de la demo, con `php artisan demo:agenda` ([`setup.md`](../04-desarrollo/setup.md#agenda-de-la-demo-demoagenda)). Al cerrar la F3, las deudas 27 y 28 ([deuda técnica](deuda-tecnica.md)) | La autorización del usuario (aprobada en el diseño, R-085) |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |
 | 5 | Opcional: verificar el desvío 16 de la 1.1 (dos pedidos iguales al entrar a `/clientes?buscar=…` con `npm run dev`; probablemente el doble efecto del `StrictMode` de React en desarrollo) con `npm run build` y `npm run preview` | Ninguno |
