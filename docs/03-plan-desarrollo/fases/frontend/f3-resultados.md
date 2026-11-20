@@ -1234,3 +1234,77 @@ los bloqueos por agenda para el cierre de la F3, pidió registrar el incidente d
 sucursal, la revisión y este cierre.
 
 Corrida de `npm test` del frontend (2026-11-20): 1814 tests en 86 archivos, en verde.
+
+### Cierre de la F3
+
+Estado: **EN CURSO** (2026-11-20), en `feature/f3-cierre`, desde `1aa2a82` (el cierre de la 3.7). Sin pantallas nuevas: las deudas
+27 y 28, la limpieza de Newman, el EXPLAIN del listado con `series_id` y la regresión completa antes del merge a `main` (sin hacer
+todavía). Commits WIP: `f5d1e96` (las deudas 27 y 28, `postman:cleanup` y `newman-todas.mjs`), `540b85b` (la limpieza toma lo dado
+de baja, los depósitos y los tokens), `5854e76` (la sucursal fija no queda sin depósito por defecto) y el de esta sección.
+
+**Lo hecho.**
+
+* **Deuda 27.** `backend/tests/Fixtures/appointment-transitions.json`: los estados (si ocupan el horario y si se editan) y cada
+  transición con sus orígenes, su destino, el tramo de su ruta, su permiso y los roles que lo tienen. La arma y la controla
+  `AppointmentTransitionsSnapshotTest` (2 casos) desde el enum, las rutas, el middleware de `AppointmentTransitionController` y los
+  roles sembrados; se vuelca con `UPDATE_TRANSITIONS_SNAPSHOT=1`. `transitions.test.ts` la lee (3 casos nuevos, en lugar de los 2
+  que leían el PHP con expresiones regulares). La división (la tabla, en la foto; las reglas del servicio, en los tests del backend),
+  en `frontend-convenciones.md`.
+* **Deuda 28.** `trimLikeApi` en los `form.ts` de `appointments` (el contacto, la duración y la serie, también `series.ts`),
+  `branches`, `clients`, `patients` (también `deceased.ts`), `schedules` (también `blocks.ts`), `services`, `settings`, `users` y
+  `veterinarians`, en `species/name.ts` (`.overwrite(trimLikeApi)` en Zod), `audit/filters.ts` y `normalizeSearchText` (que además
+  corta en puntos de código). Un test por formulario con U+200B al borde (13 archivos tocados y 2 nuevos: `audit/filters.test.ts` y
+  `lib/search-text.test.ts`). ESLint: `NO_TRIM` en `no-restricted-syntax` prohíbe `trim()`, `trimStart()` y `trimEnd()` en `src`
+  (salvo `src/lib/api/client.ts`, los tests y `e2e/`); las clases, con `classNames` (`src/lib/class-names.ts`, 6 componentes).
+* **Newman sin datos.** `php artisan postman:cleanup <corrida> [--tokens-since=] [--dry-run]` (7 casos en
+  `PostmanCleanupCommandTest`) y `docs/05-pruebas/newman-todas.mjs`; cada colección copia su `run` a la global `postman_run` (una
+  línea por colección). El detalle, en la [guía de Postman](../../../05-pruebas/guia-postman.md).
+* **EXPLAIN** (MySQL 8.4.3, base de desarrollo, 396 turnos, 80 con serie), la consulta que arma Eloquent con el scope de la
+  clínica: la serie entera y la serie con un mes de fechas, el conteo y la página, los cuatro con `type=ref` y
+  `key=appointments_series_id_index` (4 filas estimadas; la página, con `filesort` sobre esas filas). Usa el índice: sin migración.
+* **El turno 1932**, incidente cerrado: sigue "a confirmar" (`updated_at` 2026-11-20 09:10:51) y el último registro de auditoría
+  dice "confirmado"; no se tocaron ni la base ni la auditoría. La corrida 169748 que lo creó tampoco se limpió (es anterior a la
+  limpieza): sus 3 turnos de hoy siguen en Casa central.
+* **npm audit**: los mismos 9 avisos moderados de `minimatch` (deuda 19); ahora npm ofrece `typescript-eslint@8.73.0`, fuera del
+  rango de `package.json`: no se actualizó (se consulta al usuario). `composer audit`, sin avisos.
+* **Deudas registradas sin implementar:** la 26 (ya estaba) y la 29 (los bloqueos de la cola, un pedido por agenda).
+
+**Regresión** (sobre `5854e76`, salvo lo indicado):
+
+| Paso | Resultado |
+|---|---|
+| Newman, las 14 colecciones con limpieza (`newman-todas.mjs`, servidor propio en `:8001`, detenido por su tarea) | 491 pedidos, 1090 aserciones, 0 fallas. Turnos de hoy antes y después: 34 y 34 (los mismos por agenda); agendas, turnos, clientes, pacientes, servicios, fichas, especies, razas, sucursales, depósitos y tokens, iguales; usuarios, +7 dados de baja (a propósito); auditoría, +450 |
+| `composer test` (SQLite, en serie) | 1510 casos, 1493 en verde, 16 omitidos (solo MySQL), 1 fallido (`VoseoTest`, desvío 5), 15064 aserciones, 9 min 37 s; corregido y repetidos solo `VoseoTest` y `PostmanCleanupCommandTest`, 9 de 9 |
+| Frontend: `typecheck`, `lint` y `build` | Sin errores ni avisos |
+| `npm test` | 1831 tests en 88 archivos: 1829 en verde y 2 fallidos por tiempos (desvío 6); los 2 archivos solos, 38 de 38. **Falta repetir la suite completa** |
+| Edge (8 controles, con `submitLogin` y `USERS` de `e2e/support/session.ts`) | 1 y 2 en verde (admin); 3 a 8 fallaron: `syncvet.test` se cayó (desvío 7). 2 ingresos (admin y recepción); sus 2 tokens (863 y 864) se revocaron por consola con `postman:cleanup --tokens-since` |
+| `FictitiousDocumentsTest` (desde `backend/`, sobre el código de esta sección) | 3 de 3, 69 aserciones |
+| Suite del backend en MySQL y Playwright completo | **Sin correr**: frenado por la caída de `syncvet.test` |
+
+**Merge a `main`** (sin hacer). `main` sigue en `2651337` (el merge de la F2), sin commits nuevos: el merge entra entero desde esta
+rama y `git merge-tree` no da conflictos. Entran la F3 del frontend (diseño R-084 y R-085; 3.1a a 3.7, R-086 a R-097), front-03
+(`per_page` hasta 500), demo-02 (`demo:agenda`), front-04 (la serie entera en el listado), la reorganización de la documentación
+(R-091) y este cierre; hasta la 3.7, 38 commits y 170 archivos (106 de `frontend/`, 9 de `backend/` y 49 de `docs/`), sin
+migraciones nuevas.
+
+#### Pendiente para el cierre (F3)
+
+**Desvíos:**
+
+| # | Desvío | Estado |
+|---|---|---|
+| 1 | La limpieza de Newman: la API no tiene baja de turnos | Decidido por el usuario: un comando local (`postman:cleanup`), no un `DELETE` en la API ni cancelar en la colección |
+| 2 | La primera pasada de Newman no limpió: `--export-collection` no trae los valores de la corrida. Se recuperaron los 12 números desde la base y se limpiaron, con `--dry-run` primero | Corregido: cada colección copia su `run` a la global `postman_run` (`--export-globals`) |
+| 3 | La limpieza no reconocía lo dado de baja por la API (el sufijo `//deleted_…` en el email y la matrícula) y dejaba los tokens de los usuarios de la demo (38 por pasada) y el depósito de sucursales en `SUC-PM` | Corregido, con sus tests (`--tokens-since`, los depósitos `DEP-<corrida>-…`) |
+| 4 | Al borrar el depósito de sucursales, `SUC-PM` quedó sin depósito por defecto y la colección falló en la pasada siguiente (12 aserciones) | Corregido: el por defecto vuelve al primer depósito de la sucursal; `SUC-PM` se reparó con esa regla (`DEP-PM`, id 18, por el modelo, con auditoría) y sucursales pasó 2 veces seguidas antes de la pasada completa |
+| 5 | `VoseoTest` marcó "Borra" en la descripción del comando | Corregido ("La limpieza de lo que dejaron…") |
+| 6 | `npm test`: 2 fallas de tiempo (`AgendaWeekPage.test.tsx` y `AppointmentListPage.test.tsx`) con la suite del backend corriendo a la vez | Solos, en verde; falta la suite completa repetida |
+| 7 | `syncvet.test` respondió 502 en los controles de Edge (el PHP de Laragon, no el proxy: 502 directo a `/up`) | **Frenado**, como pidió el usuario; Laragon sin reiniciar |
+| 8 | Mutaciones (4): la tabla de `transitions.ts` sin un origen; un origen más en `AppointmentTransition`; el nombre del cliente con `trim()` (el test y el lint); la limpieza con el número cortado. La 4.ª sobrevivió al primer test (la otra corrida no compartía dígitos) | Detectadas las 4 (la 4.ª, con el test reforzado: la otra corrida `123457` y datos con `123456b`) y revertidas con el editor |
+
+**Para seguir (con `syncvet.test` arriba):** `npm test` completo; `composer test:mysql`; Playwright
+completo (con `permisos.spec.ts`); los controles de Edge 3 a 8 (el script, `controles-f3.mjs`, en el scratchpad de esta sesión:
+copiarlo o rehacerlo en otra PC), con la medición de la deuda 29 en el 8, y `php artisan demo:agenda` después del 6; la decisión
+sobre `typescript-eslint@8.73.0` (deuda 19); después, con la autorización del usuario, `/cerrar-entrega` y el merge a `main`. La
+demo, ahora: `admin-a`, `recepcion-a` y `vet-a` sin cambios (`updated_at` del 12/11 y sus sucursales), los turnos de hoy como antes
+de la regresión (34) y ningún turno cambiado por Edge.

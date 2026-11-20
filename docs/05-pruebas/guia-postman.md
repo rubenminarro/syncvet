@@ -7,6 +7,26 @@ Las respuestas siguen el contrato de `backend/CLAUDE.md` §4.
 y la carpeta de trabajo de Postman, desde la raíz del repositorio, porque las colecciones suben archivos con la ruta
 `docs/05-pruebas/postman/archivos/…`.
 
+**Todas las colecciones, sin dejar datos (cierre de la F3 del frontend).** Con el servidor levantado desde `backend/` en el puerto
+8001 (`php artisan serve --port=8001`, sin Xdebug), desde la raíz:
+
+```bash
+node docs/05-pruebas/newman-todas.mjs                 # las 14 colecciones
+node docs/05-pruebas/newman-todas.mjs turnos series   # solo las que tienen esos textos en el nombre
+```
+
+Corre cada colección con Newman (la contraseña sale de `DEMO_PASSWORD` o de `backend/.env`, sin mostrarla) y, después de cada una,
+`php artisan postman:cleanup <corrida> --tokens-since=<inicio>`: la API no tiene baja de turnos y, con turnos, tampoco se borran la
+agenda, el cliente ni el paciente, así que la colección sola no puede limpiar lo suyo. Cada colección copia su número de corrida a
+la variable global `postman_run`, que el script lee de las globales exportadas. El comando (solo en local y testing, solo en la
+Clínica A del DemoSeeder) borra lo de esa corrida, reconocido por su número entero (también lo dado de baja, con el sufijo
+`//deleted_…`): turnos, bloqueos, tramos, agendas, pacientes (con su foto), clientes, fichas, servicios, especies, razas, las
+sucursales `SUC-<corrida>-…` y los depósitos `DEP-<corrida>-…` (si el borrado es el por defecto de una sucursal que queda, como
+`SUC-PM`, el por defecto vuelve al primer depósito de la sucursal); los usuarios de la corrida quedan dados de baja y sin tokens
+(la auditoría los referencia). Con `--tokens-since`, revoca los tokens de los usuarios del DemoSeeder abiertos por la colección;
+con `--dry-run`, solo cuenta. La auditoría queda (es inmutable). Lo cubre `tests/Feature/Console/PostmanCleanupCommandTest.php`. A
+mano, para una corrida suelta: `php artisan postman:cleanup 188268 --dry-run` y después sin `--dry-run`.
+
 ## FASE 0 — Autenticación
 
 Entregas 0.3 y 0.4. Variables de la colección: `{{base_url}}` (por ejemplo, `http://syncvet.test`), `{{demo_password}}` (el

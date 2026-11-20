@@ -58,7 +58,7 @@ class PostmanCleanupCommand extends Command
         {--dry-run : Muestra lo que borraría, sin borrar nada}
         {--tokens-since= : Revoca también los tokens de los usuarios del DemoSeeder creados desde esa hora (los ingresos de la colección)}';
 
-    protected $description = 'Borra lo que dejaron las corridas de las colecciones de Postman en la clínica de la demo (Clínica A)';
+    protected $description = 'La limpieza de lo que dejaron las corridas de las colecciones de Postman en la clínica de la demo (Clínica A)';
 
     /** Al menos 5 letras o dígitos: el número de corrida de las colecciones (6 dígitos, o la base 36 de sucursales). */
     private const RUN_PATTERN = '/^[A-Za-z0-9]{5,}$/';
