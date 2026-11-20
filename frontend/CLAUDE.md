@@ -8,9 +8,9 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F3 (agenda y turnos), EN CURSO: diseño aprobado (R-085) en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md); cerradas la 3.1a, la 3.1b, front-03, la 3.2, demo-02, la 3.3, la 3.4, la 3.5, front-04, la 3.6 y la 3.7 (R-086 a R-090 y R-092 a R-097), sin integrar a `main` (se integran al cerrar la F3). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | La 3.7 (la cola del día), cerrada en `feature/front-3-7-cola` (R-097): las entregas de la F3 están todas cerradas; sigue el cierre de la fase ([criterio](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md#criterio-de-cierre)), sin empezar hasta la autorización del usuario |
-| Tests | Vitest: 1814 tests en 86 archivos, en verde (cierre de la 3.7, R-097, en [`f3-resultados.md`](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#entrega-37)); Playwright: 46 casos en 22 archivos; la corrida completa, al cerrar la F3 |
+| Fase | F3 (agenda y turnos), COMPLETADA (R-098) en `feature/f3-cierre`, sin integrar a `main` (el merge, con la autorización del usuario); diseño en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md) (R-085). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
+| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Después del merge, la FASE 4 del backend |
+| Tests | Vitest: 1835 tests en 89 archivos, en verde (cierre de la F3, R-098); Playwright: 46 de 46 en una sola corrida (22 archivos) |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
 [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend); el resultado de cada entrega, en el `fN-resultados.md` de su fase;

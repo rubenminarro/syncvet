@@ -65,7 +65,10 @@ registrada en "Resultado" de la fase, con la línea ``Corrida de `npm test` del 
 
 Playwright (desde la F0.2b): `npm run test:e2e`, contra el backend real y la base `syncvet_e2e`, recreada en cada corrida con el
 `DemoSeeder`; la preparación se niega a correr con otra base. Corre en serie (un *worker*: la base es compartida) y los casos
-que cambian datos los dejan como estaban (la sucursal y la contraseña). **Sin descargar navegadores:** usa el Edge instalado en
+que cambian datos los dejan como estaban (la sucursal y la contraseña). **Ningún spec depende de lo que deja otro ni del orden**
+(cierre de la F3, R-098): los que crean turnos usan un ayudante de `e2e/support/api.ts` que busca por la API la hora libre del
+veterinario en todas sus agendas (`freeStart`; un atendido no se cancela y queda ocupando), nunca horas fijas, y limpian en su
+`afterAll` (`retireAgendasNamed`); los datos llevan un sufijo propio de la corrida. **Sin descargar navegadores:** usa el Edge instalado en
 Windows (`channel: 'msedge'` en `frontend/playwright.config.ts`) y no se corre `npx playwright install`; en cada PC hace falta solo
 Edge, que ya viene con Windows (con otro, `E2E_BROWSER_CHANNEL=chrome`). Qué más necesita y cómo corre, en
 [`setup.md`](setup.md#pruebas-de-punta-a-punta-playwright).

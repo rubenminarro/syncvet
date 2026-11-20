@@ -235,6 +235,7 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 | front-04 | Soporte del backend: con `series_id` y sin `from` ni `to`, `GET appointments` trae la serie entera, sin el tope de 31 días ([pregunta 16](#preguntas-del-diseño)) | — | `feature/front-04-serie-completa`, desde la 3.5 (traída a la 3.6 con un merge) | COMPLETADO (R-095, [resultado](f3-resultados.md#entrega-front-04)) |
 | 3.6 | Las series: el alta con repetición, los conflictos de la serie y cancelar con alcance | front-04 | `feature/front-3-6-series`, desde front-04 | COMPLETADO (R-096, [resultado](f3-resultados.md#entrega-36)) |
 | 3.7 | La cola del día (`/agenda/cola`), con fichar y atendido desde ahí ([pregunta 11](#preguntas-del-diseño)) | No | `feature/front-3-7-cola`, desde la 3.6 | COMPLETADO (R-097, [resultado](f3-resultados.md#entrega-37)) |
+| Cierre | Las deudas 27 y 28, la limpieza de Newman, el aislamiento de Playwright y la regresión completa ([criterio](#criterio-de-cierre)) | — | `feature/f3-cierre`, desde la 3.7 | COMPLETADO (R-098, [resultado](f3-resultados.md#cierre-de-la-f3)); el merge a `main`, con la autorización del usuario |
 
 Cada rama sale de la anterior, como en la F2, y todo se integra a `main` al cerrar la F3. Las agendas van primero: sin ellas no hay
 dónde dar un turno desde la interfaz. El turno va en tres entregas (3.4, 3.5 y 3.6): juntas serían el triple que las demás. Cada
