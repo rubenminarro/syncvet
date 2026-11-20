@@ -264,7 +264,7 @@ Aprobado (preguntas 4, 7, 8 y 12):
 
 | Permiso | Entrega | Roles |
 |---|---|---|
-| `consultations.show-clinical` (nuevo) | 4.1 | Veterinario (y el administrador, por `Gate::before`). Sin él, el listado, el detalle y el historial salen con el Resource administrativo |
+| `consultations.show-clinical` (nuevo) | 4.1 | **Administrador y veterinario**; la recepción, no (ajuste de R-099). El administrador edita, cierra, enmienda y anula, y ve la auditoría con los textos clínicos: sin este permiso cerraría una consulta sin ver su contenido. Lo tiene asignado en su rol (el seeder y `permissions:sync` le dan todos los permisos), no solo por `Gate::before`. Se consulta con `can()` (pasa por la Gate), nunca con `hasPermissionTo()`. Sin él, el listado, el detalle y el historial salen con el Resource administrativo |
 | `consultations.amend` (nuevo) | 4.2 | Veterinario (la de su ficha) y el administrador |
 | `consultations.reopen` (se quita) | 4.2 | Sin ruta: la corrección es la enmienda |
 | `patient-applications.cancel` (nuevo) | 4.4 | El administrador |
@@ -273,9 +273,10 @@ La recepción conserva `consultations.index` y `.show` (para cobrar) y `patient-
 `consultations.index` y `patient-applications.index`, sin permiso propio.
 
 **Las clínicas que ya existen**: los roles se siembran una vez y no se vuelven a sincronizar solos. La 4.1 suma un comando
-`permissions:sync` (idempotente: crea los permisos que faltan, quita los que salieron de `PERMISSIONS` y sincroniza los roles con
-`clinicRoles()`, como el seeder), con su test (una base con los permisos de la FASE 3 queda igual a la foto; correrlo dos veces no
-cambia nada; los usuarios conservan sus roles). Cada entrega que cambia un permiso lo corre en su validación, y el
+`permissions:sync` (idempotente: crea los permisos que faltan, quita los que salieron de `PERMISSIONS`, le da al
+administrador todos los permisos y sincroniza los demás roles con `clinicRoles()`, como el seeder), con su test (una base con los
+permisos de la FASE 3 queda igual a la foto, con `consultations.show-clinical` en el administrador y en el veterinario y no en la
+recepción; correrlo dos veces no cambia nada; los usuarios conservan sus roles). Cada entrega que cambia un permiso lo corre en su validación, y el
 [`setup.md`](../../../04-desarrollo/setup.md) lo suma a los pasos de actualización. Es un comando y no una migración porque las
 migraciones no llaman a modelos (§3).
 
@@ -320,7 +321,7 @@ corrección van en la 4.2, antes que los ítems, porque son la integridad de lo 
 
 | Entrega | Contenido | Migraciones | Tests (principales) | Newman | Estado |
 |---|---|---|---|---|---|
-| 4.1 | La consulta: abrir desde un turno fichado (y marcarlo atendido), desde uno atendido el mismo día o sin turno; editar abierta; listado y detalle (el Resource administrativo sin `consultations.show-clinical`); `consultation` en el detalle del turno y `has_consultation` en el listado y la cola; `consultations.show-clinical` y el comando `permissions:sync`; `postman:cleanup` borra las consultas de la corrida | La de C7 y C3 | `ConsultationStoreTest` (desde el turno, ya atendido hoy y otro día, con consulta, otro veterinario, fallecido, sin sucursal), `ConsultationUpdateTest` (otra ficha, límites), `ConsultationIndexTest` (filtros, N+1, la vista de la recepción), `ConsultationLockTest` y `ConsultationConcurrencyTest` (dos aperturas del mismo turno: una 201, otra 409; solo MySQL), `PermissionsSyncCommandTest`, `RoleAccessTest`, `RouteBindingTest`, `ClinicIsolation`, la foto de los roles | `syncvet-fase-04-consultas` (nueva) | PENDIENTE |
+| 4.1 | La consulta: abrir desde un turno fichado (y marcarlo atendido), desde uno atendido el mismo día o sin turno; editar abierta; listado y detalle (el Resource administrativo sin `consultations.show-clinical`); `consultation` en el detalle del turno y `has_consultation` en el listado y la cola; `consultations.show-clinical` y el comando `permissions:sync`; `postman:cleanup` borra las consultas de la corrida | La de C7 y C3 | `ConsultationStoreTest` (desde el turno, ya atendido hoy y otro día, con consulta, otro veterinario, fallecido, sin sucursal), `ConsultationUpdateTest` (otra ficha, límites), `ConsultationIndexTest` y `ConsultationShowTest` (filtros, N+1; la vista completa del administrador y del veterinario, la administrativa de la recepción), `ConsultationLockTest` y `ConsultationConcurrencyTest` (dos aperturas del mismo turno: una 201, otra 409; solo MySQL), `PermissionsSyncCommandTest`, `RoleAccessTest`, `RouteBindingTest`, `ClinicIsolation`, la foto de los roles | `syncvet-fase-04-consultas` (nueva) | PENDIENTE |
 | 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | PENDIENTE |
 | 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | PENDIENTE |
 | 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | PENDIENTE |
@@ -362,6 +363,7 @@ Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaci
 
 * El flujo turno fichado → consulta (el turno queda atendido) → servicios y aplicaciones → cierre funciona de punta a punta, también
   la consulta sin turno; una consulta cerrada no se edita (se corrige con enmiendas) y una anulada queda visible.
+* El administrador y el veterinario ven el contenido clínico (`consultations.show-clinical`); la recepción, solo lo administrativo.
 * `composer test` y `composer test:mysql` en serie, en verde; `composer audit` sin avisos; Newman con todas las colecciones, sin
   fallas y sin dejar datos; las reglas en `docs/02-requisitos/reglas/consultas.md`.
 
@@ -377,7 +379,8 @@ en feature/back-4-1-consulta.
 - ConsultationService: abrir desde un turno fichado (lo pasa a atendido en la misma transacción), desde uno atendido el mismo día (el turno
   no cambia) o sin turno; copia client_id del dueño actual; código CON-; no a un paciente fallecido. Editar solo abierta, su veterinario
   o el administrador. Listado y detalle; sin consultations.show-clinical, el Resource administrativo.
-- consultations.show-clinical en el seeder y el comando permissions:sync con su test.
+- consultations.show-clinical en el seeder para el administrador y el veterinario (la recepción, no; se consulta con can()) y el
+  comando permissions:sync (el administrador con todos los permisos) con su test.
 - consultation en el detalle del turno y has_consultation en el listado y la cola; postman:cleanup con las consultas.
 
 Sigue CLAUDE.md. Corre la suite e infórmame. No hagas commit.
