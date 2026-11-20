@@ -11,12 +11,12 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-20 (R-095 y R-096: cierre de front-04 del backend, la serie entera, y de la 3.6 del frontend, las series) |
-| Rama | `feature/front-3-6-series`, desde el WIP de front-04 (`8df2269`), con front-04 (merge `64e5a0a`) y la 3.6 cerradas |
-| Sin integrar a `main` | Las ramas de la F3 del frontend (3.1a a 3.6) y las del backend front-03, demo-02 y front-04: se integran al cerrar la F3 |
-| Último checkpoint validado | front-04 (R-095) y la 3.6 del frontend (R-096), el 2026-11-20 ([resultados](fases/frontend/f3-resultados.md#entrega-front-04)) |
+| Actualizado | 2026-11-20 (R-097: cierre de la 3.7 del frontend, la cola del día) |
+| Rama | `feature/front-3-7-cola`, desde el cierre de la 3.6 (`3c12f25`), con la 3.7 cerrada |
+| Sin integrar a `main` | Las ramas de la F3 del frontend (3.1a a 3.7) y las del backend front-03, demo-02 y front-04: se integran al cerrar la F3 |
+| Último checkpoint validado | La 3.7 del frontend (R-097), el 2026-11-20 ([resultado](fases/frontend/f3-resultados.md#entrega-37)) |
 | Tests del backend | Cierre de front-04 (R-095), sobre `1049310`: `composer test`, 1501 casos, 16 omitidos (solo de MySQL), 14939 aserciones, en verde |
-| Tests del frontend | Cierre de la 3.6 (R-096), sobre `0827f49`: `npm test` del frontend, 1770 tests en 84 archivos, en verde; Playwright, 44 casos en 21 archivos |
+| Tests del frontend | Cierre de la 3.7 (R-097), sobre `f0fdbc3`: `npm test` del frontend, 1814 tests en 86 archivos, en verde; Playwright, 46 casos en 22 archivos |
 | Repositorio | Monorepo (R-057): `backend/`, `frontend/` y `docs/`; Claude Code, las skills y Newman, desde la raíz |
 | Historial | Cada entrega, en el `…-resultados.md` de su fase y en su R del [registro](../01-arquitectura/decisiones/registro.md); este handoff hasta R-090, en [`historial-handoff.md`](historial-handoff.md) |
 
@@ -35,7 +35,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** La 3.7 del frontend, la cola del día ([diseño](fases/frontend/f3-agenda.md#37-la-cola-del-día)), en `feature/front-3-7-cola` desde el cierre de la 3.6; los datos de la demo, con `php artisan demo:agenda` ([`setup.md`](../04-desarrollo/setup.md#agenda-de-la-demo-demoagenda)). Al cerrar la F3, las deudas 27 y 28 ([deuda técnica](deuda-tecnica.md)) y el EXPLAIN en MySQL del listado con `series_id` (R-095) | La autorización del usuario (aprobada en el diseño, R-085) |
+| 2 | **Siguiente.** El cierre de la F3 del frontend ([diseño](fases/frontend/f3-agenda.md#criterio-de-cierre)): Playwright completo, Newman con todas las colecciones, la suite del backend completa en MySQL y en serie, las deudas 27 y 28 ([deuda técnica](deuda-tecnica.md)), el EXPLAIN en MySQL del listado con `series_id` (R-095) y lo anotado en la 3.7 (R-097): una entrega de soporte para los bloqueos de la sucursal en la cola, los turnos de hoy que deja cada corrida de Newman en la demo y la auditoría del turno 1932. Después, el merge a `main` | La autorización del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |
 | 5 | Opcional: verificar el desvío 16 de la 1.1 (dos pedidos iguales al entrar a `/clientes?buscar=…` con `npm run dev`; probablemente el doble efecto del `StrictMode` de React en desarrollo) con `npm run build` y `npm run preview` | Ninguno |

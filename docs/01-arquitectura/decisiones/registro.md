@@ -106,3 +106,4 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-094](registro/R-051-100.md#r-094-cierre-de-la-entrega-35-del-frontend-los-estados-del-turno-2026-11-20) | 2026-11-20 | Cierre de la entrega 3.5 del frontend (los estados del turno) |
 | [R-095](registro/R-051-100.md#r-095-cierre-de-la-entrega-front-04-del-backend-la-serie-entera-en-el-listado-de-turnos-2026-11-20) | 2026-11-20 | Cierre de la entrega front-04 del backend (la serie entera en el listado de turnos) |
 | [R-096](registro/R-051-100.md#r-096-cierre-de-la-entrega-36-del-frontend-las-series-2026-11-20) | 2026-11-20 | Cierre de la entrega 3.6 del frontend (las series) |
+| [R-097](registro/R-051-100.md#r-097-cierre-de-la-entrega-37-del-frontend-la-cola-del-día-2026-11-20) | 2026-11-20 | Cierre de la entrega 3.7 del frontend (la cola del día) |
