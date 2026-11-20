@@ -407,19 +407,20 @@ export interface QueueDay {
   /** La agenda de vet-a y la agenda sin veterinario (la que vet-a ve por defecto: `includes_unassigned`). */
   vetSchedule: string;
   unassignedSchedule: string;
-  /** 00:30, Firulais en la agenda de vet-a, ya fichado: vet-a lo marca atendido desde la cola. */
+  /** 02:00, Firulais en la agenda de vet-a, ya fichado: vet-a lo marca atendido desde la cola. */
   toAttendId: number;
-  /** 01:00, Rocky en la agenda de vet-a, confirmado: la recepción lo ficha desde la cola. */
+  /** 02:30, Rocky en la agenda de vet-a, confirmado: la recepción lo ficha desde la cola. */
   toCheckInId: number;
-  /** 01:30, un contacto en la agenda sin veterinario, confirmado. */
+  /** 03:00, un contacto en la agenda sin veterinario, confirmado. */
   unassignedContact: string;
 }
 
 /**
  * La cola del día (3.7) por la API, en syncvet_e2e (como el administrador): en la Casa central, una agenda de `vet-a` y otra
  * sin veterinario (con un servicio de la corrida: una agenda necesita veterinario o servicio), abiertas todos los días de 00:00 a 23:55, con tres turnos de hoy (la API acepta hoy una hora que ya pasó):
- * Firulais a las 00:30, fichado; Rocky a la 01:00, confirmado; un contacto a la 01:30 en la agenda sin veterinario. La
- * limpieza es `retireAgendasNamed`.
+ * Firulais a las 02:00, fichado; Rocky a las 02:30, confirmado; un contacto a las 03:00 en la agenda sin veterinario. La
+ * limpieza es `retireAgendasNamed`, que no cancela el atendido: por eso las horas no se pisan con las de vet-a de
+ * `createStatesDay` (00:00 a 01:30), que corre después en la corrida completa (cierre de la F3, desvío 9).
  */
 export async function createQueueDay(name: string): Promise<QueueDay> {
   const api = await apiAs(USERS.admin);
@@ -483,20 +484,20 @@ export async function createQueueDay(name: string): Promise<QueueDay> {
     const toAttend = await api.post<{ id: number }>('appointments', {
       schedule_id: own.id,
       patient_id: firulais.id,
-      starts_at: at('00:30'),
+      starts_at: at('02:00'),
     });
     await api.post(`appointments/${String(toAttend.id)}/check-in`, {});
     const toCheckIn = await api.post<{ id: number }>('appointments', {
       schedule_id: own.id,
       patient_id: rocky.id,
-      starts_at: at('01:00'),
+      starts_at: at('02:30'),
     });
     await api.post(`appointments/${String(toCheckIn.id)}/confirm`, {});
     const contact = await api.post<{ id: number }>('appointments', {
       schedule_id: unassigned.id,
       contact_name: unassignedContact,
       contact_phone: '+595981100097',
-      starts_at: at('01:30'),
+      starts_at: at('03:00'),
     });
     await api.post(`appointments/${String(contact.id)}/confirm`, {});
 

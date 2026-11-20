@@ -89,7 +89,7 @@ const CONTROLS = {
     const response = recepcion.waitForResponse((r) => r.url().includes('/api/appointments?') && r.request().method() === 'GET');
     await recepcion.goto(`/agenda?fecha=${today}`);
     const body = await (await response).json();
-    await expect(recepcion.getByText('Demo Consultorio 1').first()).toBeVisible(LOADED);
+    await expect(recepcion.locator('.agenda-column-name', { hasText: 'Demo Consultorio 1' })).toBeVisible(LOADED);
     const demo = body.data.filter((a) => a.schedule.name.startsWith('Demo ')).length;
     return `${body.meta.pagination.total} turnos de hoy en la sucursal (${demo} de agendas Demo)`;
   } },

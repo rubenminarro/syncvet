@@ -3,7 +3,7 @@ import { createQueueDay, retireAgendasNamed, type QueueDay } from './support/api
 import { login, logout, USERS } from './support/session';
 
 // La cola del día (3.7, F3) contra la API real: el ayudante crea por la API, en syncvet_e2e, una agenda de vet-a y otra sin
-// veterinario en la Casa central, con Firulais fichado a las 00:30, Rocky confirmado a la 01:00 y un contacto a la 01:30 en la
+// veterinario en la Casa central, con Firulais fichado a las 02:00, Rocky confirmado a las 02:30 y un contacto a las 03:00 en la
 // agenda sin veterinario. vet-a ve su vista por defecto (lo suyo y lo sin veterinario, con el aviso) y marca atendido a
 // Firulais; la recepción ve toda la sucursal y ficha a Rocky. La limpieza cancela lo que sigue e inactiva las agendas; la demo
 // no se toca.
