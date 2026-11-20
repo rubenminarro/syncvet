@@ -494,6 +494,7 @@ export function appointmentLabel(item: GridItem, context: string): string {
     appointment.status.label,
     context,
     appointment.is_overbooked ? 'sobreturno' : '',
+    appointment.series_id !== null ? 'de una serie' : '',
     item.inBlock ? 'dentro de un bloqueo' : '',
     item.continuesNextDay ? 'sigue el día siguiente' : '',
   ];

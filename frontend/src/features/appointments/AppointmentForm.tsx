@@ -3,8 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
 import {
+  Alert,
   Button,
   Card,
+  CheckboxField,
   DateField,
   RadioGroup,
   SearchField,
@@ -15,7 +17,7 @@ import {
   type SelectOption,
 } from '../../components/ui';
 import { isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
-import { todayInAppZone } from '../../lib/format/dates';
+import { formatTime, todayInAppZone } from '../../lib/format/dates';
 import { SEARCH_DEBOUNCE_MS } from '../../lib/hooks/use-search-text';
 import { useDebouncedValue } from '../../lib/hooks/use-debounced-value';
 import { normalizeSearchText } from '../../lib/search-text';
@@ -28,17 +30,26 @@ import {
   patientOptionsQueryOptions,
 } from './api';
 import { scheduleOptionLabel } from './agenda-shared';
+import { dayTitle } from './dates';
 import {
   appointmentFormSchema,
   defaultDuration,
   GRID_MINUTES,
   MAX_MINUTES,
+  seriesInputOf,
   SOURCE_OPTIONS,
   WHO_OPTIONS,
   type AppointmentFormValues,
   type ClientChoice,
   type PatientChoice,
 } from './form';
+import {
+  SERIES_MAX_COUNT,
+  SERIES_MAX_EVERY_WEEKS,
+  SERIES_MIN_COUNT,
+  seriesOccurrences,
+  seriesSummary,
+} from './series';
 import { appointmentTimes, instantToWall } from './times';
 import type { AppointmentDetail } from './types';
 
@@ -180,6 +191,11 @@ export function AppointmentForm({
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="appointment-form">
       {alert}
+      {current?.series_id !== null && current?.series_id !== undefined ? (
+        <div className="mb-3 appointment-series-single">
+          <Alert tone="info">{SERIES_EDIT_NOTICE}</Alert>
+        </div>
+      ) : null}
       <div className="row row-cards">
         <div className="col-lg-6">
           <Card title="Quién">
@@ -312,6 +328,11 @@ export function AppointmentForm({
             </div>
           </Card>
         </div>
+        {current === undefined ? (
+          <div className="col-12">
+            <SeriesFields form={form} time={time} duration={duration} />
+          </div>
+        ) : null}
         <div className="col-12">
           <Card title="Más datos">
             <div className="row">
@@ -346,6 +367,141 @@ export function AppointmentForm({
         {cancel}
       </div>
     </form>
+  );
+}
+
+/** El aviso de la edición y la reprogramación de un turno de una serie (H14: la API modifica cada turno por separado). */
+export const SERIES_EDIT_NOTICE = 'Es un turno de una serie: el cambio vale solo para este turno.';
+
+const SERIES_END_OPTIONS = [
+  { value: 'count', label: 'Después de una cantidad de turnos' },
+  { value: 'until', label: 'En una fecha' },
+];
+
+/**
+ * "Repetir" (3.6, solo en el alta): cada 1 a 12 semanas, hasta una cantidad de turnos (2 a 52) o una fecha, con las reglas de
+ * la API (Zod, `seriesError`) y la vista previa de las fechas en Asunción (la misma hora de pared, también del otro lado de un
+ * cambio de horario) antes de guardar. La API vuelve a revisar todo y decide el horario, los bloqueos y la superposición de
+ * cada fecha.
+ */
+function SeriesFields({
+  form,
+  time,
+  duration,
+}: {
+  form: UseFormReturn<AppointmentFormValues>;
+  time: string;
+  duration: number;
+}) {
+  const {
+    control,
+    register,
+    formState: { errors },
+  } = form;
+  const [repeat, date, everyWeeks, end, count, until] = useWatch({
+    control,
+    name: ['repeat', 'date', 'every_weeks', 'series_end', 'series_count', 'series_until'],
+  });
+  const input = seriesInputOf({
+    repeat,
+    date,
+    every_weeks: everyWeeks,
+    series_end: end,
+    series_count: count,
+    series_until: until,
+  });
+  const occurrences =
+    input === null || appointmentTimes(date, time, duration) === null
+      ? []
+      : seriesOccurrences(input, time, duration);
+  const summary = seriesSummary(occurrences, input?.everyWeeks ?? 1);
+  const previewId = useId();
+
+  let status = '';
+
+  if (repeat && occurrences.length === 0) {
+    status =
+      input === null
+        ? 'Completá la fecha del primer turno y el fin de la serie para ver las fechas.'
+        : 'Completá la hora y la duración para ver las fechas.';
+  }
+
+  return (
+    <Card title="Repetir">
+      <CheckboxField
+        label="Repetir el turno (una serie)"
+        hint="Los turnos de la serie se dan todos juntos: si alguna fecha no se puede dar, no se da ninguno."
+        {...register('repeat')}
+      />
+      {repeat ? (
+        <div className="appointment-series">
+          <div className="row">
+            <div className="col-sm-6 col-md-3">
+              <TextField
+                label="Cada cuántas semanas"
+                type="number"
+                required
+                min={1}
+                max={SERIES_MAX_EVERY_WEEKS}
+                inputMode="numeric"
+                hint={`De 1 a ${String(SERIES_MAX_EVERY_WEEKS)}.`}
+                error={errors.every_weeks?.message}
+                {...register('every_weeks')}
+              />
+            </div>
+            <div className="col-sm-6 col-md-4">
+              <RadioGroup
+                label="Termina"
+                options={SERIES_END_OPTIONS}
+                {...register('series_end')}
+              />
+            </div>
+            <div className="col-md-5">
+              {end === 'count' ? (
+                <TextField
+                  label="Cantidad de turnos"
+                  type="number"
+                  required
+                  min={SERIES_MIN_COUNT}
+                  max={SERIES_MAX_COUNT}
+                  inputMode="numeric"
+                  hint={`De ${String(SERIES_MIN_COUNT)} a ${String(SERIES_MAX_COUNT)}, como mucho un año.`}
+                  error={errors.series_count?.message}
+                  {...register('series_count')}
+                />
+              ) : (
+                <DateField
+                  label="Hasta"
+                  required
+                  min={date === '' ? undefined : date}
+                  hint="Inclusive; como mucho un año después del primer turno."
+                  error={errors.series_until?.message}
+                  {...register('series_until')}
+                />
+              )}
+            </div>
+          </div>
+          <p className="mb-2 appointment-series-summary" role="status" aria-live="polite">
+            {summary === '' ? status : `${summary}.`}
+          </p>
+          {occurrences.length > 0 ? (
+            <ol
+              id={previewId}
+              className="appointment-series-preview"
+              aria-label="Las fechas de la serie"
+              tabIndex={0}
+            >
+              {occurrences.map((occurrence) => (
+                <li key={occurrence.day}>
+                  {dayTitle(occurrence.day)}, {formatTime(occurrence.starts_at)} a{' '}
+                  {formatTime(occurrence.ends_at)}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </div>
+      ) : null}
+    </Card>
   );
 }
 

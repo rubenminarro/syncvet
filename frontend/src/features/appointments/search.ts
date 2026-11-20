@@ -122,7 +122,15 @@ export interface AppointmentListSearch {
   estados?: StatusParam[] | undefined;
   buscar?: string | undefined;
   pagina?: number | undefined;
+  /** La serie (3.6, `series_id`, un UUID): con ella, la lista muestra la serie entera, sin desde ni hasta. */
+  serie?: string | undefined;
 }
+
+/** `series_id` es un UUID (`IndexAppointmentRequest`: `uuid`); en la URL, en minúsculas. */
+const serieSchema = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+  .transform((value) => value.toLowerCase());
 
 const statusParamSchema = z.enum(STATUS_PARAMS as [StatusParam, ...StatusParam[]]);
 const buscarSchema = z
@@ -159,7 +167,7 @@ function parseStatuses(raw: unknown): StatusParam[] | undefined {
 /**
  * `validateSearch` de /turnos: un valor inválido se descarta (una fecha mal formada, un estado desconocido, una página que no
  * es un entero de 2 en adelante). Como la API: `hasta` anterior a `desde` o a más de 31 días se descarta (la URL editada;
- * el formulario no la deja armar), y queda el día de `desde`. Las siete claves van siempre (el router mezcla lo devuelto
+ * el formulario no la deja armar), y queda el día de `desde`. Las ocho claves (con la serie, sin desde ni hasta) van siempre (el router mezcla lo devuelto
  * sobre la búsqueda cruda).
  */
 export function validateAppointmentListSearch(raw: Record<string, unknown>): AppointmentListSearch {
@@ -169,10 +177,26 @@ export function validateAppointmentListSearch(raw: Record<string, unknown>): App
   const veterinario = idSchema.safeParse(raw.veterinario);
   const buscar = buscarSchema.safeParse(raw.buscar);
   const pagina = paginaSchema.safeParse(raw.pagina);
+  const serie = serieSchema.safeParse(raw.serie);
   const from = desde.success ? desde.data : undefined;
   const to = hasta.success ? hasta.data : undefined;
 
+  if (serie.success) {
+    // La serie entera: desde y hasta no se usan (front-04) y no quedan en la URL.
+    return {
+      desde: undefined,
+      hasta: undefined,
+      agenda: agenda.success ? agenda.data : undefined,
+      veterinario: veterinario.success ? veterinario.data : undefined,
+      estados: parseStatuses(raw.estados),
+      buscar: buscar.success ? buscar.data : undefined,
+      pagina: pagina.success ? pagina.data : undefined,
+      serie: serie.data,
+    };
+  }
+
   return {
+    serie: undefined,
     desde: from,
     hasta: listRangeError(from, to) === null ? to : undefined,
     agenda: agenda.success ? agenda.data : undefined,
@@ -193,6 +217,7 @@ export function toAppointmentListFilters(search: AppointmentListSearch): Appoint
     status: (search.estados ?? []).map((status) => STATUS_BY_PARAM[status]),
     search: search.buscar ?? '',
     page: search.pagina ?? 1,
+    series_id: search.serie ?? null,
   };
 }
 

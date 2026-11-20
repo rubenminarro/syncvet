@@ -1,4 +1,4 @@
-import { IconAlertTriangle, IconLock } from '@tabler/icons-react';
+import { IconAlertTriangle, IconLock, IconRepeat } from '@tabler/icons-react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Fragment, useRef, type ReactNode } from 'react';
@@ -6,7 +6,13 @@ import { Alert, Card, ErrorPage } from '../../components/ui';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatDateTime, formatTime } from '../../lib/format/dates';
 import { useCan } from '../auth/permissions';
-import { appointmentDetailQueryOptions, rangeBlocksQueryOptions } from './api';
+import {
+  appointmentDetailQueryOptions,
+  appointmentSeriesQueryOptions,
+  rangeBlocksQueryOptions,
+} from './api';
+import { SeriesLink } from './AgendaShared';
+import { seriesPosition } from './series';
 import { useCanEditAppointment } from './agenda-shared';
 import { AppointmentActions } from './AppointmentActions';
 import { AppointmentEditLinks, PatientRequiredLinks } from './AppointmentLinks';
@@ -199,6 +205,34 @@ function AppointmentData({ appointment }: { appointment: AppointmentDetail }) {
   );
 }
 
+/**
+ * "Turno 3 de 8" y "Ver los turnos de la serie" (3.6): la serie entera en un pedido (front-04), solo si el turno tiene serie.
+ * Mientras llega, "Turno de una serie".
+ */
+function SeriesRow({ appointment }: { appointment: AppointmentDetail }) {
+  const seriesId = appointment.series_id;
+  const query = useQuery({
+    ...appointmentSeriesQueryOptions(seriesId ?? ''),
+    enabled: seriesId !== null,
+  });
+
+  if (seriesId === null) {
+    return null;
+  }
+
+  const position = query.data === undefined ? null : seriesPosition(appointment, query.data);
+
+  return (
+    <p className="mb-2 appointment-series">
+      <IconRepeat size={16} className="me-1" aria-hidden="true" />
+      {position === null
+        ? 'Turno de una serie.'
+        : `Turno ${String(position.index)} de ${String(position.total)} de una serie.`}{' '}
+      <SeriesLink seriesId={seriesId} />
+    </p>
+  );
+}
+
 function AppointmentStatusCard({ appointment }: { appointment: AppointmentDetail }) {
   const rows: [string, ReactNode][] = [
     ['Estado', <StatusLabel key="status" status={appointment.status} />],
@@ -228,6 +262,7 @@ function AppointmentStatusCard({ appointment }: { appointment: AppointmentDetail
           Sobreturno
         </p>
       ) : null}
+      <SeriesRow appointment={appointment} />
       <DataList rows={rows} className="appointment-status" />
     </Card>
   );

@@ -6,7 +6,7 @@ import { defaultParseSearch, defaultStringifySearch } from '@tanstack/react-rout
  * descartaba; para escribirlos, ponía entre comillas lo que parecía JSON (`?buscar=%221e3%22`). Estas claves se leen y se
  * escriben tal cual; las demás (`pagina`, `tipo`…) siguen con el JSON del router. Desde la 2.6, también las fechas de la
  * auditoría (`desde`, `hasta`: `2026-11-09T13:00`), que son texto aunque parezcan otra cosa; desde la 3.2, la `fecha`
- * de la agenda (`2026-11-17`).
+ * de la agenda (`2026-11-17`); desde la 3.6, la `serie` de /turnos (un UUID).
  */
 export const TEXT_SEARCH_PARAMS: ReadonlySet<string> = new Set([
   'buscar',
@@ -14,6 +14,7 @@ export const TEXT_SEARCH_PARAMS: ReadonlySet<string> = new Set([
   'hasta',
   'fecha',
   'inicio',
+  'serie',
 ]);
 
 /**

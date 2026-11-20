@@ -5,11 +5,14 @@ import {
   APPOINTMENT_MESSAGES as M,
   appointmentFormSchema,
   appointmentFormToPayload,
+  appointmentSeriesPayload,
   appointmentToForm,
   EMPTY_APPOINTMENT_FORM,
   mapAppointmentErrors,
+  seriesInputOf,
   type AppointmentFormValues,
 } from './form';
+import { SERIES_MESSAGES } from './series';
 import type { AppointmentDetail } from './types';
 
 const LUNA = {
@@ -374,5 +377,100 @@ describe('los 422 de la API en el formulario del turno', () => {
         'patient',
       ),
     ).toBeNull();
+  });
+});
+
+describe('la serie en el formulario (3.6)', () => {
+  const SERIES: Partial<AppointmentFormValues> = {
+    repeat: true,
+    every_weeks: '1',
+    series_end: 'count',
+    series_count: '8',
+  };
+
+  it('sin "Repetir", los campos de la serie no se validan', () => {
+    expect(errors({ repeat: false, series_count: '99' })).toEqual({});
+  });
+
+  it('con "Repetir", las reglas de la API en su campo', () => {
+    expect(errors({ ...SERIES })).toEqual({});
+    expect(errors({ ...SERIES, series_count: '53' })).toEqual({
+      series_count: SERIES_MESSAGES.tooMany,
+    });
+    expect(errors({ ...SERIES, every_weeks: '13' })).toEqual({
+      every_weeks: SERIES_MESSAGES.everyWeeks,
+    });
+    expect(
+      errors({ ...SERIES, series_end: 'until', series_until: '2027-11-18', every_weeks: '2' }),
+    ).toEqual({
+      series_until: SERIES_MESSAGES.untilTooFar,
+    });
+  });
+
+  it('la edición no valida la serie (la API la rechaza en el PATCH)', () => {
+    const original = appointmentToForm(detail());
+    const result = appointmentFormSchema('2026-11-17', original).safeParse({
+      ...original,
+      ...SERIES,
+      series_count: '99',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('el cuerpo del alta de la serie: el del turno y recurrence con uno de count o until', () => {
+    const body = appointmentSeriesPayload({ ...VALID, ...SERIES });
+
+    expect(body.starts_at).toBe('2026-11-17T09:30:00.000-03:00');
+    expect(body.recurrence).toEqual({ every_weeks: 1, count: 8, until: null });
+    expect(body).not.toHaveProperty('overbook');
+    expect(
+      appointmentSeriesPayload(
+        { ...VALID, ...SERIES, every_weeks: '2', series_end: 'until', series_until: '2027-01-12' },
+        { overbook: true },
+      ),
+    ).toMatchObject({
+      overbook: true,
+      recurrence: { every_weeks: 2, count: null, until: '2027-01-12' },
+    });
+  });
+
+  it('el turno único no lleva recurrence', () => {
+    expect(appointmentFormToPayload(VALID)).not.toHaveProperty('recurrence');
+  });
+
+  it('la serie leída solo con "Repetir" y válida', () => {
+    expect(seriesInputOf({ ...VALID, ...SERIES })).toEqual({
+      firstDay: '2026-11-17',
+      everyWeeks: 1,
+      end: 'count',
+      count: 8,
+      until: null,
+    });
+    expect(seriesInputOf({ ...VALID, ...SERIES, series_count: '1' })).toBeNull();
+    expect(seriesInputOf({ ...VALID, repeat: false })).toBeNull();
+  });
+
+  it('los 422 de recurrence a su campo; recurrence suelto, a la alerta', () => {
+    const error = new ApiError({
+      status: 422,
+      errorCode: 'VALIDATION_ERROR',
+      message: 'Los datos no son válidos.',
+      errors: {
+        'recurrence.count': [SERIES_MESSAGES.countTooFar],
+        'recurrence.until': [SERIES_MESSAGES.untilBefore],
+        'recurrence.every_weeks': [SERIES_MESSAGES.everyWeeks],
+        recurrence: ['La serie solo admite every_weeks, count y until.'],
+      },
+    });
+
+    expect(mapAppointmentErrors(error, 'patient')).toEqual({
+      fields: [
+        ['series_count', SERIES_MESSAGES.countTooFar],
+        ['series_until', SERIES_MESSAGES.untilBefore],
+        ['every_weeks', SERIES_MESSAGES.everyWeeks],
+      ],
+      others: ['La serie solo admite every_weeks, count y until.'],
+    });
   });
 });

@@ -264,3 +264,23 @@
 .agenda-views .btn {
   white-space: nowrap;
 }
+
+/* La vista previa de la serie (3.6): hasta 52 fechas, en un recuadro que se desplaza (también con el teclado: tabindex). */
+.appointment-series-preview {
+  max-height: 16rem;
+  overflow-y: auto;
+  padding-left: 1.75rem;
+  margin-bottom: 0;
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* La lista de conflictos de la serie, con el mismo tope de alto. */
+.appointment-series-conflicts {
+  max-height: 16rem;
+  overflow-y: auto;
+  padding-left: 1.25rem;
+  margin-bottom: 0;
+}

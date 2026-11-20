@@ -1,15 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
-import { Button, ConfirmDialog, TextareaField, useToast } from '../../components/ui';
+import { Button, ConfirmDialog, RadioGroup, TextareaField, useToast } from '../../components/ui';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatTime } from '../../lib/format/dates';
 import { trimLikeApi } from '../../lib/format/text';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { meQueryOptions } from '../auth/api';
 import { useCan } from '../auth/permissions';
-import { afterAppointmentSaved, refreshAppointment, runAppointmentTransition } from './api';
+import {
+  afterAppointmentSaved,
+  appointmentSeriesQueryOptions,
+  refreshAppointment,
+  runAppointmentTransition,
+} from './api';
 import { PatientRequiredLinks } from './AppointmentLinks';
 import { appointmentWho } from './grid';
+import { CANCEL_SCOPE_OPTIONS, scopeAffected, scopeCountText, type CancelScope } from './series';
 import {
   availableTransitions,
   cancellationReasonError,
@@ -39,6 +45,10 @@ export const UNDO_NO_SHOW_TEXT = 'El turno vuelve a confirmado.';
 /** El botón de deshacer el ausente después del 409 `APPOINTMENT_OVERLAP`, con `appointments.overbook`. */
 export const UNDO_AS_OVERBOOK = 'Volver como sobreturno';
 
+/** El aviso del alcance (diseño de la 3.6): la regla de `AppointmentTransitionService` para los demás turnos de la serie. */
+export const SCOPE_NOTICE =
+  'De los demás turnos de la serie se cancelan solo los a confirmar o confirmados que todavía no empezaron.';
+
 /** "Ahora", renovado cada 30 s: el ausente se habilita solo al llegar la hora del turno. */
 function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
@@ -63,7 +73,7 @@ type Dialog =
 
 interface Run {
   name: TransitionName;
-  body?: { cancellation_reason?: string; overbook?: true };
+  body?: { cancellation_reason?: string; overbook?: true; scope?: CancelScope };
 }
 
 /**
@@ -102,6 +112,13 @@ export function AppointmentActions({
   const [reasonError, setReasonError] = useState<string | undefined>(undefined);
   const [failure, setFailure] = useState<TransitionFailure | null>(null);
   const [pendingName, setPendingName] = useState<TransitionName | null>(null);
+  const [scope, setScope] = useState<CancelScope>('single');
+  const seriesId = appointment.series_id;
+  // La serie entera (front-04), solo con el diálogo de cancelar abierto en un turno de una serie: la cuenta del alcance.
+  const seriesQuery = useQuery({
+    ...appointmentSeriesQueryOptions(seriesId ?? ''),
+    enabled: dialog?.kind === 'cancel' && seriesId !== null,
+  });
   const canOverbook = can(PERMISSIONS.appointmentsOverbook);
   const available = availableTransitions(appointment, { can, me, now });
 
@@ -166,7 +183,7 @@ export function AppointmentActions({
       const found = transitionFailure(error);
 
       if (found.refresh || found.gone) {
-        refreshAppointment(queryClient, appointment.id);
+        refreshAppointment(queryClient, appointment.id, appointment.series_id);
       }
 
       if (found.gone) {
@@ -212,8 +229,34 @@ export function AppointmentActions({
       return;
     }
 
-    run({ name: 'cancel', body: { cancellation_reason: trimLikeApi(reason) } });
+    // El alcance, solo en un turno de una serie (en uno sin serie la API no cambia nada con él).
+    run({
+      name: 'cancel',
+      body:
+        seriesId === null
+          ? { cancellation_reason: trimLikeApi(reason) }
+          : { cancellation_reason: trimLikeApi(reason), scope },
+    });
   };
+
+  const affected =
+    seriesId !== null && scope !== 'single' && seriesQuery.data !== undefined
+      ? scopeAffected(appointment, seriesQuery.data, scope, now)
+      : null;
+  let scopeStatus = '';
+
+  if (seriesId !== null && scope !== 'single') {
+    if (affected !== null) {
+      scopeStatus = scopeCountText(affected);
+    } else if (seriesQuery.isError) {
+      scopeStatus = `No se pudieron contar los turnos de la serie. ${SCOPE_NOTICE}`;
+    } else {
+      scopeStatus = 'Contando los turnos de la serie…';
+    }
+  }
+
+  const cancelLabel =
+    affected !== null && affected > 1 ? `Cancelar ${String(affected)} turnos` : 'Cancelar el turno';
 
   const hints = available.filter((item) => item.disabledReason !== null);
   const sizeClass = size === 'sm' ? 'btn-sm' : '';
@@ -245,6 +288,7 @@ export function AppointmentActions({
                 setReason('');
                 setReasonError(undefined);
                 setFailure(null);
+                setScope('single');
                 setDialog({ kind: 'cancel' });
               } else if (transition.name === 'undo_no_show') {
                 setFailure(null);
@@ -276,7 +320,7 @@ export function AppointmentActions({
           open
           size="md"
           title={DIALOG_TITLES.cancel}
-          confirmLabel={failure !== null && !failure.final ? 'Probá de nuevo' : 'Cancelar el turno'}
+          confirmLabel={failure !== null && !failure.final ? 'Probá de nuevo' : cancelLabel}
           cancelLabel="Volver"
           initialFocusRef={reasonRef}
           busy={pendingName === 'cancel'}
@@ -289,6 +333,27 @@ export function AppointmentActions({
             ¿Cancelás el turno de las {formatTime(appointment.starts_at)}
             {who === '' ? '' : ` de ${who}`}? El horario queda libre.
           </p>
+          {seriesId !== null ? (
+            <div className="appointment-cancel-scope">
+              <RadioGroup
+                label="Es un turno de una serie: ¿cuáles cancelás?"
+                name="scope"
+                options={CANCEL_SCOPE_OPTIONS}
+                value={scope}
+                onChange={(event) => {
+                  setScope(event.target.value as CancelScope);
+                }}
+              />
+              <p className="small text-secondary mb-1">{SCOPE_NOTICE}</p>
+              <p
+                className="small mb-3 appointment-cancel-scope-count"
+                role="status"
+                aria-live="polite"
+              >
+                {scopeStatus}
+              </p>
+            </div>
+          ) : null}
           <form
             noValidate
             onSubmit={(event) => {

@@ -1,3 +1,4 @@
+import { IconRepeat } from '@tabler/icons-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useState, type ReactNode, type SyntheticEvent } from 'react';
@@ -39,7 +40,7 @@ import {
   useAgendaSchedules,
 } from './agenda-shared';
 import { appointmentListQueryOptions, rangeBlocksQueryOptions } from './api';
-import { dayName, isAgendaDay } from './dates';
+import { dayName, isAgendaDay, wallDay } from './dates';
 import { appointmentWho, isInBlock } from './grid';
 import {
   listRangeError,
@@ -81,7 +82,8 @@ export function AppointmentListPage() {
   const asCards = useMediaQuery(SINGLE_COLUMN_QUERY);
   const filters = toAppointmentListFilters(search);
   const today = todayInAppZone();
-  // Lo que la API toma como el rango: sin fechas, hoy; con una sola, ese día.
+  const inSeries = search.serie !== undefined;
+  // Lo que la API toma como el rango: sin fechas, hoy; con una sola, ese día. Con la serie, la serie entera (front-04).
   const from = search.desde ?? search.hasta ?? today;
   const to = search.hasta ?? search.desde ?? today;
   const panel = useAppointmentPanel<{ appointment: Appointment; inBlock: boolean }>();
@@ -102,10 +104,15 @@ export function AppointmentListPage() {
     ownVeterinarianId: null,
   });
 
-  // Los bloqueos del rango de cada agenda de la página (en caché): la marca "Dentro de un bloqueo".
+  // Los bloqueos del rango de cada agenda de la página (en caché): la marca "Dentro de un bloqueo". Con la serie, el rango
+  // es el de los turnos de la página (del primero al último: la API de bloqueos no tiene tope).
   const scheduleIds = [...new Set(items.map((appointment) => appointment.schedule.id))];
+  const days = items.map((appointment) => wallDay(appointment.starts_at)).sort();
+  const blocksRange = inSeries
+    ? { from: days[0] ?? today, to: days.at(-1) ?? today }
+    : { from, to };
   const blocks = useQueries({
-    queries: scheduleIds.map((id) => rangeBlocksQueryOptions(id, { from, to }, paused)),
+    queries: scheduleIds.map((id) => rangeBlocksQueryOptions(id, blocksRange, paused)),
   });
   const blocksBySchedule = new Map(scheduleIds.map((id, index) => [id, blocks[index]?.data ?? []]));
   const inBlock = (appointment: Appointment) =>
@@ -148,7 +155,9 @@ export function AppointmentListPage() {
   if (ready && announced?.key !== announceKey) {
     setAnnounced({
       key: announceKey,
-      text: `${rangeText(from, to)}: ${countText(query.data.pagination.total)}.`,
+      text: inSeries
+        ? `La serie: ${countText(query.data.pagination.total)}.`
+        : `${rangeText(from, to)}: ${countText(query.data.pagination.total)}.`,
     });
   }
 
@@ -183,11 +192,17 @@ export function AppointmentListPage() {
     },
   ];
 
-  const emptyText =
-    filters.search === '' &&
-    filters.status.length === 0 &&
-    filters.schedule_id === null &&
-    filters.veterinarian_id === null
+  const emptyText = inSeries
+    ? filters.search === '' &&
+      filters.status.length === 0 &&
+      filters.schedule_id === null &&
+      filters.veterinarian_id === null
+      ? 'No hay turnos de esta serie.'
+      : 'No hay turnos de la serie que coincidan con los filtros.'
+    : filters.search === '' &&
+        filters.status.length === 0 &&
+        filters.schedule_id === null &&
+        filters.veterinarian_id === null
       ? 'No hay turnos en estas fechas.'
       : 'No hay turnos que coincidan con los filtros.';
   const firstPageLink = (
@@ -269,14 +284,34 @@ export function AppointmentListPage() {
               veterinario={search.veterinario}
             />
           </div>
-          <RangeFilter
-            key={`${search.desde ?? ''}|${search.hasta ?? ''}`}
-            desde={search.desde ?? (search.hasta === undefined ? today : undefined)}
-            hasta={search.hasta ?? (search.desde === undefined ? today : undefined)}
-            onApply={(desde, hasta) => {
-              setFilter({ desde, hasta });
-            }}
-          />
+          {inSeries ? (
+            <div className="mb-3 d-flex gap-2 flex-wrap align-items-center appointment-list-series">
+              <span>
+                <IconRepeat size={16} className="me-1" aria-hidden="true" />
+                Los turnos de una serie, todos (sin fechas).
+              </span>
+              <Link
+                to="/turnos"
+                search={(previous: AppointmentListSearch) => ({
+                  ...previous,
+                  serie: undefined,
+                  pagina: undefined,
+                })}
+                className="appointment-list-series-clear"
+              >
+                Quitar la serie
+              </Link>
+            </div>
+          ) : (
+            <RangeFilter
+              key={`${search.desde ?? ''}|${search.hasta ?? ''}`}
+              desde={search.desde ?? (search.hasta === undefined ? today : undefined)}
+              hasta={search.hasta ?? (search.desde === undefined ? today : undefined)}
+              onApply={(desde, hasta) => {
+                setFilter({ desde, hasta });
+              }}
+            />
+          )}
           <div className="row g-2">
             <div className="col-12 col-md-6">
               <SelectField

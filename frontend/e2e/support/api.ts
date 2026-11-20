@@ -202,9 +202,11 @@ export async function createAgendaDay(name: string): Promise<AgendaDay> {
 /**
  * La limpieza de `createAgendaDay` (o de una corrida que se cortó): los turnos no se eliminan (la API no tiene baja: se
  * cancelan) y una agenda con turnos tampoco (`SCHEDULE_IN_USE`), así que se cancelan los que siguen, se eliminan los
- * bloqueos y se inactiva la agenda. syncvet_e2e se vacía en la próxima corrida; la demo no se toca.
+ * bloqueos y se inactiva la agenda. syncvet_e2e se vacía en la próxima corrida; la demo no se toca. `untilOffset`: hasta qué día
+ * (desde hoy) se buscan los turnos para cancelarlos (las series de la 3.6 van varias semanas adelante; el listado acepta hasta
+ * 31 días).
  */
-export async function retireAgendasNamed(prefix: string): Promise<void> {
+export async function retireAgendasNamed(prefix: string, untilOffset = 1): Promise<void> {
   const api = await apiAs(USERS.admin);
 
   try {
@@ -215,7 +217,7 @@ export async function retireAgendasNamed(prefix: string): Promise<void> {
     for (const schedule of schedules.filter((item) => item.name.startsWith(prefix))) {
       const id = String(schedule.id);
       const appointments = await api.get<{ id: number; status: { value: string } }[]>(
-        `appointments?schedule_id=${id}&from=${asuncionDay(-1)}&to=${asuncionDay(1)}&per_page=500`,
+        `appointments?schedule_id=${id}&from=${asuncionDay(-1)}&to=${asuncionDay(untilOffset)}&per_page=500`,
       );
 
       for (const appointment of appointments) {
@@ -328,6 +330,72 @@ export async function createStatesDay(name: string): Promise<StatesDay> {
       noShowContact,
       cancelContact,
     };
+  } finally {
+    await api.dispose();
+  }
+}
+
+/** Lo que arma `createSeriesAgenda` (3.6). */
+export interface SeriesAgenda {
+  scheduleId: number;
+  /** El día del primer turno de las series: dentro de una semana. */
+  firstDay: string;
+  /** El turno que ocupa el tercer día de una serie a las 10:00 (la serie que choca). */
+  busyDay: string;
+  /** La serie de 4 turnos semanales a las 11:00, creada por la API: sus ids por fecha (se cancela desde el tercero). */
+  seriesIds: number[];
+}
+
+/**
+ * Las series (3.6) por la API, en syncvet_e2e (como el administrador): una agenda de `vet-a` en la Casa central abierta todos
+ * los días de 08:00 a 20:00; un turno de un contacto dentro de tres semanas a las 10:00 (la serie de las 10:00 choca ahí) y una
+ * serie de 4 turnos semanales a las 11:00 desde dentro de una semana. La limpieza es `retireAgendasNamed(prefijo, 29)`.
+ */
+export async function createSeriesAgenda(name: string): Promise<SeriesAgenda> {
+  const api = await apiAs(USERS.admin);
+
+  try {
+    const branches = await api.get<{ id: number; name: string }[]>('branches?per_page=100');
+    const branch = branches.find((item) => item.name === 'Casa central');
+    const vets = await api.get<{ id: number; user: { name: string } }[]>(
+      'veterinarians?per_page=100',
+    );
+    const vet = vets.find((item) => item.user.name === USERS.vet.name);
+
+    if (branch === undefined || vet === undefined) {
+      throw new Error('Sin la Casa central o la ficha de vet-a en syncvet_e2e.');
+    }
+
+    const schedule = await api.post<{ id: number }>('schedules', {
+      branch_id: branch.id,
+      name,
+      veterinarian_id: vet.id,
+      slot_minutes: 30,
+      hours: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+        weekday,
+        starts_at: '08:00',
+        ends_at: '20:00',
+      })),
+    });
+    const firstDay = asuncionDay(7);
+    const busyDay = asuncionDay(21);
+    const suffix = name.slice(-6);
+
+    await api.post('appointments', {
+      schedule_id: schedule.id,
+      contact_name: `Contacto ocupado ${suffix}`,
+      contact_phone: '+595981100096',
+      starts_at: `${busyDay}T10:00:00-03:00`,
+    });
+    const series = await api.post<{ id: number }[]>('appointments', {
+      schedule_id: schedule.id,
+      contact_name: `Contacto serie ${suffix}`,
+      contact_phone: '+595981100097',
+      starts_at: `${firstDay}T11:00:00-03:00`,
+      recurrence: { every_weeks: 1, count: 4 },
+    });
+
+    return { scheduleId: schedule.id, firstDay, busyDay, seriesIds: series.map((item) => item.id) };
   } finally {
     await api.dispose();
   }

@@ -1,5 +1,6 @@
 import {
   IconAlertTriangle,
+  IconRepeat,
   IconChevronLeft,
   IconChevronRight,
   IconLock,
@@ -356,7 +357,7 @@ export function AppointmentSummary({
   );
 }
 
-/** "Dentro de un bloqueo" y "Sobreturno", con texto e ícono (no solo color). */
+/** "Dentro de un bloqueo", "Sobreturno" y, desde la 3.6, "Serie", con texto e ícono (no solo color). */
 export function AppointmentFlags({
   appointment,
   inBlock,
@@ -364,7 +365,9 @@ export function AppointmentFlags({
   appointment: Appointment;
   inBlock: boolean;
 }) {
-  if (!appointment.is_overbooked && !inBlock) {
+  const inSeries = appointment.series_id !== null;
+
+  if (!appointment.is_overbooked && !inBlock && !inSeries) {
     return null;
   }
 
@@ -377,12 +380,27 @@ export function AppointmentFlags({
         </span>
       ) : null}
       {appointment.is_overbooked ? (
-        <span>
+        <span className="me-2">
           <IconAlertTriangle size={14} className="me-1" aria-hidden="true" />
           Sobreturno
         </span>
       ) : null}
+      {inSeries ? (
+        <span className="agenda-item-series-flag">
+          <IconRepeat size={14} className="me-1" aria-hidden="true" />
+          Serie
+        </span>
+      ) : null}
     </span>
+  );
+}
+
+/** "Ver los turnos de la serie": la lista filtrada por la serie, entera (`/turnos?serie=`, front-04). */
+export function SeriesLink({ seriesId }: { seriesId: string }) {
+  return (
+    <Link to="/turnos" search={{ serie: seriesId }} className="appointment-series-link">
+      Ver los turnos de la serie
+    </Link>
   );
 }
 
@@ -440,6 +458,12 @@ export function AppointmentPanel({
           </Alert>
         ) : null}
         {current.is_overbooked ? <p className="mb-2 fw-bold">Sobreturno</p> : null}
+        {current.series_id !== null ? (
+          <p className="mb-2 agenda-panel-series">
+            <IconRepeat size={16} className="me-1" aria-hidden="true" />
+            Turno de una serie. <SeriesLink seriesId={current.series_id} />
+          </p>
+        ) : null}
         <dl className="row mb-0">
           {rows
             .filter(([, value]) => value !== '')

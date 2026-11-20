@@ -83,6 +83,7 @@ const LIST_EMPTY = {
   estados: undefined,
   buscar: undefined,
   pagina: undefined,
+  serie: undefined,
 };
 
 describe('validateAppointmentListSearch (/turnos, 3.3)', () => {
@@ -198,6 +199,37 @@ describe('toAppointmentListFilters', () => {
       status: ['pending_confirmation', 'no_show'],
       search: 'luna',
       page: 3,
+      series_id: null,
     });
+  });
+
+  it('la serie va como series_id (3.6)', () => {
+    expect(toAppointmentListFilters({ serie: SERIES }).series_id).toBe(SERIES);
+  });
+});
+
+const SERIES = '9b2f1c4e-7f1a-4c55-a9a3-1f1e2d3c4b5a';
+
+describe('la serie en la URL de /turnos (3.6)', () => {
+  it('un UUID, en minúsculas; con la serie, desde y hasta no se usan', () => {
+    expect(
+      validateAppointmentListSearch({
+        serie: SERIES.toUpperCase(),
+        desde: '2026-11-16',
+        hasta: '2026-11-22',
+        estados: 'cancelado',
+      }),
+    ).toEqual({ ...LIST_EMPTY, serie: SERIES, estados: ['cancelado'] });
+  });
+
+  it('descarta una serie que no es un UUID', () => {
+    expect(validateAppointmentListSearch({ serie: '123' }).serie).toBeUndefined();
+    expect(validateAppointmentListSearch({ serie: 'x', desde: '2026-11-16' }).desde).toBe(
+      '2026-11-16',
+    );
+  });
+
+  it('viaja como texto en la URL', () => {
+    expect(stringifySearch({ serie: SERIES })).toBe(`?serie=${SERIES}`);
   });
 });

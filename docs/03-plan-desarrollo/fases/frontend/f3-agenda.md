@@ -620,7 +620,59 @@ de la PC.
 
 #### Pendiente para el cierre (3.6)
 
-Vacío.
+* **Implementación (2026-11-20)**, en `feature/front-3-6-series` (desde `8df2269`, el WIP de front-04, adelantada sin reescribir:
+  la rama salía de `429e660`). Nuevo `features/appointments/series.ts` (espejo de `AppointmentRecurrence` y de
+  `StoreAppointmentRequest::validateRecurrence`: las fechas con `addDaysToDay`, el año como `addYear` de Carbon, los mensajes de la
+  API, la lista de conflictos, `onlyOverlaps`, el alcance y su cuenta, el lugar en la serie). "Repetir" en el alta
+  (`AppointmentForm`, con la vista previa y el resumen en `role="status"`); el 201 de la serie al primer turno; la lista de
+  conflictos con "Dar la serie con sobreturnos" solo con todas superposiciones y el permiso (`AppointmentFormPages`); el alcance en
+  el diálogo de cancelar con la cuenta de la serie entera (`AppointmentActions`); "Turno 3 de 8" y "Ver los turnos de la serie" en
+  el detalle y el panel; la marca "Serie" (ícono y texto) en el día, la semana, la lista y las tarjetas, y "de una serie" en el
+  nombre accesible; `/turnos?serie=` (`serie` en `TEXT_SEARCH_PARAMS`). Sin rutas, permisos ni ítems de menú nuevos: no corresponde
+  `e2e/permisos.spec.ts` (R-084).
+* **Cifras**: Vitest durante el trabajo, solo `related` y los archivos tocados. Corrida final: `npm test` **1765 tests en 84
+  archivos**, en verde; `typecheck`, `lint` y `build` sin errores ni avisos; `FictitiousDocumentsTest` 3 de 3 (69 aserciones).
+  Tests nuevos: `series.test.ts` (17), `AppointmentSeries.test.tsx` (15), 7 en `form.test.ts`, 4 en `search.test.ts` y 1 en
+  `grid.test.ts`. Playwright: `e2e/series.spec.ts` (nuevo, 3 casos, con `createSeriesAgenda` y la limpieza
+  `retireAgendasNamed(prefijo, 29)`), 3 de 3 en la segunda corrida (1,2 min; desvío 4).
+* **Mutaciones** (4, todas detectadas y revertidas con el editor): las fechas con la zona de la PC (4 fallas en `series.test.ts`); el
+  alcance siempre `series` al cancelar (2); los conflictos no reconocidos (3); el tope de 52 sin control (3).
+* **En Edge** (sin ventana, `es-PY`, `America/Asuncion`, contra `syncvet.test` (200 en `/` y `/up`) con un Vite propio en `:5180`,
+  detenido por el PID de `vite.js`; antes, `php artisan demo:agenda`): 7 de 7. (1) [recepción] El alta con "Repetir" a 1280 y 375
+  px, la vista previa de 4 fechas, sin desplazamiento horizontal; (2) [recepción] el teclado: "Repetir" con la barra espaciadora,
+  Tab por los campos hasta la vista previa (enfocable, "Las fechas de la serie"), el resumen en `role="status"`; (3) [recepción] una
+  lista de 12 conflictos (409 simulado con `page.route`, sin crear nada) a 375 y 1280: se desplaza adentro a 375, el foco en la
+  alerta, con un bloqueo sin el sobreturno; (4) [recepción] una serie real de 4 en "Demo Consultorio 1" la semana que viene: "Turno 1
+  de 4" a 375; (5) [recepción] cancelar con el teclado a 375: el foco en el motivo, las flechas pasan a "Este y los siguientes" (3) y
+  a "Toda la serie" (4, marcada), "Cancelar 4 turnos", Escape devuelve el foco (sin cancelar); (6) [recepción] la lista de la serie
+  a 1280 (tabla) y 375 (tarjetas), 4 marcas "Serie" con ícono, sin "Desde" ni "Hasta"; (7) [recepción, vet-a] la semana con "…, de
+  una serie" en el nombre accesible; `vet-a` ve "Turno 1 de 4" sin "Cancelar el turno"; la consola sin errores. Corridas: todos;
+  1,3,4,5,6,7; 3,7; 3; 3,5; 3 → **9 ingresos** (recepción 6, `vet-a` 3) y 9 tokens revocados en el `finally` (desvío 6). La demo,
+  restaurada con `php artisan demo:agenda` (171 turnos; la serie de los controles, borrada). `admin-a`, `recepcion-a` y `vet-a` sin
+  cambios (`updated_at` del 12/11). Capturas fuera del repositorio (scratchpad de la sesión, `capturas-3-6`): `01-repetir-1280.png`,
+  `02-repetir-375.png`, `03-conflictos-375.png`, `04-conflictos-1280.png`, `05-detalle-serie-375.png`,
+  `06-cancelar-alcance-375.png`, `07-lista-serie-1280.png` y `08-lista-serie-375.png`.
+* **Desvío 1 (el diseño contra la API)**: el listado tenía el tope de 31 días también con `series_id` (H13) y la API no omite
+  fechas en conflicto ni edita la serie entera (H14). Frenado antes de implementar; el usuario eligió front-04 y "sin omitir"
+  (preguntas 16 y 17). La frecuencia es solo semanal ("cada N semanas", de 1 a 12), como la API.
+* **Desvío 2**: la edición y la reprogramación de un turno de una serie van de a uno (el aviso "Es un turno de una serie: el cambio
+  vale solo para este turno." y sin "Repetir"); el pedido hablaba de "edición y reprogramación con el alcance que permita la API":
+  la API no permite otro.
+* **Desvío 3**: el caso de Playwright se llama `e2e/series.spec.ts` (el pedido), no `e2e/turnos-series.spec.ts` (el diseño).
+* **Desvío 4**: la primera corrida de Playwright falló en 2 casos por `getByLabel('Cantidad de turnos')`, que también encuentra la
+  opción "Después de una cantidad de turnos"; corregido con `exact: true` (también en el script de Edge). La segunda, 3 de 3.
+* **Desvío 5 (encontrado en Edge, control 3)**: el foco a la lista de conflictos con un `setTimeout` corría antes del render que la
+  dibuja (en jsdom pasaba): pasó a un `useEffect` sobre la alerta, como el arreglo del desvío 6 de la 3.5.
+* **Desvío 6**: el script falló por errores propios (el selector del desvío 4; los errores de consola acumulados entre controles,
+  con el 409 simulado del 3; la expectativa del desplazamiento a 1280, donde las 12 fechas entran; dos capturas sacadas antes del
+  render o fuera de la vista). Cada vez se repitieron solo los controles fallidos (la segunda corrida sumó el 1, cuya línea había
+  quedado fuera de la salida): 6 corridas, 9 ingresos.
+* **Para la revisión**: (a) con `serie`, la lista no manda `branch_id`: muestra la serie aunque sea de otra sucursal que la actual
+  (como el detalle); (b) los bloqueos de la lista de la serie se piden del primer al último día de la página; (c) la vista previa no
+  marca las fechas en conflicto (están solo en la alerta); (d) la cuenta del alcance sale de la serie leída al abrir el diálogo: la
+  cifra real es la del `message` del 200.
+* **Documentación para el cierre**: `frontend/CLAUDE.md` (estado, `series.ts` y la tabla de errores con el trato de la serie),
+  `f3-resultados.md`, el roadmap, `modulos.md` y el handoff; front-04, su propio cierre.
 
 ### 3.7 La cola del día
 

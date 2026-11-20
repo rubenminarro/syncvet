@@ -73,6 +73,8 @@ export interface AppointmentPayload {
   reason: string | null;
   notes: string | null;
   overbook?: true;
+  /** Solo en el alta (3.6): la serie, con `every_weeks` y uno de `count` o `until`. El `PATCH` la rechaza (422). */
+  recurrence?: { every_weeks: number; count: number | null; until: string | null };
 }
 
 /** El cuerpo de PATCH appointments/{id}: solo lo que cambió (la API valida solo lo que llega, P7). */

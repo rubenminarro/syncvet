@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { errorTreatment, type ApiError } from '../../lib/api/errors';
 import { normalizePhone, PHONE_PATTERN } from '../../lib/phone';
 import { parseDay } from './dates';
+import { recurrencePayload, seriesError, type SeriesEnd, type SeriesInput } from './series';
 import {
   appointmentTimes,
   crossesMidnight,
@@ -97,6 +98,13 @@ export interface AppointmentFormValues {
   source: AppointmentSource;
   reason: string;
   notes: string;
+  /** La repetición (3.6, solo en el alta): "Repetir", cada cuántas semanas y el fin, por cantidad o por fecha. */
+  repeat: boolean;
+  every_weeks: string;
+  series_end: SeriesEnd;
+  series_count: string;
+  /** `yyyy-MM-dd` (la fecha de fin de la serie, inclusive). */
+  series_until: string;
 }
 
 /** Los campos del formulario, para los errores de la API. */
@@ -113,6 +121,9 @@ export const APPOINTMENT_FORM_FIELDS = [
   'source',
   'reason',
   'notes',
+  'every_weeks',
+  'series_count',
+  'series_until',
 ] as const satisfies readonly (keyof AppointmentFormValues)[];
 
 export type AppointmentFormField = (typeof APPOINTMENT_FORM_FIELDS)[number];
@@ -131,6 +142,11 @@ export const EMPTY_APPOINTMENT_FORM: AppointmentFormValues = {
   source: 'reception',
   reason: '',
   notes: '',
+  repeat: false,
+  every_weeks: '1',
+  series_end: 'count',
+  series_count: '4',
+  series_until: '',
 };
 
 /** Los caracteres, como los cuenta la API (`max` de Laravel cuenta caracteres, no unidades UTF-16). */
@@ -189,6 +205,11 @@ export function appointmentFormSchema(today: string, original?: AppointmentFormV
       source: z.enum(['reception', 'phone', 'whatsapp']),
       reason: z.string(),
       notes: z.string(),
+      repeat: z.boolean(),
+      every_weeks: z.string(),
+      series_end: z.enum(['count', 'until']),
+      series_count: z.string(),
+      series_until: z.string(),
     })
     .superRefine((values, context) => {
       const issue = (path: AppointmentFormField, message: string) => {
@@ -237,6 +258,21 @@ export function appointmentFormSchema(today: string, original?: AppointmentFormV
 
       if (length(values.notes) > 1000) {
         issue('notes', APPOINTMENT_MESSAGES.notesMax);
+      }
+
+      // La serie, solo en el alta (la edición no la muestra: la API rechaza `recurrence` en el PATCH).
+      if (original === undefined && values.repeat) {
+        const found = seriesError({
+          firstDay: values.date,
+          everyWeeks: values.every_weeks,
+          end: values.series_end,
+          count: values.series_count,
+          until: values.series_until,
+        });
+
+        if (found !== null) {
+          issue(SERIES_FORM_FIELDS[found.field], found.message);
+        }
       }
     });
 }
@@ -292,6 +328,46 @@ function checkWho(
 
 const textOrNull = (value: string) => (value.trim() === '' ? null : value.trim());
 
+/** El campo del formulario de cada clave de la repetición (`recurrence.*` de la API). */
+const SERIES_FORM_FIELDS = {
+  every_weeks: 'every_weeks',
+  count: 'series_count',
+  until: 'series_until',
+} as const satisfies Record<string, AppointmentFormField>;
+
+/**
+ * La repetición del formulario, ya leída (para la vista previa y el cuerpo), o null si "Repetir" no está marcado o algo no
+ * tiene forma: la vista previa se muestra solo con la serie que la API aceptaría por su forma.
+ */
+export function seriesInputOf(
+  values: Pick<
+    AppointmentFormValues,
+    'repeat' | 'date' | 'every_weeks' | 'series_end' | 'series_count' | 'series_until'
+  >,
+): SeriesInput | null {
+  if (
+    !values.repeat ||
+    parseDay(values.date) === null ||
+    seriesError({
+      firstDay: values.date,
+      everyWeeks: values.every_weeks,
+      end: values.series_end,
+      count: values.series_count,
+      until: values.series_until,
+    }) !== null
+  ) {
+    return null;
+  }
+
+  return {
+    firstDay: values.date,
+    everyWeeks: Number(values.every_weeks.trim()),
+    end: values.series_end,
+    count: values.series_end === 'count' ? Number(values.series_count.trim()) : null,
+    until: values.series_end === 'until' ? values.series_until : null,
+  };
+}
+
 /** El turno guardado como valores del formulario (la edición): la fecha y la hora de pared de Asunción y la duración. */
 export function appointmentToForm(appointment: AppointmentDetail): AppointmentFormValues {
   const { day, clock } = instantToWall(appointment.starts_at);
@@ -318,6 +394,11 @@ export function appointmentToForm(appointment: AppointmentDetail): AppointmentFo
     source: isSource(appointment.source.value) ? appointment.source.value : 'reception',
     reason: appointment.reason ?? '',
     notes: appointment.notes ?? '',
+    repeat: false,
+    every_weeks: '1',
+    series_end: 'count',
+    series_count: '4',
+    series_until: '',
   };
 }
 
@@ -405,6 +486,26 @@ export function appointmentFormToPayload(
   return options.overbook === true ? { ...payload, overbook: true } : payload;
 }
 
+/**
+ * El cuerpo del alta de una serie (3.6): el del alta con `recurrence` (`every_weeks` y uno de `count` o `until`). `overbook:
+ * true`, solo después del 409 de la serie y con el permiso: vale para todas las fechas y saltea solo la superposición.
+ */
+export function appointmentSeriesPayload(
+  values: AppointmentFormValues,
+  options: { overbook?: boolean } = {},
+): AppointmentPayload {
+  const input = seriesInputOf(values);
+
+  if (input === null) {
+    throw new Error('La serie llegó sin validar.');
+  }
+
+  return {
+    ...appointmentFormToPayload(values, options),
+    recurrence: recurrencePayload(input),
+  };
+}
+
 function pick<K extends keyof AppointmentPayload>(
   payload: AppointmentPayload,
   keys: readonly K[],
@@ -460,6 +561,9 @@ const API_FIELDS: Record<string, AppointmentFormField> = {
   source: 'source',
   reason: 'reason',
   notes: 'notes',
+  'recurrence.every_weeks': 'every_weeks',
+  'recurrence.count': 'series_count',
+  'recurrence.until': 'series_until',
 };
 
 /** Los campos que se ven con cada "quién" (un error de un campo oculto va a la alerta: si no, nadie lo vería). */

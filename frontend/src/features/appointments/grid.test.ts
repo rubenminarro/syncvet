@@ -468,6 +468,18 @@ describe('buildWeekGrid (3.3): la semana de una agenda', () => {
     );
   });
 
+  it('un turno de una serie lo dice en su nombre accesible (3.6)', () => {
+    const grid = week([
+      appointment(8, { at: '09:00', series_id: '9b2f1c4e-7f1a-4c55-a9a3-1f1e2d3c4b5a' }),
+    ]);
+    const tuesday = grid.columns[1];
+    const item = tuesday?.items[0];
+
+    expect(item === undefined ? '' : appointmentLabel(item, tuesday?.itemContext ?? '')).toBe(
+      '09:00 a 09:30, Luna, de Laura Martínez, Consulta, Confirmado, Consultorio 1, martes 17 de noviembre, de una serie',
+    );
+  });
+
   it('la semana del 23/03/2024 (25 horas): los dos turnos de la hora repetida, lado a lado en el sábado', () => {
     const grid = buildWeekGrid({
       day: '2024-03-20',

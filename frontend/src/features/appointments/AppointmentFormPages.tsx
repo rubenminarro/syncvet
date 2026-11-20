@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Alert, Button, ConfirmDialog, Loading, useToast } from '../../components/ui';
 import { errorTreatment, isApiError, MESSAGES, userMessage } from '../../lib/api/errors';
+import { formatTime } from '../../lib/format/dates';
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { meQueryOptions } from '../auth/api';
@@ -11,16 +12,19 @@ import { useCan } from '../auth/permissions';
 import { serviceOptionsQueryOptions } from '../schedules/api';
 import {
   afterAppointmentSaved,
+  afterSeriesCreated,
   appointmentDetailKeys,
   appointmentDetailQueryOptions,
   branchScheduleOptionsQueryOptions,
   createAppointment,
+  createAppointmentSeries,
   updateAppointment,
 } from './api';
 import { AppointmentForm } from './AppointmentForm';
 import { dayTitle, wallDay } from './dates';
 import {
   appointmentFormToPayload,
+  appointmentSeriesPayload,
   appointmentToForm,
   defaultDuration,
   EMPTY_APPOINTMENT_FORM,
@@ -30,10 +34,20 @@ import {
 } from './form';
 import type { NewAppointmentSearch } from './search';
 import { parseInicio } from './times';
-import { EDITABLE_STATUSES, type AppointmentDetail } from './types';
+import {
+  onlyOverlaps,
+  SERIES_CONFLICT_HINTS,
+  seriesConflicts,
+  type SeriesConflict,
+} from './series';
+import { EDITABLE_STATUSES, type Appointment, type AppointmentDetail } from './types';
 
 /** El texto del diálogo del sobreturno (pregunta 8 del diseño de la F3). */
 export const OVERBOOK_QUESTION = 'El horario ya está ocupado. ¿Querés darlo igual como sobreturno?';
+
+/** El sobreturno de una serie (3.6): vale para todas las fechas y saltea solo la superposición. */
+export const SERIES_OVERBOOK_QUESTION =
+  'Las fechas de la lista tienen el horario ocupado. ¿Querés dar la serie igual, con esas fechas como sobreturnos?';
 
 interface SaveVariables {
   values: AppointmentFormValues;
@@ -50,6 +64,10 @@ interface SaveAlert {
   overlap: boolean;
   conflict?: boolean;
   reloaded?: boolean;
+  /** El 409 de la serie (3.6): cada fecha que no entra, con su motivo. */
+  seriesConflicts?: SeriesConflict[];
+  /** Si "Dar la serie con sobreturnos" sirve: todas son superposiciones y todavía no se pidió. */
+  seriesOverlap?: boolean;
 }
 
 /** El aviso después de "Cargar la versión actual". */
@@ -65,7 +83,7 @@ function useAppointmentSave(options: {
   save: (
     values: AppointmentFormValues,
     overbook: boolean,
-  ) => Promise<{ data: AppointmentDetail; message: string }>;
+  ) => Promise<{ data: AppointmentDetail | Appointment[]; message: string }>;
   previousScheduleId?: number;
   detailId?: number;
   /** La edición: después del 409 de un cambio concurrente, "Cargar la versión actual" (pide el turno y rearma el formulario). */
@@ -78,8 +96,18 @@ function useAppointmentSave(options: {
   const single = useSingleAction();
   const canOverbook = can(PERMISSIONS.appointmentsOverbook);
   const [alert, setAlert] = useState<SaveAlert | null>(null);
-  const [confirmOverbook, setConfirmOverbook] = useState(false);
+  // El diálogo del sobreturno: el de un turno o el de la serie (el texto no depende de la alerta, que se vacía al reenviar).
+  const [confirmOverbook, setConfirmOverbook] = useState<false | 'single' | 'series'>(false);
   const alertRef = useRef<HTMLDivElement>(null);
+
+  // La lista de conflictos de la serie: el foco, a la alerta (el lector de pantalla la lee; nada del formulario cambió).
+  // Después del render que la dibuja, no con un setTimeout (en Edge corría antes de ese render y el foco no llegaba: control
+  // 3 de la 3.6, como el desvío de la 3.5).
+  useEffect(() => {
+    if (alert?.seriesConflicts !== undefined) {
+      alertRef.current?.focus();
+    }
+  }, [alert]);
   const last = useRef<{
     values: AppointmentFormValues;
     form: UseFormReturn<AppointmentFormValues>;
@@ -102,6 +130,21 @@ function useAppointmentSave(options: {
 
       if (!isApiError(error)) {
         setAlert({ message: MESSAGES.programming, overlap: false });
+
+        return;
+      }
+
+      const conflicts = seriesConflicts(error);
+
+      if (conflicts !== null) {
+        // La serie no entra: la lista por fecha (H8), sin crear ninguno; los horarios libres, de nuevo.
+        setAlert({
+          message: error.message,
+          overlap: false,
+          seriesConflicts: conflicts,
+          seriesOverlap: onlyOverlaps(conflicts) && !overbook,
+        });
+        refreshAvailability(values);
 
         return;
       }
@@ -173,14 +216,24 @@ function useAppointmentSave(options: {
           }
       }
     },
-    onSuccess: (response) => {
-      afterAppointmentSaved(queryClient, response.data, options.previousScheduleId);
+    onSuccess: (response, { values }) => {
+      const { data } = response;
+      let firstId: number | undefined;
+
+      if (Array.isArray(data)) {
+        // La serie: al primer turno, con "Serie de N turnos creada correctamente." (el message de la API).
+        afterSeriesCreated(queryClient, Number(values.schedule_id));
+        firstId = data[0]?.id;
+      } else {
+        afterAppointmentSaved(queryClient, data, options.previousScheduleId);
+        firstId = data.id;
+      }
+
       toast.show(response.message, 'success');
-      void navigate({
-        to: '/turnos/$id',
-        params: { id: String(response.data.id) },
-        replace: true,
-      });
+
+      if (firstId !== undefined) {
+        void navigate({ to: '/turnos/$id', params: { id: String(firstId) }, replace: true });
+      }
     },
     onSettled: () => {
       single.release();
@@ -231,6 +284,16 @@ function useAppointmentSave(options: {
           {...(alert.overlap ? { title: 'El horario ya está ocupado' } : {})}
         >
           {alert.message}
+          {alert.seriesConflicts !== undefined ? (
+            <SeriesConflictList
+              conflicts={alert.seriesConflicts}
+              overlap={alert.seriesOverlap === true}
+              canOverbook={canOverbook}
+              onOverbook={() => {
+                setConfirmOverbook('series');
+              }}
+            />
+          ) : null}
           {alert.conflict === true ? (
             <div className="mt-2">
               <Button
@@ -250,7 +313,7 @@ function useAppointmentSave(options: {
                 variant="secondary"
                 className="appointment-overbook"
                 onClick={() => {
-                  setConfirmOverbook(true);
+                  setConfirmOverbook('single');
                 }}
               >
                 Dar como sobreturno
@@ -266,23 +329,71 @@ function useAppointmentSave(options: {
       </div>
     );
 
+  const forSeries = confirmOverbook === 'series';
   const dialog = (
     <ConfirmDialog
-      open={confirmOverbook}
+      open={confirmOverbook !== false}
       tone="primary"
-      title="Dar como sobreturno"
-      confirmLabel="Dar como sobreturno"
+      title={forSeries ? 'Dar la serie con sobreturnos' : 'Dar como sobreturno'}
+      confirmLabel={forSeries ? 'Dar la serie con sobreturnos' : 'Dar como sobreturno'}
       busy={mutation.isPending}
       onConfirm={overbook}
       onClose={() => {
         setConfirmOverbook(false);
       }}
     >
-      <p className="mb-0">{OVERBOOK_QUESTION}</p>
+      <p className="mb-0">{forSeries ? SERIES_OVERBOOK_QUESTION : OVERBOOK_QUESTION}</p>
     </ConfirmDialog>
   );
 
   return { submit, alertNode, dialog, saving: mutation.isPending };
+}
+
+/**
+ * La lista de `errors.conflicts` (H8): cada fecha y hora en Asunción con el `message` de la API, y lo que se puede hacer: con
+ * todas superposiciones y `appointments.overbook`, "Dar la serie con sobreturnos"; si no, corregir o cancelar (pregunta 17).
+ */
+function SeriesConflictList({
+  conflicts,
+  overlap,
+  canOverbook,
+  onOverbook,
+}: {
+  conflicts: readonly SeriesConflict[];
+  overlap: boolean;
+  canOverbook: boolean;
+  onOverbook: () => void;
+}) {
+  let hint: ReactNode = SERIES_CONFLICT_HINTS.fix;
+
+  if (overlap && canOverbook) {
+    hint = (
+      <Button variant="secondary" className="appointment-series-overbook" onClick={onOverbook}>
+        Dar la serie con sobreturnos
+      </Button>
+    );
+  } else if (overlap) {
+    hint = SERIES_CONFLICT_HINTS.noPermission;
+  }
+
+  return (
+    <>
+      <ul
+        className="mt-2 appointment-series-conflicts"
+        aria-label="Las fechas que no se pueden dar"
+      >
+        {conflicts.map((conflict) => (
+          <li key={conflict.starts_at}>
+            <strong>
+              {dayTitle(wallDay(conflict.starts_at))}, {formatTime(conflict.starts_at)}
+            </strong>
+            : {conflict.message}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-2 small appointment-series-conflict-hint">{hint}</div>
+    </>
+  );
 }
 
 function Breadcrumb({ appointment }: { appointment?: AppointmentDetail }) {
@@ -314,7 +425,10 @@ export function AppointmentCreatePage({ search }: { search: NewAppointmentSearch
   });
   const servicesQuery = useQuery(serviceOptionsQueryOptions());
   const save = useAppointmentSave({
-    save: (values, overbook) => createAppointment(appointmentFormToPayload(values, { overbook })),
+    save: (values, overbook) =>
+      values.repeat
+        ? createAppointmentSeries(appointmentSeriesPayload(values, { overbook }))
+        : createAppointment(appointmentFormToPayload(values, { overbook })),
   });
   const waiting = (branchId !== null && schedulesQuery.isPending) || servicesQuery.isPending;
 

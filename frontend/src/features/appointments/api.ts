@@ -138,12 +138,15 @@ export interface AppointmentListFilters {
   status: readonly string[];
   search: string;
   page: number;
+  /** La serie (3.6, `?serie=`): con ella no van `from`, `to` ni `branch_id` (la serie entera, front-04). */
+  series_id: string | null;
 }
 
 /**
  * GET appointments?branch_id=<actual>&from&to&schedule_id&veterinarian_id&status[]&search&page&per_page=20: la lista, con los
  * filtros de la API (H2) y su paginación. Se actualiza como la agenda (cada 60 s, con la pausa) y, al cambiar de filtro o de
- * página, sigue con la anterior hasta que llega la nueva.
+ * página, sigue con la anterior hasta que llega la nueva. Con la serie (3.6), sin rango ni sucursal: la serie entera, aunque
+ * sea de otra sucursal (un turno se abre desde cualquiera; la clave sigue con `branchKey`, que la invalida como las demás).
  */
 export function appointmentListQueryOptions(
   branchId: number,
@@ -156,9 +159,9 @@ export function appointmentListQueryOptions(
       getPage<Appointment>('appointments', {
         signal,
         query: {
-          branch_id: branchId,
-          from: filters.from,
-          to: filters.to,
+          ...(filters.series_id === null
+            ? { branch_id: branchId, from: filters.from, to: filters.to }
+            : { series_id: filters.series_id }),
           schedule_id: filters.schedule_id,
           veterinarian_id: filters.veterinarian_id,
           status: filters.status,
@@ -244,30 +247,86 @@ export function createAppointment(payload: AppointmentPayload) {
   return api.post<AppointmentDetail>('appointments', payload);
 }
 
+/**
+ * POST appointments con `recurrence` (3.6): 201 con la lista de los turnos (`AppointmentResource`), "Serie de N turnos creada
+ * correctamente." y `meta.series_id`; si alguna fecha no entra, 409 `APPOINTMENT_SERIES_CONFLICT` y no se crea ninguna.
+ */
+export function createAppointmentSeries(payload: AppointmentPayload) {
+  return api.post<Appointment[]>('appointments', payload);
+}
+
+/** Los turnos de una serie en un pedido: tiene hasta 52 (`AppointmentRecurrence::MAX_COUNT`). */
+export const SERIES_PER_PAGE = 100;
+
+/** La serie de un turno (3.6): sin `branchKey`, como el detalle (un turno se abre desde cualquier sucursal). */
+export const appointmentSeriesKeys = {
+  all: ['appointments', 'series'] as const,
+  series: (seriesId: string) => ['appointments', 'series', seriesId] as const,
+};
+
+/**
+ * GET appointments?series_id=&per_page=100, **sin `from` ni `to`**: la serie entera, de cualquier estado y sin el tope de 31
+ * días (front-04, pregunta 16). De ahí salen "Turno 3 de 8" y la cuenta de la confirmación de cancelar.
+ */
+export function appointmentSeriesQueryOptions(seriesId: string) {
+  return queryOptions({
+    queryKey: appointmentSeriesKeys.series(seriesId),
+    queryFn: async ({ signal }) =>
+      (
+        await getPage<Appointment>('appointments', {
+          signal,
+          query: { series_id: seriesId, per_page: SERIES_PER_PAGE },
+        })
+      ).items,
+    staleTime: AGENDA_STALE_MS,
+  });
+}
+
+/**
+ * Después del 201 de una serie: la agenda del día, la semana, la lista y la cola (las que se ven) y la disponibilidad de su
+ * agenda. No hay detalle que fijar: se va al primer turno, que se pide.
+ */
+export function afterSeriesCreated(queryClient: QueryClient, scheduleId: number) {
+  invalidateBranchAppointments(queryClient);
+  void queryClient.invalidateQueries({ queryKey: ['schedules', scheduleId, 'availability'] });
+}
+
 export function updateAppointment(id: number, payload: AppointmentUpdatePayload) {
   return api.patch<AppointmentDetail>(`appointments/${String(id)}`, payload);
 }
 
 /**
  * POST appointments/{id}/<acción> (3.5): responde 200 con el detalle y el aviso ("Turno confirmado."). Cancelar manda el
- * motivo (sin `scope`: la API toma "solo este turno"; el alcance es de la 3.6); deshacer el ausente, `overbook: true` solo
- * después del 409 y con el permiso.
+ * motivo y, desde la 3.6, el alcance (`scope`) **solo en un turno de una serie** (en uno sin serie no cambia nada y no va);
+ * deshacer el ausente, `overbook: true` solo después del 409 y con el permiso.
  */
 export function runAppointmentTransition(
   id: number,
   path: string,
-  body: { cancellation_reason?: string; overbook?: true } = {},
+  body: {
+    cancellation_reason?: string;
+    overbook?: true;
+    scope?: 'single' | 'following' | 'series';
+  } = {},
 ) {
   return api.post<AppointmentDetail>(`appointments/${String(id)}/${path}`, body);
 }
 
 /**
- * Después de una acción rechazada (el turno cambió en otra PC: un 409 o un 422 de negocio): el detalle y la agenda del día,
- * la semana, la lista y la cola se vuelven a pedir (las que se ven), para mostrar el estado actual.
+ * Después de una acción rechazada (el turno cambió en otra PC: un 409 o un 422 de negocio): el detalle, su serie y la agenda
+ * del día, la semana, la lista y la cola se vuelven a pedir (las que se ven), para mostrar el estado actual.
  */
-export function refreshAppointment(queryClient: QueryClient, id: number) {
+export function refreshAppointment(queryClient: QueryClient, id: number, seriesId?: string | null) {
   void queryClient.invalidateQueries({ queryKey: appointmentDetailKeys.detail(id) });
+  invalidateSeries(queryClient, seriesId);
   invalidateBranchAppointments(queryClient);
+}
+
+/** La serie del turno, si tiene (la cuenta del alcance y "Turno 3 de 8"); los demás turnos de la serie pudieron cambiar. */
+function invalidateSeries(queryClient: QueryClient, seriesId: string | null | undefined) {
+  if (seriesId !== null && seriesId !== undefined) {
+    void queryClient.invalidateQueries({ queryKey: appointmentSeriesKeys.series(seriesId) });
+  }
 }
 
 /** ¿Es una consulta de turnos de una sucursal (la agenda del día o de la semana, la lista o la cola)? */
@@ -294,6 +353,7 @@ export function afterAppointmentSaved(
   previousScheduleId?: number,
 ) {
   queryClient.setQueryData(appointmentDetailKeys.detail(saved.id), saved);
+  invalidateSeries(queryClient, saved.series_id);
   invalidateBranchAppointments(queryClient);
 
   for (const scheduleId of new Set([saved.schedule.id, previousScheduleId ?? saved.schedule.id])) {
