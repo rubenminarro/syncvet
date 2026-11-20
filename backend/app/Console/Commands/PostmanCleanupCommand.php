@@ -207,10 +207,12 @@ class PostmanCleanupCommand extends Command
         [$summary['branches'], $summary['skipped_branches']] = $this->deleteBranches($run, $users);
         // Los depósitos de la corrida en otra sucursal (la colección de sucursales reusa una fija, SUC-PM): DEP-<corrida>-… y
         // DEPI-<corrida>; salvo los de una sucursal que quedó sin tocar.
-        $summary['warehouses'] = $this->forceDeleteAll(Warehouse::query()
+        $warehouses = Warehouse::query()
             ->where(fn (Builder $q) => $q->where('code', 'like', 'DEP-' . strtoupper($run) . '-%')->orWhere('code', 'DEPI-' . strtoupper($run)))
             ->whereNotIn('branch_id', Branch::whereIn('code', $summary['skipped_branches'])->pluck('id'))
-            ->get());
+            ->get();
+        $summary['warehouses'] = $this->forceDeleteAll($warehouses);
+        $this->restoreDefaultWarehouses($warehouses);
         $summary['users'] = $this->retireUsers($users);
 
         return $summary;
@@ -289,6 +291,25 @@ class PostmanCleanupCommand extends Command
         }
 
         return [$deleted, $skipped];
+    }
+
+    /**
+     * Una sucursal que queda no se queda sin depósito por defecto: la colección de sucursales marca su depósito como el por
+     * defecto de SUC-PM (pedido 18), así que, al borrarlo, el por defecto vuelve al primer depósito de la sucursal (el que se
+     * creó con ella), activo.
+     *
+     * @param  Collection<int, Warehouse>  $deleted
+     */
+    private function restoreDefaultWarehouses(Collection $deleted): void
+    {
+        foreach ($deleted->where('is_default', true)->pluck('branch_id')->unique() as $branchId) {
+            if (Warehouse::where('branch_id', $branchId)->where('is_default', true)->exists()) {
+                continue;
+            }
+
+            $first = Warehouse::where('branch_id', $branchId)->orderBy('id')->first();
+            $first?->forceFill(['is_default' => true, 'is_active' => true])->save();
+        }
     }
 
     /**

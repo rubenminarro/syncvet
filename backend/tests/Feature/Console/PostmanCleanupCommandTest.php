@@ -182,8 +182,11 @@ class PostmanCleanupCommandTest extends TestCase
             Warehouse::create(['branch_id' => $free->id, 'code' => 'DEP-AB12CD-X', 'name' => 'Depósito AB12CD']);
             $used = Branch::create(['code' => 'SUC-AB12CD-R', 'name' => 'Recepción AB12CD', 'establishment' => '092']);
             Warehouse::create(['branch_id' => $used->id, 'code' => 'DEP-AB12CD-R', 'name' => 'Depósito de la usada']);
-            // La colección de sucursales reusa una sucursal fija (SUC-PM) y le crea depósitos DEP-<corrida>-2.
-            Warehouse::create(['branch_id' => $this->branch->id, 'code' => 'DEP-AB12CD-2', 'name' => 'Farmacia AB12CD']);
+            // La colección de sucursales reusa una sucursal fija (SUC-PM): le crea el depósito DEP-<corrida>-2, lo marca como
+            // el por defecto e inactiva el que tenía.
+            $fixed = Branch::create(['code' => 'SUC-PM', 'name' => 'Sucursal fija', 'establishment' => '093']);
+            Warehouse::create(['branch_id' => $fixed->id, 'code' => 'DEP-PM', 'name' => 'Principal', 'is_default' => false, 'is_active' => false]);
+            Warehouse::create(['branch_id' => $fixed->id, 'code' => 'DEP-AB12CD-2', 'name' => 'Farmacia AB12CD', 'is_default' => true]);
 
             return [$free, $used];
         });
@@ -198,6 +201,10 @@ class PostmanCleanupCommandTest extends TestCase
             $this->assertSame(0, Warehouse::where('branch_id', $free->id)->count());
             $this->assertNotNull(Branch::find($used->id));
             $this->assertSame(['DEP-AB12CD-R'], Warehouse::where('code', 'like', 'DEP-AB12CD-%')->pluck('code')->all());
+            // SUC-PM no queda sin depósito por defecto: vuelve a ser el suyo, activo.
+            $home = Warehouse::where('code', 'DEP-PM')->sole();
+            $this->assertTrue($home->is_default);
+            $this->assertTrue($home->is_active);
         });
     }
 
