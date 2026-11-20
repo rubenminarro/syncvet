@@ -1237,8 +1237,8 @@ Corrida de `npm test` del frontend (2026-11-20): 1814 tests en 86 archivos, en v
 
 ### Cierre de la F3
 
-Estado: **COMPLETADO** el 2026-11-20 (R-098), en `feature/f3-cierre`, desde `1aa2a82` (el cierre de la 3.7), **sin integrar a
-`main`**: el merge `--no-ff` lo autoriza el usuario. Sin pantallas nuevas: las deudas 27 y 28, la limpieza de Newman, el EXPLAIN del
+Estado: **COMPLETADO** el 2026-11-20 (R-098), en `feature/f3-cierre`, desde `1aa2a82` (el cierre de la 3.7), e **integrada a
+`main`** con el merge `5f180f3` (`--no-ff`, autorizado por el usuario; las ramas se conservan). Sin pantallas nuevas: las deudas 27 y 28, la limpieza de Newman, el EXPLAIN del
 listado con `series_id`, el aislamiento de Playwright y la regresión completa. Commits: `f5d1e96` (las deudas 27 y 28,
 `postman:cleanup` y `newman-todas.mjs`), `540b85b` (la limpieza toma lo dado de baja, los depósitos y los tokens), `5854e76` (la
 sucursal fija no queda sin depósito por defecto), `28c8f15` (lo pendiente, con la caída de `syncvet.test`), `ee2fe24` (el script de
@@ -1352,7 +1352,7 @@ sus sucursales); los turnos de hoy, 34, los mismos por agenda que antes de la re
 Nueva, sin implementar: la 29 (la cola pide los bloqueos de a una agenda: 6 pedidos por carga en la de vet-a y 7 en la de la
 recepción). Abiertas al cerrar: del backend, 2, 3, 5, 6, 15, 17, 21, 25 y 26; del frontend, 19 y 20; de los dos, 29.
 
-**Merge a `main`** (sin hacer, lo autoriza el usuario). `main` sigue en `2651337` (el merge de la F2), sin commits nuevos, y
+**Merge a `main`**: `5f180f3`, autorizado por el usuario, sin conflictos; sobre `main`, `composer test` (1511 casos, 15085 aserciones) y `typecheck`, `lint`, `build` y `npm test` (1835 en 89 archivos), en verde. Antes del merge, `main` estaba en `2651337` (el merge de la F2), sin commits nuevos, y
 `git merge-tree` no da conflictos. Entran 47 commits (más el de este cierre): el diseño de la F3 (R-084 y R-085), las entregas 3.1a
 a 3.7 del frontend (R-086, R-087, R-089 y R-092 a R-094, R-096 y R-097), las de soporte del backend front-03, demo-02 y front-04
 (R-088, R-090 y R-095), la reorganización de la documentación (R-091) y este cierre (R-098); 217 archivos (135 de `frontend/`, 13

@@ -8,8 +8,8 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 
 | Dato | Valor |
 |---|---|
-| Fase | F3 (agenda y turnos), COMPLETADA (R-098) en `feature/f3-cierre`, sin integrar a `main` (el merge, con la autorización del usuario); diseño en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md) (R-085). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Después del merge, la FASE 4 del backend |
+| Fase | F3 (agenda y turnos), COMPLETADA (R-098) e integrada a `main` (`5f180f3`); diseño en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md) (R-085). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
+| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Sigue la FASE 4 del backend (historia clínica) |
 | Tests | Vitest: 1835 tests en 89 archivos, en verde (cierre de la F3, R-098); Playwright: 46 de 46 en una sola corrida (22 archivos) |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
