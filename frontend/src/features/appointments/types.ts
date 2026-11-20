@@ -32,6 +32,29 @@ export interface Appointment {
   reason: string | null;
 }
 
+/**
+ * Un turno de la cola del día (`QueueAppointmentResource`, GET appointments/queue): el del listado, con la especie y la raza
+ * del paciente y `checked_in_at` (la hora en que se fichó, en UTC; null si no se fichó).
+ */
+export interface QueueAppointment extends Appointment {
+  patient:
+    | (NonNullable<Appointment['patient']> & {
+        species: { id: number; name: string } | null;
+        breed: { id: number; name: string } | null;
+      })
+    | null;
+  checked_in_at: string | null;
+}
+
+/** `meta` de la cola: el día, la sucursal, el veterinario por el que filtró, si suma las agendas sin veterinario y si cortó en 200. */
+export interface QueueMeta {
+  date: string;
+  branch_id: number;
+  veterinarian_id: number | null;
+  includes_unassigned: boolean;
+  truncated: boolean;
+}
+
 /** Los estados que se editan y se mueven (`AppointmentService::EDITABLE`): a confirmar y confirmado. */
 export const EDITABLE_STATUSES: ReadonlySet<string> = new Set([
   'pending_confirmation',

@@ -289,3 +289,41 @@
   padding-left: 1.25rem;
   margin-bottom: 0;
 }
+
+/*
+ * La cola del día (3.7): una tarjeta por turno, en el orden de la API. En el celular, los datos arriba y las acciones debajo
+ * (se envuelven); desde 768 px, las acciones a la derecha. Los nombres largos se cortan en palabras, nunca a lo ancho.
+ */
+.queue-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.queue-row-actions {
+  flex: 0 0 auto;
+}
+
+@media (min-width: 768px) {
+  .queue-row-actions {
+    max-width: 22rem;
+    align-items: flex-end;
+  }
+}
+
+.queue-row-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-row-waiting {
+  font-weight: 600;
+}
+
+.queue-row-dimmed {
+  opacity: 0.7;
+}
+
+.queue-row-title:focus-visible {
+  outline: 2px solid var(--tblr-primary);
+  outline-offset: 2px;
+}

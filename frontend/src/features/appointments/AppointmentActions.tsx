@@ -4,6 +4,7 @@ import { Button, ConfirmDialog, RadioGroup, TextareaField, useToast } from '../.
 import { PERMISSIONS } from '../../lib/auth/permissions';
 import { formatTime } from '../../lib/format/dates';
 import { trimLikeApi } from '../../lib/format/text';
+import { useNow } from '../../lib/hooks/use-now';
 import { useSingleAction } from '../../lib/hooks/use-single-action';
 import { meQueryOptions } from '../auth/api';
 import { useCan } from '../auth/permissions';
@@ -27,9 +28,6 @@ import {
 } from './transitions';
 import type { Appointment, AppointmentDetail } from './types';
 
-/** Cada cuánto se vuelve a mirar la hora (el ausente se habilita al llegar el inicio): 30 s. */
-const NOW_TICK_MS = 30_000;
-
 /** El título de cada diálogo (también el del error de una acción directa). */
 const DIALOG_TITLES: Record<TransitionName, string> = {
   confirm: 'Confirmar el turno',
@@ -49,23 +47,6 @@ export const UNDO_AS_OVERBOOK = 'Volver como sobreturno';
 /** El aviso del alcance (diseño de la 3.6): la regla de `AppointmentTransitionService` para los demás turnos de la serie. */
 export const SCOPE_NOTICE =
   'De los demás turnos de la serie se cancelan solo los a confirmar o confirmados que todavía no empezaron.';
-
-/** "Ahora", renovado cada 30 s: el ausente se habilita solo al llegar la hora del turno. */
-function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow(new Date());
-    }, NOW_TICK_MS);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  return now;
-}
 
 type Dialog =
   | { kind: 'cancel' }
@@ -91,8 +72,11 @@ export function AppointmentActions({
   onChanged,
   size,
   withPatientLinks = false,
+  only,
 }: {
   appointment: Appointment;
+  /** Solo estas acciones (la cola del día, 3.7: fichar, atendido y ausente); sin él, todas las que admite el turno. */
+  only?: readonly TransitionName[];
   focusAfter: RefObject<HTMLElement | null>;
   /** El turno nuevo, con el 200 (el panel lo muestra hasta que llega la agenda actualizada). */
   onChanged?: (saved: AppointmentDetail) => void;
@@ -121,7 +105,9 @@ export function AppointmentActions({
     enabled: dialog?.kind === 'cancel' && seriesId !== null,
   });
   const canOverbook = can(PERMISSIONS.appointmentsOverbook);
-  const available = availableTransitions(appointment, { can, me, now });
+  const available = availableTransitions(appointment, { can, me, now }).filter(
+    (item) => only === undefined || only.includes(item.transition.name),
+  );
 
   /** Si el botón que tenía el foco ya no está (el turno cambió de estado), el foco no queda en el body. */
   // Después del render que lo saca (no con un setTimeout: en el navegador puede correr antes de ese render; desvío de

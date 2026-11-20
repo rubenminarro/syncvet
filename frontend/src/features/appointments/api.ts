@@ -10,6 +10,8 @@ import type {
   AppointmentPayload,
   AppointmentUpdatePayload,
   Availability,
+  QueueAppointment,
+  QueueMeta,
 } from './types';
 
 /**
@@ -42,7 +44,27 @@ export const appointmentKeys = {
     branchKey(branchId, 'appointments', 'range', range),
   list: (branchId: number | null, filters: AppointmentListFilters) =>
     branchKey(branchId, 'appointments', 'list', filters),
+  /** La cola del día (3.7, D4): con todos sus filtros, también los que la pantalla no usa (null). */
+  queue: (branchId: number | null, filters: QueueFilters) =>
+    branchKey(branchId, 'appointments', 'queue', filters),
 };
+
+/**
+ * Los filtros de GET appointments/queue (D4): el día de Asunción, `all` (toda la sucursal, para quien tiene ficha), el
+ * veterinario y la agenda.
+ */
+export interface QueueFilters {
+  date: string;
+  all: boolean;
+  veterinarian_id: number | null;
+  schedule_id: number | null;
+}
+
+/** Lo que devuelve la cola: los turnos, en el orden de la API (`starts_at` e id), y su `meta`. */
+export interface AppointmentQueue {
+  items: QueueAppointment[];
+  meta: QueueMeta;
+}
 
 export const agendaScheduleKeys = {
   options: (branchId: number) => ['schedules', 'options', { branch_id: branchId }] as const,
@@ -85,6 +107,51 @@ export function appointmentRangeQueryOptions(
     staleTime: AGENDA_STALE_MS,
     refetchInterval: refreshInterval(paused),
     refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * GET appointments/queue?date=&all=1 (3.7): la cola del día de la **sucursal actual del usuario** (la API no recibe la
+ * sucursal: la clave la lleva con `branchKey`, así el cambio de sucursal la invalida y no se mezclan dos). Sin paginar (hasta
+ * 200, `meta.truncated`). Se actualiza como la agenda (cada 60 s, con la pausa) y, además, al volver a la pestaña si pasaron
+ * más de 30 s (`refetchOnWindowFocus`, que el cliente apaga por defecto). `all` va solo si es true (sin él, la API da la
+ * vista por defecto).
+ */
+export function appointmentQueueQueryOptions(
+  branchId: number,
+  filters: QueueFilters,
+  paused: boolean,
+) {
+  return queryOptions({
+    queryKey: appointmentKeys.queue(branchId, filters),
+    queryFn: async ({ signal }): Promise<AppointmentQueue> => {
+      const response = await api.get<QueueAppointment[]>('appointments/queue', {
+        signal,
+        query: {
+          date: filters.date,
+          all: filters.all ? 1 : null,
+          veterinarian_id: filters.veterinarian_id,
+          schedule_id: filters.schedule_id,
+        },
+      });
+      const meta = (response.meta ?? {}) as Partial<QueueMeta>;
+
+      return {
+        items: response.data,
+        meta: {
+          date: meta.date ?? filters.date,
+          branch_id: meta.branch_id ?? branchId,
+          veterinarian_id: meta.veterinarian_id ?? null,
+          includes_unassigned: meta.includes_unassigned === true,
+          truncated: meta.truncated === true,
+        },
+      };
+    },
+    staleTime: AGENDA_STALE_MS,
+    refetchInterval: refreshInterval(paused),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
 }

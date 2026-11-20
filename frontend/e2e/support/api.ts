@@ -400,3 +400,115 @@ export async function createSeriesAgenda(name: string): Promise<SeriesAgenda> {
     await api.dispose();
   }
 }
+
+/** Lo que arma `createQueueDay` (3.7): las dos agendas y los turnos de hoy, por su paciente o su contacto. */
+export interface QueueDay {
+  day: string;
+  /** La agenda de vet-a y la agenda sin veterinario (la que vet-a ve por defecto: `includes_unassigned`). */
+  vetSchedule: string;
+  unassignedSchedule: string;
+  /** 00:30, Firulais en la agenda de vet-a, ya fichado: vet-a lo marca atendido desde la cola. */
+  toAttendId: number;
+  /** 01:00, Rocky en la agenda de vet-a, confirmado: la recepción lo ficha desde la cola. */
+  toCheckInId: number;
+  /** 01:30, un contacto en la agenda sin veterinario, confirmado. */
+  unassignedContact: string;
+}
+
+/**
+ * La cola del día (3.7) por la API, en syncvet_e2e (como el administrador): en la Casa central, una agenda de `vet-a` y otra
+ * sin veterinario (con un servicio de la corrida: una agenda necesita veterinario o servicio), abiertas todos los días de 00:00 a 23:55, con tres turnos de hoy (la API acepta hoy una hora que ya pasó):
+ * Firulais a las 00:30, fichado; Rocky a la 01:00, confirmado; un contacto a la 01:30 en la agenda sin veterinario. La
+ * limpieza es `retireAgendasNamed`.
+ */
+export async function createQueueDay(name: string): Promise<QueueDay> {
+  const api = await apiAs(USERS.admin);
+
+  try {
+    const branches = await api.get<{ id: number; name: string }[]>('branches?per_page=100');
+    const branch = branches.find((item) => item.name === 'Casa central');
+    const vets = await api.get<{ id: number; user: { name: string } }[]>(
+      'veterinarians?per_page=100',
+    );
+    const vet = vets.find((item) => item.user.name === USERS.vet.name);
+    const patientNamed = async (patientName: string) =>
+      (
+        await api.get<{ id: number; name: string }[]>(
+          `patients?search=${encodeURIComponent(patientName)}&per_page=10`,
+        )
+      ).find((item) => item.name === patientName);
+    const firulais = await patientNamed('Firulais');
+    const rocky = await patientNamed('Rocky');
+
+    if (
+      branch === undefined ||
+      vet === undefined ||
+      firulais === undefined ||
+      rocky === undefined
+    ) {
+      throw new Error('Sin la Casa central, la ficha de vet-a, Firulais o Rocky en syncvet_e2e.');
+    }
+
+    const hours = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+      weekday,
+      starts_at: '00:00',
+      ends_at: '23:55',
+    }));
+    const vetSchedule = `${name} vet-a`;
+    const unassignedSchedule = `${name} sin veterinario`;
+    const own = await api.post<{ id: number }>('schedules', {
+      branch_id: branch.id,
+      name: vetSchedule,
+      veterinarian_id: vet.id,
+      slot_minutes: 30,
+      hours,
+    });
+    // Una agenda sin veterinario necesita un servicio (P10): uno propio de la corrida.
+    const service = await api.post<{ id: number }>('services', {
+      name: `${name} servicio`,
+      category: 'consultation',
+      standard_price: '100000',
+    });
+    const unassigned = await api.post<{ id: number }>('schedules', {
+      branch_id: branch.id,
+      name: unassignedSchedule,
+      service_id: service.id,
+      slot_minutes: 30,
+      hours,
+    });
+    const day = asuncionDay();
+    const at = (clock: string) => `${day}T${clock}:00-03:00`;
+    const unassignedContact = `Contacto cola ${name.slice(-6)}`;
+
+    const toAttend = await api.post<{ id: number }>('appointments', {
+      schedule_id: own.id,
+      patient_id: firulais.id,
+      starts_at: at('00:30'),
+    });
+    await api.post(`appointments/${String(toAttend.id)}/check-in`, {});
+    const toCheckIn = await api.post<{ id: number }>('appointments', {
+      schedule_id: own.id,
+      patient_id: rocky.id,
+      starts_at: at('01:00'),
+    });
+    await api.post(`appointments/${String(toCheckIn.id)}/confirm`, {});
+    const contact = await api.post<{ id: number }>('appointments', {
+      schedule_id: unassigned.id,
+      contact_name: unassignedContact,
+      contact_phone: '+595981100097',
+      starts_at: at('01:30'),
+    });
+    await api.post(`appointments/${String(contact.id)}/confirm`, {});
+
+    return {
+      day,
+      vetSchedule,
+      unassignedSchedule,
+      toAttendId: toAttend.id,
+      toCheckInId: toCheckIn.id,
+      unassignedContact,
+    };
+  } finally {
+    await api.dispose();
+  }
+}

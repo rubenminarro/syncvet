@@ -38,7 +38,7 @@ import { OCCUPYING_STATUSES, type Appointment } from './types';
 /** El router marca `active` todo enlace a /agenda (el día y la semana son la misma ruta): la vista la marca `current`. */
 const NOT_ACTIVE = { className: '' };
 
-export type AgendaViewName = 'dia' | 'semana' | 'lista';
+export type AgendaViewName = 'dia' | 'semana' | 'lista' | 'cola';
 
 /**
  * "Día", "Semana" y "Lista": pasar de una a otra conserva la fecha, la agenda y el veterinario (la sucursal es la actual de la
@@ -58,6 +58,7 @@ export function AgendaViewSwitch({
   /** Lo que el día y la semana conservan entre ellas (cancelados, todos). */
   extra?: Pick<AgendaSearch, 'cancelados' | 'todos'>;
 }) {
+  const can = useCan();
   const kept = { agenda, veterinario, cancelados: extra?.cancelados, todos: extra?.todos };
   const range =
     current === 'semana'
@@ -96,6 +97,17 @@ export function AgendaViewSwitch({
       >
         Lista
       </Link>
+      {can(PERMISSIONS.appointmentsQueue) ? (
+        <Link
+          to="/agenda/cola"
+          search={{ fecha: day, todos: extra?.todos }}
+          className={className('cola')}
+          aria-current={ariaCurrent('cola')}
+          activeProps={NOT_ACTIVE}
+        >
+          Cola
+        </Link>
+      ) : null}
     </div>
   );
 }

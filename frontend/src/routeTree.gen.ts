@@ -17,6 +17,7 @@ import { Route as SesionEspeciesRouteImport } from './routes/_sesion/especies'
 import { Route as SesionPerfilRouteImport } from './routes/_sesion/perfil'
 import { Route as SesionSinPermisoRouteImport } from './routes/_sesion/sin-permiso'
 import { Route as SesionAgendaIndexRouteImport } from './routes/_sesion/agenda/index'
+import { Route as SesionAgendaColaRouteImport } from './routes/_sesion/agenda/cola'
 import { Route as SesionClientesIndexRouteImport } from './routes/_sesion/clientes/index'
 import { Route as SesionClientesIdRouteImport } from './routes/_sesion/clientes/$id'
 import { Route as SesionClientesNuevoRouteImport } from './routes/_sesion/clientes/nuevo'
@@ -90,6 +91,11 @@ const SesionSinPermisoRoute = SesionSinPermisoRouteImport.update({
 const SesionAgendaIndexRoute = SesionAgendaIndexRouteImport.update({
   id: '/agenda/',
   path: '/agenda/',
+  getParentRoute: () => SesionRoute,
+} as any)
+const SesionAgendaColaRoute = SesionAgendaColaRouteImport.update({
+  id: '/agenda/cola',
+  path: '/agenda/cola',
   getParentRoute: () => SesionRoute,
 } as any)
 const SesionClientesIndexRoute = SesionClientesIndexRouteImport.update({
@@ -297,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/especies': typeof SesionEspeciesRoute
   '/perfil': typeof SesionPerfilRoute
   '/sin-permiso': typeof SesionSinPermisoRoute
+  '/agenda/cola': typeof SesionAgendaColaRoute
   '/clientes/$id': typeof SesionClientesIdRoute
   '/clientes/nuevo': typeof SesionClientesNuevoRoute
   '/configuracion/clinica': typeof SesionConfiguracionClinicaRoute
@@ -341,6 +348,7 @@ export interface FileRoutesByTo {
   '/especies': typeof SesionEspeciesRoute
   '/perfil': typeof SesionPerfilRoute
   '/sin-permiso': typeof SesionSinPermisoRoute
+  '/agenda/cola': typeof SesionAgendaColaRoute
   '/clientes/$id': typeof SesionClientesIdRoute
   '/clientes/nuevo': typeof SesionClientesNuevoRoute
   '/configuracion/clinica': typeof SesionConfiguracionClinicaRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/_sesion/perfil': typeof SesionPerfilRoute
   '/_sesion/sin-permiso': typeof SesionSinPermisoRoute
   '/_sesion/': typeof SesionIndexRoute
+  '/_sesion/agenda/cola': typeof SesionAgendaColaRoute
   '/_sesion/clientes/$id': typeof SesionClientesIdRoute
   '/_sesion/clientes/nuevo': typeof SesionClientesNuevoRoute
   '/_sesion/configuracion/clinica': typeof SesionConfiguracionClinicaRoute
@@ -434,6 +443,7 @@ export interface FileRouteTypes {
     | '/especies'
     | '/perfil'
     | '/sin-permiso'
+    | '/agenda/cola'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/configuracion/clinica'
@@ -478,6 +488,7 @@ export interface FileRouteTypes {
     | '/especies'
     | '/perfil'
     | '/sin-permiso'
+    | '/agenda/cola'
     | '/clientes/$id'
     | '/clientes/nuevo'
     | '/configuracion/clinica'
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/_sesion/perfil'
     | '/_sesion/sin-permiso'
     | '/_sesion/'
+    | '/_sesion/agenda/cola'
     | '/_sesion/clientes/$id'
     | '/_sesion/clientes/nuevo'
     | '/_sesion/configuracion/clinica'
@@ -624,6 +636,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/agenda/'
       preLoaderRoute: typeof SesionAgendaIndexRouteImport
+      parentRoute: typeof SesionRoute
+    }
+    '/_sesion/agenda/cola': {
+      id: '/_sesion/agenda/cola'
+      path: '/agenda/cola'
+      fullPath: '/agenda/cola'
+      preLoaderRoute: typeof SesionAgendaColaRouteImport
       parentRoute: typeof SesionRoute
     }
     '/_sesion/clientes/': {
@@ -897,6 +916,7 @@ interface SesionRouteChildren {
   SesionPerfilRoute: typeof SesionPerfilRoute
   SesionSinPermisoRoute: typeof SesionSinPermisoRoute
   SesionIndexRoute: typeof SesionIndexRoute
+  SesionAgendaColaRoute: typeof SesionAgendaColaRoute
   SesionClientesIdRoute: typeof SesionClientesIdRoute
   SesionClientesNuevoRoute: typeof SesionClientesNuevoRoute
   SesionConfiguracionClinicaRoute: typeof SesionConfiguracionClinicaRoute
@@ -941,6 +961,7 @@ const SesionRouteChildren: SesionRouteChildren = {
   SesionPerfilRoute: SesionPerfilRoute,
   SesionSinPermisoRoute: SesionSinPermisoRoute,
   SesionIndexRoute: SesionIndexRoute,
+  SesionAgendaColaRoute: SesionAgendaColaRoute,
   SesionClientesIdRoute: SesionClientesIdRoute,
   SesionClientesNuevoRoute: SesionClientesNuevoRoute,
   SesionConfiguracionClinicaRoute: SesionConfiguracionClinicaRoute,

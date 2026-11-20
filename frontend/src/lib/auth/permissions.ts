@@ -131,6 +131,8 @@ export const PERMISSIONS = {
   appointmentsNoShow: 'appointments.no-show',
   /** "Cancelar el turno", con el motivo (F3, entrega 3.5): administrador y recepcionista. */
   appointmentsCancel: 'appointments.cancel',
+  /** /agenda/cola, la cola del día de la sucursal actual (F3, entrega 3.7): los tres roles. */
+  appointmentsQueue: 'appointments.queue',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

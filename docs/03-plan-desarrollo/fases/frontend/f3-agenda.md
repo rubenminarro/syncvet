@@ -631,7 +631,57 @@ muestran los primeros 200 turnos.". Sin sucursal actual, el mensaje de `APPOINTM
 
 #### Pendiente para el cierre (3.7)
 
-Vacío.
+Implementada en `feature/front-3-7-cola` (desde `3c12f25`, el cierre de la 3.6), commit WIP; falta la revisión y `/cerrar-entrega`.
+
+**Lo hecho.** `/agenda/cola?fecha=&todos=` (`appointments.queue`, permiso nuevo en `PERMISSIONS`; ruta `routes/_sesion/agenda/cola.tsx`)
+con la pestaña "Cola" en la barra de la agenda (`AgendaViewSwitch`); `appointmentQueueQueryOptions` con la clave
+`branchKey(id, 'appointments', 'queue', { date, all, veterinarian_id, schedule_id })` (D4); `features/appointments/queue.ts` (puro:
+los filtros por rol, las filas en el orden de la API, la espera, el anuncio de los cambios); `QueuePage.tsx`; `AppointmentActions`
+con `only` (la cola: fichar, atendido y ausente); `useNow` pasó a `lib/hooks/use-now.ts` (lo usan las acciones y la espera).
+Después de una acción: el detalle con `setQueryData` y solo la cola vuelta a pedir (el día, la semana y la lista quedan invalidadas
+sin pedir: no están montadas).
+
+**Precisiones (a confirmar en la revisión).**
+
+1. **Las acciones de la cola son las del diseño (fichar, atendido y ausente)**: confirmar, cancelar y deshacer el ausente, desde
+   "Ver el turno" (el detalle). Sin cancelar en la cola, lo que saca un turno de ella es el 404 de una acción o la actualización
+   (otra PC lo canceló): en los dos casos el foco pasa al título de la fila que quedó en su lugar (o al aviso sin turnos). Si la
+   acción solo cambia el estado, el foco va al título de su fila (el botón ya no está).
+2. **La espera**: "Esperando desde las 09:12 (14 min)" (el diseño decía solo la hora; el pedido de la entrega sumaba el tiempo de
+   espera), los minutos con el reloj de 30 s; en la cola de otro día, "Fichado a las 09:12".
+3. **"Dentro de un bloqueo" en la cola**: se piden los bloqueos del día de cada agenda que aparece (la misma clave que el día: si el
+   día ya los pidió, no se repiten), con la actualización de 60 s.
+4. **El anuncio**: al entrar o cambiar de día o de vista, "Cola del viernes 20 de noviembre: 28 turnos."; en una actualización,
+   solo lo que cambió (hasta 3 cambios nombrados, si no las cuentas), sin repetir el cambio propio que ya leyó el aviso.
+
+**Discrepancia (registrada, sin corregir).** El diseño ("Actualización") dice que la vuelta a la pestaña "ya lo hace Query", pero
+`createQueryClient` tiene `refetchOnWindowFocus: false`: el día, la semana y la lista no vuelven a pedir al volver (solo reanudan el
+intervalo de 60 s). La cola lo activa en su consulta (`refetchOnWindowFocus: true`, con el `staleTime` de 30 s). Decidir en la
+revisión si el día, la semana y la lista lo suman.
+
+**Desvíos.**
+
+1. El ayudante de Playwright (`createQueueDay`) falló la primera vez: una agenda sin veterinario necesita un servicio (P10); se
+   suma un servicio de la corrida. Una corrida más de `cola.spec.ts`.
+2. Edge, control 4, primera corrida: confirmó un turno de una agenda de Postman ("Turnos Postman 169748 hoy", id 1932, creado por
+   Newman hoy), que `demo:agenda` no restaura. Se devolvió a mano a "a confirmar" (`status` y `confirmed_at`, por la base); queda el
+   registro de auditoría de esa confirmación. El script se corrigió: los controles que cambian datos solo toman turnos de agendas
+   "Demo …".
+3. Edge, control 3: falló por un selector del script (el `has` repetía `.queue-row`); se corrigió y se repitió solo ese control.
+4. Edge sin ventana no oculta la pestaña de atrás: el control 4 simuló el cambio de visibilidad (el pedido al volver y el anuncio
+   sí se verificaron en la pantalla real).
+5. Nota visual menor: con dos motivos a la vista, en la columna de acciones a 1280 px un motivo puede quedar al lado de los botones
+   en lugar de debajo (11:00 Lucero en `04-cola-fichado-foco-1280.png`).
+
+**Cifras.** Vitest: `queue.test.ts` (18) y `QueuePage.test.tsx` (18) nuevos; `vitest related` de lo tocado, 842 tests en 38
+archivos; la corrida final (una sola, en verde): `typecheck`, `lint` y `build` sin errores ni avisos, `npm test` 1806 tests en 86
+archivos (antes, 1770 en 84), y `FictitiousDocumentsTest` 3/3 en el backend. Mutaciones (4, detectadas y revertidas con el editor): el orden por la hora de llegada (1 test),
+la hora de llegada con la zona de la PC (5), `all=1` por defecto para el veterinario (2), la cola sin pedir después de una acción
+(`refetchType: 'none'`, 3). Playwright: `e2e/cola.spec.ts` 2/2 y `e2e/permisos.spec.ts` 7/7 (R-084, por la ruta nueva con permiso;
+sin caso nuevo: los tres roles tienen `appointments.queue`). Edge: 6 controles (1 a 6) y la repetición del 3; ingresos 3
+(recepción y vet-a, y recepción en la repetición), tokens revocados 3; capturas en el scratchpad de la sesión, `capturas-3-7`:
+`01-cola-recepcion-1280.png`, `02-cola-recepcion-375.png`, `03-cola-vet-375.png`, `04-cola-fichado-foco-1280.png`. La demo,
+restaurada con `php artisan demo:agenda` (31 turnos de hoy).
 
 ## Documentación por entrega
 

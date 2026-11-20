@@ -56,6 +56,26 @@ export function validateAgendaSearch(raw: Record<string, unknown>): AgendaSearch
 }
 
 /**
+ * La búsqueda de /agenda/cola (3.7, pregunta 11): `?fecha=2026-11-17&todos=1`. Sin `fecha`, hoy en Asunción; `todos`, "Ver
+ * toda la sucursal" (para quien tiene ficha de veterinario: a la API, `all=1`). Un valor inválido se descarta; las dos claves
+ * van siempre.
+ */
+export interface QueueSearch {
+  fecha?: string | undefined;
+  todos?: 1 | undefined;
+}
+
+export function validateQueueSearch(raw: Record<string, unknown>): QueueSearch {
+  const fecha = fechaSchema.safeParse(raw.fecha);
+  const todos = flagSchema.safeParse(raw.todos);
+
+  return {
+    fecha: fecha.success ? fecha.data : undefined,
+    todos: todos.success ? todos.data : undefined,
+  };
+}
+
+/**
  * Los estados de la lista en la URL, en castellano (`?estados=confirmado,fichado`, una lista: `LIST_SEARCH_PARAMS`), y su
  * valor en la API. El nombre es `estados` y no `estado`, que ya usan veterinarios y servicios con otros valores.
  */
