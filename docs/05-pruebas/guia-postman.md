@@ -23,8 +23,10 @@ la variable global `postman_run`, que el script lee de las globales exportadas. 
 `//deleted_…`): turnos, bloqueos, tramos, agendas, pacientes (con su foto), clientes, fichas, servicios, especies, razas, las
 sucursales `SUC-<corrida>-…` y los depósitos `DEP-<corrida>-…` (si el borrado es el por defecto de una sucursal que queda, como
 `SUC-PM`, el por defecto vuelve al primer depósito de la sucursal); los usuarios de la corrida quedan dados de baja y sin tokens
-(la auditoría los referencia). Con `--tokens-since`, revoca los tokens de los usuarios del DemoSeeder abiertos por la colección;
-con `--dry-run`, solo cuenta. La auditoría queda (es inmutable). Lo cubre `tests/Feature/Console/PostmanCleanupCommandTest.php`. A
+(la auditoría los referencia). Con `--tokens-since`, revoca los tokens de los usuarios del DemoSeeder abiertos por la colección
+(también una sesión que tengas abierta en el navegador con esos usuarios desde esa hora: no usar la demo mientras corre); con
+`--dry-run`, solo cuenta. La corrida tiene al menos 5 caracteres y al menos un dígito (una palabra sola, como `Consultorio`,
+tomaría las agendas "Demo …" y se rechaza). La auditoría queda (es inmutable). Lo cubre `tests/Feature/Console/PostmanCleanupCommandTest.php`. A
 mano, para una corrida suelta: `php artisan postman:cleanup 188268 --dry-run` y después sin `--dry-run`.
 
 ## FASE 0 — Autenticación

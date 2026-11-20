@@ -3,10 +3,10 @@ import { createStatesDay, retireAgendasNamed, type StatesDay } from './support/a
 import { login, logout, USERS } from './support/session';
 
 // Los estados del turno (3.5, F3) contra la API real: el ayudante crea por la API, en syncvet_e2e, una agenda de vet-a abierta
-// todo el día con tres turnos de hoy (00:00, 00:30 y 01:00: ya empezaron). La recepción confirma y ficha el de Firulais desde
-// el panel de la agenda y vet-a, en otro contexto, lo marca atendido desde el detalle; la recepción marca ausente el de las
-// 00:00 y lo deshace; cancela el de las 01:00 con motivo desde el panel y lo ve oculto en la grilla, tachado con "Mostrar los
-// cancelados" y en la lista. La limpieza cancela lo que sigue, inactiva la agenda; la demo no se toca.
+// todo el día con tres turnos de hoy seguidos, desde la primera media hora libre de vet-a que ya empezó (`freeStart`: sin horas
+// fijas ni lo que dejó otro spec). La recepción confirma y ficha el de Firulais desde el panel de la agenda y vet-a, en otro
+// contexto, lo marca atendido desde el detalle; la recepción marca ausente el primero y lo deshace; cancela el tercero con
+// motivo desde el panel y lo ve oculto en la grilla, tachado con "Mostrar los cancelados" y en la lista. La limpieza cancela lo que sigue, inactiva la agenda; la demo no se toca.
 
 const PREFIX = 'Estados E2E';
 const NAME = `${PREFIX} ${String(Date.now()).slice(-6)}`;

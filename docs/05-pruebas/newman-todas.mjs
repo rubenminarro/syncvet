@@ -6,12 +6,12 @@
 //   node docs/05-pruebas/newman-todas.mjs                 todas las colecciones
 //   node docs/05-pruebas/newman-todas.mjs turnos series   solo las que contienen esos textos en el nombre
 //
-// La contraseña de la demo sale de DEMO_PASSWORD o, si no está, de backend/.env; no se muestra. Cada colección copia su número
+// La contraseña de la demo sale de DEMO_PASSWORD o, si no está, de backend/.env; no se muestra ni va en la línea de comandos. Cada colección copia su número
 // de corrida a la variable global `postman_run`, que se lee de las globales exportadas al terminar (--export-globals, en la
 // carpeta temporal del sistema). La limpieza revoca también los tokens de los usuarios de la demo creados desde que empezó la
 // colección (--tokens-since): las colecciones ingresan y no salen. Sale con 1 si una colección o su limpieza fallan.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -44,6 +44,14 @@ const collections = readdirSync(DIR)
   .sort();
 const password = demoPassword();
 const work = mkdtempSync(join(tmpdir(), 'syncvet-newman-'));
+// La contraseña va en un entorno de Postman en la carpeta temporal (se borra al terminar), nunca en la línea de comandos: con
+// el shell de Windows, un símbolo de la contraseña (& | ^ %) rompería el comando, y la línea se ve en la lista de procesos.
+const environment = join(work, 'entorno.postman_environment.json');
+writeFileSync(
+  environment,
+  JSON.stringify({ name: 'newman-todas', values: [{ key: 'demo_password', value: password, enabled: true }] }),
+  { mode: 0o600 },
+);
 const results = [];
 
 try {
@@ -56,7 +64,7 @@ try {
       'npx',
       [
         '--no-install', 'newman', 'run', join(DIR, file),
-        '--env-var', `demo_password=${password}`,
+        '--environment', environment,
         '--export-globals', globals,
         '--reporters', 'cli,json', '--reporter-json-export', report,
         '--color', 'off',

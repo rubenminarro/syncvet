@@ -99,8 +99,8 @@ Las reglas duras, una por línea; el detalle y los ejemplos de cada una, en
 * **Después de borrar o mover un registro hijo**, `resetQueries` de lo que lo mostraba (no invalidar).
 * **Fechas siempre en `America/Asuncion`** (`src/lib/format/dates.ts`, `toApiDateTime`); guaraníes con `formatGuaranies`; un valor vacío o inválido se muestra vacío.
 * **La agenda**: las fechas en `features/appointments/dates.ts`, la grilla pura en `grid.ts`, la fecha siempre en la URL y la actualización con la pausa común.
-* **Los estados del turno**: las acciones salen de `features/appointments/transitions.ts` (espejo de `AppointmentTransition`, con su test contra el backend; deuda 27) y se dibujan con `AppointmentActions`; el estado se muestra siempre con `StatusLabel` (ícono y texto, nunca solo color).
-* **Textos contra las reglas de largo de la API**: `trimLikeApi` y `apiLength` (`src/lib/format/text.ts`, el recorte de `TrimStrings`), no `trim()` (deuda 28).
+* **Los estados del turno**: las acciones salen de `features/appointments/transitions.ts` (espejo de `AppointmentTransition`; `transitions.test.ts` la compara con la foto del backend, `backend/tests/Fixtures/appointment-transitions.json`) y se dibujan con `AppointmentActions`; el estado se muestra siempre con `StatusLabel` (ícono y texto, nunca solo color).
+* **Textos contra las reglas de largo de la API**: `trimLikeApi` y `apiLength` (`src/lib/format/text.ts`, el recorte de `TrimStrings`), nunca `trim()`: ESLint lo prohíbe en `src` (`NO_TRIM`); las clases, con `classNames`.
 * **Sesión**: el token solo en `sessionStorage`; todo pasa por el `SessionManager`.
 * **Permisos**: `can` y `useCan`, `requirePermission` en cada ruta con permiso; la API vuelve a controlar todo; los tests, con los permisos reales de los roles.
 * **Sucursal actual**: `applyBranchChange` vuelve a pedir `me` e invalida solo las consultas de la sucursal.
@@ -137,10 +137,9 @@ Una respuesta fuera del contrato (por ejemplo, el proxy sin backend) se conviert
 
 | # | Deuda | Prioridad |
 |---|---|---|
-| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta una vez por paquete: 9 al cerrar la F1); solo en las herramientas de desarrollo. Se resuelve cuando `typescript-eslint` traiga `minimatch` 11 | Baja |
+| 19 | `npm audit`: 1 aviso moderado de `minimatch` 10.2.6, que traen `eslint` y `typescript-eslint` (npm 11 lo cuenta una vez por paquete: 9 al cerrar la F1); solo en las herramientas de desarrollo. Desde el cierre de la F3, npm ofrece `typescript-eslint@8.73.0` (fuera del rango): sin actualizar, por decisión del usuario | Baja |
 | 20 | `/validar-docs`: `frontendRuns()` de `check-docs.php` no ignora los bloques de código; un `#` adentro de "Resultado" cierra la sección y se pierde la corrida registrada. Se corrige en una entrega del validador | Baja |
-| 27 | Estados del turno: las reglas de `transitions.ts` (turno ajeno, el día, la hora del ausente, el paciente, deshacer el ausente) copian las del backend sin un test que falle si cambian (la tabla, las rutas y los permisos sí lo tienen). Se resuelve al cerrar la F3 | Media |
-| 28 | Formularios: las reglas de largo y de obligatorio recortan con `trim()`, que deja invisibles que la API recorta (U+200B, U+3164…); solo el motivo de la cancelación usa `trimLikeApi`. Se pasan al cerrar la F3, con la 27 | Baja |
+| 29 | La cola pide los bloqueos de a una agenda: 6 pedidos por carga en la de vet-a y 7 en la de la recepción (con la demo). Se resuelve con una entrega de soporte del backend (los bloqueos por sucursal) | Baja |
 
 El detalle, en la [deuda técnica](../docs/03-plan-desarrollo/deuda-tecnica.md). Lo que quedó de la 0.1 (los desvíos 8 y 9), en su
 [resultado](../docs/03-plan-desarrollo/fases/frontend/f0-resultados.md#entrega-01).

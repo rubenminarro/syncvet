@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { asuncionDay, createAgendaDay, retireAgendasNamed, type AgendaDay } from './support/api';
+import {
+  asuncionDay,
+  createAgendaDay,
+  retireAgendasNamed,
+  slotRange,
+  type AgendaDay,
+} from './support/api';
 import { login, USERS } from './support/session';
 
 // La agenda del día (3.2, F3) contra la API real: el ayudante crea por la API, en syncvet_e2e, una agenda de vet-a con tres
@@ -38,9 +44,9 @@ test('la agenda del día: los turnos en su columna, el bloqueo, los cancelados y
   await expect(turn(page, data.plain)).toBeVisible(LOADED);
   await expect(turn(page, data.plain)).toHaveAttribute(
     'aria-label',
-    `09:00 a 09:30, ${data.plain}, Confirmado, ${NAME}`,
+    `${slotRange(data.times.plain)}, ${data.plain}, Confirmado, ${NAME}`,
   );
-  // El de las 10:00 quedó adentro del bloqueo: la marca, en el texto y en el nombre accesible.
+  // El segundo quedó adentro del bloqueo: la marca, en el texto y en el nombre accesible.
   await expect(turn(page, data.inBlock)).toContainText('Dentro de un bloqueo');
   await expect(turn(page, data.inBlock)).toHaveAttribute('aria-label', /dentro de un bloqueo$/);
   await expect(turn(page, data.plain)).not.toContainText('Dentro de un bloqueo');

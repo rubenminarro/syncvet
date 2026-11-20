@@ -3,9 +3,10 @@ import { createSeriesAgenda, retireAgendasNamed, type SeriesAgenda } from './sup
 import { login, USERS } from './support/session';
 
 // Las series (3.6, F3) contra la API real: el ayudante crea por la API, en syncvet_e2e, una agenda de vet-a abierta de 08:00 a
-// 20:00 todos los días, un turno dentro de tres semanas a las 10:00 y una serie de 4 turnos semanales a las 11:00. La
-// recepción da desde el formulario una serie de 4 turnos semanales a Firulais (la vista previa, el 201 y la lista de la
-// serie, entera, front-04); otra serie de las 10:00 choca con el turno de la tercera semana (la lista de conflictos y "Dar la
+// 20:00 todos los días y tres horas libres de vet-a en las cuatro semanas (`freeStart`: `times.first`, `clash` y `api`), un
+// turno dentro de tres semanas a la segunda y una serie de 4 turnos semanales a la tercera. La recepción da desde el
+// formulario una serie de 4 turnos semanales a Firulais a la primera (la vista previa, el 201 y la lista de la serie, entera,
+// front-04); otra serie a la segunda choca con el turno de la tercera semana (la lista de conflictos y "Dar la
 // serie con sobreturnos"); y cancela "Este y los siguientes" desde el tercer turno de la serie del ayudante. La limpieza
 // cancela lo que sigue hasta dentro de 29 días e inactiva la agenda; la demo no se toca.
 
@@ -43,7 +44,7 @@ test('una serie de 4 turnos semanales: la vista previa, el 201 y la lista de la 
 }) => {
   test.setTimeout(180_000);
   await login(page, USERS.recepcion);
-  await newAt(page, data.firstDay, '09:00');
+  await newAt(page, data.firstDay, data.times.first);
   await page.getByLabel('Buscar el paciente').fill('Firulais');
   await page.locator('.appointment-who-options button', { hasText: 'Firulais' }).first().click();
   await repeat(page, '4');
@@ -56,7 +57,7 @@ test('una serie de 4 turnos semanales: la vista previa, el 201 y la lista de la 
   );
   await page.getByRole('button', { name: 'Dar el turno' }).click();
   expect((await post).postDataJSON()).toMatchObject({
-    starts_at: `${data.firstDay}T09:00:00.000-03:00`,
+    starts_at: `${data.firstDay}T${data.times.first}:00.000-03:00`,
     recurrence: { every_weeks: 1, count: 4, until: null },
   });
   await expect(page.getByText('Serie de 4 turnos creada correctamente.')).toBeVisible(LOADED);
@@ -84,7 +85,7 @@ test('una serie que choca con un turno: la lista de conflictos y "Dar la serie c
 }) => {
   test.setTimeout(120_000);
   await login(page, USERS.recepcion);
-  await newAt(page, data.firstDay, '10:00');
+  await newAt(page, data.firstDay, data.times.clash);
   await page.getByText('Primera vez, sin cliente').click();
   await page.getByLabel('Nombre de contacto').fill('Serie que choca');
   await page.getByLabel('Teléfono de contacto').fill('+595981100098');
@@ -94,7 +95,7 @@ test('una serie que choca con un turno: la lista de conflictos y "Dar la serie c
   await page.getByRole('button', { name: 'Dar el turno' }).click();
   const conflicts = page.locator('.appointment-series-conflicts li');
   await expect(conflicts).toHaveCount(1, LOADED);
-  await expect(conflicts).toContainText('10:00: El horario ya está ocupado');
+  await expect(conflicts).toContainText(`${data.times.clash}: El horario ya está ocupado`);
   await expect(page.locator('.appointment-alert')).toBeFocused();
 
   await page.getByRole('button', { name: 'Dar la serie con sobreturnos' }).click();

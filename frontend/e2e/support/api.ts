@@ -118,23 +118,123 @@ export function asuncionDay(offset = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
+type Api = Awaited<ReturnType<typeof apiAs>>;
+
+/** Los estados que ocupan el horario (`AppointmentStatus::occupiesSlot`): el atendido no se cancela y queda ocupando. */
+const OCCUPYING = new Set(['pending_confirmation', 'confirmed', 'checked_in', 'attended']);
+
+const minutesOf = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+const clockOf = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/** La hora `clock` (HH:mm) más `minutes` minutos, en el mismo día. */
+export function addClock(clock: string, minutes: number): string {
+  return clockOf(minutesOf(clock) + minutes);
+}
+
+/** "09:00 a 09:30": el rango de un turno de 30 minutos que empieza a `clock`, como lo muestran la grilla y el detalle. */
+export const slotRange = (clock: string) => `${clock} a ${addClock(clock, 30)}`;
+
+/** El día (yyyy-MM-dd) y los minutos desde la medianoche de un instante, en la hora de pared de Asunción. */
+function wall(instant: Date): { day: string; minutes: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Asuncion',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(instant)
+      .map((part) => [part.type, part.value]),
+  );
+
+  return {
+    day: `${parts.year ?? ''}-${parts.month ?? ''}-${parts.day ?? ''}`,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+  };
+}
+
+/**
+ * El primer inicio (HH:mm, en pasos de 30 minutos entre `from` y `to`) en que el veterinario está libre en **todas** sus
+ * agendas a las horas `start + offset` (turnos de 30 minutos), en cada uno de los `days`: lo que ya tiene (de este spec o de
+ * otro, también un atendido, que no se cancela) no choca. Con `started`, el inicio ya pasó (un turno que "ya empezó", para el
+ * ausente). Así ningún spec depende de lo que dejó otro, del orden ni de horas fijas (cierre de la F3, aislamiento).
+ */
+export async function freeStart(
+  api: Api,
+  veterinarianId: number,
+  options: { days: string[]; offsets: number[]; from: string; to: string; started?: boolean },
+): Promise<string> {
+  const busy = new Map<string, [number, number][]>();
+
+  for (const day of options.days) {
+    const appointments = await api.get<
+      { starts_at: string; ends_at: string; status: { value: string } }[]
+    >(`appointments?veterinarian_id=${String(veterinarianId)}&from=${day}&to=${day}&per_page=500`);
+    busy.set(
+      day,
+      appointments
+        .filter((appointment) => OCCUPYING.has(appointment.status.value))
+        .map((appointment) => {
+          const start = wall(new Date(appointment.starts_at));
+          const end = wall(new Date(appointment.ends_at));
+
+          return [start.day === day ? start.minutes : 0, end.day === day ? end.minutes : 24 * 60];
+        }),
+    );
+  }
+
+  const now = wall(new Date());
+  const last = Math.max(...options.offsets) + 30;
+
+  for (let start = minutesOf(options.from); start + last <= minutesOf(options.to); start += 30) {
+    if (options.started === true && (options.days[0] !== now.day || start > now.minutes)) {
+      break;
+    }
+
+    const free = options.days.every((day) =>
+      options.offsets.every((offset) =>
+        (busy.get(day) ?? []).every(
+          ([from, to]) => start + offset + 30 <= from || to <= start + offset,
+        ),
+      ),
+    );
+
+    if (free) {
+      return clockOf(start);
+    }
+  }
+
+  throw new Error(
+    `Sin un horario libre del veterinario ${String(veterinarianId)} en ${options.days.join(', ')} (${options.from} a ${options.to}${options.started === true ? ', ya empezado' : ''}).`,
+  );
+}
+
 /** Lo que arma `createAgendaDay`: la agenda, el día y los turnos (por su contacto). */
 export interface AgendaDay {
   scheduleId: number;
   day: string;
-  /** 09:00 a 09:30, confirmado. */
+  /** El primero (a `times.plain`), confirmado. */
   plain: string;
-  /** 10:00 a 10:30, a confirmar, dentro del bloqueo de 10:00 a 11:00. */
+  /** Una hora después (`times.inBlock`), a confirmar, dentro del bloqueo de una hora que empieza con él. */
   inBlock: string;
-  /** 11:00 a 11:30, cancelado. */
+  /** Dos horas después (`times.cancelled`, el fin del bloqueo), cancelado. */
   cancelled: string;
+  /** Las horas de hoy (HH:mm): las de los tres turnos y una libre, fuera del bloqueo (`free`, una hora después del cancelado). */
+  times: { plain: string; inBlock: string; cancelled: string; free: string };
+  /** Mañana: dos horas libres de vet-a con una hora entre ellas (la del alta y la de la reprogramación de turno.spec.ts). */
+  tomorrow: { day: string; first: string; later: string };
 }
 
 /**
  * La agenda del día de la 3.2 por la API, en syncvet_e2e (como el administrador): una agenda de `vet-a` en la Casa central,
  * abierta todos los días de 00:00 a 23:55 (así el caso no depende de la hora en que corre); tres turnos de hoy con un
- * contacto (09:00, 10:00 y 11:00; la API acepta hoy una hora que ya pasó); el de las 11:00, cancelado, y un bloqueo de 10:00
- * a 11:00 creado después del de las 10:00 (la API lo crea igual y el turno queda adentro). Hoy, Asunción es UTC-3 todo el año.
+ * contacto, a la primera hora libre de vet-a (`freeStart`), una y dos horas después (la API acepta hoy una hora que ya pasó);
+ * el tercero, cancelado, y un bloqueo de una hora desde el segundo, creado después de él (la API lo crea igual y el turno queda
+ * adentro). Hoy, Asunción es UTC-3 todo el año.
  */
 export async function createAgendaDay(name: string): Promise<AgendaDay> {
   const api = await apiAs(USERS.admin);
@@ -163,7 +263,26 @@ export async function createAgendaDay(name: string): Promise<AgendaDay> {
       })),
     });
     const day = asuncionDay();
+    const tomorrow = asuncionDay(1);
     const suffix = name.slice(-6);
+    const first = await freeStart(api, vet.id, {
+      days: [day],
+      offsets: [0, 60, 120, 180],
+      from: '00:00',
+      to: '23:55',
+    });
+    const times = {
+      plain: first,
+      inBlock: addClock(first, 60),
+      cancelled: addClock(first, 120),
+      free: addClock(first, 180),
+    };
+    const next = await freeStart(api, vet.id, {
+      days: [tomorrow],
+      offsets: [0, 60],
+      from: '00:00',
+      to: '23:55',
+    });
     const turn = (at: string, contact: string, phone: string) =>
       api.post<{ id: number }>('appointments', {
         schedule_id: schedule.id,
@@ -177,19 +296,21 @@ export async function createAgendaDay(name: string): Promise<AgendaDay> {
       plain: `Contacto nueve ${suffix}`,
       inBlock: `Contacto diez ${suffix}`,
       cancelled: `Contacto once ${suffix}`,
+      times,
+      tomorrow: { day: tomorrow, first: next, later: addClock(next, 60) },
     };
 
-    const plain = await turn('09:00', result.plain, '+595981100091');
+    const plain = await turn(times.plain, result.plain, '+595981100091');
     await api.post(`appointments/${String(plain.id)}/confirm`, {});
-    await turn('10:00', result.inBlock, '+595981100092');
-    const cancelled = await turn('11:00', result.cancelled, '+595981100093');
+    await turn(times.inBlock, result.inBlock, '+595981100092');
+    const cancelled = await turn(times.cancelled, result.cancelled, '+595981100093');
     await api.post(`appointments/${String(cancelled.id)}/cancel`, {
       cancellation_reason: 'Prueba de la agenda',
       scope: 'single',
     });
     await api.post(`schedules/${String(schedule.id)}/blocks`, {
-      starts_at: `${day}T10:00:00-03:00`,
-      ends_at: `${day}T11:00:00-03:00`,
+      starts_at: `${day}T${times.inBlock}:00-03:00`,
+      ends_at: `${day}T${times.cancelled}:00-03:00`,
       reason: 'Capacitación E2E',
     });
 
@@ -246,11 +367,11 @@ export async function retireAgendasNamed(prefix: string, untilOffset = 1): Promi
 export interface StatesDay {
   scheduleId: number;
   day: string;
-  /** 00:30 a 01:00, a confirmar, con Firulais (del DemoSeeder): se confirma, se ficha y lo atiende vet-a. */
+  /** Media hora después del ausente, a confirmar, con Firulais (del DemoSeeder): se confirma, se ficha y lo atiende vet-a. */
   toAttend: number;
-  /** 00:00 a 00:30, confirmado, con un contacto: ya empezó (se marca ausente y se deshace). */
+  /** El primero, confirmado, con un contacto: ya empezó (se marca ausente y se deshace). */
   toNoShow: number;
-  /** 01:00 a 01:30, confirmado, con un contacto: se cancela con motivo. */
+  /** Una hora después del ausente, confirmado, con un contacto: se cancela con motivo. */
   toCancel: number;
   /** El contacto de `toNoShow` y el de `toCancel`. */
   noShowContact: string;
@@ -259,9 +380,9 @@ export interface StatesDay {
 
 /**
  * Los turnos de los estados (3.5) por la API, en syncvet_e2e (como el administrador): una agenda de `vet-a` en la Casa
- * central abierta todos los días de 00:00 a 23:55 y tres turnos de hoy a las 00:00, 00:30 y 01:00 (la API acepta hoy una
- * hora que ya pasó; así el de las 00:00 ya empezó y se puede marcar ausente sin depender de la hora en que corre). La
- * limpieza es `retireAgendasNamed`.
+ * central abierta todos los días de 00:00 a 23:55 y tres turnos de hoy seguidos, a la primera media hora libre de vet-a que ya
+ * empezó (`freeStart` con `started`: la API acepta hoy una hora que ya pasó, y el primero se puede marcar ausente). La
+ * limpieza es `retireAgendasNamed` (el atendido queda: lo saltea `freeStart` de los demás specs).
  */
 export async function createStatesDay(name: string): Promise<StatesDay> {
   const api = await apiAs(USERS.admin);
@@ -296,25 +417,32 @@ export async function createStatesDay(name: string): Promise<StatesDay> {
     const day = asuncionDay();
     const suffix = name.slice(-6);
     const at = (clock: string) => `${day}T${clock}:00-03:00`;
+    const first = await freeStart(api, vet.id, {
+      days: [day],
+      offsets: [0, 30, 60],
+      from: '00:00',
+      to: '23:55',
+      started: true,
+    });
     const noShowContact = `Contacto ausente ${suffix}`;
     const cancelContact = `Contacto cancelar ${suffix}`;
 
     const toAttend = await api.post<{ id: number }>('appointments', {
       schedule_id: schedule.id,
       patient_id: patient.id,
-      starts_at: at('00:30'),
+      starts_at: at(addClock(first, 30)),
     });
     const toNoShow = await api.post<{ id: number }>('appointments', {
       schedule_id: schedule.id,
       contact_name: noShowContact,
       contact_phone: '+595981100094',
-      starts_at: at('00:00'),
+      starts_at: at(first),
     });
     const toCancel = await api.post<{ id: number }>('appointments', {
       schedule_id: schedule.id,
       contact_name: cancelContact,
       contact_phone: '+595981100095',
-      starts_at: at('01:00'),
+      starts_at: at(addClock(first, 60)),
     });
 
     for (const turn of [toNoShow, toCancel]) {
@@ -340,16 +468,22 @@ export interface SeriesAgenda {
   scheduleId: number;
   /** El día del primer turno de las series: dentro de una semana. */
   firstDay: string;
-  /** El turno que ocupa el tercer día de una serie a las 10:00 (la serie que choca). */
+  /** El turno que ocupa el tercer día de una serie a `times.clash` (la serie que choca). */
   busyDay: string;
-  /** La serie de 4 turnos semanales a las 11:00, creada por la API: sus ids por fecha (se cancela desde el tercero). */
+  /** La serie de 4 turnos semanales a `times.api`, creada por la API: sus ids por fecha (se cancela desde el tercero). */
   seriesIds: number[];
+  /**
+   * Las horas (HH:mm), libres para vet-a en las cuatro semanas: la de la serie que da el spec (`first`), la que choca
+   * (`clash`, una hora después) y la de la serie de la API (`api`, dos horas después).
+   */
+  times: { first: string; clash: string; api: string };
 }
 
 /**
  * Las series (3.6) por la API, en syncvet_e2e (como el administrador): una agenda de `vet-a` en la Casa central abierta todos
- * los días de 08:00 a 20:00; un turno de un contacto dentro de tres semanas a las 10:00 (la serie de las 10:00 choca ahí) y una
- * serie de 4 turnos semanales a las 11:00 desde dentro de una semana. La limpieza es `retireAgendasNamed(prefijo, 29)`.
+ * los días de 08:00 a 20:00; tres horas libres de vet-a en las cuatro semanas desde dentro de una semana (`freeStart`, una por
+ * hora); un turno de un contacto dentro de tres semanas a la segunda (la serie de esa hora choca ahí) y una serie de 4 turnos
+ * semanales a la tercera. La limpieza es `retireAgendasNamed(prefijo, 29)`.
  */
 export async function createSeriesAgenda(name: string): Promise<SeriesAgenda> {
   const api = await apiAs(USERS.admin);
@@ -380,22 +514,35 @@ export async function createSeriesAgenda(name: string): Promise<SeriesAgenda> {
     const firstDay = asuncionDay(7);
     const busyDay = asuncionDay(21);
     const suffix = name.slice(-6);
+    const first = await freeStart(api, vet.id, {
+      days: [firstDay, asuncionDay(14), busyDay, asuncionDay(28)],
+      offsets: [0, 60, 120],
+      from: '08:00',
+      to: '20:00',
+    });
+    const times = { first, clash: addClock(first, 60), api: addClock(first, 120) };
 
     await api.post('appointments', {
       schedule_id: schedule.id,
       contact_name: `Contacto ocupado ${suffix}`,
       contact_phone: '+595981100096',
-      starts_at: `${busyDay}T10:00:00-03:00`,
+      starts_at: `${busyDay}T${times.clash}:00-03:00`,
     });
     const series = await api.post<{ id: number }[]>('appointments', {
       schedule_id: schedule.id,
       contact_name: `Contacto serie ${suffix}`,
       contact_phone: '+595981100097',
-      starts_at: `${firstDay}T11:00:00-03:00`,
+      starts_at: `${firstDay}T${times.api}:00-03:00`,
       recurrence: { every_weeks: 1, count: 4 },
     });
 
-    return { scheduleId: schedule.id, firstDay, busyDay, seriesIds: series.map((item) => item.id) };
+    return {
+      scheduleId: schedule.id,
+      firstDay,
+      busyDay,
+      seriesIds: series.map((item) => item.id),
+      times,
+    };
   } finally {
     await api.dispose();
   }
@@ -407,20 +554,20 @@ export interface QueueDay {
   /** La agenda de vet-a y la agenda sin veterinario (la que vet-a ve por defecto: `includes_unassigned`). */
   vetSchedule: string;
   unassignedSchedule: string;
-  /** 02:00, Firulais en la agenda de vet-a, ya fichado: vet-a lo marca atendido desde la cola. */
+  /** El primero (a la primera media hora libre de vet-a), Firulais en la agenda de vet-a, ya fichado: vet-a lo atiende desde la cola. */
   toAttendId: number;
-  /** 02:30, Rocky en la agenda de vet-a, confirmado: la recepción lo ficha desde la cola. */
+  /** Media hora después, Rocky en la agenda de vet-a, confirmado: la recepción lo ficha desde la cola. */
   toCheckInId: number;
-  /** 03:00, un contacto en la agenda sin veterinario, confirmado. */
+  /** Una hora después, un contacto en la agenda sin veterinario, confirmado. */
   unassignedContact: string;
 }
 
 /**
  * La cola del día (3.7) por la API, en syncvet_e2e (como el administrador): en la Casa central, una agenda de `vet-a` y otra
  * sin veterinario (con un servicio de la corrida: una agenda necesita veterinario o servicio), abiertas todos los días de 00:00 a 23:55, con tres turnos de hoy (la API acepta hoy una hora que ya pasó):
- * Firulais a las 02:00, fichado; Rocky a las 02:30, confirmado; un contacto a las 03:00 en la agenda sin veterinario. La
- * limpieza es `retireAgendasNamed`, que no cancela el atendido: por eso las horas no se pisan con las de vet-a de
- * `createStatesDay` (00:00 a 01:30), que corre después en la corrida completa (cierre de la F3, desvío 9).
+ * Firulais, fichado, a la primera media hora libre de vet-a (`freeStart`); Rocky, confirmado, media hora después; un contacto en
+ * la agenda sin veterinario una hora después. La limpieza es `retireAgendasNamed`, que no cancela el atendido: los demás specs
+ * lo saltean con `freeStart` (cierre de la F3, desvío 9).
  */
 export async function createQueueDay(name: string): Promise<QueueDay> {
   const api = await apiAs(USERS.admin);
@@ -479,25 +626,31 @@ export async function createQueueDay(name: string): Promise<QueueDay> {
     });
     const day = asuncionDay();
     const at = (clock: string) => `${day}T${clock}:00-03:00`;
+    const first = await freeStart(api, vet.id, {
+      days: [day],
+      offsets: [0, 30],
+      from: '00:00',
+      to: '23:55',
+    });
     const unassignedContact = `Contacto cola ${name.slice(-6)}`;
 
     const toAttend = await api.post<{ id: number }>('appointments', {
       schedule_id: own.id,
       patient_id: firulais.id,
-      starts_at: at('02:00'),
+      starts_at: at(first),
     });
     await api.post(`appointments/${String(toAttend.id)}/check-in`, {});
     const toCheckIn = await api.post<{ id: number }>('appointments', {
       schedule_id: own.id,
       patient_id: rocky.id,
-      starts_at: at('02:30'),
+      starts_at: at(addClock(first, 30)),
     });
     await api.post(`appointments/${String(toCheckIn.id)}/confirm`, {});
     const contact = await api.post<{ id: number }>('appointments', {
       schedule_id: unassigned.id,
       contact_name: unassignedContact,
       contact_phone: '+595981100097',
-      starts_at: at('03:00'),
+      starts_at: at(addClock(first, 60)),
     });
     await api.post(`appointments/${String(contact.id)}/confirm`, {});
 

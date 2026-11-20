@@ -68,8 +68,11 @@ class PostmanCleanupCommand extends Command
     /** La única base en la que corre: la de desarrollo, donde corren Newman y la demo. */
     public const DATABASE = 'syncvet';
 
-    /** Al menos 5 letras o dígitos: el número de corrida de las colecciones (6 dígitos, o la base 36 de sucursales). */
-    private const RUN_PATTERN = '/^[A-Za-z0-9]{5,}$/';
+    /**
+     * Al menos 5 letras o dígitos, con al menos un dígito: el número de corrida de las colecciones (6 dígitos, o la base 36 de
+     * sucursales). Una palabra sola (Consultorio, Guardia) no es una corrida: tomaría las agendas "Demo …".
+     */
+    private const RUN_PATTERN = '/^(?=[A-Za-z]*\d)[A-Za-z0-9]{5,}$/';
 
     /**
      * Las fotos de los pacientes borrados: se borran del disco después de la transacción (y nunca con --dry-run).
@@ -90,7 +93,7 @@ class PostmanCleanupCommand extends Command
 
         foreach ($runs as $run) {
             if (! preg_match(self::RUN_PATTERN, $run)) {
-                $this->components->error("La corrida «{$run}» no es válida: al menos 5 letras o dígitos.");
+                $this->components->error("La corrida «{$run}» no es válida: al menos 5 letras o dígitos, con al menos un dígito.");
 
                 return self::FAILURE;
             }
@@ -321,7 +324,8 @@ class PostmanCleanupCommand extends Command
     }
 
     /**
-     * Los usuarios de la corrida: sin tokens y dados de baja (la auditoría los referencia).
+     * Los usuarios de la corrida: sin tokens y dados de baja como lo hace la API (UserService): el email con el sufijo de
+     * DeletedSuffix, que lo libera, y SoftDeletes (la auditoría los referencia).
      *
      * @param  Collection<int, User>  $users
      */
@@ -331,6 +335,8 @@ class PostmanCleanupCommand extends Command
             $user->tokens()->delete();
 
             if (! $user->trashed()) {
+                $user->email = $user->email . DeletedSuffix::for($user);
+                $user->save();
                 $user->delete();
             }
         }

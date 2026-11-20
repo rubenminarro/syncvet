@@ -154,6 +154,8 @@ class PostmanCleanupCommandTest extends TestCase
         // El usuario queda dado de baja y sin tokens (la auditoría lo referencia); el de la otra corrida, igual que antes.
         $user = User::withTrashed()->findOrFail($run['user']);
         $this->assertTrue($user->trashed());
+        // Como la API (UserService): el email con el sufijo que lo libera, para que otra corrida con el mismo número lo use.
+        $this->assertMatchesRegularExpression('#^turnos123456@mailinator\.com//deleted_\d+_\d+$#', $user->email);
         $this->assertSame(0, $user->tokens()->count());
         $this->assertFalse(User::findOrFail($other['user'])->trashed());
         $this->assertSame(1, User::findOrFail($other['user'])->tokens()->count());
@@ -254,6 +256,10 @@ class PostmanCleanupCommandTest extends TestCase
 
         $this->artisan('postman:cleanup', ['runs' => ['1234']])->assertFailed();
         $this->artisan('postman:cleanup', ['runs' => ['12%45']])->assertFailed();
+        // Una palabra sola no es una corrida: "Consultorio" tomaría las agendas "Demo Consultorio 1" y "2".
+        $this->artisan('demo:agenda')->assertSuccessful();
+        $this->artisan('postman:cleanup', ['runs' => ['Consultorio']])->assertFailed();
+        $this->inDemo(fn () => $this->assertSame(2, Schedule::where('name', 'like', 'Demo Consultorio%')->count()));
 
         $this->inDemo(fn () => $this->assertNotNull(Schedule::find($run['schedule'])));
     }

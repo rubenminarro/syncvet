@@ -1306,14 +1306,26 @@ migraciones nuevas.
 | 9 | Playwright completo: `estados.spec.ts` recibió 409 al crear sus turnos. `cola.spec.ts` (3.7) deja atendido, y `retireAgendasNamed` no cancela un atendido, un turno de vet-a hoy a las 00:30, y `createStatesDay` pide esas horas para vet-a. Por separado pasaban; es la primera corrida completa desde la 3.7 | Corregido: `createQueueDay` usa las 02:00, 02:30 y 03:00 (comentado en `e2e/support/api.ts`); los dos specs juntos, 5 de 5 |
 | 10 | Edge, control 3: `getByText('Demo Consultorio 1').first()` tomaba una opción oculta de un `select` | Corregido con `.agenda-column-name` (el de `estados.spec.ts`) y repetido solo ese control (1 ingreso más) |
 | 11 | `postman:cleanup` corría en local y testing (los entornos del DemoSeeder) | Por pedido del usuario, solo con `APP_ENV=local` y en la base `syncvet`, con su test |
+| 12 | Revisión (aislamiento de Playwright, pedido del usuario): los 6 specs que crean turnos (`agenda-dia`, `semana-lista`, `turno`, `estados`, `cola` y `series`) usan a vet-a con horas fijas (09:00 a 11:00 hoy, 00:00 a 03:00 hoy, 09:00 y 10:00 mañana, 09:00 a 11:00 en cuatro lunes), y un atendido no se cancela en la limpieza: un spec dependía de lo que dejaba otro y del orden | Corregido: `freeStart` (`e2e/support/api.ts`) busca por la API la primera hora libre de vet-a en todas sus agendas (también lo atendido), en uno o varios días, con `started` para el turno que ya empezó (el ausente); los cuatro ayudantes (`createAgendaDay`, con las horas de mañana para `turno.spec.ts`; `createStatesDay`; `createQueueDay`; `createSeriesAgenda`) la usan y devuelven sus horas, y los specs las leen (`slotRange`, `addClock`). Los 6 limpian en su `afterAll` con `retireAgendasNamed`; los demás 16 specs no crean turnos ni dependen de otro (datos con sufijo propio). Test de Vitest nuevo: `src/test/e2e-free-start.test.ts` (4) |
+| 13 | Revisión del diff: `postman:cleanup` aceptaba una palabra como corrida (`Consultorio` habría tomado las agendas "Demo Consultorio 1" y "2") | Corregido: la corrida tiene al menos un dígito; test |
+| 14 | Revisión del diff: `postman:cleanup` daba de baja a los usuarios sin el sufijo de `DeletedSuffix` (el email quedaba tomado si una corrida repetía el número) | Corregido como `UserService`: el sufijo y después la baja; test |
+| 15 | Revisión del diff: `newman-todas.mjs` pasaba la contraseña con `--env-var` y `shell: true` en Windows (un `&`, `|`, `^` o `%` de la contraseña rompe el comando; la línea se ve en la lista de procesos) | Corregido: un entorno de Postman en la carpeta temporal (`--environment`), borrado al terminar; verificado con auditoría y turnos (77 pedidos, 160 aserciones, 0 fallas) |
+| 16 | `npm test` del cierre: dos corridas con fallas de tiempo en casos de conteo de pedidos que no toca esta rama (1 en `ClientDetailPage`; después 4 en `AgendaDayPage`, `AgendaWeekPage`, `PatientFormPages` y `ScheduleBlocks`), con la PC cargada por procesos del usuario (Docker, VS Code, Chrome) y ninguno de la sesión | La tercera corrida completa, en verde (la registrada). No se cambió código por esto |
 
 **Deuda 29, medida** (control 8, la demo de hoy, una carga de la cola): vet-a, 24 turnos en 5 agendas y **6 pedidos** (1 de la cola
 + 5 de bloqueos); la recepción, 26 turnos en 6 agendas y **7 pedidos** (1 + 6). Lo mismo en cada actualización de 60 s. Igual que en la
 3.7.
 
-**Antes del merge:** nada de la regresión. Falta el cierre: `/cerrar-entrega` (el registro R-098, el handoff, los `CLAUDE.md`, el roadmap,
-las deudas 27 y 28 a "Resueltas") y el merge `--no-ff` a `main`, con la autorización del usuario. La deuda 19 queda abierta con la novedad
-de `typescript-eslint@8.73.0`, sin actualizar (decisión del usuario). La demo, al final: `php artisan demo:agenda`; `admin-a`,
-`recepcion-a` y `vet-a` sin cambios (`updated_at` del 12/11 y sus sucursales); los turnos de hoy, 34, los mismos por agenda que antes
-de la regresión; sin tokens abiertos; el 1932 igual. Procesos propios (los servidores de `:8001` y los Vite de `:5180`), detenidos
+**Regresión de la revisión** (sobre el código de este commit, de a una suite): `composer test`, 1511 casos, 1495 en verde y 16
+omitidos (solo MySQL), 15085 aserciones (7 min 19 s); `PostmanCleanupCommandTest`, 8 de 8; `FictitiousDocumentsTest`, 3 de 3;
+`typecheck`, `lint` y `build`, sin errores ni avisos; `npm test`, **1835 de 1835 en 89 archivos** (desvío 16); **Playwright completo,
+46 de 46 en una sola corrida** (8,9 min, con `permisos.spec.ts` 7 de 7). `composer test:mysql` (1511 de 1511, 15167 aserciones) es
+de la vuelta anterior: esta revisión solo tocó el comando de consola y su test, que no corren distinto en MySQL.
+
+**Deudas:** la 27 y la 28, en "Resueltas"; la 19 (`minimatch`, 9 avisos; `typescript-eslint@8.73.0` sin actualizar), la 26 y la 29
+(6 y 7 pedidos por carga), abiertas.
+
+**Antes del merge:** nada de la regresión. Falta el cierre: `/cerrar-entrega` (el R-098, el handoff, los `CLAUDE.md` y el roadmap) y el
+merge `--no-ff` a `main`, con la autorización del usuario. La demo: `admin-a`, `recepcion-a` y `vet-a` sin cambios; los turnos de
+hoy como antes de la regresión; ningún token abierto. Procesos propios (los servidores de `:8001` y los Vite de `:5180`), detenidos
 por su tarea o su PID.

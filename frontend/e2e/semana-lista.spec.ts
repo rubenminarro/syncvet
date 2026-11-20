@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createAgendaDay, retireAgendasNamed, type AgendaDay } from './support/api';
+import { createAgendaDay, retireAgendasNamed, slotRange, type AgendaDay } from './support/api';
 import { login, USERS } from './support/session';
 
 // La semana y la lista de turnos (3.3, F3) contra la API real: el ayudante de la 3.2 crea por la API, en syncvet_e2e, una
@@ -61,7 +61,7 @@ test('la semana de una agenda: los turnos de hoy, el bloqueo, los cancelados y l
   await expect(turn(page, data.plain)).toBeVisible(LOADED);
   await expect(turn(page, data.plain)).toHaveAttribute(
     'aria-label',
-    new RegExp(`^09:00 a 09:30, ${data.plain}, Confirmado, ${NAME}, `),
+    new RegExp(`^${slotRange(data.times.plain)}, ${data.plain}, Confirmado, ${NAME}, `),
   );
   await expect(turn(page, data.inBlock)).toContainText('Dentro de un bloqueo');
   await expect(turn(page, data.plain)).not.toContainText('Dentro de un bloqueo');
