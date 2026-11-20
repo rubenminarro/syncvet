@@ -22,9 +22,17 @@ class ConsultationResource extends JsonResource
 {
     public const CLINICAL_PERMISSION = 'consultations.show-clinical';
 
+    /**
+     * Una sola vez por pedido (revisión de la 4.1): el listado no vuelve a preguntar por cada
+     * fila. Sin usuario, nunca.
+     */
     public static function showsClinical(Request $request): bool
     {
-        return (bool) $request->user()?->can(self::CLINICAL_PERMISSION);
+        if (! $request->attributes->has(self::CLINICAL_PERMISSION)) {
+            $request->attributes->set(self::CLINICAL_PERMISSION, (bool) $request->user()?->can(self::CLINICAL_PERMISSION));
+        }
+
+        return $request->attributes->get(self::CLINICAL_PERMISSION);
     }
 
     public function toArray(Request $request): array

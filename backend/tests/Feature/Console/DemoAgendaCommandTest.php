@@ -12,6 +12,7 @@ use App\Models\ScheduleBlock;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
+use App\Services\AppointmentOwnership;
 use App\Services\AppointmentService;
 use App\Services\AppointmentTransitionService;
 use App\Support\CurrentClinic;
@@ -256,7 +257,7 @@ class DemoAgendaCommandTest extends TestCase
         $this->travelTo($now);
 
         // El atendido se marca con el reloj corrido (20 minutos después del turno).
-        $this->instance(AppointmentTransitionService::class, new class ($this->app->make(AppointmentService::class)) extends AppointmentTransitionService
+        $this->instance(AppointmentTransitionService::class, new class ($this->app->make(AppointmentService::class), $this->app->make(AppointmentOwnership::class)) extends AppointmentTransitionService
         {
             public function attend(Appointment $appointment): Appointment
             {

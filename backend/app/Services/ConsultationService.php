@@ -33,8 +33,7 @@ use Illuminate\Validation\ValidationException;
  * - Desde un turno fichado: lo pasa a atendido (attended_at = ahora) en la misma transacción, con
  *   su auditoría. Desde uno ya atendido: solo el día del turno en Asunción (si no, 422
  *   CONSULTATION_APPOINTMENT_NOT_TODAY), y el turno no cambia. En otro estado, 422
- *   APPOINTMENT_INVALID_TRANSITION. Las reglas de attend (AppointmentTransitionService::
- *   ensureOwnAppointment): 403 APPOINTMENT_NOT_YOURS, antes que el estado. Un turno con consulta,
+ *   APPOINTMENT_INVALID_TRANSITION. Las reglas de attend (AppointmentOwnership): 403 APPOINTMENT_NOT_YOURS, antes que el estado. Un turno con consulta,
  *   409 CONSULTATION_ALREADY_EXISTS, también cuando salta el índice único (UNIQUE_APPOINTMENT).
  *   Toma el paciente, la sucursal y el motivo del turno.
  * - Sin turno: con patient_id; la sucursal actual de quien abre (si no tiene, 422
@@ -78,7 +77,7 @@ class ConsultationService
 
     public function __construct(
         protected AppointmentService $appointments,
-        protected AppointmentTransitionService $transitions,
+        protected AppointmentOwnership $ownership,
         protected DocumentSequenceService $sequences
     ) {
     }
@@ -164,7 +163,7 @@ class ConsultationService
             throw new ScheduleChangedWhileLocking();
         }
 
-        $this->transitions->ensureOwnAppointment($appointment);
+        $this->ownership->ensure($appointment);
 
         if ($appointment->status === AppointmentStatus::ATTENDED) {
             if (! $appointment->startsToday()) {

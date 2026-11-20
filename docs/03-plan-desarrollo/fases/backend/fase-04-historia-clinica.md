@@ -349,8 +349,8 @@ Desvíos y precisiones del diseño (para revisar en el cierre):
 3. **`RoleAccessTest`:** un 403 de negocio (`APPOINTMENT_NOT_YOURS`, `CONSULTATION_NOT_YOURS`) cuenta como permitido (el permiso ya
    pasó): editar la consulta de otra ficha sin cuerpo responde 403 `CONSULTATION_NOT_YOURS`.
 4. **Código compartido con la FASE 3:** `AppointmentService::withRetries` recibe un mensaje de conflicto opcional (la consulta dice
-   "La consulta cambió…" en lugar de "La agenda cambió…"); `AppointmentTransitionService::ensureOwnAppointment` pasó a público (las
-   reglas de `attend`, reusadas). `AppointmentQueueTest` reconoce la consulta de la cola con el `exists` de `has_consultation`.
+   "La consulta cambió…" en lugar de "La agenda cambió…"); las reglas de `attend` (de quién es el turno) pasaron de `AppointmentTransitionService` a `AppointmentOwnership`, sin cambios (en la revisión).
+   `AppointmentQueueTest` reconoce la consulta de la cola con el `exists` de `has_consultation`.
 5. **Deuda 2 en `Consultation`:** la temperatura con `decimal:1` (su columna; antes `decimal:2`) y los signos vitales como enteros.
 6. **`has_consultation`** solo en el listado y en la cola (con `withExists`); el detalle del turno lleva `consultation`, y la
    respuesta del alta de una serie no cambia.
@@ -365,7 +365,14 @@ Validación (2026-11-20): `composer test` 1590 casos, 1571 en verde, 18 omitidos
 expresión de la consulta de la cola; corregida y repetido su archivo: 13 de 13). En MySQL, los tests afectados: 125 de 125, 1146
 aserciones (con `ConsultationConcurrencyTest`). Newman, `syncvet-fase-04-consultas`: 31 pedidos y 54 aserciones, sin fallas, y la
 limpieza sin datos residuales. `permissions:sync` en la base local: el permiso en el administrador y el veterinario, no en la recepción;
-la segunda corrida, sin cambios. Mutaciones: 4, todas detectadas (abajo, en el informe de la entrega).
+la segunda corrida, sin cambios. Mutaciones: 4, todas detectadas: sacar el paso a atendido, aceptar el turno atendido otro día, dar el permiso a la recepción y
+saltear el fallecido.
+
+Revisión (2026-11-20): las reglas de `attend` pasaron a `AppointmentOwnership` (las usan fichar, atendido y abrir la consulta; el
+comportamiento de la FASE 3 no cambia) y el permiso clínico se pregunta una vez por pedido (`ConsultationResource::showsClinical`),
+con el conteo de consultas del listado también para la recepción. Sin cambios en la migración, la concurrencia ni la colección.
+`composer test`: 1590 casos, 1571 en verde, 18 omitidos (de MySQL) y 1 falla (`DemoAgendaCommandTest`, que arma
+`AppointmentTransitionService` a mano sin la dependencia nueva; corregido y repetido su archivo: 11 de 11).
 
 ## Preguntas del diseño
 

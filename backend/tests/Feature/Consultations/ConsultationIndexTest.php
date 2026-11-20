@@ -137,8 +137,12 @@ class ConsultationIndexTest extends TestCase
     public function test_the_number_of_queries_does_not_grow_with_the_consultations(): void
     {
         $this->consultation('2026-11-09 10:00:00');
+        // Con el administrador (Gate::before) y con la recepción (sin el permiso clínico): el
+        // permiso se pregunta una vez por pedido, no por fila.
         $this->actAsAdmin();
         $one = $this->countQueries(fn () => $this->getJson('/api/consultations')->assertOk());
+        $this->actAsReceptionist();
+        $oneReception = $this->countQueries(fn () => $this->getJson('/api/consultations')->assertOk());
 
         foreach (range(1, 4) as $hour) {
             $this->consultation("2026-11-09 1{$hour}:00:00");
@@ -146,8 +150,11 @@ class ConsultationIndexTest extends TestCase
 
         $this->actAsAdmin();
         $five = $this->countQueries(fn () => $this->getJson('/api/consultations')->assertOk()->assertJsonCount(5, 'data'));
+        $this->actAsReceptionist();
+        $fiveReception = $this->countQueries(fn () => $this->getJson('/api/consultations')->assertOk()->assertJsonCount(5, 'data'));
 
         $this->assertSame($one, $five);
+        $this->assertSame($oneReception, $fiveReception);
     }
 
     public function test_the_appointment_list_has_no_n_plus_1_with_has_consultation(): void

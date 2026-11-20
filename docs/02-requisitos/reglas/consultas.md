@@ -16,7 +16,7 @@ contradice al código, manda el código.
   * **Ya atendido sin consulta:** solo el **mismo día del turno** en Asunción (otro día, 422 `CONSULTATION_APPOINTMENT_NOT_TODAY`); el
     turno no cambia.
   * **En otro estado** (a confirmar, confirmado, ausente, cancelado): 422 `APPOINTMENT_INVALID_TRANSITION`.
-  * **Las reglas de `attend`** (`AppointmentTransitionService::ensureOwnAppointment`): un veterinario sin `appointments.update` abre
+  * **Las reglas de `attend`** (`AppointmentOwnership`, compartida con fichar y atendido): un veterinario sin `appointments.update` abre
     solo desde los turnos de su ficha o de agendas sin veterinario (403 `APPOINTMENT_NOT_YOURS`, antes que el estado).
   * **Un turno, como máximo una consulta:** si ya la tiene, 409 `CONSULTATION_ALREADY_EXISTS`; también cuando la carrera la detiene el
     índice único (`consultations_appointment_unique`, reconocido por su nombre en MySQL y por `consultations.appointment_id` en SQLite,
