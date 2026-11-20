@@ -18,6 +18,7 @@
                             "// el comienzo de la corrida, unos segundos antes, para no depender de registros anteriores.",
                             "const run = String(Math.floor(Math.random() * 999999)).padStart(6, '0');",
                             "pm.collectionVariables.set('run', run);",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
                             "const start = new Date(Date.now() - 5000);",
                             "start.setMilliseconds(0);",
                             "// from con Z (UTC) y el mismo momento sin zona, en la hora de Asunción (UTC-3 todo el año).",

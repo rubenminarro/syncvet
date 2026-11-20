@@ -19,6 +19,7 @@
                             "// de las colecciones de la FASE 1 (990…, 993… a 999…). También va en el email del veterinario y en los nombres.",
                             "const run = 150000 + 2 * Math.floor(Math.random() * 24999);",
                             "pm.collectionVariables.set('run', String(run));",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
                             "pm.collectionVariables.set('doc_a', `99${run}`);",
                             "pm.collectionVariables.set('doc_b', `99${run + 1}`);",
                             "// El lunes que viene en Asunción (UTC-3 todo el año). Los turnos van con el desplazamiento (-03:00) y la API",

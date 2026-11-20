@@ -102,10 +102,17 @@ class PostmanCleanupCommandTest extends TestCase
         $lookalikeSchedule = $this->scheduleIn($this->branch, ['name' => 'Agenda 123456b', 'veterinarian_id' => $this->veterinarianIn($this->branch)->id]);
         $lookalikeClient = $this->clientIn($this->demo, ['email' => 'ana.x123456b@mailinator.com']);
         $lookalikeService = $this->serviceIn($this->demo, ['name' => 'Servicio A123456']);
+        // Lo que la API ya dio de baja lleva el sufijo de DeletedSuffix en el email y en la matrícula.
+        $deletedClient = $this->clientIn($this->demo, ['email' => 'marta.benitez.' . self::RUN . '@mailinator.com//deleted_9_1795194708']);
+        $this->inDemo(fn () => $deletedClient->delete());
+        $deletedVet = $this->veterinarianOf($this->veterinarianUser($this->demo, [$this->branch]), ['license_number' => 'MP-' . self::RUN . '//deleted_8_1795194786']);
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN]])
-            ->expectsOutputToContain('Corrida 123456: 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 1 clientes, 1 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 1 usuarios dados de baja.')
+            ->expectsOutputToContain('Corrida 123456: 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
             ->assertSuccessful();
+
+        $this->inDemo(fn () => $this->assertNull(Client::withTrashed()->find($deletedClient->id)));
+        $this->inDemo(fn () => $this->assertNull(Veterinarian::withTrashed()->find($deletedVet->id)));
 
         $this->inDemo(function () use ($run, $other, $demoAppointments, $lookalikeSchedule, $lookalikeClient, $lookalikeService) {
             $this->assertNotNull(Schedule::find($lookalikeSchedule->id));
@@ -140,6 +147,22 @@ class PostmanCleanupCommandTest extends TestCase
         $this->assertSame(1, User::findOrFail($other['user'])->tokens()->count());
     }
 
+    public function test_dry_run_counts_without_deleting_anything(): void
+    {
+        $run = $this->postmanRun(self::RUN);
+        $tables = fn () => collect(['appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'users'])
+            ->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()])->all();
+        $before = $tables();
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--dry-run' => true])
+            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 2 turnos,')
+            ->assertSuccessful();
+
+        $this->assertSame($before, $tables());
+        $this->assertFalse(User::findOrFail($run['user'])->trashed());
+        Storage::disk(PatientPhotoService::DISK)->assertExists("{$this->demo->id}/foto-" . self::RUN . '.jpg');
+    }
+
     public function test_it_leaves_the_demo_users_untouched(): void
     {
         $before = User::whereIn('email', ['admin-a@example.com', 'recepcion-a@example.com', 'vet-a@example.com'])
@@ -158,6 +181,9 @@ class PostmanCleanupCommandTest extends TestCase
             $free = Branch::create(['code' => 'SUC-AB12CD-X', 'name' => 'Otra sucursal AB12CD', 'establishment' => '091']);
             Warehouse::create(['branch_id' => $free->id, 'code' => 'DEP-AB12CD-X', 'name' => 'Depósito AB12CD']);
             $used = Branch::create(['code' => 'SUC-AB12CD-R', 'name' => 'Recepción AB12CD', 'establishment' => '092']);
+            Warehouse::create(['branch_id' => $used->id, 'code' => 'DEP-AB12CD-R', 'name' => 'Depósito de la usada']);
+            // La colección de sucursales reusa una sucursal fija (SUC-PM) y le crea depósitos DEP-<corrida>-2.
+            Warehouse::create(['branch_id' => $this->branch->id, 'code' => 'DEP-AB12CD-2', 'name' => 'Farmacia AB12CD']);
 
             return [$free, $used];
         });
@@ -171,7 +197,36 @@ class PostmanCleanupCommandTest extends TestCase
             $this->assertNull(Branch::find($free->id));
             $this->assertSame(0, Warehouse::where('branch_id', $free->id)->count());
             $this->assertNotNull(Branch::find($used->id));
+            $this->assertSame(['DEP-AB12CD-R'], Warehouse::where('code', 'like', 'DEP-AB12CD-%')->pluck('code')->all());
         });
+    }
+
+    public function test_tokens_since_revokes_only_the_demo_users_tokens_created_since_then(): void
+    {
+        $admin = User::where('email', 'admin-a@example.com')->sole();
+        $updatedAt = $admin->updated_at;
+        $old = $admin->createToken('api');
+        $this->travel(5)->minutes();
+        $since = now()->toImmutable();
+        $new = $admin->createToken('api');
+        $otherUser = $this->userIn($this->demo);
+        $notDemo = $otherUser->createToken('api');
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--tokens-since' => $since->utc()->toIso8601ZuluString(), '--dry-run' => true])
+            ->expectsOutputToContain('Tokens de los usuarios de la demo desde el')
+            ->assertSuccessful();
+        $this->assertNotNull($new->accessToken->fresh());
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--tokens-since' => $since->utc()->toIso8601ZuluString()])
+            ->expectsOutputToContain(': 1.')
+            ->assertSuccessful();
+
+        $this->assertNull($new->accessToken->fresh());
+        $this->assertNotNull($old->accessToken->fresh());
+        $this->assertNotNull($notDemo->accessToken->fresh());
+        $this->assertEquals($updatedAt, $admin->fresh()->updated_at);
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--tokens-since' => 'ayer'])->assertFailed();
     }
 
     public function test_it_refuses_a_short_run_or_another_environment_without_touching_anything(): void

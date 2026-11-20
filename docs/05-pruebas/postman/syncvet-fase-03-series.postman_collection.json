@@ -17,6 +17,7 @@
               "// su veterinario y su agenda, así que sus series no chocan con las de una corrida anterior.",
               "const run = 100000 + Math.floor(Math.random() * 899999);",
               "pm.collectionVariables.set('run', String(run));",
+              "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
               "// El lunes que viene en Asunción (UTC-3 todo el año) y las fechas de la corrida, en semanas desde ese lunes.",
               "// Las series van a las 10:00, 11:00 y 12:00 de Asunción: la API responde 13:00, 14:00 y 15:00 UTC (Z).",
               "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",

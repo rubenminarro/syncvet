@@ -17,13 +17,17 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Services\PatientPhotoService;
+use App\Support\ApiDateTime;
 use App\Support\CurrentClinic;
+use App\Support\DeletedSuffix;
+use Carbon\CarbonImmutable;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Borra lo que dejaron una o más corridas de las colecciones de Postman (docs/05-pruebas/postman) en la clínica de la demo
@@ -35,8 +39,11 @@ use Illuminate\Support\Facades\Storage;
  * - Lo de la corrida se reconoce por su número, como lo escriben las colecciones: los usuarios y los clientes con el email
  *   `…<corrida>@mailinator.com`; los servicios, las agendas, las especies y las razas con la corrida en el nombre; la ficha del
  *   veterinario de esos usuarios o con la matrícula `MP-<corrida>`; los pacientes de esos clientes, con el microchip
- *   `CHIP<corrida>` o de esas especies; las sucursales `SUC-<corrida>-…` (la de sucursales, en base 36), con sus depósitos. La
- *   corrida tiene al menos 5 caracteres, letras o dígitos: nunca un patrón que abarque otros datos.
+ *   `CHIP<corrida>` o de esas especies; las sucursales `SUC-<corrida>-…` (la de sucursales, en base 36), con sus depósitos, y
+ *   los depósitos `DEP-<corrida>-…` de otra sucursal. La corrida tiene al menos 5 caracteres, letras o dígitos, y tiene que
+ *   estar entera (no dentro de otro número o palabra); lo dado de baja por la API se reconoce con su sufijo de DeletedSuffix.
+ * - Con --tokens-since, revoca además los tokens de los usuarios del DemoSeeder creados desde esa hora: las colecciones
+ *   ingresan con ellos y no salen. Con --dry-run, solo cuenta (todo en una transacción que se deshace).
  * - Los turnos de esas agendas, clientes, pacientes, fichas o servicios, con sus bloqueos y sus tramos, se borran de verdad,
  *   como los clientes, los pacientes (y su foto), los servicios, las fichas, las especies y las razas. Los usuarios quedan dados
  *   de baja (SoftDeletes, sin tokens) y no se borran de verdad: la auditoría los referencia (audit_logs.user_id), y es inmutable.
@@ -46,12 +53,22 @@ use Illuminate\Support\Facades\Storage;
  */
 class PostmanCleanupCommand extends Command
 {
-    protected $signature = 'postman:cleanup {runs* : Los números de corrida (la variable run de cada colección)}';
+    protected $signature = 'postman:cleanup
+        {runs* : Los números de corrida (la variable run de cada colección)}
+        {--dry-run : Muestra lo que borraría, sin borrar nada}
+        {--tokens-since= : Revoca también los tokens de los usuarios del DemoSeeder creados desde esa hora (los ingresos de la colección)}';
 
     protected $description = 'Borra lo que dejaron las corridas de las colecciones de Postman en la clínica de la demo (Clínica A)';
 
     /** Al menos 5 letras o dígitos: el número de corrida de las colecciones (6 dígitos, o la base 36 de sucursales). */
     private const RUN_PATTERN = '/^[A-Za-z0-9]{5,}$/';
+
+    /**
+     * Las fotos de los pacientes borrados: se borran del disco después de la transacción (y nunca con --dry-run).
+     *
+     * @var list<string>
+     */
+    private array $photos = [];
 
     public function handle(): int
     {
@@ -71,6 +88,18 @@ class PostmanCleanupCommand extends Command
             }
         }
 
+        $since = null;
+
+        if ($this->option('tokens-since') !== null) {
+            try {
+                $since = ApiDateTime::toLocal((string) $this->option('tokens-since'));
+            } catch (\Throwable) {
+                $this->components->error('--tokens-since no es una fecha y hora válida (por ejemplo, 2026-11-20T14:00:00Z).');
+
+                return self::FAILURE;
+            }
+        }
+
         $clinic = DemoAgendaCommand::demoClinic();
 
         if ($clinic === null) {
@@ -80,11 +109,44 @@ class PostmanCleanupCommand extends Command
         }
 
         foreach ($runs as $run) {
-            $summary = CurrentClinic::run($clinic, fn () => DB::transaction(fn () => $this->cleanup($clinic, $run)));
-            $this->components->info("Corrida {$run}: " . $this->describe($summary));
+            $this->photos = [];
+            $summary = CurrentClinic::run($clinic, fn () => $this->option('dry-run')
+                ? $this->rolledBack(fn () => $this->cleanup($clinic, $run))
+                : DB::transaction(fn () => $this->cleanup($clinic, $run)));
+
+            if (! $this->option('dry-run') && $this->photos !== []) {
+                Storage::disk(PatientPhotoService::DISK)->delete($this->photos);
+            }
+
+            $this->components->info(($this->option('dry-run') ? 'Sin borrar (--dry-run). ' : '') . "Corrida {$run}: " . $this->describe($summary));
+        }
+
+        if ($since !== null) {
+            $this->revokeDemoTokens($since);
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Los tokens de los usuarios del DemoSeeder (admin-a, recepcion-a, vet-a y los de la Clínica B) creados desde $since: las
+     * colecciones ingresan con ellos y no salen, y cada token vale 12 horas. Los usuarios no cambian.
+     */
+    private function revokeDemoTokens(CarbonImmutable $since): void
+    {
+        $emails = collect(DemoSeeder::CLINICS)->flatMap(fn (array $clinic) => array_column($clinic['users'], 0))->all();
+        $tokens = PersonalAccessToken::query()
+            ->where('tokenable_type', (new User())->getMorphClass())
+            ->whereIn('tokenable_id', User::whereIn('email', $emails)->pluck('id'))
+            ->where('created_at', '>=', $since->format('Y-m-d H:i:s'));
+        $count = $tokens->count();
+
+        if (! $this->option('dry-run')) {
+            $tokens->delete();
+        }
+
+        $this->components->info(($this->option('dry-run') ? 'Sin borrar (--dry-run). ' : '')
+            . "Tokens de los usuarios de la demo desde el {$since->format('d/m/Y H:i:s')}: {$count}.");
     }
 
     /**
@@ -92,16 +154,19 @@ class PostmanCleanupCommand extends Command
      */
     private function cleanup(Clinic $clinic, string $run): array
     {
-        // El LIKE preselecciona; el número tiene que estar entero (no dentro de otro, como 123456 en 1234567 o en 123456b).
+        // El LIKE preselecciona; el número tiene que estar entero (no dentro de otro, como 123456 en 1234567 o en 123456b). Lo
+        // dado de baja por la API lleva además el sufijo de DeletedSuffix (`//deleted_<id>_<hora>`) en sus campos únicos.
+        $deleted = '(' . preg_quote(DeletedSuffix::PREFIX, '/') . '\d+_\d+)?';
         $like = '%' . $run . '%';
         $inName = fn (?string $text) => $text !== null && preg_match('/(?<![A-Za-z0-9])' . $run . '(?![A-Za-z0-9])/i', $text) === 1;
-        $inEmail = fn (?string $text) => $text !== null && preg_match('/(?<![0-9])' . $run . '@mailinator\.com$/i', $text) === 1;
+        $inEmail = fn (?string $text) => $text !== null && preg_match('/(?<![0-9])' . $run . '@mailinator\.com' . $deleted . '$/i', $text) === 1;
         $byName = fn (Collection $models) => $models->filter(fn ($model) => $inName($model->name))->values();
         $byEmail = fn (Collection $models) => $models->filter(fn ($model) => $inEmail($model->email))->values();
 
         $users = $byEmail(User::withTrashed()->where('clinic_id', $clinic->id)->where('email', 'like', $like)->get());
         $vets = Veterinarian::withTrashed()
-            ->where(fn (Builder $q) => $q->whereIn('user_id', $users->modelKeys())->orWhere('license_number', 'MP-' . $run))
+            ->where(fn (Builder $q) => $q->whereIn('user_id', $users->modelKeys())->orWhere('license_number', 'MP-' . $run)
+                ->orWhere('license_number', 'like', 'MP-' . $run . DeletedSuffix::PREFIX . '%'))
             ->get();
         $services = $byName(Service::withTrashed()->where('name', 'like', $like)->get());
         $schedules = $byName(Schedule::where('name', 'like', $like)->get());
@@ -140,9 +205,31 @@ class PostmanCleanupCommand extends Command
         ];
 
         [$summary['branches'], $summary['skipped_branches']] = $this->deleteBranches($run, $users);
+        // Los depósitos de la corrida en otra sucursal (la colección de sucursales reusa una fija, SUC-PM): DEP-<corrida>-… y
+        // DEPI-<corrida>; salvo los de una sucursal que quedó sin tocar.
+        $summary['warehouses'] = $this->forceDeleteAll(Warehouse::query()
+            ->where(fn (Builder $q) => $q->where('code', 'like', 'DEP-' . strtoupper($run) . '-%')->orWhere('code', 'DEPI-' . strtoupper($run)))
+            ->whereNotIn('branch_id', Branch::whereIn('code', $summary['skipped_branches'])->pluck('id'))
+            ->get());
         $summary['users'] = $this->retireUsers($users);
 
         return $summary;
+    }
+
+    /**
+     * La limpieza dentro de una transacción que se deshace siempre (--dry-run): los mismos conteos, sin borrar nada.
+     *
+     * @return array<string, int|list<string>>
+     */
+    private function rolledBack(\Closure $cleanup): array
+    {
+        DB::beginTransaction();
+
+        try {
+            return $cleanup();
+        } finally {
+            DB::rollBack();
+        }
     }
 
     /**
@@ -163,12 +250,11 @@ class PostmanCleanupCommand extends Command
     private function forceDeletePatients(Collection $patients): int
     {
         foreach ($patients as $patient) {
-            $path = $patient->photo_path;
-            $patient->forceDelete();
-
-            if (is_string($path) && $path !== '') {
-                Storage::disk(PatientPhotoService::DISK)->delete($path);
+            if (is_string($patient->photo_path) && $patient->photo_path !== '') {
+                $this->photos[] = $patient->photo_path;
             }
+
+            $patient->forceDelete();
         }
 
         return $patients->count();
@@ -231,7 +317,7 @@ class PostmanCleanupCommand extends Command
         $labels = [
             'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
             'patients' => 'pacientes', 'clients' => 'clientes', 'veterinarians' => 'fichas', 'services' => 'servicios',
-            'breeds' => 'razas', 'species' => 'especies', 'branches' => 'sucursales', 'users' => 'usuarios dados de baja',
+            'breeds' => 'razas', 'species' => 'especies', 'branches' => 'sucursales', 'warehouses' => 'depósitos', 'users' => 'usuarios dados de baja',
         ];
         $parts = [];
 

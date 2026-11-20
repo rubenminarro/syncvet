@@ -18,7 +18,8 @@
                             "// ninguna otra colección crea: no se cruza con los rangos de las demás (que van en documentos, emails",
                             "// y matrículas). Además, la corrida da de baja sus tres servicios y sus nombres quedan libres.",
                             "const run = String(Math.floor(Math.random() * 999999)).padStart(6, '0');",
-                            "pm.collectionVariables.set('run', run);"
+                            "pm.collectionVariables.set('run', run);",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)"
                         ]
                     }
                 },

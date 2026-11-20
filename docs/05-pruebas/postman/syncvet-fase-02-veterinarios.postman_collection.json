@@ -19,7 +19,8 @@
                             "// 499998; clientes: 500000 a 749998; pacientes: 750000 a 999998). Va en el email del usuario de la",
                             "// corrida, en su contraseña y en la matrícula de su ficha.",
                             "const run = 300000 + Math.floor(Math.random() * 99998);",
-                            "pm.collectionVariables.set('run', String(run));"
+                            "pm.collectionVariables.set('run', String(run));",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)"
                         ]
                     }
                 },

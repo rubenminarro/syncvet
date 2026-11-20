@@ -17,6 +17,7 @@
                             "// su veterinario, sus servicios y sus agendas, así que sus turnos no chocan con los de una corrida anterior.",
                             "const run = 100000 + Math.floor(Math.random() * 899999);",
                             "pm.collectionVariables.set('run', String(run));",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
                             "// Hoy y el lunes que viene en Asunción (UTC-3 todo el año). Las horas van sin zona (hora de Asunción) y la API",
                             "// responde en UTC (Z): 09:00 de Asunción son las 12:00 Z.",
                             "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",

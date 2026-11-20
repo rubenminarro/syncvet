@@ -6,9 +6,10 @@
 //   node docs/05-pruebas/newman-todas.mjs                 todas las colecciones
 //   node docs/05-pruebas/newman-todas.mjs turnos series   solo las que contienen esos textos en el nombre
 //
-// La contraseña de la demo sale de DEMO_PASSWORD o, si no está, de backend/.env; no se muestra. Cada colección se exporta al
-// terminar (--export-collection, en la carpeta temporal del sistema) para leer su variable `run`. Sale con 1 si una colección
-// falla o si la limpieza falla.
+// La contraseña de la demo sale de DEMO_PASSWORD o, si no está, de backend/.env; no se muestra. Cada colección copia su número
+// de corrida a la variable global `postman_run`, que se lee de las globales exportadas al terminar (--export-globals, en la
+// carpeta temporal del sistema). La limpieza revoca también los tokens de los usuarios de la demo creados desde que empezó la
+// colección (--tokens-since): las colecciones ingresan y no salen. Sale con 1 si una colección o su limpieza fallan.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,6 +29,14 @@ function demoPassword() {
   return value;
 }
 
+const readJson = (path) => {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+
 const filters = process.argv.slice(2);
 const collections = readdirSync(DIR)
   .filter((f) => f.endsWith('.postman_collection.json'))
@@ -39,52 +48,42 @@ const results = [];
 
 try {
   for (const file of collections) {
-    const exported = join(work, file);
+    const globals = join(work, `${file}.globals.json`);
     const report = join(work, `${file}.report.json`);
+    const since = new Date().toISOString();
     console.log(`\n=== ${file}`);
     const newman = spawnSync(
       'npx',
       [
         '--no-install', 'newman', 'run', join(DIR, file),
         '--env-var', `demo_password=${password}`,
-        '--export-collection', exported,
+        '--export-globals', globals,
         '--reporters', 'cli,json', '--reporter-json-export', report,
         '--color', 'off',
       ],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'], shell: process.platform === 'win32', encoding: 'utf8' },
     );
-    // Solo el resumen del reporte de la consola (la tabla final).
-    const table = (newman.stdout ?? '').split(/\r?\n/).filter((l) => /^[│├┌└]/.test(l));
-    console.log(table.join('\n'));
+    // Solo la tabla final del reporte de la consola.
+    console.log((newman.stdout ?? '').split(/\r?\n/).filter((l) => /^[│├┌└]/.test(l)).join('\n'));
 
-    let stats = null;
-    let failures = [];
-    try {
-      const json = JSON.parse(readFileSync(report, 'utf8'));
-      stats = json.run.stats;
-      failures = json.run.failures.map((f) => `${f.source?.name ?? '?'}: ${f.error?.message ?? ''}`);
-    } catch {
-      // Sin reporte: la corrida no llegó a empezar.
-    }
+    const json = readJson(report);
+    const stats = json?.run.stats ?? null;
+    const failures = (json?.run.failures ?? []).map((f) => `${f.source?.name ?? '?'}: ${f.error?.message ?? ''}`);
+    const run = (readJson(globals)?.values ?? []).find((v) => v.key === 'postman_run')?.value ?? null;
 
-    let run = null;
-    try {
-      const variables = JSON.parse(readFileSync(exported, 'utf8')).variable ?? [];
-      run = variables.find((v) => v.key === 'run')?.value ?? null;
-    } catch {
-      // Sin colección exportada.
-    }
-
-    let cleanup = 'sin corrida';
+    let cleanup = 'FALLÓ: sin número de corrida (postman_run)';
     if (run) {
-      const artisan = spawnSync('php', ['artisan', 'postman:cleanup', String(run)], {
+      const artisan = spawnSync('php', ['artisan', 'postman:cleanup', String(run), `--tokens-since=${since}`], {
         cwd: BACKEND,
         env: { ...process.env, XDEBUG_MODE: 'off' },
         encoding: 'utf8',
       });
-      cleanup = artisan.status === 0 ? (artisan.stdout.match(/Corrida[^\n]*/)?.[0] ?? 'ok') : `FALLÓ: ${artisan.stderr || artisan.stdout}`;
-      console.log(cleanup);
+      cleanup =
+        artisan.status === 0
+          ? (artisan.stdout.match(/(Corrida|Tokens)[^\n]*/g) ?? ['ok']).map((l) => l.trim()).join(' ')
+          : `FALLÓ: ${artisan.stderr || artisan.stdout}`;
     }
+    console.log(cleanup);
 
     results.push({
       file,
@@ -107,7 +106,11 @@ for (const r of results) {
     `${r.ok ? 'OK   ' : 'FALLA'} ${r.file}: ${r.requests} pedidos, ${r.assertions} aserciones, ${r.failed} fallidas; corrida ${r.run ?? '—'}`,
   );
   for (const f of r.failures) console.log(`      ${f}`);
+  console.log(`      Limpieza: ${r.cleanup}`);
 }
-const total = results.reduce((acc, r) => ({ requests: acc.requests + r.requests, assertions: acc.assertions + r.assertions, failed: acc.failed + r.failed }), { requests: 0, assertions: 0, failed: 0 });
+const total = results.reduce(
+  (acc, r) => ({ requests: acc.requests + r.requests, assertions: acc.assertions + r.assertions, failed: acc.failed + r.failed }),
+  { requests: 0, assertions: 0, failed: 0 },
+);
 console.log(`Total: ${results.length} colecciones, ${total.requests} pedidos, ${total.assertions} aserciones, ${total.failed} fallidas.`);
 process.exit(results.every((r) => r.ok && !r.cleanup.startsWith('FALLÓ')) ? 0 : 1);

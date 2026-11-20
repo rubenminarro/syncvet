@@ -18,6 +18,7 @@
                             "// los nombres de su servicio y de sus agendas. No es un documento: no necesita un rango propio.",
                             "const run = String(Math.floor(Math.random() * 999999)).padStart(6, '0');",
                             "pm.collectionVariables.set('run', run);",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
                             "// El bloqueo: el lunes que viene (en Asunción, UTC-3 todo el año), de 13:00 a 15:00 (16:00 a 18:00 en UTC).",
                             "const now = new Date();",
                             "const daysToMonday = ((8 - now.getUTCDay()) % 7) || 7;",
