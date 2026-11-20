@@ -112,6 +112,8 @@ documento de la FASE 3 del backend (como precisiones, sin reescribir lo aprobado
 | H10 | Un turno no cruza la medianoche (`ends_at` del día siguiente → 422 en `ends_at`, también a las 00:00) y los tramos van hasta las 23:55 | La grilla nunca dibuja un turno partido; Zod rechaza el fin en otro día con el mensaje de la API |
 | H11 | `ShowAppointmentResource` no trae el teléfono del cliente (solo el del contacto) | Sin cambio: el detalle enlaza al cliente (`/clientes/$id`), que lo muestra |
 | H12 | El rol `veterinario` puede listar todos los turnos (pregunta 25 del backend: la cola es una vista por defecto, no una restricción) | [Pregunta 3](#preguntas-del-diseño): la vista por defecto del veterinario, como la cola |
+| H13 | `GET appointments` acepta hasta 31 días **también con `series_id`** (y sin rango trae solo hoy), pero una serie dura hasta un año: el enlace `/turnos?serie=` y la cuenta de los turnos que cancela un alcance no salen de un pedido (hallado al empezar la 3.6) | [Pregunta 16](#preguntas-del-diseño): la entrega de soporte **front-04** |
+| H14 | La serie se crea entera o ninguna: la API no ofrece omitir las fechas en conflicto (solo `overbook`, que saltea las superposiciones); tampoco edita ni mueve la serie entera (`recurrence` en el `PATCH` → 422): cada turno se modifica solo | [Pregunta 17](#preguntas-del-diseño); la edición y la reprogramación de un turno de una serie avisan que el cambio vale solo para ese turno |
 
 ## Decisiones comunes de la fase
 
@@ -227,7 +229,8 @@ Lo que sigue es la propuesta; donde depende de una pregunta, lo dice.
 | 3.3 | La semana y la lista de turnos (`/turnos`, con los filtros de la API y las listas en la URL) | No | `feature/front-3-3-semana-lista`, desde demo-02 (decisión del usuario del 2026-11-18) | COMPLETADO (R-092, [resultado](f3-resultados.md#entrega-33)) |
 | 3.4 | El turno: detalle, alta (paciente, cliente o contacto; servicio y duración; horario con la disponibilidad; sobreturno), edición y reprogramación | No | `feature/front-3-4-turno`, desde la 3.3 | COMPLETADO (R-093, [resultado](f3-resultados.md#entrega-34)) |
 | 3.5 | Los estados: confirmar, fichar, atendido, ausente y deshacerlo, cancelar con motivo | No | `feature/front-3-5-estados`, desde la 3.4 | COMPLETADO (R-094, [resultado](f3-resultados.md#entrega-35)) |
-| 3.6 | Las series: el alta con repetición, los conflictos de la serie y cancelar con alcance | No | `feature/front-3-6-series`, desde la 3.5 | APROBADA (siguiente) |
+| front-04 | Soporte del backend: con `series_id` y sin `from` ni `to`, `GET appointments` trae la serie entera, sin el tope de 31 días ([pregunta 16](#preguntas-del-diseño)) | — | `feature/front-04-serie-completa`, desde la 3.5 | EN CURSO |
+| 3.6 | Las series: el alta con repetición, los conflictos de la serie y cancelar con alcance | front-04 | `feature/front-3-6-series`, desde front-04 | EN CURSO |
 | 3.7 | La cola del día (`/agenda/cola`), con fichar y atendido desde ahí ([pregunta 11](#preguntas-del-diseño)) | No | `feature/front-3-7-cola`, desde la 3.6 | APROBADA |
 
 Cada rama sale de la anterior, como en la F2, y todo se integra a `main` al cerrar la F3. Las agendas van primero: sin ellas no hay
@@ -541,6 +544,33 @@ turno ya empezado (el ayudante lo crea a una hora pasada de hoy) y deshacerlo; c
 
 Vacío: la entrega se cerró (R-094) y todo lo que había acá pasó a su [resultado](f3-resultados.md#entrega-35).
 
+### front-04 Soporte del backend: la serie entera en el listado
+
+**Aprobada con la opción (a) de la [pregunta 16](#preguntas-del-diseño)** (H13). En `GET appointments`, con `series_id` y **sin
+`from` ni `to`**, el listado no filtra por fecha: trae todos los turnos de la serie (hasta 52, de cualquier estado). Con `series_id` y
+un rango, sigue como hoy (hasta 31 días); sin `series_id`, nada cambia (sin rango, hoy). Es el único cambio de comportamiento:
+`series_id` sin rango traía solo los de hoy, y ningún cliente lo usa así (el frontend recién filtra por serie en la 3.6; la colección
+de Postman de las series no lista). Sin rutas, permisos, migraciones ni `error_code` nuevos (`series_id` ya tiene índice). Tests: la
+serie entera de 4 turnos en 4 meses sin rango; con rango, solo los del rango y el tope de 31 días; sin `series_id`, hoy; nada de
+otra clínica. Postman: un pedido de la colección de las series lista la serie semanal sin rango (4). `docs/02-requisitos/reglas/turnos.md`
+y la [guía de Postman](../../../05-pruebas/guia-postman.md). Al cerrar: `composer test` y Newman de la colección de las series.
+
+#### Pendiente para el cierre (front-04)
+
+* **Implementación (2026-11-20)**, en `feature/front-04-serie-completa` desde `429e660` (el cierre de la 3.5), pedida al empezar la 3.6
+  (pregunta 16): `IndexAppointmentRequest::wholeSeries()` y el `index` de `AppointmentController` sin el filtro de fecha en ese caso;
+  `tests/Feature/Appointments/Series/AppointmentSeriesIndexTest.php` (3 casos); el pedido 11b de la colección de las series (y
+  `biweekly_series_id` en el 09); `docs/02-requisitos/reglas/turnos.md` y la guía de Postman. Sin rutas, permisos, migraciones ni
+  `error_code` nuevos (78, 135, 36).
+* **Cifras**: `php artisan test --filter` del listado y la serie, 26 casos y 207 aserciones; `composer test`, 1499 casos (1483 en
+  verde y 16 omitidos de MySQL), 14916 aserciones; Newman de la colección de las series, 26 pedidos y 44 aserciones, sin fallas
+  (servidor propio en `:8001`, detenido por su tarea).
+* **Mutación** (1): `wholeSeries()` sin mirar `to` → falla `test_with_a_range_the_series_keeps_the_range_and_its_limit`; revertida.
+* **Desvío 1**: un intento de mutación con `sed` y `git checkout --` para revertir fue rechazado por el permiso automático (habría
+  borrado el cambio sin commitear); se hizo con el editor.
+* **Para la revisión**: el único cambio de comportamiento es `series_id` sin rango (antes, solo hoy). La consulta usa el índice de
+  `series_id` (EXPLAIN en MySQL, al cerrar).
+
 ### 3.6 Las series
 
 **El alta con repetición** (en el formulario de la 3.4, solo en el alta): "Repetir" con "cada N semanas" (1 a 12) y "Cantidad de
@@ -570,6 +600,23 @@ con uno (la lista de conflictos); cancelar "Este y los siguientes" desde el terc
 de la PC.
 
 **En el navegador.** El formulario con la repetición a 375 px; la lista de conflictos larga.
+
+**Precisiones al empezar la entrega** (2026-11-20; [preguntas 16 y 17](#preguntas-del-diseño), H13 y H14):
+
+* **La serie entera** (front-04): el detalle y el diálogo de cancelar piden `GET appointments?series_id=&per_page=100` sin rango
+  (sin `branchKey`, `['appointments', 'series', seriesId]`: un turno se abre desde cualquier sucursal), solo si el turno tiene
+  `series_id`. De ahí salen "Turno 3 de 8" en el detalle y la cuenta de la confirmación de cancelar (el turno pedido más los a
+  confirmar o confirmados de la serie que no empezaron: los siguientes por `starts_at` e id con "Este y los siguientes", todos con
+  "Toda la serie"; la cifra real llega en el `message` del 200). El enlace `/turnos?serie=` muestra la serie entera: con `serie`, la
+  lista no manda `from` ni `to` y oculta "Desde" y "Hasta" (con la serie como filtro activo, "Quitar la serie").
+* **Conflictos** (pregunta 17): sin omitir fechas. La lista por fecha; "Dar la serie con sobreturnos" solo con
+  `appointments.overbook` y si **todos** los conflictos son `overlap` (con uno `outside_hours` o `in_block`, la API los volvería a
+  responder); si no, corregir el formulario o "Cancelar".
+* **Edición y reprogramación** de un turno de una serie (H14): de a uno, como la API; el formulario avisa "Es un turno de una serie:
+  el cambio vale solo para este turno." y no muestra "Repetir".
+* **La marca de serie** en la grilla del día, la semana, la lista y el detalle: el ícono de repetición con el texto "Serie" (y en el
+  nombre accesible del turno, "de una serie").
+* **Playwright**: `e2e/series.spec.ts` (el nombre del pedido de la entrega, como `estados.spec.ts` en la 3.5).
 
 #### Pendiente para el cierre (3.6)
 
@@ -625,6 +672,8 @@ Cada una cambia el comportamiento: el usuario elige. La recomendación, en negri
 | 13 | ¿De dónde salen la agenda y el servicio de Playwright? (H6) | (a) Un ayudante de `e2e/support` que los crea por la API con el administrador antes de cada spec; (b) el `DemoSeeder` suma una agenda y un servicio (cambia el backend y los datos de demostración) | **(a)**: no toca el backend ni la demo, y cada spec arma lo que necesita (también un turno ya empezado para el ausente) | **(a)**, aprobada (usuario): el ayudante de `e2e/support` crea por la API, en `syncvet_e2e`, lo que cada spec necesita (agendas, servicios y turnos) y lo limpia; la demo no se toca |
 | 14 | Las acciones que la API rechazaría por una regla que el navegador conoce (un turno ajeno para el veterinario, fichar otro día o sin paciente, ausente antes del inicio) | (a) Ocultas las de un turno ajeno; deshabilitadas, con el motivo, las de hora y de paciente; (b) todas visibles y que responda la API | **(a)**: el motivo a la vista evita el error; la API vuelve a controlar todo | **(a)**, aprobada (usuario), con una precisión: ocultas o deshabilitadas con el motivo y, además, el 403 y el 422 de la API tratados en el diálogo (la API vuelve a controlar todo) |
 | 15 | ¿Se puede arrastrar un turno en la grilla para reprogramarlo? | (a) No en la F3: "Reprogramar" lleva al formulario; (b) arrastrar y soltar, además del formulario | **(a)**: arrastrar no es accesible con el teclado sin un mecanismo aparte, y el formulario ya resuelve agenda, día y hora; se puede sumar después | **(a)**, aprobada (usuario): sin arrastrar en la F3 |
+| 16 | ¿Cómo se ven todos los turnos de una serie y se cuentan los que cancela un alcance? (H13) | (a) Entrega de soporte **front-04**: con `series_id` y sin rango, el listado trae la serie entera (hasta 52); (b) la lista de la serie en ventanas de 31 días y la confirmación sin número exacto; (c) el frontend pide la serie en ventanas de 31 días (hasta 13 pedidos) | **(a)**: un pedido, la cuenta exacta y el enlace a la serie entera; aditiva salvo `series_id` sin rango, que hoy nadie usa | **(a)**, aprobada (usuario, 2026-11-20, al empezar la 3.6) |
+| 17 | La serie que choca: ¿se pueden omitir las fechas en conflicto? (H14) | (a) No: la lista por fecha, "Dar la serie con sobreturnos" si son solo superposiciones y con el permiso, o corregir el formulario o cancelar el alta; (b) el frontend parte la serie en varias alrededor de las fechas que chocan | **(a)**: la API crea la serie entera o ninguna; con (b) quedan varios `series_id` y el alcance de la cancelación no las abarca | **(a)**, aprobada (usuario, 2026-11-20) |
 
 ## Criterio de cierre
 

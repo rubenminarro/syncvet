@@ -16,7 +16,8 @@ use Illuminate\Validation\Validator;
  * Asunción, o una fecha con hora; ApiDateTime), hasta 31 días; sin from ni to, hoy. Con uno
  * solo, el otro es el mismo día. schedule_id, branch_id, veterinarian_id, service_id,
  * patient_id y client_id de la clínica (también inactivos o eliminados); status, uno o varios
- * (status=confirmed o status[]=confirmed&status[]=checked_in); series_id.
+ * (status=confirmed o status[]=confirmed&status[]=checked_in); series_id. Con series_id y sin from
+ * ni to, la serie entera, sin filtrar por fecha (front-04: wholeSeries()).
  *
  * per_page llega hasta 500, no hasta 100 como los demás listados (entrega front-03, pregunta 1
  * de la F3 del frontend): la semana de una sucursal entra en un solo pedido. El resto de
@@ -136,5 +137,14 @@ class IndexAppointmentRequest extends FormRequest
             ApiDateTime::ceilSecond($from ?? $to->startOfDay()),
             ApiDateTime::floorSecond($to ?? $from->endOfDay()),
         ];
+    }
+
+    /**
+     * La serie entera (front-04): con series_id y sin from ni to, el listado no filtra por fecha
+     * (una serie tiene hasta 52 turnos y dura hasta un año, más que el tope de 31 días).
+     */
+    public function wholeSeries(): bool
+    {
+        return $this->filled('series_id') && ! $this->filled('from') && ! $this->filled('to');
     }
 }

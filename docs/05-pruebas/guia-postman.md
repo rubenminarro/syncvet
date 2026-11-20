@@ -520,7 +520,8 @@ serie semanal de 4 (201, `meta.series_id`, la misma hora de reloj cada lunes), u
 entra: 4 turnos), una con una fecha en el bloqueo (409 `APPOINTMENT_SERIES_CONFLICT` con `errors.conflicts` y, en el listado, ningún
 turno suyo), más de 52 (422 en `recurrence.count`), mover un turno de la serie (conserva su `series_id`), cancelar uno (`scope:
 single`), este y los siguientes (`following`: el movido, que quedó antes, no cambia) y toda la serie (`series`), con
-`meta.cancelled_count`, y un alcance inválido (422). Al final, la limpieza.
+`meta.cancelled_count`, y un alcance inválido (422). Al final, la limpieza. Desde front-04, el 11b lista la serie quincenal entera
+con `series_id` y sin rango (4 turnos en 6 semanas, más que el tope de 31 días).
 
 **Lo que no está en la colección.** Una fecha ocupada y otra fuera del horario en la misma serie, el sobreturno en una serie, la
 serie que cruza el 15/10 y los fichados, ausentes, atendidos o ya empezados que la cancelación con alcance deja como están: los
@@ -538,6 +539,7 @@ npx newman run docs/05-pruebas/postman/syncvet-fase-03-series.postman_collection
 
 Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 25 pedidos y 42 aserciones, sin fallas.
 Validación del usuario del 2026-11-11 (otra PC, Collection Runner, una iteración): 42 de 42, 0 errores (R-054).
+Corrida de front-04 (2026-11-20, base de desarrollo): 26 pedidos y 44 aserciones, sin fallas.
 
 #### Disponibilidad y cola del día (3.4)
 
