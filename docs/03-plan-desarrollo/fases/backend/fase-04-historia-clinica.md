@@ -39,7 +39,9 @@ Las respuestas se anotan con la fecha y pasan a [`docs/01-arquitectura/decisione
 
 ## Diseño
 
-PENDIENTE: lo completa el paso 2 ([`docs/03-plan-desarrollo/prompts/2-diseno.md`](../../prompts/2-diseno.md)), aplicando la regla de oro de
+PROPUESTO el 2026-11-20, sin aprobar: [`f4-historia-clinica.md`](f4-historia-clinica.md) (en `feature/back-4-diseno`), con 18
+preguntas para el usuario; la primera decide si el diseño se queda ahí o pasa a este archivo. Lo completa el paso 2
+([`docs/03-plan-desarrollo/prompts/2-diseno.md`](../../prompts/2-diseno.md)), aplicando la regla de oro de
 [`docs/00-vision/principios.md`](../../../00-vision/principios.md).
 
 ## Criterio de cierre
