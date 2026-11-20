@@ -55,6 +55,9 @@ class RolesAndPermissionsSeeder extends Seeder
         /* historia clínica */
         'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
         'consultations.close', 'consultations.reopen', 'consultations.cancel',
+        // FASE 4, entrega 4.1: el contenido clínico de la consulta (el administrador y el veterinario; la
+        // recepción ve solo lo administrativo, pregunta 7 y ajuste de R-099).
+        'consultations.show-clinical',
         'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',
         'consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy',
         'patient-applications.index', 'patient-applications.store',
@@ -153,7 +156,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'appointments.index', 'appointments.show', 'appointments.check-in', 'appointments.attend',
                     'schedules.availability', 'appointments.queue',
                     'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
-                    'consultations.close',
+                    'consultations.close', 'consultations.show-clinical',
                     'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',
                     'consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy',
                     'patient-applications.index', 'patient-applications.store',

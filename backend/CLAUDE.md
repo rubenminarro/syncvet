@@ -25,7 +25,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 
 * **Stack:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`); MySQL 8, una base compartida por todas las clínicas, con `clinic_id`, scope global y fallo cerrado (D1: R-002, R-004 y R-007).
 * **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). Sigue la FASE 4 (historia clínica): diseño aprobado (R-099), la entrega 4.1.
-* **Hoy:** 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F3 del frontend (R-098), 1511 casos (15085 aserciones en SQLite, 16 omitidos de MySQL; en MySQL, 1511 y 15167).
+* **Hoy:** 82 rutas, 136 permisos y 37 migraciones (la 4.1, en curso); la suite del cierre de la F3 del frontend (R-098), 1511 casos (15085 aserciones en SQLite, 16 omitidos de MySQL; en MySQL, 1511 y 15167).
 * **Dónde seguir:** el punto de continuidad y las próximas tareas, en el [handoff](../docs/03-plan-desarrollo/handoff.md); cada módulo, en [`modulos.md`](../docs/03-plan-desarrollo/modulos.md); los comandos (`clinic:create`, `DemoSeeder`, `demo:agenda`, `files:prune-orphans`), en [`setup.md`](../docs/04-desarrollo/setup.md); `postman:cleanup` (la limpieza de Newman, solo local), en la [guía de Postman](../docs/05-pruebas/guia-postman.md).
 * **Detalle hasta R-090** (las carpetas de tests, los módulos con API y los comandos, como estaban en esta sección): [`historial-handoff.md`](../docs/03-plan-desarrollo/historial-handoff.md#estado-del-backend-backendclaudemd-1-hasta-r-090).
 
@@ -282,6 +282,7 @@ archivo.** Las referencias `§6.N` de la documentación llevan a estos archivos.
 * [6.10 Agendas, horario semanal y bloqueos](../docs/02-requisitos/reglas/agendas.md): sucursal y veterinario, horario, inactivación, baja física, bloqueos, listados y concurrencia.
 * [6.10 (continuación) Turnos](../docs/02-requisitos/reglas/turnos.md): alta, edición y superposición, estados del turno, series, disponibilidad y cola del día.
 * [6.11 Pendientes de diseño](../docs/02-requisitos/reglas/pendientes-de-diseno.md): consultas, stock, facturación y caja.
+* [6.12 La consulta](../docs/02-requisitos/reglas/consultas.md): abrir desde el turno o sin turno, el veterinario, editar, límites, listado, la vista de la recepción (`consultations.show-clinical`) y concurrencia.
 
 ---
 

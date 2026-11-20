@@ -334,7 +334,8 @@ class AppointmentQueueTest extends TestCase
             $queries[] = $query->sql;
         });
         $this->queue()->assertOk();
-        $queue = array_values(array_filter($queries, fn (string $sql) => preg_match('/^select \* from [`"]appointments[`"]/', $sql) === 1));
+        // Desde la FASE 4 (entrega 4.1), con has_consultation: select "appointments".*, exists(…).
+        $queue = array_values(array_filter($queries, fn (string $sql) => preg_match('/^select (\*|[`"]appointments[`"]\.\*.*) from [`"]appointments[`"] where/', $sql) === 1));
         $this->assertNotEmpty($queue, implode("\n", $queries));
         $this->assertMatchesRegularExpression('/order by [`"]starts_at[`"] asc, [`"]id[`"] asc/', $queue[0]);
     }

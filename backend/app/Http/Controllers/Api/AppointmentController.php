@@ -88,6 +88,8 @@ class AppointmentController extends Controller implements HasMiddleware
 
         $appointments = Appointment::query()
             ->with(['schedule', 'branch', 'veterinarian.user', 'service', 'patient', 'client'])
+            // FASE 4, entrega 4.1: has_consultation (una subconsulta, sin N+1).
+            ->withExists('consultation')
             // La serie entera, sin rango (front-04): hasta 52 turnos, por el índice de series_id.
             ->unless($request->wholeSeries(), fn ($query) => $query
                 ->where('starts_at', '>=', $from->format('Y-m-d H:i:s'))

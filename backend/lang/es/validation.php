@@ -304,6 +304,21 @@ return [
         // Disponibilidad y cola del día (FASE 3, entrega 3.4)
         'date' => 'fecha',
         'all' => 'toda la sucursal',
+
+        // La consulta (FASE 4, entrega 4.1)
+        'appointment_id' => 'turno',
+        'consulted_at' => 'fecha de la consulta',
+        'history' => 'anamnesis',
+        'temperature_c' => 'temperatura',
+        'heart_rate' => 'frecuencia cardíaca',
+        'respiratory_rate' => 'frecuencia respiratoria',
+        'mucous_membranes' => 'mucosas',
+        'capillary_refill_time' => 'tiempo de llenado capilar',
+        'body_condition_score' => 'condición corporal',
+        'physical_exam' => 'examen físico',
+        'diagnosis' => 'diagnóstico',
+        'treatment' => 'tratamiento',
+        'instructions' => 'indicaciones',
     ],
 
 ];

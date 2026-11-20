@@ -1,0 +1,1815 @@
+{
+    "info": {
+        "name": "SyncVet — FASE 4: la consulta",
+        "description": "Validación manual de la consulta (FASE 4, entrega 4.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, la migración de la 4.1 (php artisan migrate) y los permisos al día (php artisan permissions:sync, por el permiso nuevo consultations.show-clinical). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) y el DELETE (405). No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "01a Login del administrador (clínica A)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
+                            "// La corrida, entre 110000 y 149998: el documento ficticio 99xxxxxx (R-011) de su cliente queda en 9911… a 9914…,",
+                            "// lejos de los del DemoSeeder (99100001, 99100002, 99200001 y 99200002) y de los rangos de las otras colecciones.",
+                            "// También va en el email del veterinario y del cliente y en los nombres del servicio y de la agenda.",
+                            "const run = 110000 + Math.floor(Math.random() * 39999);",
+                            "pm.collectionVariables.set('run', String(run));",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
+                            "pm.collectionVariables.set('doc', `99${run}`);",
+                            "// Hoy en Asunción (UTC-3 todo el año): los turnos van en la agenda de la corrida, abierta de 00:00 a 23:55, así que",
+                            "// la colección corre a cualquier hora (el turno de las 00:00 es del día y ya se puede fichar).",
+                            "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",
+                            "pm.collectionVariables.set('today', asuncion.toISOString().slice(0, 10));"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_admin', pm.response.json().data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01b Login del recepcionista (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_reception', pm.response.json().data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "02 Sucursal por defecto",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const branch = pm.response.json().data.find(b => b.is_default);",
+                            "pm.collectionVariables.set('default_branch_id', String(branch.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/branches?per_page=100",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "branches"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "100"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 Especie Canino",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const canino = pm.response.json().data.find(s => s.name === 'Canino');",
+                            "pm.test('Existe Canino', () => pm.expect(canino).to.be.an('object'));",
+                            "pm.collectionVariables.set('canino_id', String(canino.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species?per_page=100",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "100"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Alta del usuario de la corrida con el rol veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('vet_user_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"first_name\": \"Celeste\",\n    \"last_name\": \"Postman\",\n    \"email\": \"consultas{{run}}@mailinator.com\",\n    \"password\": \"Clave-Consultas-{{run}}!\",\n    \"roles\": [\n        \"veterinario\"\n    ],\n    \"branch_ids\": [\n        {{default_branch_id}}\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05 Alta de su ficha de veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('vet_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": {{vet_user_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Login del veterinario de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_vet', pm.response.json().data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"consultas{{run}}@mailinator.com\",\n    \"password\": \"Clave-Consultas-{{run}}!\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "07 El veterinario elige su sucursal actual (la consulta sin turno la usa)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me/current-branch",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me",
+                        "current-branch"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "08 Alta del servicio de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('service_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Consulta clínica {{run}}\",\n    \"category\": \"consultation\",\n    \"standard_price\": 150000,\n    \"duration_minutes\": 30\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Alta de la agenda de la corrida (todos los días de 00:00 a 23:55)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('schedule_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/schedules",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "schedules"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}},\n    \"name\": \"Consultas Postman {{run}}\",\n    \"veterinarian_id\": {{vet_id}},\n    \"service_id\": {{service_id}},\n    \"hours\": [\n        {\n            \"weekday\": 1,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        },\n        {\n            \"weekday\": 2,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        },\n        {\n            \"weekday\": 3,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        },\n        {\n            \"weekday\": 4,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        },\n        {\n            \"weekday\": 5,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        },\n        {\n            \"weekday\": 6,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        },\n        {\n            \"weekday\": 7,\n            \"starts_at\": \"00:00\",\n            \"ends_at\": \"23:55\"\n        }\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 Cliente de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('client_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"document_number\": \"{{doc}}\",\n    \"first_name\": \"Marta\",\n    \"last_name\": \"Consultas\",\n    \"email\": \"marta.consultas.{{run}}@mailinator.com\",\n    \"phone\": \"+595981800001\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 Paciente del cliente",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('patient_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{client_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{client_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Kira\",\n    \"species_id\": {{canino_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "12 Turno de hoy a las 00:00 con el paciente",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('appointment_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"patient_id\": {{patient_id}},\n    \"starts_at\": \"{{today}}T00:00:00-03:00\",\n    \"reason\": \"Control anual\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13 La recepción ficha el turno",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Fichado', () => pm.expect(pm.response.json().data.status.value).to.eql('checked_in'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{appointment_id}}/check-in",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{appointment_id}}",
+                        "check-in"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "14 La recepción no abre consultas → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"appointment_id\": {{appointment_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15 El veterinario abre la consulta desde el turno fichado → 201, el turno pasa a atendido",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Código CON- y abierta', () => {",
+                            "    pm.expect(consultation.code).to.match(/^CON-\\d{6}$/);",
+                            "    pm.expect(consultation.status.value).to.eql('open');",
+                            "});",
+                            "pm.test('Del turno: el paciente, el cliente, la sucursal, el veterinario y el motivo', () => {",
+                            "    pm.expect(consultation.patient.id).to.eql(Number(pm.collectionVariables.get('patient_id')));",
+                            "    pm.expect(consultation.client.id).to.eql(Number(pm.collectionVariables.get('client_id')));",
+                            "    pm.expect(consultation.branch.id).to.eql(Number(pm.collectionVariables.get('default_branch_id')));",
+                            "    pm.expect(consultation.veterinarian.id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "    pm.expect(consultation.reason).to.eql('Control anual');",
+                            "});",
+                            "pm.test('El turno quedó atendido', () => pm.expect(consultation.appointment.status.value).to.eql('attended'));",
+                            "pm.test('El veterinario ve el examen', () => pm.expect(consultation.weight_kg).to.eql('12.40'));",
+                            "pm.test('En UTC, con Z', () => pm.expect(consultation.consulted_at).to.match(/Z$/));",
+                            "pm.collectionVariables.set('consultation_id', String(consultation.id));",
+                            "pm.collectionVariables.set('consultation_code', consultation.code);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"appointment_id\": {{appointment_id}},\n    \"weight_kg\": 12.4\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16 Abrir otra vez la del mismo turno → 409 CONSULTATION_ALREADY_EXISTS",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                            "pm.test('error_code CONSULTATION_ALREADY_EXISTS', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_ALREADY_EXISTS'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"appointment_id\": {{appointment_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "17 El detalle del turno muestra su consulta",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('consultation: id, código y estado', () => pm.expect(pm.response.json().data.consultation).to.eql({",
+                            "    id: Number(pm.collectionVariables.get('consultation_id')),",
+                            "    code: pm.collectionVariables.get('consultation_code'),",
+                            "    status: { value: 'open', label: 'Abierta' },",
+                            "}));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{appointment_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{appointment_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "18 El listado de turnos del día marca has_consultation",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const row = pm.response.json().data.find(a => a.id === Number(pm.collectionVariables.get('appointment_id')));",
+                            "pm.test('has_consultation: true', () => pm.expect(row.has_consultation).to.eql(true));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments?from={{today}}&schedule_id={{schedule_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "{{today}}"
+                        },
+                        {
+                            "key": "schedule_id",
+                            "value": "{{schedule_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "19 El veterinario edita la consulta (parcial)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Cambió lo que llegó y quedó lo demás', () => {",
+                            "    pm.expect(consultation.temperature_c).to.eql('39.2');",
+                            "    pm.expect(consultation.diagnosis).to.eql('Gastroenteritis.');",
+                            "    pm.expect(consultation.instructions).to.eql('Dieta blanda por 3 días.');",
+                            "    pm.expect(consultation.weight_kg).to.eql('12.40');",
+                            "    pm.expect(consultation.reason).to.eql('Control anual');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"history\": \"Vómitos desde ayer.\",\n    \"temperature_c\": 39.2,\n    \"heart_rate\": 120,\n    \"body_condition_score\": 5,\n    \"diagnosis\": \"Gastroenteritis.\",\n    \"treatment\": \"Omeprazol.\",\n    \"instructions\": \"Dieta blanda por 3 días.\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "20 Temperatura fuera de rango (46 °C) → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('El mensaje del límite', () => pm.expect(pm.response.json().errors.temperature_c[0]).to.eql('La temperatura debe ser de 30 a 45 °C.'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"temperature_c\": 46\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21 La recepción ve el detalle sin el contenido clínico",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Sin textos clínicos ni examen', () => {",
+                            "    ['diagnosis', 'history', 'treatment', 'instructions', 'weight_kg', 'temperature_c'].forEach(k => pm.expect(consultation).to.not.have.property(k));",
+                            "});",
+                            "pm.test('Con lo administrativo', () => {",
+                            "    pm.expect(consultation.code).to.eql(pm.collectionVariables.get('consultation_code'));",
+                            "    pm.expect(consultation.patient.id).to.eql(Number(pm.collectionVariables.get('patient_id')));",
+                            "    pm.expect(consultation.status.value).to.eql('open');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22 El administrador ve el contenido clínico",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Con el diagnóstico y el tratamiento', () => {",
+                            "    pm.expect(pm.response.json().data.diagnosis).to.eql('Gastroenteritis.');",
+                            "    pm.expect(pm.response.json().data.treatment).to.eql('Omeprazol.');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23 La recepción no edita → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"diagnosis\": \"Cambiado\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Consulta sin turno (urgencia) → 201, en la sucursal actual",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Sin turno, con la sucursal actual y la ficha de quien abre', () => {",
+                            "    pm.expect(consultation.appointment).to.eql(null);",
+                            "    pm.expect(consultation.branch.id).to.eql(Number(pm.collectionVariables.get('default_branch_id')));",
+                            "    pm.expect(consultation.veterinarian.id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "});",
+                            "pm.collectionVariables.set('urgent_id', String(consultation.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"patient_id\": {{patient_id}},\n    \"reason\": \"Urgencia: cojera\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25 Listado del paciente: las dos, la más reciente primero",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const ids = pm.response.json().data.map(c => c.id);",
+                            "pm.test('Las dos consultas del paciente', () => pm.expect(ids).to.have.members([",
+                            "    Number(pm.collectionVariables.get('consultation_id')),",
+                            "    Number(pm.collectionVariables.get('urgent_id')),",
+                            "]));",
+                            "pm.test('Con meta.pagination', () => pm.expect(pm.response.json().meta.pagination.total).to.eql(2));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations?patient_id={{patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ],
+                    "query": [
+                        {
+                            "key": "patient_id",
+                            "value": "{{patient_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 La recepción lista sin el diagnóstico",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Sin diagnosis', () => pm.response.json().data.forEach(c => pm.expect(c).to.not.have.property('diagnosis')));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations?patient_id={{patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ],
+                    "query": [
+                        {
+                            "key": "patient_id",
+                            "value": "{{patient_id}}"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "27 Un rango de más de 31 días → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations?from=2026-01-01&to=2026-03-01",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ],
+                    "query": [
+                        {
+                            "key": "from",
+                            "value": "2026-01-01"
+                        },
+                        {
+                            "key": "to",
+                            "value": "2026-03-01"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "28 Otro turno de hoy a la 01:00, sin fichar",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('pending_appointment_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"schedule_id\": {{schedule_id}},\n    \"patient_id\": {{patient_id}},\n    \"starts_at\": \"{{today}}T01:00:00-03:00\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "29 Abrir desde un turno sin fichar → 422 APPOINTMENT_INVALID_TRANSITION",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code APPOINTMENT_INVALID_TRANSITION', () => pm.expect(pm.response.json().error_code).to.eql('APPOINTMENT_INVALID_TRANSITION'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"appointment_id\": {{pending_appointment_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30 Una consulta no se borra → 405",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 405', () => pm.response.to.have.status(405));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8001/api",
+            "type": "string"
+        },
+        {
+            "key": "demo_password",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "doc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "today",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_admin",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_reception",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_vet",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "default_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "canino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_user_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "service_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "schedule_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "client_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "patient_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "appointment_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "consultation_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "consultation_code",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "urgent_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "pending_appointment_id",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

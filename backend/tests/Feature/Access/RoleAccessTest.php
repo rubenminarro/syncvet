@@ -141,6 +141,29 @@ class RoleAccessTest extends TestCase
                 'created_at' => now(),
                 'updated_at' => now(),
             ]),
+            // Una consulta abierta, sin turno, de otro paciente y otra ficha (FASE 4, entrega 4.1):
+            // editarla sin cuerpo responde 200 (el administrador) o 403 CONSULTATION_NOT_YOURS
+            // (una ficha ajena: el permiso ya pasó, BUSINESS_FORBIDDEN).
+            'consultation' => (string) CurrentClinic::run($this->clinic, function () use ($branch) {
+                $patient = $this->patientOf($this->clientIn($this->clinic));
+
+                return DB::table('consultations')->insertGetId([
+                    'clinic_id' => $this->clinic->id,
+                    'code' => 'CON-000001',
+                    'branch_id' => $branch->id,
+                    'patient_id' => $patient->id,
+                    'client_id' => $patient->client_id,
+                    'veterinarian_id' => Veterinarian::create([
+                        'user_id' => User::factory()->for($this->clinic)->create()->id,
+                        'code' => 'VET-000002',
+                    ])->id,
+                    'consulted_at' => now()->format('Y-m-d H:i:s'),
+                    'status' => 'open',
+                    'created_by' => User::factory()->for($this->clinic)->create()->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }),
             // Un registro de auditoría de la clínica (FASE 2, entrega 2.6): solo se consulta.
             'auditLog' => (string) CurrentClinic::run($this->clinic, fn () => AuditLog::create([
                 'clinic_id' => $this->clinic->id,
@@ -386,9 +409,19 @@ class RoleAccessTest extends TestCase
         }, $route['uri']);
     }
 
+    /**
+     * Un 403 de negocio cuenta como permitido: el permiso ya pasó y la regla de la ficha
+     * (FASE 4, entrega 4.1: editar la consulta de otra ficha) lo rechaza después.
+     */
+    private const BUSINESS_FORBIDDEN = ['APPOINTMENT_NOT_YOURS', 'CONSULTATION_NOT_YOURS'];
+
     private function isAllowed(TestResponse $response): bool
     {
-        return ! in_array($response->getStatusCode(), [401, 403, 404, 405], true) && $response->getStatusCode() < 500;
+        if ($response->getStatusCode() === 403) {
+            return in_array($response->json('error_code'), self::BUSINESS_FORBIDDEN, true);
+        }
+
+        return ! in_array($response->getStatusCode(), [401, 404, 405], true) && $response->getStatusCode() < 500;
     }
 
     private function isForbidden(TestResponse $response): bool

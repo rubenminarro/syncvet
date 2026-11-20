@@ -7,7 +7,8 @@ código, manda el código.
 
 ### 6.11 Pendientes de diseño (reglas a definir antes de programar)
 
-* **Consultas:** qué se edita después de cerrar; quién puede reabrir.
+* **Consultas:** decidido en el diseño de la FASE 4 (R-099): una cerrada no se edita, se corrige con enmiendas, y no se reabre; las
+  reglas vigentes, en [`consultas.md`](consultas.md) (§6.12).
 * **Stock:** el consumo en consulta descuenta del depósito de la sucursal; lote obligatorio si `tracks_lots`.
 * **Facturación:** emisión con timbrado (`invoice_stamps.next_number` con `lockForUpdate`), envío a SIFEN por cola,
   cancelación como evento SIFEN.

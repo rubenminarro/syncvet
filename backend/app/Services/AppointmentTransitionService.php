@@ -206,9 +206,10 @@ class AppointmentTransitionService
      * una ficha de veterinario, y sin appointments.update, ficha y marca atendido solo los turnos
      * de su ficha (no eliminada) o los de agendas sin veterinario; sin ficha, o con la ficha
      * eliminada, solo los de agendas sin veterinario. Si no, 403 APPOINTMENT_NOT_YOURS. El
-     * administrador (Gate::before) y quien tiene appointments.update, cualquiera.
+     * administrador (Gate::before) y quien tiene appointments.update, cualquiera. Lo usa también
+     * la consulta que se abre desde un turno (ConsultationService, FASE 4): las reglas de attend.
      */
-    private function ensureOwnAppointment(Appointment $appointment): void
+    public function ensureOwnAppointment(Appointment $appointment): void
     {
         /** @var User $user */
         $user = Auth::user();

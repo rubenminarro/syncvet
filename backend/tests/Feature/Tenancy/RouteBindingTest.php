@@ -360,6 +360,44 @@ class RouteBindingTest extends TestCase
         $this->assertSame('pending_confirmation', DB::table('appointments')->where('id', $id)->value('status'));
     }
 
+    /**
+     * La consulta (FASE 4, entrega 4.1): una de otra clínica responde 404 en el detalle y en la
+     * edición (PATCH y PUT), y no cambia.
+     */
+    public static function consultationMethods(): array
+    {
+        return ['GET' => ['get'], 'PATCH' => ['patch'], 'PUT' => ['put']];
+    }
+
+    #[DataProvider('consultationMethods')]
+    public function test_consultation_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $id = DB::table('consultations')->insertGetId([
+            'clinic_id' => $foreignClinic->id,
+            'code' => 'CON-000001',
+            'branch_id' => $this->defaultBranchIn($foreignClinic)->id,
+            'patient_id' => $patient->id,
+            'client_id' => $patient->client_id,
+            'veterinarian_id' => CurrentClinic::run($foreignClinic, fn () => Veterinarian::create([
+                'user_id' => User::factory()->for($foreignClinic)->create()->id,
+                'code' => 'VET-000001',
+            ])->id),
+            'consulted_at' => now(),
+            'diagnosis' => 'Ajeno',
+            'status' => 'open',
+            'created_by' => User::factory()->for($foreignClinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), ['consultations.show', 'consultations.update', 'consultations.show-clinical']);
+
+        $this->assertErrorCode($this->json($method, "/api/consultations/{$id}", ['diagnosis' => 'Cambiado']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame('Ajeno', DB::table('consultations')->where('id', $id)->value('diagnosis'));
+    }
+
     public function test_own_records_are_found(): void
     {
         $own = $this->createClinic();

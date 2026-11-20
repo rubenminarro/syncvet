@@ -1,0 +1,173 @@
+<?php
+
+namespace Tests\Feature\Consultations;
+
+use App\Services\AppointmentService;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use PDOException;
+use Tests\Concerns\InspectsQueries;
+use Tests\Concerns\InteractsWithConsultations;
+use Tests\TestCase;
+
+/**
+ * El orden de bloqueo de la consulta (FASE 4, entrega 4.1; §3: veterinario → paciente → cliente →
+ * turno → consulta → serie): abrir desde un turno toma el veterinario, el paciente y el cliente
+ * antes que el turno, y el turno antes que la serie de códigos; editar toma la consulta antes de
+ * leer su estado. Un deadlock se repite hasta 3 veces y una espera vencida no se repite: 409
+ * CONFLICT, nunca 500. En MySQL se ve el "for update" o "for share"/"lock in share mode".
+ */
+class ConsultationLockTest extends TestCase
+{
+    use InspectsQueries;
+    use InteractsWithConsultations;
+
+    private const DEADLOCK = 'SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock; try restarting transaction';
+
+    private const LOCK_WAIT_TIMEOUT = 'SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded; try restarting transaction';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->setUpClinic();
+    }
+
+    /**
+     * Una lectura de la tabla por su id; en MySQL, con su bloqueo (for update o compartido).
+     */
+    private function lockedRead(string $table, bool $exclusive): callable
+    {
+        return function (string $sql) use ($table, $exclusive) {
+            // El bloqueo exclusivo lee la fila entera (select *); las lecturas sin bloqueo y los
+            // compartidos, solo sus columnas: en SQLite, sin "for update", así se distinguen.
+            $columns = $exclusive ? '\*' : '[^*]+';
+
+            if (! preg_match('/^select ' . $columns . ' from [`"]' . $table . '[`"] where .*[`"]' . $table . '[`"]\.[`"]id[`"] = \?/', $sql)) {
+                return false;
+            }
+
+            if (DB::getDriverName() !== 'mysql') {
+                return true;
+            }
+
+            return $exclusive
+                ? str_ends_with($sql, 'for update')
+                : str_ends_with($sql, 'lock in share mode') || str_ends_with($sql, 'for share');
+        };
+    }
+
+    private function sequence(): callable
+    {
+        return fn (string $sql) => str_contains($sql, 'document_sequences');
+    }
+
+    public function test_opening_from_an_appointment_locks_in_order(): void
+    {
+        $appointment = $this->checkedIn();
+        $this->actAsVet();
+
+        $queries = $this->queriesOf(fn () => $this->openConsultation(['appointment_id' => $appointment])->assertCreated());
+
+        $this->assertBefore($queries, $this->lockedRead('veterinarians', false), $this->lockedRead('patients', false), 'El veterinario va antes que el paciente.');
+        $this->assertBefore($queries, $this->lockedRead('patients', false), $this->lockedRead('clients', false), 'El paciente va antes que el cliente.');
+        $this->assertBefore($queries, $this->lockedRead('clients', false), $this->lockedRead('appointments', true), 'El cliente va antes que el turno.');
+        $this->assertBefore(
+            $queries,
+            $this->lockedRead('appointments', true),
+            fn (string $sql) => str_contains($sql, 'from "consultations"') || str_contains($sql, 'from `consultations`'),
+            'El turno se bloquea antes de revisar si ya tiene consulta.',
+        );
+        $this->assertBefore($queries, $this->lockedRead('appointments', true), $this->sequence(), 'La serie, al final.');
+        $this->assertNull($this->firstIndex($queries, $this->lockedRead('schedules', true)), 'Abrir no bloquea la agenda.');
+    }
+
+    public function test_opening_without_appointment_locks_patient_and_client_before_the_series(): void
+    {
+        $patient = $this->patientOf($this->clientIn($this->clinic));
+        $this->actAsVet();
+
+        $queries = $this->queriesOf(fn () => $this->openConsultation(['patient_id' => $patient->id])->assertCreated());
+
+        $this->assertBefore($queries, $this->lockedRead('veterinarians', false), $this->lockedRead('patients', false), 'El veterinario va antes que el paciente.');
+        $this->assertBefore($queries, $this->lockedRead('patients', false), $this->lockedRead('clients', false), 'El paciente va antes que el cliente.');
+        $this->assertBefore($queries, $this->lockedRead('clients', false), $this->sequence(), 'La serie, al final.');
+    }
+
+    public function test_editing_locks_the_consultation_before_reading_its_status(): void
+    {
+        $this->actAsVet();
+        $id = $this->opened(['appointment_id' => $this->checkedIn()]);
+
+        $queries = $this->queriesOf(fn () => $this->patchJson("/api/consultations/{$id}", ['diagnosis' => 'Otitis'])->assertOk());
+
+        $this->assertTrue(($this->lockedRead('consultations', true))($queries[0] ?? ''), "La primera consulta no es el bloqueo de la consulta:\n" . implode("\n", $queries));
+    }
+
+    public function test_a_deadlock_is_retried_and_a_lock_wait_timeout_is_not(): void
+    {
+        $appointment = $this->checkedIn();
+        $this->actAsVet();
+
+        $failures = $this->failOn($this->lockedRead('appointments', true), self::DEADLOCK);
+        $response = $this->openConsultation(['appointment_id' => $appointment]);
+        $this->assertErrorCode($response, 409, 'CONFLICT');
+        $response->assertJsonPath('message', 'La consulta cambió mientras se guardaba: volvé a intentarlo.');
+        $this->assertSame(AppointmentService::ATTEMPTS, $failures->count);
+
+        $failures->message = self::LOCK_WAIT_TIMEOUT;
+        $failures->count = 0;
+        $this->assertErrorCode($this->openConsultation(['appointment_id' => $appointment]), 409, 'CONFLICT');
+        $this->assertSame(1, $failures->count);
+
+        $this->assertSame('checked_in', $this->appointmentRow($appointment)->status);
+        $this->assertSame(0, DB::table('consultations')->count());
+    }
+
+    /**
+     * Si el turno cambia de paciente entre la lectura y el bloqueo, lo bloqueado ya no corresponde:
+     * se deshace y se repite (el cambio, hecho dentro de la misma transacción, se deshace con ella).
+     */
+    public function test_an_appointment_that_changed_while_locking_is_retried(): void
+    {
+        $appointment = $this->checkedIn();
+        $patientId = $this->patientIdOf($appointment);
+        $newPatient = $this->patientOf($this->clientIn($this->clinic));
+        $this->actAsVet();
+        $changed = false;
+        $appointmentLocks = 0;
+
+        DB::listen(function ($query) use (&$changed, &$appointmentLocks, $appointment, $newPatient) {
+            $sql = strtolower($query->sql);
+
+            if (($this->lockedRead('appointments', true))($sql)) {
+                $appointmentLocks++;
+            }
+
+            if (! $changed && ($this->lockedRead('patients', false))($sql)) {
+                $changed = true;
+                DB::table('appointments')->where('id', $appointment)->update(['patient_id' => $newPatient->id]);
+            }
+        });
+
+        $this->openConsultation(['appointment_id' => $appointment])->assertCreated()->assertJsonPath('data.patient.id', $patientId);
+        $this->assertSame(2, $appointmentLocks, 'No se repitió después del cambio.');
+    }
+
+    private function failOn(callable $matches, string $message): object
+    {
+        $failures = (object) ['count' => 0, 'message' => $message];
+
+        DB::listen(function ($query) use ($failures, $matches) {
+            if (! $matches(strtolower($query->sql))) {
+                return;
+            }
+
+            $failures->count++;
+
+            throw new QueryException($query->connectionName, $query->sql, $query->bindings, new PDOException($failures->message));
+        });
+
+        return $failures;
+    }
+}

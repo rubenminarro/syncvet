@@ -334,6 +334,39 @@ guía de Postman y la colección; la suite con el presupuesto por entrega; MySQL
 colecciones (`node docs/05-pruebas/newman-todas.mjs`, que limpia cada corrida) y la regresión del frontend sobre `main` (la API de la
 FASE 3 no cambia, salvo los campos aditivos del turno).
 
+### 4.1 — Pendiente para el cierre
+
+Implementada en `feature/back-4-1-consulta` (commit WIP, 2026-11-20); falta la revisión y el cierre. Rutas 78 → 82 (`apiResource
+consultations` sin `destroy`); permisos 135 → 136 (`consultations.show-clinical`); migraciones 36 → 37. Las reglas, en
+[`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+Desvíos y precisiones del diseño (para revisar en el cierre):
+
+1. **El veterinario del pedido:** el diseño no decía qué pasa si llega un `veterinarian_id` distinto del que corresponde (el del turno o
+   la ficha de quien abre): 422 en `veterinarian_id`, en lugar de ignorarlo en silencio. Uno del pedido, activo y no eliminado.
+2. **La vista administrativa:** las claves clínicas **no están** (no van en `null`). El motivo (`reason`) es administrativo (el
+   resumen del historial de la recepción lo incluye, según el diseño); en el listado, lo clínico es solo el diagnóstico.
+3. **`RoleAccessTest`:** un 403 de negocio (`APPOINTMENT_NOT_YOURS`, `CONSULTATION_NOT_YOURS`) cuenta como permitido (el permiso ya
+   pasó): editar la consulta de otra ficha sin cuerpo responde 403 `CONSULTATION_NOT_YOURS`.
+4. **Código compartido con la FASE 3:** `AppointmentService::withRetries` recibe un mensaje de conflicto opcional (la consulta dice
+   "La consulta cambió…" en lugar de "La agenda cambió…"); `AppointmentTransitionService::ensureOwnAppointment` pasó a público (las
+   reglas de `attend`, reusadas). `AppointmentQueueTest` reconoce la consulta de la cola con el `exists` de `has_consultation`.
+5. **Deuda 2 en `Consultation`:** la temperatura con `decimal:1` (su columna; antes `decimal:2`) y los signos vitales como enteros.
+6. **`has_consultation`** solo en el listado y en la cola (con `withExists`); el detalle del turno lleva `consultation`, y la
+   respuesta del alta de una serie no cambia.
+7. **Editar:** el administrador por su rol (`hasRole`); un rol propio con `consultations.update` y sin ficha recibe 403
+   `CONSULTATION_NOT_YOURS`.
+8. **`permissions:sync --dry-run`** (no estaba en el diseño): muestra los cambios sin aplicarlos.
+9. **Tests:** se sumaron `ConsultationShowTest` y `ConsultationsPhase4MigrationTest` (la bajada y la subida, en MySQL); el
+   aislamiento por clínica, en `RouteBindingTest` (`test_consultation_of_another_clinic_is_not_found`), `ConsultationIndexTest` y
+   `ConsultationStoreTest`.
+
+Validación (2026-11-20): `composer test` 1590 casos, 1571 en verde, 18 omitidos (de MySQL) y 1 falla (`AppointmentQueueTest`, la
+expresión de la consulta de la cola; corregida y repetido su archivo: 13 de 13). En MySQL, los tests afectados: 125 de 125, 1146
+aserciones (con `ConsultationConcurrencyTest`). Newman, `syncvet-fase-04-consultas`: 31 pedidos y 54 aserciones, sin fallas, y la
+limpieza sin datos residuales. `permissions:sync` en la base local: el permiso en el administrador y el veterinario, no en la recepción;
+la segunda corrida, sin cambios. Mutaciones: 4, todas detectadas (abajo, en el informe de la entrega).
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

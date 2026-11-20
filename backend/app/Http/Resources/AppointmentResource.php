@@ -10,7 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * Turno en los listados (FASE 3, entrega 3.2a): la agenda, la sucursal, el veterinario (con el
  * nombre de su usuario), el servicio, el paciente y el cliente (o null), el contacto, los
  * instantes en UTC ("Z"), el estado y el origen ({value, label}), el sobreturno y la serie.
- * Espera schedule, branch, veterinarian.user, service, patient y client cargados (with).
+ * Espera schedule, branch, veterinarian.user, service, patient y client cargados (with). Con
+ * withExists('consultation') (el listado y la cola, FASE 4), además has_consultation.
  *
  * @mixin Appointment
  */
@@ -62,6 +63,10 @@ class AppointmentResource extends JsonResource
             'is_overbooked' => $this->is_overbooked,
             'series_id' => $this->series_id,
             'reason' => $this->reason,
+            // FASE 4, entrega 4.1: si el turno tiene consulta, en el listado y en la cola (withExists).
+            $this->mergeWhen($this->resource->hasAttribute('consultation_exists'), fn () => [
+                'has_consultation' => (bool) $this->consultation_exists,
+            ]),
         ];
     }
 }

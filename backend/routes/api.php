@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\ClinicLogoController;
+use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
@@ -110,6 +111,11 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::post('appointments/{appointment}/no-show', [AppointmentTransitionController::class, 'noShow'])->name('appointments.no-show');
     Route::post('appointments/{appointment}/undo-no-show', [AppointmentTransitionController::class, 'undoNoShow'])->name('appointments.undo-no-show');
     Route::post('appointments/{appointment}/cancel', [AppointmentTransitionController::class, 'cancel'])->name('appointments.cancel');
+
+    // La consulta (FASE 4, entrega 4.1): la abren y la editan el administrador y el veterinario; la
+    // recepción la lista y la ve sin el contenido clínico (consultations.show-clinical). Sin baja
+    // (DELETE → 405): se anula (4.2).
+    Route::apiResource('consultations', ConsultationController::class)->except(['destroy']);
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

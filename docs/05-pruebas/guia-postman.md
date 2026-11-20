@@ -604,6 +604,51 @@ Corrida del 2026-11-11 contra la base de desarrollo, dos veces seguidas sin recr
 de las correcciones de la revisión, el mismo día: 50 pedidos y 81 aserciones, dos veces seguidas, sin fallas.
 Validación del usuario del 2026-11-11 (Collection Runner, una iteración, después de las correcciones): 81 de 81, 0 errores (R-055).
 
+## FASE 4 — Historia clínica
+
+Una colección por módulo, con las mismas reglas que las anteriores: la colección es la fuente de verdad de los pasos, y la
+preparación, el Environment **SyncVet local** y la forma de correrla son los de la [FASE 1](#fase-1--clientes-y-pacientes). Las
+reglas, en [`consultas.md`](../02-requisitos/reglas/consultas.md).
+
+| Colección | Entrega | Qué valida |
+|---|---|---|
+| [`postman/syncvet-fase-04-consultas.postman_collection.json`](postman/syncvet-fase-04-consultas.postman_collection.json) | 4.1 | Alta del usuario de la corrida con el rol `veterinario`, su ficha, su sucursal actual, su servicio y una agenda abierta todo el día; un cliente con su paciente y un turno de hoy que la recepción ficha; la recepción no abre (403); el veterinario abre desde el turno fichado (201, el turno pasa a atendido, código `CON-`) y otra vez (409 `CONSULTATION_ALREADY_EXISTS`); `consultation` en el detalle del turno y `has_consultation` en el listado; la edición parcial, la temperatura fuera de rango (422) y la recepción que no edita (403); la vista de la recepción sin el contenido clínico y la del administrador con él; la consulta sin turno (la sucursal actual); el listado del paciente, el de la recepción sin el diagnóstico y un rango de más de 31 días (422); abrir desde un turno sin fichar (422 `APPOINTMENT_INVALID_TRANSITION`); y el `DELETE` (405) |
+
+#### La consulta (4.1)
+
+**Migrar y poner los permisos al día.** La 4.1 tiene una migración (`adjust_consultations_for_phase_4`) y un permiso nuevo,
+`consultations.show-clinical` (el administrador y el veterinario). Si la base no se recrea, correr `php artisan migrate` y
+`php artisan permissions:sync` (no toca los datos ni los roles de los usuarios) antes de la colección: sin el permiso, el
+veterinario ve la consulta sin el contenido clínico.
+
+**Necesita internet y el `DemoSeeder`.** Los emails de la corrida son `@mailinator.com` (la validación consulta su MX); usa
+`admin-a@example.com`, `recepcion-a@example.com` y la sucursal por defecto de la clínica A.
+
+**31 requests y 54 pruebas.**
+
+**Se corre más de una vez sin recrear la base.** El primer pedido genera un número de corrida (entre 110000 y 149998: el documento
+del cliente queda en 9911… a 9914…) y la fecha de hoy en Asunción. Los turnos van en la agenda de la corrida, abierta de 00:00 a
+23:55, a las 00:00 y a la 01:00 de hoy, así que corre a cualquier hora. La API no borra consultas ni turnos: la corrida no limpia lo
+suyo; lo borra `php artisan postman:cleanup <corrida>` (las consultas primero), que `node docs/05-pruebas/newman-todas.mjs consultas`
+corre al terminar.
+
+**Lo que no está en la colección.** El turno atendido el mismo día y otro día (422 `CONSULTATION_APPOINTMENT_NOT_TODAY`), el paciente
+fallecido (422 `PATIENT_DECEASED`), otro veterinario (403 `APPOINTMENT_NOT_YOURS` y `CONSULTATION_NOT_YOURS`), sin sucursal actual
+(422 `CONSULTATION_NO_BRANCH`), el veterinario del pedido, `consulted_at` futuro o anterior al fichado y el dueño actual:
+`ConsultationStoreTest`. Cerrada o anulada (422 `CONSULTATION_NOT_EDITABLE`) y los límites: `ConsultationUpdateTest`. Los filtros, la
+búsqueda y el conteo de consultas (sin N+1): `ConsultationIndexTest`. La vista de cada rol: `ConsultationShowTest`. El orden de
+bloqueo y los reintentos: `ConsultationLockTest`; dos aperturas simultáneas del mismo turno (una 201, otra 409), solo en MySQL:
+`ConsultationConcurrencyTest`. Los permisos en una base vieja: `PermissionsSyncCommandTest`.
+
+**Con Newman.** Con el servidor en el puerto 8001, desde la raíz:
+
+```bash
+node docs/05-pruebas/newman-todas.mjs consultas
+```
+
+Corrida del 2026-11-20 contra la base de desarrollo: 31 pedidos y 54 aserciones, sin fallas; la limpieza borró 2 consultas, 2 turnos,
+la agenda, el paciente, el cliente, la ficha y el servicio, y dio de baja el usuario.
+
 ## Entrega de soporte del frontend (front-00)
 
 Entrega del backend pedida por la F0 del frontend (R-058), cerrada en R-059

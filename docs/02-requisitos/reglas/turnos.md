@@ -155,3 +155,6 @@ código, manda el código.
     `checked_in_at` para la demora), con una cantidad fija de consultas (sin N+1). `meta`: `date`, `branch_id`, `veterinarian_id` (el
     del filtro: el de la ficha por defecto, `null` con `all=1` o sin ficha), `includes_unassigned` (`true` solo en la vista por
     defecto de una ficha) y `truncated`.
+* **La consulta del turno** (FASE 4, entrega 4.1; [`consultas.md`](consultas.md)): abrir la consulta desde un turno fichado lo pasa a
+  atendido (además de `attend`, que sigue para los turnos sin historia clínica). El detalle del turno suma `consultation` (`id`,
+  `code`, `status`) o `null`, y el listado y la cola, `has_consultation`: campos aditivos, el resto no cambia.
