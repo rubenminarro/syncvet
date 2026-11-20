@@ -281,7 +281,7 @@ class PostmanCleanupCommandTest extends TestCase
     public function test_it_refuses_outside_local_and_the_development_database(): void
     {
         $run = $this->postmanRun(self::RUN);
-        $tables = fn () => collect(['appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'personal_access_tokens'])
+        $tables = fn () => collect(['consultation_amendments', 'consultations', 'appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'personal_access_tokens'])
             ->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()])->all();
         $before = $tables();
         $cases = [

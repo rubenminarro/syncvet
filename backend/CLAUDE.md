@@ -43,6 +43,10 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 * MySQL (`syncvet_test_mysql`): en una entrega, solo si toca migraciones, concurrencia o búsqueda de texto, y solo los tests
   afectados (`--filter`, con `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql`). La suite completa en MySQL (`composer
   test:mysql`, de 5 a 6 min y medio), al cerrar la fase.
+* **Nunca `php artisan migrate` ni otro comando de base "para los tests"** (`migrate --env=testing`, `db:seed`, `migrate:fresh`):
+  las suites preparan su propia base (`composer test`, SQLite en `database/testing.sqlite`, por `phpunit.xml`; `composer test:mysql`,
+  `syncvet_test_mysql`), y sin `.env.testing` un comando de Artisan usa `.env`, es decir la base local `syncvet` (lo que pasó en la
+  4.2). La base local se migra solo a propósito, para la API, Newman o la demo.
 * Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
   de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, solo los tests de lo tocado
   (`XDEBUG_MODE=off php artisan test --filter <test>`). Una sola corrida completa por entrega, en la revisión (R-100): `composer test`

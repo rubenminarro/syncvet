@@ -78,8 +78,10 @@ contradice al código, manda el código.
 * **Anular** (`POST consultations/{consultation}/cancel`, `consultations.cancel`: el administrador; pregunta 12): con
   `cancellation_reason` (de 3 a 500); abierta o cerrada (anulada, 422 `CONSULTATION_NOT_CANCELLABLE`). Fija `cancelled_at`,
   `cancelled_by` y el motivo; queda visible, con todo su contenido. Sus ítems pendientes pasan a `no_charge` (no se cobran; uno
-  facturado no se toca, y desde la FASE 8 impedirá anular). El turno sigue atendido. **Pendiente de la 4.4:** sus aplicaciones se
-  anularán con ella cuando exista la anulación de aplicaciones.
-* **Concurrencia de la 4.2:** cerrar toma el paciente (copia el peso) y después la consulta, los dos con `lockForUpdate` (§3,
+  facturado no se toca, y desde la FASE 8 impedirá anular). El turno sigue atendido. **Anular una cerrada no revierte el peso que el
+  cierre le copió al paciente**: el paciente conserva el último peso medido, y si hace falta se corrige en su ficha. **Pendiente de la
+  4.4:** sus aplicaciones se anularán con ella cuando exista la anulación de aplicaciones.
+* **Concurrencia de la 4.2:** el mismo orden que la 4.1 y que el cambio de dueño (paciente → cliente; paciente → consulta → ítem), así
+  que no se traban entre sí. Cerrar toma el paciente (copia el peso) y después la consulta, los dos con `lockForUpdate` (§3,
   paciente → consulta); enmendar, la consulta; anular, la consulta y después sus ítems, por id (consulta → ítem). Los mismos
   reintentos de `withRetries`.

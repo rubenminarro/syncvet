@@ -373,6 +373,15 @@ veterinario, no en la recepción. Mutaciones: cerrar sin diagnóstico (la detect
 dos") y el PATCH sobre una cerrada (`ConsultationImmutabilityTest`, PATCH y PUT de una cerrada y de una anulada, y
 `ConsultationUpdateTest`).
 
+Revisión (2026-11-20): el orden de bloqueo de cerrar, editar, enmendar y anular es el de la 4.1 y el del cambio de dueño (paciente →
+consulta → ítem), sin ciclos; `ConsultationLockTest` suma la enmienda. Ya estaban los tests de enmendar una anulada (422
+`CONSULTATION_NOT_AMENDABLE`) y de la recepción sin las enmiendas. `postman:cleanup` borra las enmiendas solo después de su guardia
+(`APP_ENV=local` y la base `syncvet`); el test de la negativa suma las enmiendas y las consultas. `consultas.md`: anular una cerrada
+no revierte el peso. Del punto 9 del informe: `composer test` usa SQLite (`database/testing.sqlite`, `phpunit.xml`) y `composer
+test:mysql`, `syncvet_test_mysql`; `backend/CLAUDE.md` suma la regla de no migrar "para los tests"; la base local, intacta (2
+clínicas, los 6 usuarios de la demo, las 5 agendas "Demo" y 310 turnos). `composer test`: 1631 casos, 1613 en verde, 18 omitidos (de
+MySQL), 16085 aserciones, en una sola corrida.
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

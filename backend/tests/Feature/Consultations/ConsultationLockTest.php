@@ -106,9 +106,9 @@ class ConsultationLockTest extends TestCase
 
     /**
      * Entrega 4.2: cerrar toma el paciente (copia el peso) antes que la consulta (§3, paciente →
-     * consulta); anular, la consulta antes que sus ítems (consulta → ítem).
+     * consulta); enmendar, solo la consulta; anular, la consulta antes que sus ítems (consulta → ítem).
      */
-    public function test_closing_locks_the_patient_before_the_consultation_and_cancelling_the_consultation_before_its_items(): void
+    public function test_closing_amending_and_cancelling_lock_in_order(): void
     {
         $this->actAsVet();
         $id = $this->opened(['appointment_id' => $this->checkedIn(), 'diagnosis' => 'Otitis', 'weight_kg' => 9]);
@@ -120,6 +120,11 @@ class ConsultationLockTest extends TestCase
 
         $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/close")->assertOk());
         $this->assertBefore($queries, $this->lockedRead('patients', true), $this->lockedRead('consultations', true), 'Cerrar: el paciente va antes que la consulta.');
+
+        // Enmendar: solo la consulta, antes de leer su estado (sin el paciente).
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/amendments", ['content' => 'Corrección', 'reason' => 'Error'])->assertCreated());
+        $this->assertTrue(($this->lockedRead('consultations', true))($queries[0] ?? ''), "Enmendar: la primera consulta no es el bloqueo de la consulta:\n" . implode("\n", $queries));
+        $this->assertNull($this->firstIndex($queries, $this->lockedRead('patients', true)), 'Enmendar no bloquea el paciente.');
 
         $this->actAsAdmin();
         $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/cancel", ['cancellation_reason' => 'Error'])->assertOk());

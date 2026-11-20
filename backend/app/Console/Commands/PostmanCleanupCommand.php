@@ -214,7 +214,8 @@ class PostmanCleanupCommand extends Command
                 ->orWhereIn('veterinarian_id', $vets->modelKeys()))
             ->get();
 
-        // Sus enmiendas (entrega 4.2) primero: son inmutables (el modelo no se borra) y restrictOnDelete; sin auditoría.
+        // Sus enmiendas (entrega 4.2) primero: son inmutables (el modelo no se borra) y restrictOnDelete; sin auditoría. Solo llega
+        // acá con APP_ENV=local y la base syncvet (el guardia de handle(); test_it_refuses_outside_local_and_the_development_database).
         $amendments = DB::table('consultation_amendments')->whereIn('consultation_id', $consultations->modelKeys())->delete();
 
         $summary = [
