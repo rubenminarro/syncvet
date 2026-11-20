@@ -72,3 +72,11 @@ describe('deceasedFormErrors', () => {
     expect(deceasedFormErrors(values, { now: NOW })).toEqual(expected);
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('la fecha y la hora con un U+200B al borde se leen como la API', () => {
+    expect(
+      deceasedFormErrors({ date: '\u200B2026-11-13', time: '22:00\u200B' }, { now: NOW }),
+    ).toEqual({});
+  });
+});

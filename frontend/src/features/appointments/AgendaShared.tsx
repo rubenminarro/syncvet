@@ -28,6 +28,7 @@ import type { AgendaSearch } from './search';
 import { StatusLabel } from './StatusLabel';
 import { MISSING_APPOINTMENTS_MESSAGE } from './agenda-shared';
 import { OCCUPYING_STATUSES, type Appointment } from './types';
+import { classNames } from '../../lib/class-names';
 
 /**
  * Los componentes que comparten el día (3.2), la semana y la lista (3.3): el título con el anuncio, el cambio de vista,
@@ -133,7 +134,7 @@ export function AgendaHeader({
         <div className="row g-2 align-items-center">
           <div className="col">
             <div className="page-pretitle">Agenda</div>
-            <h2 className={`page-title ${titleClassName}`.trim()}>{title}</h2>
+            <h2 className={classNames('page-title', titleClassName)}>{title}</h2>
           </div>
           {newAppointment !== undefined && can(PERMISSIONS.appointmentsStore) ? (
             <div className="col-auto">

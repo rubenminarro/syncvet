@@ -2,6 +2,7 @@ import { TZDate } from '@date-fns/tz';
 import { addDays, format } from 'date-fns';
 import { APP_TIME_ZONE, inAppZone, toApiDateTime } from '../../lib/format/dates';
 import type { ScheduleBlock, ScheduleBlockPayload } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * Los bloqueos de una agenda (3.1b): el formulario del alta y cómo se muestra un bloqueo.
@@ -56,7 +57,7 @@ export function emptyBlockForm(today: string): BlockFormValues {
 
 /** La fecha `yyyy-MM-dd` como números (el mes empieza en 1), o null si no existe (2026-02-30). */
 function dateParts(value: string): DateParts | null {
-  const match = DATE_ONLY.exec(value.trim());
+  const match = DATE_ONLY.exec(trimLikeApi(value));
 
   if (match === null) {
     return null;
@@ -73,7 +74,7 @@ function dateParts(value: string): DateParts | null {
 
 /** La hora `HH:mm` como números, o null. */
 function timeParts(value: string): [number, number] | null {
-  const match = TIME.exec(value.trim());
+  const match = TIME.exec(trimLikeApi(value));
 
   return match === null ? null : [Number(match[1]), Number(match[2])];
 }
@@ -98,9 +99,9 @@ function bounds(values: BlockFormValues): Bounds | BlockFormErrors {
     dateKey: BlockFormField,
     timeKey: BlockFormField,
   ) => {
-    const day = date.trim() === '' ? null : dateParts(date);
+    const day = trimLikeApi(date) === '' ? null : dateParts(date);
 
-    if (date.trim() === '') {
+    if (trimLikeApi(date) === '') {
       errors[dateKey] = required;
     } else if (day === null) {
       errors[dateKey] = BLOCK_MESSAGES.invalidDate;
@@ -110,9 +111,9 @@ function bounds(values: BlockFormValues): Bounds | BlockFormErrors {
       return day;
     }
 
-    const clock = time.trim() === '' ? null : timeParts(time);
+    const clock = trimLikeApi(time) === '' ? null : timeParts(time);
 
-    if (time.trim() === '') {
+    if (trimLikeApi(time) === '') {
       errors[timeKey] = required;
     } else if (clock === null) {
       errors[timeKey] = BLOCK_MESSAGES.invalidTime;
@@ -157,7 +158,9 @@ function length(value: string): number {
 /** Los errores de cada campo, en el orden de la API; vacío si se puede mandar. */
 export function blockFormErrors(values: BlockFormValues): BlockFormErrors {
   const reason =
-    length(values.reason.trim()) > BLOCK_REASON_MAX ? { reason: BLOCK_MESSAGES.reasonMax } : {};
+    length(trimLikeApi(values.reason)) > BLOCK_REASON_MAX
+      ? { reason: BLOCK_MESSAGES.reasonMax }
+      : {};
   const found = bounds(values);
 
   if (!isBounds(found)) {
@@ -186,7 +189,9 @@ export function blockFormErrors(values: BlockFormValues): BlockFormErrors {
   const end = wall(ends);
   // El error del fin, en la fecha si es otro día y en la hora si es el mismo (lo que hay que cambiar).
   const endField: BlockFormField =
-    values.allDay || values.toDate.trim() !== values.fromDate.trim() ? 'toDate' : 'toTime';
+    values.allDay || trimLikeApi(values.toDate) !== trimLikeApi(values.fromDate)
+      ? 'toDate'
+      : 'toTime';
 
   if (end.getTime() <= start.getTime()) {
     return { [endField]: BLOCK_MESSAGES.endsBeforeStart, ...reason };
@@ -209,7 +214,7 @@ export function blockFormToPayload(values: BlockFormValues): ScheduleBlockPayloa
     );
   }
 
-  const reason = values.reason.trim();
+  const reason = trimLikeApi(values.reason);
 
   return {
     starts_at: toApiDateTime(...found.starts),

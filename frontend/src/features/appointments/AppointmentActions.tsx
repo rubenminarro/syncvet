@@ -27,6 +27,7 @@ import {
   type TransitionName,
 } from './transitions';
 import type { Appointment, AppointmentDetail } from './types';
+import { classNames } from '../../lib/class-names';
 
 /** El título de cada diálogo (también el del error de una acción directa). */
 const DIALOG_TITLES: Record<TransitionName, string> = {
@@ -274,7 +275,7 @@ export function AppointmentActions({
           <Button
             key={transition.name}
             variant={transition.name === 'cancel' ? 'danger' : 'secondary'}
-            className={`${sizeClass} appointment-transition-${transition.name}`.trim()}
+            className={classNames(sizeClass, `appointment-transition-${transition.name}`)}
             disabled={disabledReason !== null || (pendingName !== null && !transition.dialog)}
             loading={pendingName === transition.name && !transition.dialog}
             focusableWhenInactive

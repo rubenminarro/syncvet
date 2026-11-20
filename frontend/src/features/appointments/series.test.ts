@@ -291,3 +291,9 @@ describe('el alcance de la cancelación', () => {
     expect(seriesPosition({ id: 99 }, series)).toBeNull();
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('la cantidad "\\u200B4" es 4, como la lee la API', () => {
+    expect(seriesError(raw({ count: '\u200B4' }))).toBeNull();
+  });
+});

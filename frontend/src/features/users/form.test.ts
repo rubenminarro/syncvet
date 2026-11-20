@@ -154,3 +154,11 @@ describe('el cuerpo', () => {
     expect(userFormToPayload(changing, 'edit-self')).not.toHaveProperty('password');
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre "\\u200BA" tiene un solo carácter para la API', () => {
+    expect(userFormErrors({ ...VALID, first_name: '\u200BA' }, 'create').first_name).toBe(
+      m.first_name.min,
+    );
+  });
+});

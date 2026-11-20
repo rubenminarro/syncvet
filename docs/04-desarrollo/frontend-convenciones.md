@@ -87,6 +87,14 @@ su [§5](../../frontend/CLAUDE.md#5-convenciones)). Si una convención contradic
   * **El largo en caracteres, como la API** (desde la 1.3a): los textos que admiten letras fuera del plano básico (`\p{L}`, o sin
     regla de caracteres) no llevan `maxLength` nativo, que cuenta unidades UTF-16 (un emoji es 2); el largo lo controla Zod con el
     mensaje de la API. Lo conservan los campos de solo caracteres de una unidad (documento, email, microchip).
+  * **El recorte, como la API** (cierre de la F3, deuda 28): todo texto escrito que se valida o se manda se recorta con
+    `trimLikeApi` y se mide con `apiLength` (`src/lib/format/text.ts`: el `Str::trim` de `TrimStrings`, que también quita los
+    invisibles de los bordes, U+200B, U+200E, U+3164, U+0085…), nunca con `trim()`, que los deja y da por válido un nombre
+    "​ab" que la API rechaza. Vale para los formularios, los filtros y la búsqueda (`normalizeSearchText`); en Zod,
+    `.overwrite(trimLikeApi)` en lugar de `.trim()`. ESLint prohíbe `trim()`, `trimStart()` y `trimEnd()` en todo `src`
+    (`no-restricted-syntax`, `NO_TRIM` de `eslint.config.js`), salvo en `src/lib/api/client.ts` (las cabeceras y el cuerpo de la
+    respuesta), los tests y `e2e/`; las clases de un elemento se arman con `classNames` (`src/lib/class-names.ts`). Cada
+    formulario tiene un test con un invisible al borde.
   * **Una fecha a medio escribir** (`DateField`, desde la 1.3a): el `<input type="date">` da `''` con `validity.badInput`; al
     enviar se lee del campo y se muestra el error de formato de la API, sin mandar (nunca se borra una fecha guardada sin aviso).
   * **Los opcionales vacíos van en `null`** y la edición manda el formulario completo; guardar y "Cancelar" reemplazan la entrada
@@ -141,6 +149,17 @@ su [§5](../../frontend/CLAUDE.md#5-convenciones)). Si una convención contradic
     suma una pausa con `usePauseAutoRefresh(abierto)` (ya lo hace `ConfirmDialog`) y la pestaña oculta pausa sola. El
     `refetchOnWindowFocus: false` del cliente sigue para todo lo demás. La actualización no anuncia nada ni mueve el foco (la
     cola, la 3.7, anuncia solo lo que cambió).
+  * **Los estados del turno, contra la foto del backend** (cierre de la F3, deuda 27): `transitions.ts` copia la tabla de
+    `AppointmentTransition`, y `transitions.test.ts` la compara con `backend/tests/Fixtures/appointment-transitions.json` (los
+    estados, si ocupan el horario y si se editan; cada transición con sus orígenes, su destino, el tramo de su ruta, su permiso y
+    los roles que lo tienen). La foto la arma `AppointmentTransitionsSnapshotTest` desde el código del backend (el enum, las
+    rutas, el middleware de `AppointmentTransitionController` y los roles sembrados) y falla si no coincide; un cambio a
+    propósito se vuelca con `UPDATE_TRANSITIONS_SNAPSHOT=1` y entonces falla el test del frontend hasta copiar el cambio en
+    `transitions.ts`. **La división:** la tabla (qué acción, desde qué estado, a cuál, con qué permiso y para qué rol) la
+    controlan la foto y los dos tests; las reglas del servicio (el turno ajeno de `ensureOwnAppointment`, fichar solo hoy y con
+    paciente, el ausente desde `starts_at`, deshacer el ausente el mismo día y el de un sobreturno con `appointments.overbook`)
+    las cubren los tests del backend (`tests/Feature/Appointments/Transitions`), y el frontend las repite solo para mostrar u
+    ocultar el botón: la API vuelve a decidir y su error llega con su `message`.
 * **Sesión** (0.2a, R-061; el diseño, en [Sesión (0.2)](../03-plan-desarrollo/fases/frontend/f0-base.md#sesión-02)): el
   token y `expires_at` solo en `sessionStorage` (`syncvet.session`), nunca en `localStorage`, la URL ni el log; `me` en la caché de
   Query (`['me']`). Todo pasa por el `SessionManager` (`src/lib/auth/session.ts`), creado una vez por pestaña en `main.tsx`: los

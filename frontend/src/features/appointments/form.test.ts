@@ -474,3 +474,16 @@ describe('la serie en el formulario (3.6)', () => {
     });
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre de contacto "\\u200BP" tiene un solo carácter para la API', () => {
+    expect(
+      errors({
+        who: 'contact',
+        patient: null,
+        contact_name: '\u200BP',
+        contact_phone: '981123456',
+      }),
+    ).toEqual({ contact_name: M.contactNameMin });
+  });
+});

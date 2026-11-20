@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { ApiError, NETWORK_ERROR } from '../../lib/api/errors';
 import { can } from '../../lib/auth/permissions';
 import { appointment } from '../../test/appointments';
-import { meFor, type Role } from '../../test/roles';
-import { statusLook, statusRowClass } from './status-icons';
+import { meFor, ROLES, type Role } from '../../test/roles';
+import { STATUS_ICONS, statusLook, statusRowClass } from './status-icons';
 import {
   availableTransitions,
   CANCELLATION_MESSAGES,
@@ -17,10 +17,11 @@ import {
   transitionFailure,
   type TransitionContext,
 } from './transitions';
-import type { Appointment } from './types';
+import { EDITABLE_STATUSES, OCCUPYING_STATUSES, type Appointment } from './types';
 
-// Los estados del turno (3.5): la tabla contra la del backend, las acciones por estado y por rol (los permisos reales de
-// clinic-roles.json), las reglas de hora con un "ahora" fijo (martes 17/11/2026 en Asunción) y el trato de cada error.
+// Los estados del turno (3.5): la tabla contra la foto del backend (appointment-transitions.json, deuda 27), las acciones
+// por estado y por rol (los permisos reales de clinic-roles.json), las reglas de hora con un "ahora" fijo (martes
+// 17/11/2026 en Asunción) y el trato de cada error.
 
 const backend = (path: string) =>
   readFileSync(new URL(`../../../../backend/${path}`, import.meta.url), 'utf8');
@@ -41,66 +42,63 @@ function contextFor(role: Role, now = NOW, overrides: Partial<ReturnType<typeof 
 const names = (turn: Appointment, context: TransitionContext) =>
   availableTransitions(turn, context).map((item) => item.transition.name);
 
-describe('transitions.ts contra AppointmentTransition del backend', () => {
-  const php = backend('app/Enums/AppointmentTransition.php');
+describe('transitions.ts contra la foto del backend (appointment-transitions.json)', () => {
+  // La arma AppointmentTransitionsSnapshotTest desde AppointmentTransition, las rutas, el middleware del controlador y los
+  // roles sembrados (deuda 27): un cambio en el backend rompe ese test y, con la foto actualizada, este. Las reglas del
+  // servicio (el turno ajeno, el día, la hora del ausente, el paciente) las cubren los tests del backend.
+  const snapshot = JSON.parse(backend('tests/Fixtures/appointment-transitions.json')) as {
+    statuses: { value: string; label: string; occupies_slot: boolean; editable: boolean }[];
+    transitions: {
+      name: string;
+      from: string[];
+      to: string;
+      path: string;
+      permission: string;
+      roles: string[];
+    }[];
+  };
 
-  /** Los casos de un `match` del enum: `self::A, self::B => [AppointmentStatus::X, …]` o `=> AppointmentStatus::X`. */
-  function matchArms(method: string): Map<string, string[]> {
-    const body =
-      new RegExp(`function ${method}\\(\\)[^{]*\\{([\\s\\S]*?)\\n    \\}`).exec(php)?.[1] ?? '';
-    const arms = new Map<string, string[]>();
+  it('los mismos estados, con los que ocupan el horario y los que se editan', () => {
+    const values = snapshot.statuses.map((status) => status.value);
+    const where = (key: 'occupies_slot' | 'editable') =>
+      snapshot.statuses
+        .filter((status) => status[key])
+        .map((status) => status.value)
+        .sort();
 
-    for (const [, cases = '', targets = ''] of body.matchAll(
-      /((?:self::\w+,?\s*)+)=>\s*([^;]+?),\n/g,
-    )) {
-      const statuses = [...targets.matchAll(/AppointmentStatus::(\w+)/g)].map(([, name]) =>
-        (name ?? '').toLowerCase(),
-      );
-
-      for (const [, name = ''] of cases.matchAll(/self::(\w+)/g)) {
-        arms.set(name.toLowerCase(), statuses);
-      }
-    }
-
-    return arms;
-  }
-
-  it('las mismas acciones, con sus orígenes y su destino', () => {
-    const cases = [...php.matchAll(/case (\w+) = '(\w+)';/g)].map(([, , value]) => value);
-    const origins = matchArms('origins');
-    const targets = matchArms('to');
-
-    expect(TRANSITIONS.map((item) => item.name).sort()).toEqual([...cases].sort());
-
-    for (const transition of TRANSITIONS) {
-      expect(transition.from, transition.name).toEqual(origins.get(transition.name));
-      expect([transition.to], transition.name).toEqual(targets.get(transition.name));
-    }
+    expect(Object.keys(STATUS_ICONS).sort()).toEqual([...values].sort());
+    expect([...OCCUPYING_STATUSES].sort()).toEqual(where('occupies_slot'));
+    expect([...EDITABLE_STATUSES].sort()).toEqual(where('editable'));
   });
 
-  it('cada ruta con el permiso de su middleware y su tramo de la URL', () => {
-    const controller = backend('app/Http/Controllers/Api/AppointmentTransitionController.php');
-    const routes = backend('routes/api.php');
-
-    for (const transition of TRANSITIONS) {
-      expect(routes).toContain(`'appointments/{appointment}/${transition.path}'`);
-    }
-
-    expect(controller).toContain("'permission:appointments.confirm', only: ['confirm']");
-    expect(controller).toContain("'permission:appointments.check-in', only: ['checkIn']");
-    expect(controller).toContain("'permission:appointments.attend', only: ['attend']");
-    expect(controller).toContain(
-      "'permission:appointments.no-show', only: ['noShow', 'undoNoShow']",
+  it('las mismas acciones, en el mismo orden, con sus orígenes, su destino, su ruta y su permiso', () => {
+    expect(
+      TRANSITIONS.map(({ name, from, to, path, permission }) => ({
+        name,
+        from: [...from],
+        to,
+        path,
+        permission,
+      })),
+    ).toEqual(
+      snapshot.transitions.map(({ name, from, to, path, permission }) => ({
+        name,
+        from,
+        to,
+        path,
+        permission,
+      })),
     );
-    expect(controller).toContain("'permission:appointments.cancel', only: ['cancel']");
-    expect(TRANSITIONS.map((item) => [item.name, item.permission])).toEqual([
-      ['confirm', 'appointments.confirm'],
-      ['check_in', 'appointments.check-in'],
-      ['attend', 'appointments.attend'],
-      ['no_show', 'appointments.no-show'],
-      ['undo_no_show', 'appointments.no-show'],
-      ['cancel', 'appointments.cancel'],
-    ]);
+  });
+
+  it('cada rol tiene el permiso de las acciones que la foto le da, y solo esas', () => {
+    for (const transition of snapshot.transitions) {
+      for (const role of ROLES) {
+        expect(can(meFor(role), transition.permission), `${transition.name}, ${role}`).toBe(
+          transition.roles.includes(role),
+        );
+      }
+    }
   });
 
   it('los mensajes son los de la API (CancelAppointmentRequest y AppointmentTransitionService)', () => {

@@ -7,6 +7,7 @@ import {
   type UserDetail,
   type UserPayload,
 } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de alta y edición de usuarios (2.2a). Las reglas de forma de StoreUserRequest y UpdateUserRequest, con los
@@ -77,7 +78,7 @@ function length(value: string): number {
 
 /** El email como se manda: sin los espacios de los extremos y en minúsculas (como lo guarda la API). */
 export function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
+  return trimLikeApi(value).toLowerCase();
 }
 
 export interface UserFormValues {
@@ -126,7 +127,7 @@ export function userToForm(user: UserDetail): UserFormValues {
 }
 
 function nameError(value: string, messages: (typeof USER_MESSAGES)['first_name' | 'last_name']) {
-  const name = value.trim();
+  const name = trimLikeApi(value);
 
   if (name === '') {
     return messages.required;
@@ -250,8 +251,8 @@ export function userFormSchema(mode: UserFormMode) {
  */
 export function userFormToPayload(values: UserFormValues, mode: UserFormMode): UserPayload {
   const payload: UserPayload = {
-    first_name: values.first_name.trim(),
-    last_name: values.last_name.trim(),
+    first_name: trimLikeApi(values.first_name),
+    last_name: trimLikeApi(values.last_name),
     email: normalizeEmail(values.email),
     roles: [...values.roles],
     branch_ids: [...values.branch_ids],

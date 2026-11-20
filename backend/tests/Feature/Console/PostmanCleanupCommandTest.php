@@ -1,0 +1,206 @@
+<?php
+
+namespace Tests\Feature\Console;
+
+use App\Models\Appointment;
+use App\Models\Branch;
+use App\Models\Breed;
+use App\Models\Client;
+use App\Models\Clinic;
+use App\Models\Patient;
+use App\Models\Schedule;
+use App\Models\ScheduleBlock;
+use App\Models\ScheduleHour;
+use App\Models\Service;
+use App\Models\Species;
+use App\Models\User;
+use App\Models\Veterinarian;
+use App\Models\Warehouse;
+use App\Services\PatientPhotoService;
+use App\Support\CurrentClinic;
+use Database\Seeders\DemoSeeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Tests\Concerns\InteractsWithAppointments;
+use Tests\Concerns\InteractsWithSchedules;
+use Tests\Concerns\InteractsWithServices;
+use Tests\Concerns\InteractsWithVeterinarians;
+use Tests\TestCase;
+
+/**
+ * php artisan postman:cleanup (cierre de la F3 del frontend): borra lo que dejó una corrida de las colecciones de Postman en
+ * la clínica de la demo, reconocido por su número, y nada más.
+ */
+class PostmanCleanupCommandTest extends TestCase
+{
+    use InteractsWithAppointments, InteractsWithSchedules, InteractsWithServices, InteractsWithVeterinarians;
+
+    private const RUN = '123456';
+
+    /** Comparte los primeros dígitos con RUN: la limpieza toma el número entero. */
+    private const OTHER_RUN = '123457';
+
+    private Clinic $demo;
+
+    private Branch $branch;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['demo.password' => 'Demo#' . Str::random(8) . random_int(10, 99)]);
+        $this->app->make(DemoSeeder::class)->setContainer($this->app)->__invoke();
+        $this->demo = Clinic::where('ruc', DemoSeeder::CLINICS[0]['ruc'])->sole();
+        $this->branch = CurrentClinic::run($this->demo, fn () => Branch::where('is_default', true)->sole());
+        $this->freezeToday();
+        Storage::fake(PatientPhotoService::DISK);
+    }
+
+    /**
+     * Lo que deja una corrida de la colección de turnos: su usuario veterinario con ficha, su servicio, su agenda con tramos,
+     * un bloqueo y turnos, dos clientes (uno con un paciente con foto) y turnos de ellos.
+     *
+     * @return array<string, int>
+     */
+    private function postmanRun(string $run): array
+    {
+        $user = $this->veterinarianUser($this->demo, [$this->branch], ['email' => "turnos{$run}@mailinator.com"]);
+        $user->createToken('postman');
+        $vet = $this->veterinarianOf($user, ['license_number' => "MP-{$run}"]);
+        $service = $this->serviceIn($this->demo, ['name' => "Consulta turnos {$run}"]);
+        $schedule = $this->scheduleIn($this->branch, ['name' => "Turnos Postman {$run} hoy", 'veterinarian_id' => $vet->id, 'service_id' => $service->id]);
+        $this->hoursFor($schedule, array_map(fn (int $weekday) => [$weekday, '08:00', '20:00'], range(1, 7)));
+        $block = $this->blockFor($schedule, ['starts_at' => $this->at('15:00'), 'ends_at' => $this->at('16:00')]);
+        $client = $this->clientIn($this->demo, ['email' => "rosa.turnos.{$run}@mailinator.com"]);
+        $patient = $this->patientOf($client, ['microchip' => "CHIP{$run}"]);
+        // photo_path no es asignable (solo lo cambia PatientPhotoService).
+        $this->inDemo(fn () => $patient->forceFill(['photo_path' => "{$this->demo->id}/foto-{$run}.jpg"])->saveQuietly());
+        Storage::disk(PatientPhotoService::DISK)->put("{$this->demo->id}/foto-{$run}.jpg", 'jpg');
+        [$species, $breed] = CurrentClinic::run($this->demo, function () use ($run) {
+            $species = Species::create(['name' => "Hurón {$run}"]);
+
+            return [$species, Breed::create(['species_id' => $species->id, 'name' => "Albino {$run}"])];
+        });
+
+        $this->actAsReception($this->demo);
+        $this->booked($schedule, ['starts_at' => $this->at('10:00')]);
+        $this->booked($schedule, ['starts_at' => $this->at('11:00'), 'patient_id' => $patient->id, 'client_id' => $client->id, 'contact_name' => null, 'contact_phone' => null]);
+
+        return [
+            'user' => $user->id, 'vet' => $vet->id, 'service' => $service->id, 'schedule' => $schedule->id, 'block' => $block->id,
+            'client' => $client->id, 'patient' => $patient->id, 'species' => $species->id, 'breed' => $breed->id,
+        ];
+    }
+
+    public function test_it_deletes_what_a_run_left_and_nothing_else(): void
+    {
+        $this->artisan('demo:agenda')->assertSuccessful();
+        $demoAppointments = $this->inDemo(fn () => Appointment::count());
+        $run = $this->postmanRun(self::RUN);
+        $other = $this->postmanRun(self::OTHER_RUN);
+        // Datos ajenos con el número dentro de otro texto: no son de la corrida.
+        $lookalikeSchedule = $this->scheduleIn($this->branch, ['name' => 'Agenda 123456b', 'veterinarian_id' => $this->veterinarianIn($this->branch)->id]);
+        $lookalikeClient = $this->clientIn($this->demo, ['email' => 'ana.x123456b@mailinator.com']);
+        $lookalikeService = $this->serviceIn($this->demo, ['name' => 'Servicio A123456']);
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN]])
+            ->expectsOutputToContain('Corrida 123456: 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 1 clientes, 1 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 1 usuarios dados de baja.')
+            ->assertSuccessful();
+
+        $this->inDemo(function () use ($run, $other, $demoAppointments, $lookalikeSchedule, $lookalikeClient, $lookalikeService) {
+            $this->assertNotNull(Schedule::find($lookalikeSchedule->id));
+            $this->assertNotNull(Client::find($lookalikeClient->id));
+            $this->assertNotNull(Service::find($lookalikeService->id));
+            $this->assertNull(Schedule::find($run['schedule']));
+            $this->assertSame(0, Appointment::where('schedule_id', $run['schedule'])->count());
+            $this->assertNull(ScheduleBlock::find($run['block']));
+            $this->assertSame(0, ScheduleHour::where('schedule_id', $run['schedule'])->count());
+            $this->assertNull(Client::withTrashed()->find($run['client']));
+            $this->assertNull(Patient::withTrashed()->find($run['patient']));
+            $this->assertNull(Veterinarian::withTrashed()->find($run['vet']));
+            $this->assertNull(Service::withTrashed()->find($run['service']));
+            $this->assertNull(Species::withTrashed()->find($run['species']));
+            $this->assertNull(Breed::withTrashed()->find($run['breed']));
+            Storage::disk(PatientPhotoService::DISK)->assertMissing("{$this->demo->id}/foto-" . self::RUN . '.jpg');
+
+            // La otra corrida y la demo, intactas.
+            $this->assertNotNull(Schedule::find($other['schedule']));
+            $this->assertSame(2, Appointment::where('schedule_id', $other['schedule'])->count());
+            $this->assertNotNull(Patient::find($other['patient']));
+            Storage::disk(PatientPhotoService::DISK)->assertExists("{$this->demo->id}/foto-" . self::OTHER_RUN . '.jpg');
+            $this->assertSame($demoAppointments + 2, Appointment::count());
+            $this->assertSame(5, Schedule::where('name', 'like', 'Demo %')->count());
+        });
+
+        // El usuario queda dado de baja y sin tokens (la auditoría lo referencia); el de la otra corrida, igual que antes.
+        $user = User::withTrashed()->findOrFail($run['user']);
+        $this->assertTrue($user->trashed());
+        $this->assertSame(0, $user->tokens()->count());
+        $this->assertFalse(User::findOrFail($other['user'])->trashed());
+        $this->assertSame(1, User::findOrFail($other['user'])->tokens()->count());
+    }
+
+    public function test_it_leaves_the_demo_users_untouched(): void
+    {
+        $before = User::whereIn('email', ['admin-a@example.com', 'recepcion-a@example.com', 'vet-a@example.com'])
+            ->orderBy('id')->get(['id', 'updated_at', 'deleted_at', 'current_branch_id'])->toArray();
+        $this->postmanRun(self::RUN);
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN]])->assertSuccessful();
+
+        $this->assertSame($before, User::whereIn('email', ['admin-a@example.com', 'recepcion-a@example.com', 'vet-a@example.com'])
+            ->orderBy('id')->get(['id', 'updated_at', 'deleted_at', 'current_branch_id'])->toArray());
+    }
+
+    public function test_a_run_branch_is_deleted_unless_someone_else_uses_it(): void
+    {
+        [$free, $used] = $this->inDemo(function () {
+            $free = Branch::create(['code' => 'SUC-AB12CD-X', 'name' => 'Otra sucursal AB12CD', 'establishment' => '091']);
+            Warehouse::create(['branch_id' => $free->id, 'code' => 'DEP-AB12CD-X', 'name' => 'Depósito AB12CD']);
+            $used = Branch::create(['code' => 'SUC-AB12CD-R', 'name' => 'Recepción AB12CD', 'establishment' => '092']);
+
+            return [$free, $used];
+        });
+        User::where('email', 'admin-a@example.com')->sole()->branches()->attach($used->id);
+
+        $this->artisan('postman:cleanup', ['runs' => ['ab12cd']])
+            ->expectsOutputToContain('Sucursales sin tocar (las usa alguien que no es de la corrida): SUC-AB12CD-R.')
+            ->assertSuccessful();
+
+        $this->inDemo(function () use ($free, $used) {
+            $this->assertNull(Branch::find($free->id));
+            $this->assertSame(0, Warehouse::where('branch_id', $free->id)->count());
+            $this->assertNotNull(Branch::find($used->id));
+        });
+    }
+
+    public function test_it_refuses_a_short_run_or_another_environment_without_touching_anything(): void
+    {
+        $run = $this->postmanRun(self::RUN);
+
+        $this->artisan('postman:cleanup', ['runs' => ['1234']])->assertFailed();
+        $this->artisan('postman:cleanup', ['runs' => ['12%45']])->assertFailed();
+
+        $this->app['env'] = 'production';
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN]])->assertFailed();
+        $this->app['env'] = 'testing';
+
+        $this->inDemo(fn () => $this->assertNotNull(Schedule::find($run['schedule'])));
+    }
+
+    public function test_it_only_touches_the_demo_clinic(): void
+    {
+        $other = $this->createClinic();
+        $foreign = $this->clientIn($other, ['email' => 'rosa.turnos.' . self::RUN . '@mailinator.com']);
+
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN]])->assertSuccessful();
+
+        $this->assertNotNull(CurrentClinic::run($other, fn () => Client::find($foreign->id)));
+        $this->assertSame(1, DB::table('clients')->where('id', $foreign->id)->count());
+    }
+
+    private function inDemo(\Closure $callback): mixed
+    {
+        return CurrentClinic::run($this->demo, $callback);
+    }
+}

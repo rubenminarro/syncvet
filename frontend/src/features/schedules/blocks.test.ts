@@ -187,3 +187,9 @@ describe('formatBlockPeriod: en Asunción, desde los instantes en UTC', () => {
     expect(formatBlockPeriod({ starts_at, ends_at })).toBe(expected);
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('la fecha con un U+200B al borde se lee como la API', () => {
+    expect(blockFormErrors(form({ fromDate: '\u200B2026-11-20' }))).toEqual({});
+  });
+});

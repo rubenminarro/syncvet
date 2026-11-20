@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes, type Ref } from 'react';
+import { classNames } from '../../lib/class-names';
 
 interface FileFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value'> {
   label: string;
@@ -26,7 +27,7 @@ export function FileField({ label, error, hint, id, className, ref, ...rest }: F
         ref={ref}
         id={inputId}
         type="file"
-        className={`form-control${error ? ' is-invalid' : ''} ${className ?? ''}`.trim()}
+        className={classNames('form-control', error && 'is-invalid', className)}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : hint ? hintId : undefined}
         {...rest}

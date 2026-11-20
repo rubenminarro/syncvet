@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { todayInAppZone } from '../../lib/format/dates';
 import type { PatientDetail, PatientPayload, PatientSex } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de alta y edición de pacientes (1.3a). Una función pura repite las reglas de forma de StorePatientRequest y
@@ -149,7 +150,7 @@ function isCalendarDate(value: string): boolean {
  * tal cual, sin pasar por un número de coma flotante. '' si está vacío.
  */
 export function normalizeWeight(value: string): string {
-  return value.trim().replace(',', '.');
+  return trimLikeApi(value).replace(',', '.');
 }
 
 /** El primer error del peso (ya normalizado), en el orden de las reglas de la API: numeric, min, max, decimal. */
@@ -188,7 +189,7 @@ export function patientFormErrors(
   const errors: Partial<Record<keyof PatientFormValues, string | null>> = {};
   const m = PATIENT_MESSAGES;
 
-  const name = values.name.trim();
+  const name = trimLikeApi(values.name);
 
   if (name === '') {
     errors.name = m.name.required;
@@ -202,7 +203,7 @@ export function patientFormErrors(
     errors.species_id = m.species_id.required;
   }
 
-  const birthDate = values.birth_date.trim();
+  const birthDate = trimLikeApi(values.birth_date);
 
   if (birthDate !== '') {
     if (!isCalendarDate(birthDate)) {
@@ -213,7 +214,7 @@ export function patientFormErrors(
     }
   }
 
-  const color = values.color.trim();
+  const color = trimLikeApi(values.color);
 
   if (color !== '') {
     if (length(color) > 80) {
@@ -225,7 +226,7 @@ export function patientFormErrors(
 
   errors.weight_kg = weightError(normalizeWeight(values.weight_kg));
 
-  const microchip = values.microchip.trim();
+  const microchip = trimLikeApi(values.microchip);
 
   if (microchip !== '') {
     if (length(microchip) > 30) {
@@ -235,11 +236,11 @@ export function patientFormErrors(
     }
   }
 
-  if (length(values.allergies.trim()) > 1000) {
+  if (length(trimLikeApi(values.allergies)) > 1000) {
     errors.allergies = m.allergies.max;
   }
 
-  if (length(values.notes.trim()) > 1000) {
+  if (length(trimLikeApi(values.notes)) > 1000) {
     errors.notes = m.notes.max;
   }
 
@@ -286,7 +287,7 @@ export const deceasedPatientFormSchema = patientFormShape.superRefine((values, c
 
 /** Un texto opcional: sin los espacios de los extremos, y null si queda vacío. */
 function optional(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = trimLikeApi(value);
 
   return trimmed === '' ? null : trimmed;
 }
@@ -297,7 +298,7 @@ function optional(value: string): string | null {
  */
 export function patientFormToPayload(values: PatientFormValues): PatientPayload {
   return {
-    name: values.name.trim(),
+    name: trimLikeApi(values.name),
     species_id: Number(values.species_id),
     breed_id: values.breed_id === '' ? null : Number(values.breed_id),
     sex: values.sex,

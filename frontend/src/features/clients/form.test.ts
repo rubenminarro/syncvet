@@ -258,3 +258,9 @@ describe('clientFormToPayload: el cuerpo que se manda', () => {
     });
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre "\\u200BA" tiene un solo carácter para la API', () => {
+    expect(errorsFor({ first_name: '\u200BA' }).first_name).toBe(M.first_name.min);
+  });
+});

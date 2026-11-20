@@ -5,6 +5,7 @@ import {
   isAuditRangeReversed,
   joinAuditDate,
 } from './dates';
+import { trimLikeApi } from '../../lib/format/text';
 
 /** El mensaje de la API para el registro sin el tipo (IndexAuditLogRequest::TYPE_REQUIRED). */
 export const AUDIT_TYPE_REQUIRED_MESSAGE =
@@ -72,7 +73,7 @@ export function validateAuditFilterForm(
     errors.toDate = AUDIT_TO_BEFORE_FROM_MESSAGE;
   }
 
-  const record = form.record.trim();
+  const record = trimLikeApi(form.record);
   let registro: number | undefined;
 
   if (record !== '') {

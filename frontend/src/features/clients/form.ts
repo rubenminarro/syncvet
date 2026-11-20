@@ -3,6 +3,7 @@ import { PERSON_NAME_PATTERN } from '../../lib/person-name';
 import { normalizePhone, PHONE_MESSAGE, PHONE_PATTERN } from '../../lib/phone';
 import { hasValidRucCheckDigit, RUC_MESSAGE } from './ruc';
 import type { Client, ClientKind, ClientPayload } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de alta y edición de clientes (1.2). Zod repite las reglas de forma de StoreClientRequest y
@@ -142,7 +143,7 @@ export { normalizePhone };
 
 /** El email como se manda: sin los espacios de los extremos y en minúsculas (la API lo rechaza con mayúsculas, H3). */
 export function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
+  return trimLikeApi(value).toLowerCase();
 }
 
 interface TextRule {
@@ -188,7 +189,7 @@ export function clientFormErrors(
   const m = CLIENT_MESSAGES;
 
   if (values.kind === 'company') {
-    errors.business_name = textError(values.business_name.trim(), {
+    errors.business_name = textError(trimLikeApi(values.business_name), {
       required: m.business_name.required,
       min: [2, m.business_name.min],
       max: [150, m.business_name.max],
@@ -196,7 +197,7 @@ export function clientFormErrors(
     });
   } else {
     for (const field of ['first_name', 'last_name'] as const) {
-      errors[field] = textError(values[field].trim(), {
+      errors[field] = textError(trimLikeApi(values[field]), {
         required: m[field].required,
         min: [2, m[field].min],
         max: [100, m[field].max],
@@ -205,7 +206,7 @@ export function clientFormErrors(
     }
   }
 
-  const document = values.document_number.trim();
+  const document = trimLikeApi(values.document_number);
   errors.document_number =
     textError(document, {
       required: m.document_number.required,
@@ -227,15 +228,15 @@ export function clientFormErrors(
   const phone = normalizePhone(values.phone);
   errors.phone = phone === '' ? m.phone.required : PHONE.test(phone) ? null : m.phone.regex;
 
-  errors.address = textError(values.address.trim(), {
+  errors.address = textError(trimLikeApi(values.address), {
     max: [255, m.address.max],
     pattern: [ADDRESS, m.address.regex],
   });
-  errors.city = textError(values.city.trim(), {
+  errors.city = textError(trimLikeApi(values.city), {
     max: [100, m.city.max],
     pattern: [CITY, m.city.regex],
   });
-  errors.notes = textError(values.notes.trim(), {
+  errors.notes = textError(trimLikeApi(values.notes), {
     max: [1000, m.notes.max],
     pattern: [NOTES, m.notes.regex],
   });
@@ -268,7 +269,7 @@ export const clientFormSchema = z
 
 /** Un texto opcional: sin los espacios de los extremos, y null si queda vacío. */
 function optional(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = trimLikeApi(value);
 
   return trimmed === '' ? null : trimmed;
 }
@@ -282,10 +283,10 @@ export function clientFormToPayload(values: ClientFormValues): ClientPayload {
 
   return {
     kind: values.kind,
-    first_name: isCompany ? null : values.first_name.trim(),
-    last_name: isCompany ? null : values.last_name.trim(),
-    business_name: isCompany ? values.business_name.trim() : null,
-    document_number: values.document_number.trim(),
+    first_name: isCompany ? null : trimLikeApi(values.first_name),
+    last_name: isCompany ? null : trimLikeApi(values.last_name),
+    business_name: isCompany ? trimLikeApi(values.business_name) : null,
+    document_number: trimLikeApi(values.document_number),
     email: normalizeEmail(values.email),
     phone: normalizePhone(values.phone),
     address: optional(values.address),

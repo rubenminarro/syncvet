@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { classNames } from '../../lib/class-names';
 
 interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -28,7 +29,7 @@ export function TextField({
     <input
       ref={ref}
       id={inputId}
-      className={`form-control${error ? ' is-invalid' : ''} ${className ?? ''}`.trim()}
+      className={classNames('form-control', error && 'is-invalid', className)}
       aria-invalid={error ? true : undefined}
       aria-describedby={error ? errorId : undefined}
       {...rest}

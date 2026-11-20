@@ -7,6 +7,7 @@ import {
   type ServicePayload,
   type TaxRate,
 } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de alta y edición del servicio (2.4). Una función pura repite las reglas de forma de StoreServiceRequest y
@@ -96,7 +97,7 @@ const GROUPED = /^\d{1,3}(?:\.\d{3})+$/;
  * "150000"), solo si están bien agrupados; si no, tal cual (y la validación lo rechaza: "1500.00" no es "150000").
  */
 export function normalizePrice(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = trimLikeApi(value);
 
   return GROUPED.test(trimmed) ? trimmed.replaceAll('.', '') : trimmed;
 }
@@ -146,7 +147,7 @@ export function serviceToForm(service: ServiceDetail): ServiceFormValues {
 
 function nameError(value: string): string | null {
   const m = SERVICE_MESSAGES.name;
-  const name = value.trim();
+  const name = trimLikeApi(value);
   const size = length(name);
 
   if (size === 0) {
@@ -167,7 +168,7 @@ function nameError(value: string): string | null {
 /** La duración: un entero (como `integer` de Laravel, con signo opcional), de 5 a 720 y múltiplo de 5, en ese orden. */
 function durationError(value: string): string | null {
   const m = SERVICE_MESSAGES.duration_minutes;
-  const duration = value.trim();
+  const duration = trimLikeApi(value);
 
   if (duration === '') {
     return m.required;
@@ -210,7 +211,8 @@ export function serviceFormErrors(
     duration_minutes: durationError(values.duration_minutes),
     standard_price: priceError(values.standard_price),
     tax_rate: TAX_RATES.map(String).includes(values.tax_rate) ? null : m.tax_rate.required,
-    description: length(values.description.trim()) > DESCRIPTION_MAX ? m.description.max : null,
+    description:
+      length(trimLikeApi(values.description)) > DESCRIPTION_MAX ? m.description.max : null,
   };
 
   return Object.fromEntries(
@@ -242,12 +244,12 @@ export const serviceFormSchema = shape.superRefine((values, context) => {
  * vacía en null. Nunca `code` (`prohibited`) ni `status` (se cambia con su botón en el detalle).
  */
 export function serviceFormToPayload(values: ServiceFormValues): ServicePayload {
-  const description = values.description.trim();
+  const description = trimLikeApi(values.description);
 
   return {
-    name: values.name.trim(),
+    name: trimLikeApi(values.name),
     category: values.category as ServiceCategory,
-    duration_minutes: Number(values.duration_minutes.trim()),
+    duration_minutes: Number(trimLikeApi(values.duration_minutes)),
     standard_price: wholeAmount(normalizePrice(values.standard_price)) ?? '',
     tax_rate: Number(values.tax_rate) as TaxRate,
     description: description === '' ? null : description,

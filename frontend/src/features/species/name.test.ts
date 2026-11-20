@@ -70,3 +70,12 @@ describe('parseCatalogName: las reglas de StoreSpeciesRequest y StoreBreedReques
     );
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('"\\u200BA" tiene un solo carácter para la API', () => {
+    expect(parseCatalogName('species', '\u200BA')).toEqual({
+      ok: false,
+      error: nameMessages('species').min,
+    });
+  });
+});

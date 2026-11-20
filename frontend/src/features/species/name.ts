@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El nombre de una especie o una raza (1.5), con las reglas y los mensajes de la API (`StoreSpeciesRequest`,
@@ -35,7 +36,7 @@ export function catalogNameSchema(kind: CatalogKind) {
 
   return z
     .string()
-    .trim()
+    .overwrite(trimLikeApi)
     .superRefine((value, context) => {
       const length = Array.from(value).length;
       let message: string | null = null;

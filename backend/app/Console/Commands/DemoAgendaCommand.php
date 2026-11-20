@@ -177,7 +177,7 @@ class DemoAgendaCommand extends Command
             return self::FAILURE;
         }
 
-        $clinic = $this->demoClinic();
+        $clinic = self::demoClinic();
 
         if ($clinic === null) {
             $this->components->error('No está la clínica de la demo: corré primero php artisan db:seed --class=DemoSeeder.');
@@ -210,7 +210,7 @@ class DemoAgendaCommand extends Command
     /**
      * La Clínica A del DemoSeeder, por su RUC y su marca de demostración.
      */
-    private function demoClinic(): ?Clinic
+    public static function demoClinic(): ?Clinic
     {
         $clinic = Clinic::where('ruc', DemoSeeder::CLINICS[0]['ruc'])->first();
 

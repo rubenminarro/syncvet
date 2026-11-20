@@ -205,3 +205,9 @@ describe('las categorías (H2: sin endpoint)', () => {
     expect(SERVICE_CATEGORIES.map((category) => ({ ...category }))).toEqual(backend);
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre "\\u200BA" tiene un solo carácter para la API', () => {
+    expect(errorsOf({ name: '\u200BA' }).name).toBe(M.name.min);
+  });
+});

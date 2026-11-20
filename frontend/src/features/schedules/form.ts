@@ -5,6 +5,7 @@ import {
   type ScheduleHourPayload,
   type SchedulePayload,
 } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de alta y edición de la agenda (3.1a). Una función pura repite las reglas de forma de StoreScheduleRequest y
@@ -160,7 +161,7 @@ function length(value: string): number {
 
 function nameError(value: string): string | null {
   const m = SCHEDULE_MESSAGES.name;
-  const name = value.trim();
+  const name = trimLikeApi(value);
   const size = length(name);
 
   if (size === 0) {
@@ -181,7 +182,7 @@ function nameError(value: string): string | null {
 /** La duración del turno: un entero (como `integer` de Laravel, con signo opcional), de 5 a 240 y múltiplo de 5. */
 function slotError(value: string): string | null {
   const m = SCHEDULE_MESSAGES.slot_minutes;
-  const slot = value.trim();
+  const slot = trimLikeApi(value);
 
   if (slot === '') {
     return m.required;
@@ -326,10 +327,10 @@ export function scheduleFormToPayload(values: ScheduleFormValues): SchedulePaylo
 
   return {
     branch_id: Number(values.branch_id),
-    name: values.name.trim(),
+    name: trimLikeApi(values.name),
     veterinarian_id: values.veterinarian_id === '' ? null : Number(values.veterinarian_id),
     service_id: values.service_id === '' ? null : Number(values.service_id),
-    slot_minutes: Number(values.slot_minutes.trim()),
+    slot_minutes: Number(trimLikeApi(values.slot_minutes)),
     color: values.use_color ? values.color.toUpperCase() : null,
     hours,
   };

@@ -245,3 +245,9 @@ describe('el cuerpo y la edición', () => {
     expect(formatDayHours(ROOM_ONE.hours, 2)).toBeNull();
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre "\\u200BA" tiene un solo carácter para la API', () => {
+    expect(scheduleFormErrors({ ...valid, name: '\u200BA' }).name).toBe(SCHEDULE_MESSAGES.name.min);
+  });
+});

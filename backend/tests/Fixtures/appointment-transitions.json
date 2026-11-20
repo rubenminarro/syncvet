@@ -1,0 +1,125 @@
+{
+    "statuses": [
+        {
+            "value": "pending_confirmation",
+            "label": "A confirmar",
+            "occupies_slot": true,
+            "editable": true
+        },
+        {
+            "value": "confirmed",
+            "label": "Confirmado",
+            "occupies_slot": true,
+            "editable": true
+        },
+        {
+            "value": "checked_in",
+            "label": "Fichado",
+            "occupies_slot": true,
+            "editable": false
+        },
+        {
+            "value": "attended",
+            "label": "Atendido",
+            "occupies_slot": true,
+            "editable": false
+        },
+        {
+            "value": "no_show",
+            "label": "Ausente",
+            "occupies_slot": false,
+            "editable": false
+        },
+        {
+            "value": "cancelled",
+            "label": "Cancelado",
+            "occupies_slot": false,
+            "editable": false
+        }
+    ],
+    "transitions": [
+        {
+            "name": "confirm",
+            "from": [
+                "pending_confirmation"
+            ],
+            "to": "confirmed",
+            "path": "confirm",
+            "permission": "appointments.confirm",
+            "roles": [
+                "administrador",
+                "recepcionista"
+            ]
+        },
+        {
+            "name": "check_in",
+            "from": [
+                "pending_confirmation",
+                "confirmed"
+            ],
+            "to": "checked_in",
+            "path": "check-in",
+            "permission": "appointments.check-in",
+            "roles": [
+                "administrador",
+                "recepcionista",
+                "veterinario"
+            ]
+        },
+        {
+            "name": "attend",
+            "from": [
+                "checked_in"
+            ],
+            "to": "attended",
+            "path": "attend",
+            "permission": "appointments.attend",
+            "roles": [
+                "administrador",
+                "veterinario"
+            ]
+        },
+        {
+            "name": "no_show",
+            "from": [
+                "pending_confirmation",
+                "confirmed"
+            ],
+            "to": "no_show",
+            "path": "no-show",
+            "permission": "appointments.no-show",
+            "roles": [
+                "administrador",
+                "recepcionista"
+            ]
+        },
+        {
+            "name": "undo_no_show",
+            "from": [
+                "no_show"
+            ],
+            "to": "confirmed",
+            "path": "undo-no-show",
+            "permission": "appointments.no-show",
+            "roles": [
+                "administrador",
+                "recepcionista"
+            ]
+        },
+        {
+            "name": "cancel",
+            "from": [
+                "pending_confirmation",
+                "confirmed",
+                "checked_in"
+            ],
+            "to": "cancelled",
+            "path": "cancel",
+            "permission": "appointments.cancel",
+            "roles": [
+                "administrador",
+                "recepcionista"
+            ]
+        }
+    ]
+}

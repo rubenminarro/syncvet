@@ -17,6 +17,7 @@ import type {
   AppointmentSource,
   AppointmentUpdatePayload,
 } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario del turno (3.4): el alta y la edición (también "Reprogramar", el mismo formulario con el foco en el
@@ -179,7 +180,7 @@ export function movesAppointment(
     values.schedule_id !== original.schedule_id ||
     values.date !== original.date ||
     values.time !== original.time ||
-    Number(values.duration_minutes.trim()) !== Number(original.duration_minutes)
+    Number(trimLikeApi(values.duration_minutes)) !== Number(original.duration_minutes)
   );
 }
 
@@ -238,8 +239,8 @@ export function appointmentFormSchema(today: string, original?: AppointmentFormV
         issue('time', APPOINTMENT_MESSAGES.offGrid);
       }
 
-      const duration = /^\d+$/.test(values.duration_minutes.trim())
-        ? Number(values.duration_minutes.trim())
+      const duration = /^\d+$/.test(trimLikeApi(values.duration_minutes))
+        ? Number(trimLikeApi(values.duration_minutes))
         : null;
 
       if (duration === null || duration <= 0) {
@@ -294,8 +295,8 @@ function checkWho(
     return;
   }
 
-  const name = values.contact_name.trim();
-  const phone = normalizePhone(values.contact_phone.trim());
+  const name = trimLikeApi(values.contact_name);
+  const phone = normalizePhone(trimLikeApi(values.contact_phone));
 
   if (name === '' && phone === '') {
     issue('contact_name', APPOINTMENT_MESSAGES.whoRequired);
@@ -320,7 +321,7 @@ function checkWho(
   }
 }
 
-const textOrNull = (value: string) => (value.trim() === '' ? null : value.trim());
+const textOrNull = (value: string) => (trimLikeApi(value) === '' ? null : trimLikeApi(value));
 
 /** El campo del formulario de cada clave de la repetición (`recurrence.*` de la API). */
 const SERIES_FORM_FIELDS = {
@@ -358,9 +359,9 @@ export function seriesInputOf(
 
   return {
     firstDay: values.date,
-    everyWeeks: Number(values.every_weeks.trim()),
+    everyWeeks: Number(trimLikeApi(values.every_weeks)),
     end: values.series_end,
-    count: values.series_end === 'count' ? Number(values.series_count.trim()) : null,
+    count: values.series_end === 'count' ? Number(trimLikeApi(values.series_count)) : null,
     until: values.series_end === 'until' ? values.series_until : null,
   };
 }
@@ -535,8 +536,8 @@ function whoPayload(
   return {
     patient_id: null,
     client_id: null,
-    contact_name: values.contact_name.trim(),
-    contact_phone: normalizePhone(values.contact_phone.trim()),
+    contact_name: trimLikeApi(values.contact_name),
+    contact_phone: normalizePhone(trimLikeApi(values.contact_phone)),
   };
 }
 

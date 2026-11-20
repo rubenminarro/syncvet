@@ -3,6 +3,7 @@ import { formatDateOnly, formatTime } from '../../lib/format/dates';
 import { addDaysToDay, daysBetween, parseDay, weekdayOf } from './dates';
 import { appointmentTimes } from './times';
 import type { Appointment } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * Las series de turnos (3.6; diseño de la F3, "3.6 Las series" y preguntas 16 y 17), espejo de `App\Support\AppointmentRecurrence`
@@ -99,14 +100,16 @@ export function seriesError(raw: {
   count: string;
   until: string;
 }): { field: SeriesField; message: string } | null {
-  const everyWeeks = /^\d+$/.test(raw.everyWeeks.trim()) ? Number(raw.everyWeeks.trim()) : null;
+  const everyWeeks = /^\d+$/.test(trimLikeApi(raw.everyWeeks))
+    ? Number(trimLikeApi(raw.everyWeeks))
+    : null;
 
   if (everyWeeks === null || everyWeeks < 1 || everyWeeks > SERIES_MAX_EVERY_WEEKS) {
     return { field: 'every_weeks', message: SERIES_MESSAGES.everyWeeks };
   }
 
   if (raw.end === 'count') {
-    const count = /^\d+$/.test(raw.count.trim()) ? Number(raw.count.trim()) : null;
+    const count = /^\d+$/.test(trimLikeApi(raw.count)) ? Number(trimLikeApi(raw.count)) : null;
 
     if (count === null || count < SERIES_MIN_COUNT) {
       return { field: 'count', message: SERIES_MESSAGES.count };
