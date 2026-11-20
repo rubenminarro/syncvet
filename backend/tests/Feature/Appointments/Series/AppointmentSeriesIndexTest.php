@@ -80,7 +80,52 @@ class AppointmentSeriesIndexTest extends TestCase
 
         // Sin series_id y sin rango, solo hoy (los de la serie son desde el lunes).
         $this->assertSame([$today], $this->ids('/api/appointments'));
-        // La serie de otra clínica no aparece, tampoco sin rango.
+        // La serie de otra clínica no aparece: sin rango, con rango ni con otros filtros.
         $this->assertSame([], $this->ids("/api/appointments?series_id={$foreignSeries}"));
+        $this->getJson("/api/appointments?series_id={$foreignSeries}&per_page=100")
+            ->assertOk()->assertJsonPath('meta.pagination.total', 0);
+        $this->assertSame([], $this->ids("/api/appointments?series_id={$foreignSeries}&from=2026-11-16&to=2026-12-16"));
+        $this->assertSame([], $this->ids("/api/appointments?series_id={$foreignSeries}&status[]=pending_confirmation"));
+
+        // La otra clínica sí ve la suya entera (el filtro no es lo que la oculta).
+        $this->actAsReception($other);
+        $this->assertSame($foreign, $this->ids("/api/appointments?series_id={$foreignSeries}"));
+    }
+
+    public function test_a_series_of_another_branch_of_the_clinic_is_listed(): void
+    {
+        // Los turnos no se limitan a las sucursales del usuario (H11: el alta da turnos en cualquier
+        // agenda de la clínica); solo la clínica limita.
+        $clinic = $this->createClinic();
+        $this->defaultBranchIn($clinic);
+        $schedule = $this->openSchedule($this->branchIn($clinic));
+        $this->actAsReception($clinic);
+        $ids = $this->bookedSeries($schedule, ['count' => 3]);
+
+        $this->assertSame($ids, $this->ids('/api/appointments?series_id=' . $this->appointmentRow($ids[0])->series_id));
+    }
+
+    public function test_the_longest_series_fits_in_one_request(): void
+    {
+        $clinic = $this->createClinic();
+        $schedule = $this->openSchedule($this->defaultBranchIn($clinic));
+        $this->actAsReception($clinic);
+        // 52 turnos semanales: un año, el tope de la serie (AppointmentRecurrence).
+        $ids = $this->bookedSeries($schedule, ['count' => 52]);
+        $seriesId = $this->appointmentRow($ids[0])->series_id;
+
+        $this->getJson("/api/appointments?series_id={$seriesId}&per_page=100")
+            ->assertOk()
+            ->assertJsonCount(52, 'data')
+            ->assertJsonPath('meta.pagination.total', 52)
+            ->assertJsonPath('meta.pagination.last_page', 1);
+        // Sin per_page, la página por defecto (10), con el total de la serie.
+        $this->getJson("/api/appointments?series_id={$seriesId}")
+            ->assertOk()->assertJsonCount(10, 'data')->assertJsonPath('meta.pagination.total', 52);
+        // Con un rango, el tope de 31 días sigue (desde el comienzo de from): hasta el 16/12, sí; el 17/12, no.
+        $this->getJson("/api/appointments?series_id={$seriesId}&from=2026-11-16&to=2026-12-16")
+            ->assertOk()->assertJsonPath('meta.pagination.total', 5);
+        $this->getJson("/api/appointments?series_id={$seriesId}&from=2026-11-16&to=2026-12-17")
+            ->assertUnprocessable()->assertJsonPath('errors.to.0', IndexAppointmentRequest::RANGE_TOO_LONG);
     }
 }

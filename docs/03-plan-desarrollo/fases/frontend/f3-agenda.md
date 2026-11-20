@@ -551,8 +551,9 @@ Vacío: la entrega se cerró (R-094) y todo lo que había acá pasó a su [resul
 un rango, sigue como hoy (hasta 31 días); sin `series_id`, nada cambia (sin rango, hoy). Es el único cambio de comportamiento:
 `series_id` sin rango traía solo los de hoy, y ningún cliente lo usa así (el frontend recién filtra por serie en la 3.6; la colección
 de Postman de las series no lista). Sin rutas, permisos, migraciones ni `error_code` nuevos (`series_id` ya tiene índice). Tests: la
-serie entera de 4 turnos en 4 meses sin rango; con rango, solo los del rango y el tope de 31 días; sin `series_id`, hoy; nada de
-otra clínica. Postman: un pedido de la colección de las series lista la serie semanal sin rango (4). `docs/02-requisitos/reglas/turnos.md`
+serie entera de 5 turnos en casi 4 meses sin rango; con rango, solo los del rango y el tope de 31 días; sin `series_id`, hoy; nada de
+otra clínica (con o sin rango); la de otra sucursal de la clínica, sí; 52 turnos en un pedido. Postman: un pedido de la colección
+de las series lista la serie quincenal sin rango (4). `docs/02-requisitos/reglas/turnos.md`
 y la [guía de Postman](../../../05-pruebas/guia-postman.md). Al cerrar: `composer test` y Newman de la colección de las series.
 
 #### Pendiente para el cierre (front-04)
@@ -570,6 +571,25 @@ y la [guía de Postman](../../../05-pruebas/guia-postman.md). Al cerrar: `compos
   borrado el cambio sin commitear); se hizo con el editor.
 * **Para la revisión**: el único cambio de comportamiento es `series_id` sin rango (antes, solo hoy). La consulta usa el índice de
   `series_id` (EXPLAIN en MySQL, al cerrar).
+* **Revisión (2026-11-20)**, corregida en el mismo paso:
+  * **Tenancy**: confirmada. El listado solo limita por la clínica (`BelongsToClinic`); los turnos no tienen regla por sucursal
+    del usuario (H11, `turnos.md`). Tests nuevos: la serie de otra clínica no aparece sin rango, con rango ni con otros filtros, y
+    su clínica sí la ve entera (`test_without_series_nothing_changes_and_nothing_of_another_clinic`, ampliado); la de otra
+    sucursal de la clínica, sí (`test_a_series_of_another_branch_of_the_clinic_is_listed`). Mutación: el listado sin los scopes
+    globales con la serie entera → falla el de otra clínica; revertida con el editor.
+  * **Compatibilidad**: en `429e660` ni el frontend (`frontend/src`, `frontend/e2e`) ni ninguna de las 14 colecciones de
+    `docs/05-pruebas/postman` usaban `series_id` como filtro (solo leían `series_id` de las respuestas). El cambio, escrito en
+    `docs/02-requisitos/reglas/turnos.md` (Listado), con la tenancy y el tope.
+  * **Límites**: `test_the_longest_series_fits_in_one_request`: 52 turnos semanales en un pedido con `per_page=100` (una página);
+    sin `per_page`, 10 con el total 52; con rango, hasta el 16/12 desde el 16/11 sí y el 17/12, 422 (el tope de 31 días, desde el
+    comienzo de `from`).
+  * El diseño de arriba decía "4 turnos en 4 meses" y "la serie semanal": son 5 turnos y la quincenal (corregido).
+  * **Cifras de la revisión**: `--filter AppointmentSeriesIndexTest`, 5 casos y 48 aserciones; `composer test`, **1501 casos
+    (1485 en verde y 16 omitidos de MySQL), 14939 aserciones**; Newman de turnos (61 pedidos, 113 aserciones) y de series (26
+    pedidos, 44 aserciones), sin fallas, con un servidor propio en `:8001` detenido por su tarea (puerto libre). MySQL, no: el
+    filtro es una igualdad sobre una columna con índice, sin migraciones, concurrencia ni texto.
+  * **Desvío 1**: aceptado; de ahí la regla nueva (las mutaciones se revierten con el editor), en el `CLAUDE.md` de la raíz y en
+    `testing.md` (en la rama de la 3.6).
 
 ### 3.6 Las series
 

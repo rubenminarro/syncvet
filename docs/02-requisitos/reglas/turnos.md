@@ -61,8 +61,11 @@ código, manda el código.
   * **Listado** paginado con `ListFilters`, por `starts_at` e id: filtra por `starts_at` con `from` y `to` (`ApiDateTime`; sin ninguno,
     hoy; con uno solo, solo ese día; hasta 31 días); `schedule_id`, `branch_id`, `veterinarian_id`, `service_id`, `patient_id`,
     `client_id`, `status` (uno o varios) y `series_id` (con `series_id` y **sin `from` ni `to`**, la serie entera, sin filtrar por
-    fecha ni el tope de 31 días: hasta 52 turnos en un año; front-04, `IndexAppointmentRequest::wholeSeries()` y
-    `AppointmentSeriesIndexTest`); `search` literal en el nombre y el código del paciente, el nombre y el documento
+    fecha ni el tope de 31 días: hasta 52 turnos en un año, que entran en un pedido con `per_page=100`; con `series_id` y un rango,
+    el rango y su tope, como sin serie. **Cambio de comportamiento de front-04**: antes, `series_id` sin rango traía solo los de hoy;
+    ningún cliente lo usaba así (ni el frontend ni las colecciones de Postman, revisado al cerrar). Una serie de otra clínica no
+    aparece, con o sin rango (el scope de la clínica); la de otra sucursal de la clínica, sí (los turnos no se limitan a las
+    sucursales del usuario, H11). `IndexAppointmentRequest::wholeSeries()` y `AppointmentSeriesIndexTest`); `search` literal en el nombre y el código del paciente, el nombre y el documento
     del cliente y el nombre y el teléfono de contacto. **`per_page` de 1 a 500** (front-03; el único listado que pasa de 100, para
     que la semana de una sucursal entre en un pedido; 10 por defecto, como los demás): fuera de rango, un decimal o un texto → 422 en
     `per_page`, "Pedí de 1 a 500 turnos por página." (`IndexAppointmentRequest::PER_PAGE_OUT_OF_RANGE`). `meta.pagination.total`
