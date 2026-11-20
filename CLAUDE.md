@@ -80,10 +80,16 @@ alguna pide más corridas, vale esta.
   falló y los tests del archivo tocado, no la corrida entera. **Excepción, `npm test` del frontend:** si falla en un archivo, después
   de corregirlo se repite la suite completa (`npm test`), no solo ese archivo, para que la cifra registrada sea siempre la de una
   corrida real en verde (lo que pasó en la 2.3, desvío 7).
-* **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase.
+* **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase. **Toda entrega que
+  cambie el menú o el permiso de una ruta** (`src/app/menu.ts`, un `requirePermission` o un permiso de `PERMISSIONS`) corre
+  también `e2e/permisos.spec.ts`, además de su propio spec (R-084: en la F2, la 2.3 y la 2.4 sumaron ítems al menú y ese spec
+  recién falló en el cierre de la fase).
 * **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
 * **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
-  cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales).
+  cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales). El script de los
+  controles ingresa **una sola vez por rol**, **revoca siempre sus tokens al terminar** (en un `finally`, también si falla) y, si
+  falla por un error del propio script, se corrige y se repite **solo el control que falló**, no la corrida entera (en la 3.2, seis
+  corridas dejaron 19 ingresos y 7 tokens sin revocar, desvío 15).
 * **Mutaciones**: 3 o 4, de las reglas más importantes.
 * **Revisión**: lee el diff y corre solo `composer test:fast` o `npm test`; no repite suites, Playwright ni el navegador.
 * **Esperas**: mientras corre algo largo, no se consulta en bucle; se espera el aviso de fin.
@@ -93,6 +99,9 @@ alguna pide más corridas, vale esta.
 * En la implementación, mutaciones solo de las protecciones críticas de la entrega (3 o 4, el presupuesto); la revisión hace las
   suyas.
 * En cada mutación se corren solo los tests relacionados; la suite completa, al final.
+* **Las mutaciones se revierten con el editor** (Edit/Write), nunca con `git checkout`, `git restore` ni `git stash` sobre archivos
+  con cambios propios sin commitear: devuelven el archivo al último commit y se llevan el trabajo de la entrega (front-04, desvío 1;
+  el detalle, en `docs/04-desarrollo/testing.md`).
 * Si una entrega junta temas distintos, proponer dividirla en el diseño.
 * Lo propio de cada proyecto (bases de datos, velocidad de la suite, auditoría de dependencias) está en su `CLAUDE.md`.
 
@@ -106,7 +115,8 @@ alguna pide más corridas, vale esta.
 ### Documentación por cambio
 
 Cada entrega actualiza, en la misma rama, lo que indica la tabla **Mantenimiento** de [`docs/README.md`](docs/README.md). La skill
-`/cerrar-entrega` lo hace sobre una entrega ya validada; `/validar-docs` audita enlaces y cifras; `/retomar` informa el estado al
+`/cerrar-entrega` lo hace sobre una entrega ya validada y termina siempre con el commit y el push del cierre ("git status limpio,
+commit y push confirmados"); `/validar-docs` audita enlaces y cifras; `/retomar` informa el estado al
 empezar una sesión.
 
 Los desvíos, decisiones pendientes y notas para el cierre se escriben en el repositorio (sección "Pendiente para el cierre" de la
@@ -122,7 +132,8 @@ de una PC.
 ### Git
 
 * Nunca trabajar ni commitear en `main`. Una rama por tarea: `feature/…`, `fix/…`, `docs/…`, `test/…`, `chore/…`.
-* Commit y push solo cuando el usuario lo pide. Mensajes en español, describiendo el porqué.
+* Commit y push solo cuando el usuario lo pide (invocar `/cerrar-entrega` es ese pedido para el cierre). Mensajes en español,
+  describiendo el porqué.
 * Un movimiento de archivos va en un commit propio, sin cambios de contenido, para que Git conserve la historia; los merges a `main`,
   con `--no-ff` y sin squash.
 
@@ -131,9 +142,7 @@ de una PC.
 ## 3. Estado
 
 * **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 (base y login, R-063), F1 (clientes y pacientes, R-072) y F2 (datos maestros: sucursales y depósitos,
-  usuarios, veterinarios, servicios, la configuración de la clínica con el logo y la auditoría, R-083) completadas e integradas a
-  `main`, cada una con su entrega de soporte del backend (front-00, front-01 y front-02), y la entrega `chore/post-f1` (R-073).
-  Sigue el análisis y el diseño de la F3 (agenda y turnos), en `docs/front-f3-diseno`; el detalle, en
-  [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1.
+* **Frontend:** F0, F1 y F2 completadas e integradas a `main` (R-063, R-072 y R-083); la F3 (agenda y turnos), completada (R-098)
+  en `feature/f3-cierre`, con el merge a `main` pendiente de la autorización del usuario. El detalle, en
+  [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1 y en el [handoff](docs/03-plan-desarrollo/handoff.md).
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

@@ -120,6 +120,28 @@ Con una base vieja, la API falla de formas que no dicen la causa. En la validaci
 registrarse en la auditoría. `php artisan migrate:status` muestra las migraciones pendientes. `migrate:fresh` borra todos los
 datos: usarlo solo en la base de desarrollo.
 
+### Agenda de la demo (`demo:agenda`)
+
+El `DemoSeeder` no crea agendas ni turnos. Para ver la agenda con datos (la F3 del frontend), desde `backend/` y después del
+`DemoSeeder`:
+
+```bash
+php artisan demo:agenda
+```
+
+Crea en la Clínica A, en su sucursal `SUC-01` "Casa central" (la única que crea el `DemoSeeder`; nunca en las que dejan Postman o
+Playwright), cinco agendas "Demo …" con su horario (una con la ficha de `vet-a`, las demás sin veterinario) y los turnos de la
+semana en curso (de lunes a domingo, en hora de Asunción) en todos los estados, con un sobreturno, un turno de un contacto, un
+bloqueo y turnos de hoy; al final muestra un resumen. **Correrlo de nuevo** cada vez que la semana cambia, o para volver la agenda
+a su estado inicial después de probar: reemplaza solo lo suyo (los turnos y los bloqueos de las agendas "Demo …", y las agendas
+"Demo …" que quedaron en otra sucursal; las de Casa central conservan su id) y regenera la semana actual. Los turnos de otras
+agendas no se tocan nunca. No modifica a `admin-a`, `recepcion-a` ni `vet-a`.
+
+> **Aviso:** un turno que cargues a mano (desde el frontend, Postman o la API) en una agenda "Demo …" **se borra** la próxima vez
+> que corras `php artisan demo:agenda`, igual que un bloqueo. Para probar algo que tenga que quedar, usá otra agenda (sin el
+> prefijo "Demo "). Solo corre en `local` y `testing`; sin la clínica de
+la demo, pide correr primero el `DemoSeeder`. El detalle, en [`f3-agenda.md`](../03-plan-desarrollo/fases/frontend/f3-agenda.md#demo-02-soporte-del-backend-la-agenda-de-la-demo).
+
 ## Certificados de PHP en Laragon
 
 La regla de contraseñas consulta Have I Been Pwned por HTTPS (R-009). Si `curl.cainfo` apunta a un `cacert.pem` que no existe, toda

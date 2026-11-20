@@ -17,6 +17,7 @@
               "// su veterinario y su agenda, así que sus series no chocan con las de una corrida anterior.",
               "const run = 100000 + Math.floor(Math.random() * 899999);",
               "pm.collectionVariables.set('run', String(run));",
+              "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
               "// El lunes que viene en Asunción (UTC-3 todo el año) y las fechas de la corrida, en semanas desde ese lunes.",
               "// Las series van a las 10:00, 11:00 y 12:00 de Asunción: la API responde 13:00, 14:00 y 15:00 UTC (Z).",
               "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",
@@ -540,7 +541,8 @@
               "    pm.expect(json.data[1].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('week2'));",
               "    pm.expect(json.data[3].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('week6'));",
               "});",
-              "pm.collectionVariables.set('biweekly_1', String(json.data[1].id));"
+              "pm.collectionVariables.set('biweekly_1', String(json.data[1].id));",
+              "pm.collectionVariables.set('biweekly_series_id', json.meta.series_id);"
             ]
           }
         }
@@ -694,6 +696,65 @@
             {
               "key": "schedule_id",
               "value": "{{schedule_id}}"
+            },
+            {
+              "key": "per_page",
+              "value": "100"
+            }
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token_reception}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "11b La serie quincenal entera, sin rango (front-04) → 4 turnos en 6 semanas, más que el tope de 31 días",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Los 4 turnos de la serie, de la semana 0 a la 6', () => {",
+              "    pm.expect(json.meta.pagination.total).to.eql(4);",
+              "    json.data.forEach(a => pm.expect(a.series_id).to.eql(pm.collectionVariables.get('biweekly_series_id')));",
+              "    pm.expect(json.data[0].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('monday'));",
+              "    pm.expect(json.data[3].starts_at.slice(0, 10)).to.eql(pm.collectionVariables.get('week6'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/appointments?series_id={{biweekly_series_id}}&per_page=100",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "appointments"
+          ],
+          "query": [
+            {
+              "key": "series_id",
+              "value": "{{biweekly_series_id}}"
             },
             {
               "key": "per_page",
@@ -1545,6 +1606,10 @@
       "key": "biweekly_1",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "biweekly_series_id",
+      "value": ""
     }
   ]
 }

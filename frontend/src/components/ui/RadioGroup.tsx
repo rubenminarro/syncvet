@@ -1,5 +1,6 @@
 import { useId, type InputHTMLAttributes, type Ref } from 'react';
 import type { SelectOption } from './SelectField';
+import { classNames } from '../../lib/class-names';
 
 interface RadioGroupProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value'> {
   label: string;
@@ -27,7 +28,7 @@ export function RadioGroup({
   const errorId = `${id}-error`;
 
   return (
-    <fieldset className={`mb-3 ${className ?? ''}`.trim()}>
+    <fieldset className={classNames('mb-3', className)}>
       <legend className="form-label">{label}</legend>
       <div
         className={`form-selectgroup${error ? ' is-invalid' : ''}`}

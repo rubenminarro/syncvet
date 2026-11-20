@@ -18,6 +18,11 @@ use Illuminate\Support\Facades\DB;
 class ClinicService
 {
     /**
+     * El código de la sucursal que crea el alta de la clínica (la usa demo:agenda).
+     */
+    public const FIRST_BRANCH_CODE = 'SUC-01';
+
+    /**
      * Crea la clínica operativa: la clínica, la sucursal SUC-01 "Casa central"
      * (establecimiento 001), el depósito DEP-01 "Principal" y el usuario
      * administrador. Todo o nada (una transacción).
@@ -42,7 +47,7 @@ class ClinicService
 
             return CurrentClinic::run($clinic, function () use ($clinic, $admin) {
                 $branch = Branch::create([
-                    'code' => 'SUC-01',
+                    'code' => self::FIRST_BRANCH_CODE,
                     'name' => 'Casa central',
                     'establishment' => '001',
                     'is_default' => true,

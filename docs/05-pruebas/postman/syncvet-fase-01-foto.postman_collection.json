@@ -19,6 +19,7 @@
                             "// las corridas de las colecciones de especies (994…), clientes (995… a 997…) y pacientes (9975… a 999…).",
                             "const run = String(Math.floor(Math.random() * 99999)).padStart(6, '0');",
                             "pm.collectionVariables.set('run', run);",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
                             "pm.collectionVariables.set('owner_doc', `99${run}`);",
                             "pm.collectionVariables.set('owner_email', `nora.villalba.${run}@mailinator.com`);"
                         ]

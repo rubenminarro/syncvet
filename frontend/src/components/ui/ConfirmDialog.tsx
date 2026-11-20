@@ -1,4 +1,5 @@
-import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode, type RefObject } from 'react';
+import { usePauseAutoRefresh } from '../../lib/hooks/auto-refresh';
 import { Alert } from './Alert';
 import { Button } from './Button';
 
@@ -24,6 +25,10 @@ interface ConfirmDialogProps {
   tone?: 'danger' | 'primary';
   /** sm (por defecto): una pregunta; md: con campos o una lista (el fallecimiento, el dueño nuevo). */
   size?: 'sm' | 'md';
+  /** El botón que cierra sin hacer nada (por defecto, "Cancelar"; "Volver" cuando la acción misma es cancelar). */
+  cancelLabel?: string;
+  /** Dónde va el foco al abrir (por defecto, "Cancelar"): el campo de un diálogo que lo pide primero (el motivo). */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
 // Una lista sin espacios: el test de voseo no la toma por un texto de la interfaz. Los botones inactivos del diálogo usan
@@ -57,6 +62,8 @@ export function ConfirmDialog({
   confirmDisabled = false,
   tone = 'danger',
   size = 'sm',
+  cancelLabel = 'Cancelar',
+  initialFocusRef,
 }: ConfirmDialogProps) {
   const titleId = useId();
   const bodyId = useId();
@@ -64,6 +71,9 @@ export function ConfirmDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const wasBusy = useRef(busy);
+
+  // Abierto, pausa la actualización periódica de la agenda (pregunta 9 del diseño de la F3).
+  usePauseAutoRefresh(open);
 
   const close = () => {
     if (!busy) {
@@ -118,6 +128,11 @@ export function ConfirmDialog({
     }
   });
 
+  // El foco al abrir: el campo pedido (initialFocusRef) o "Cancelar".
+  const focusInitial = useEffectEvent(() => {
+    (initialFocusRef?.current ?? cancelRef.current)?.focus();
+  });
+
   // Al abrir: el foco en "Cancelar", las teclas y el foco escuchados en document y el fondo sin desplazamiento. Al cerrar,
   // todo vuelve como estaba y el foco, al botón que lo abrió.
   useEffect(() => {
@@ -134,7 +149,7 @@ export function ConfirmDialog({
       onDocumentFocusIn(event);
     };
 
-    cancelRef.current?.focus();
+    focusInitial();
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', keydown);
     document.addEventListener('focusin', focusin);
@@ -210,7 +225,7 @@ export function ConfirmDialog({
                 focusableWhenInactive
                 onClick={close}
               >
-                {canConfirm ? 'Cancelar' : 'Cerrar'}
+                {canConfirm ? cancelLabel : 'Cerrar'}
               </Button>
               {canConfirm ? (
                 <Button

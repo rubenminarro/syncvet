@@ -4,7 +4,14 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { failure, success } from '../../test/api';
 import { server } from '../../test/server';
-import { api, getPage, parseRetryAfter, setSessionErrorHandler, setTokenProvider } from './client';
+import {
+  api,
+  getPage,
+  parseRetryAfter,
+  setSessionErrorHandler,
+  setTokenProvider,
+  type QueryValue,
+} from './client';
 import { ApiError } from './errors';
 
 async function caught(promise: Promise<unknown>): Promise<ApiError> {
@@ -230,6 +237,42 @@ describe('client', () => {
     });
 
     expect(params?.toString()).toBe('page=1&active=false');
+  });
+
+  describe('las listas en la URL (3.3, H5)', () => {
+    async function sentSearch(query: Record<string, QueryValue>) {
+      let search = '';
+      server.use(
+        http.get('/api/appointments', ({ request }) => {
+          search = new URL(request.url).search;
+          return success([]);
+        }),
+      );
+
+      await api.get('appointments', { query });
+
+      return decodeURIComponent(search);
+    }
+
+    it('una lista va como clave[] una vez por elemento, en su orden', async () => {
+      expect(await sentSearch({ status: ['confirmed', 'checked_in'], page: 2 })).toBe(
+        '?status[]=confirmed&status[]=checked_in&page=2',
+      );
+    });
+
+    it('una lista de un elemento también va con []', async () => {
+      expect(await sentSearch({ status: ['cancelled'] })).toBe('?status[]=cancelled');
+    });
+
+    it('una lista vacía no va', async () => {
+      expect(await sentSearch({ status: [], search: 'luna' })).toBe('?search=luna');
+    });
+
+    it('los valores de siempre no cambian', async () => {
+      expect(await sentSearch({ branch_id: 10, from: '2026-11-16', active: false, x: null })).toBe(
+        '?branch_id=10&from=2026-11-16&active=false',
+      );
+    });
   });
 
   describe('getBlob (1.4)', () => {

@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { inAppZone, toApiDateTime } from '../../lib/format/dates';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El fallecimiento del paciente (1.3b): una fecha (`yyyy-MM-dd`, del `<input type="date">`) y una hora (`HH:mm`, del
@@ -32,8 +33,8 @@ export function deceasedToForm(value: string | number | Date = Date.now()): Dece
 
 /** Las partes de la fecha y la hora, o null si alguna no es válida (2023-02-30 no lo es). */
 function parts(values: DeceasedFormValues): [number, number, number, number, number] | null {
-  const date = DATE_ONLY.exec(values.date.trim());
-  const time = TIME.exec(values.time.trim());
+  const date = DATE_ONLY.exec(trimLikeApi(values.date));
+  const time = TIME.exec(trimLikeApi(values.time));
 
   if (date === null || time === null) {
     return null;
@@ -84,7 +85,7 @@ export function deceasedFormErrors(
   }
 
   // Los dos son `yyyy-MM-dd` de Asunción: comparar el texto es comparar los días.
-  if (birthDate !== null && values.date.trim() < birthDate) {
+  if (birthDate !== null && trimLikeApi(values.date) < birthDate) {
     return { date: DECEASED_MESSAGES.beforeBirth };
   }
 

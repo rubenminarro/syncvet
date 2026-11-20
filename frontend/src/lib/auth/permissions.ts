@@ -96,6 +96,43 @@ export const PERMISSIONS = {
   auditLogsIndex: 'audit-logs.index',
   /** /configuracion/auditoria/$id (F2, entrega 2.6): solo el administrador. */
   auditLogsShow: 'audit-logs.show',
+  /**
+   * /configuracion/agendas, su detalle y su edición, e inactivar o activar (F3, entrega 3.1a): solo el administrador
+   * (`schedules.index` y `.show` los tienen los tres; la pantalla es de la administración, como la tarjeta).
+   */
+  schedulesUpdate: 'schedules.update',
+  /** /configuracion/agendas/nueva (F3, entrega 3.1a): solo el administrador. */
+  schedulesStore: 'schedules.store',
+  /** Eliminar la agenda desde su detalle (F3, entrega 3.1a): solo el administrador. */
+  schedulesDestroy: 'schedules.destroy',
+  /** La tarjeta "Bloqueos" del detalle de la agenda (F3, entrega 3.1b): los tres roles (la pantalla es del administrador). */
+  scheduleBlocksIndex: 'schedule-blocks.index',
+  /** "Nuevo bloqueo" en el detalle de la agenda (F3, entrega 3.1b): solo el administrador. */
+  scheduleBlocksStore: 'schedule-blocks.store',
+  /** Eliminar un bloqueo (F3, entrega 3.1b): solo el administrador. */
+  scheduleBlocksDestroy: 'schedule-blocks.destroy',
+  /** /agenda, la agenda del día, y "Agenda" en el menú (F3, entrega 3.2): los tres roles. */
+  appointmentsIndex: 'appointments.index',
+  /** /turnos/$id, el detalle del turno (F3, entrega 3.4): los tres roles. */
+  appointmentsShow: 'appointments.show',
+  /** /turnos/nuevo, "Nuevo turno" y una celda libre de la grilla (F3, entrega 3.4): administrador y recepcionista. */
+  appointmentsStore: 'appointments.store',
+  /** /turnos/$id/editar, "Editar" y "Reprogramar" (F3, entrega 3.4): administrador y recepcionista. */
+  appointmentsUpdate: 'appointments.update',
+  /** "Dar como sobreturno" después del 409 APPOINTMENT_OVERLAP (F3, entrega 3.4): administrador y recepcionista. */
+  appointmentsOverbook: 'appointments.overbook',
+  /** "Confirmar" un turno a confirmar (F3, entrega 3.5): administrador y recepcionista. */
+  appointmentsConfirm: 'appointments.confirm',
+  /** "Fichar" (F3, entrega 3.5): los tres roles; el veterinario, solo sus turnos y los de agendas sin veterinario. */
+  appointmentsCheckIn: 'appointments.check-in',
+  /** "Marcar atendido" (F3, entrega 3.5): administrador y veterinario (el veterinario, como al fichar). */
+  appointmentsAttend: 'appointments.attend',
+  /** "Ausente" y "Deshacer el ausente" (F3, entrega 3.5): administrador y recepcionista. */
+  appointmentsNoShow: 'appointments.no-show',
+  /** "Cancelar el turno", con el motivo (F3, entrega 3.5): administrador y recepcionista. */
+  appointmentsCancel: 'appointments.cancel',
+  /** /agenda/cola, la cola del día de la sucursal actual (F3, entrega 3.7): los tres roles. */
+  appointmentsQueue: 'appointments.queue',
   /** GET roles, para el filtro y el formulario de usuarios (F2, entrega 2.2a): solo el administrador. */
   rolesIndex: 'roles.index',
 } as const;

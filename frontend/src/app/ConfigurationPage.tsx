@@ -1,6 +1,7 @@
 import {
   IconBuildingHospital,
   IconBuildingStore,
+  IconCalendarTime,
   IconHistory,
   IconUsersGroup,
   type Icon,
@@ -14,6 +15,7 @@ interface Section {
   to:
     | '/configuracion/sucursales'
     | '/configuracion/usuarios'
+    | '/configuracion/agendas'
     | '/configuracion/clinica'
     | '/configuracion/auditoria';
   title: string;
@@ -24,7 +26,7 @@ interface Section {
 
 /**
  * Las secciones de la administración (pregunta 2 del diseño de la F2): cada una llega en su entrega (Sucursales en la 2.1;
- * Usuarios en la 2.2a; la Clínica en la 2.5; la Auditoría en la 2.6).
+ * Usuarios en la 2.2a; la Clínica en la 2.5; la Auditoría en la 2.6; las Agendas en la 3.1a de la F3).
  */
 const SECTIONS: readonly Section[] = [
   {
@@ -40,6 +42,14 @@ const SECTIONS: readonly Section[] = [
     description: 'Quién ingresa al sistema, con sus roles y sus sucursales.',
     icon: IconUsersGroup,
     permission: PERMISSIONS.usersIndex,
+  },
+  {
+    to: '/configuracion/agendas',
+    title: 'Agendas',
+    description:
+      'Las agendas de cada sucursal, con su veterinario o su servicio y su horario semanal.',
+    icon: IconCalendarTime,
+    permission: PERMISSIONS.schedulesUpdate,
   },
   {
     to: '/configuracion/clinica',

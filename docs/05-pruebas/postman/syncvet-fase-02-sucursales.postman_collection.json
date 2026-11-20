@@ -21,7 +21,8 @@
                             "// Identificador de esta corrida, único por tiempo (base 36, en mayúsculas): va en los códigos y los",
                             "// nombres de los depósitos y en los pedidos rechazados. No se repite aunque la colección se corra",
                             "// muchas veces sobre la misma base.",
-                            "pm.collectionVariables.set('run', Date.now().toString(36).toUpperCase());"
+                            "pm.collectionVariables.set('run', Date.now().toString(36).toUpperCase());",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)"
                         ]
                     }
                 },

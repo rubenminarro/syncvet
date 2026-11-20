@@ -213,3 +213,9 @@ describe('las claves, iguales a las del backend', () => {
     );
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre "\\u200BA" tiene un solo carácter para la API', () => {
+    expect(errorsFor({ name: '\u200BA' }).name).toBe(SETTINGS_MESSAGES.name.min);
+  });
+});

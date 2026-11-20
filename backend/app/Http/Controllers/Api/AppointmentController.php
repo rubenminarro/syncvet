@@ -79,7 +79,8 @@ class AppointmentController extends Controller implements HasMiddleware
     }
 
     /**
-     * Los turnos que empiezan en el rango (por defecto, hoy en Asunción).
+     * Los turnos que empiezan en el rango (por defecto, hoy en Asunción); con series_id y sin
+     * rango, la serie entera (front-04).
      */
     public function index(IndexAppointmentRequest $request)
     {
@@ -87,8 +88,10 @@ class AppointmentController extends Controller implements HasMiddleware
 
         $appointments = Appointment::query()
             ->with(['schedule', 'branch', 'veterinarian.user', 'service', 'patient', 'client'])
-            ->where('starts_at', '>=', $from->format('Y-m-d H:i:s'))
-            ->where('starts_at', '<=', $to->format('Y-m-d H:i:s'))
+            // La serie entera, sin rango (front-04): hasta 52 turnos, por el índice de series_id.
+            ->unless($request->wholeSeries(), fn ($query) => $query
+                ->where('starts_at', '>=', $from->format('Y-m-d H:i:s'))
+                ->where('starts_at', '<=', $to->format('Y-m-d H:i:s')))
             ->when($request->filled('schedule_id'), fn ($query) => $query->where('schedule_id', $request->integer('schedule_id')))
             ->when($request->filled('branch_id'), fn ($query) => $query->where('branch_id', $request->integer('branch_id')))
             ->when($request->filled('veterinarian_id'), fn ($query) => $query->where('veterinarian_id', $request->integer('veterinarian_id')))

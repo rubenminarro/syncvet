@@ -33,8 +33,9 @@ export default defineConfig({
       cwd: '../backend',
       url: `${BACKEND_URL}/up`,
       // Sin la consulta de DNS del email (como la suite del backend): los casos no dependen de la red y los emails de
-      // prueba (@example.com, sin MX) se aceptan (1.2).
-      env: { DB_DATABASE: E2E_DATABASE, EMAIL_DNS_CHECK: 'false' },
+      // prueba (@example.com, sin MX) se aceptan (1.2). Sin Xdebug (Laragon lo carga en modo debug): cada pedido tarda de 2,5 a
+      // 3 veces menos (front-03).
+      env: { DB_DATABASE: E2E_DATABASE, EMAIL_DNS_CHECK: 'false', XDEBUG_MODE: 'off' },
       reuseExistingServer: true,
       timeout: 60_000,
     },

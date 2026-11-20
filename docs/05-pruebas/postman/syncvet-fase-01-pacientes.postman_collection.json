@@ -131,6 +131,7 @@
                             "    return remainder > 1 ? 11 - remainder : 0;",
                             "};",
                             "pm.collectionVariables.set('run', String(run));",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
                             "pm.collectionVariables.set('ana_doc', `99${run}`);",
                             "pm.collectionVariables.set('ana_email', `ana.villalba.${run}@mailinator.com`);",
                             "pm.collectionVariables.set('pedro_doc', `99${run + 1}`);",

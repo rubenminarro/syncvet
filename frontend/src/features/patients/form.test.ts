@@ -205,3 +205,9 @@ describe('patientToForm y formatWeight', () => {
     expect(formatWeight(weight)).toBe(expected);
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('un nombre que es solo un U+200B queda vacío, como en la API', () => {
+    expect(errorsOf({ name: '\u200B' }).name).toBe(PATIENT_MESSAGES.name.required);
+  });
+});

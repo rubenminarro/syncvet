@@ -16,7 +16,8 @@
                             "// Valores únicos de esta corrida: el número va solo en los valores que escribe la colección (nombre de la",
                             "// clínica y claves), que se restauran al final. No usa documentos ni emails de alta: no necesita un rango propio.",
                             "const run = String(Math.floor(Math.random() * 999999)).padStart(6, '0');",
-                            "pm.collectionVariables.set('run', run);"
+                            "pm.collectionVariables.set('run', run);",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)"
                         ]
                     }
                 },

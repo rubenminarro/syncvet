@@ -23,10 +23,25 @@ describe('permisos con los roles reales del seeder', () => {
   it.each([
     [
       'administrador',
-      ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios', 'Configuración'],
+      [
+        'Inicio',
+        'Clientes',
+        'Pacientes',
+        'Agenda',
+        'Especies',
+        'Servicios',
+        'Veterinarios',
+        'Configuración',
+      ],
     ],
-    ['recepcionista', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios']],
-    ['veterinario', ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios']],
+    [
+      'recepcionista',
+      ['Inicio', 'Clientes', 'Pacientes', 'Agenda', 'Especies', 'Servicios', 'Veterinarios'],
+    ],
+    [
+      'veterinario',
+      ['Inicio', 'Clientes', 'Pacientes', 'Agenda', 'Especies', 'Servicios', 'Veterinarios'],
+    ],
   ] as const)('el menú de %s: %j', async (role, expected) => {
     server.use(meHandler(meFor(role)));
     renderApp('/', { session: sessionFor() });

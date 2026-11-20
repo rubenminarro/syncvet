@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CreateVeterinarianPayload, VeterinarianDetail, VeterinarianPayload } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de alta y edición de la ficha de veterinario (2.3). Una función pura repite las reglas de forma de
@@ -73,12 +74,12 @@ export function veterinarianToForm(veterinarian: VeterinarianDetail): Veterinari
 
 /** La matrícula como la guarda y la compara la API: en mayúsculas y sin los espacios de los extremos. */
 export function normalizeLicense(value: string): string {
-  return value.trim().toUpperCase();
+  return trimLikeApi(value).toUpperCase();
 }
 
 /** La comisión como se manda: sin los espacios de los extremos y con la coma pasada a punto ("12,5" → "12.5"). */
 export function normalizeCommission(value: string): string {
-  return value.trim().replace(',', '.');
+  return trimLikeApi(value).replace(',', '.');
 }
 
 /** `is_numeric` de PHP, sin los espacios: signo, dígitos con un punto, y el exponente (como el peso del paciente). */
@@ -130,13 +131,13 @@ export function veterinarianFormErrors(
     errors.license_number = m.license_number.max;
   }
 
-  if (length(values.specialty.trim()) > SPECIALTY_MAX) {
+  if (length(trimLikeApi(values.specialty)) > SPECIALTY_MAX) {
     errors.specialty = m.specialty.max;
   }
 
   errors.commission_percentage = commissionError(normalizeCommission(values.commission_percentage));
 
-  if (length(values.notes.trim()) > NOTES_MAX) {
+  if (length(trimLikeApi(values.notes)) > NOTES_MAX) {
     errors.notes = m.notes.max;
   }
 
@@ -166,7 +167,7 @@ export function veterinarianFormSchema(withUser: boolean) {
 
 /** Un texto opcional: sin los espacios de los extremos, y null si queda vacío. */
 function optional(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = trimLikeApi(value);
 
   return trimmed === '' ? null : trimmed;
 }

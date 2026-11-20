@@ -7,6 +7,28 @@ Las respuestas siguen el contrato de `backend/CLAUDE.md` §4.
 y la carpeta de trabajo de Postman, desde la raíz del repositorio, porque las colecciones suben archivos con la ruta
 `docs/05-pruebas/postman/archivos/…`.
 
+**Todas las colecciones, sin dejar datos (cierre de la F3 del frontend).** Con el servidor levantado desde `backend/` en el puerto
+8001 (`php artisan serve --port=8001`, sin Xdebug), desde la raíz:
+
+```bash
+node docs/05-pruebas/newman-todas.mjs                 # las 14 colecciones
+node docs/05-pruebas/newman-todas.mjs turnos series   # solo las que tienen esos textos en el nombre
+```
+
+Corre cada colección con Newman (la contraseña sale de `DEMO_PASSWORD` o de `backend/.env`, sin mostrarla) y, después de cada una,
+`php artisan postman:cleanup <corrida> --tokens-since=<inicio>`: la API no tiene baja de turnos y, con turnos, tampoco se borran la
+agenda, el cliente ni el paciente, así que la colección sola no puede limpiar lo suyo. Cada colección copia su número de corrida a
+la variable global `postman_run`, que el script lee de las globales exportadas. El comando (solo con `APP_ENV=local` y en la base
+`syncvet`, y solo en la Clínica A del DemoSeeder; en otro entorno o en otra base se niega sin tocar nada) borra lo de esa corrida, reconocido por su número entero (también lo dado de baja, con el sufijo
+`//deleted_…`): turnos, bloqueos, tramos, agendas, pacientes (con su foto), clientes, fichas, servicios, especies, razas, las
+sucursales `SUC-<corrida>-…` y los depósitos `DEP-<corrida>-…` (si el borrado es el por defecto de una sucursal que queda, como
+`SUC-PM`, el por defecto vuelve al primer depósito de la sucursal); los usuarios de la corrida quedan dados de baja y sin tokens
+(la auditoría los referencia). Con `--tokens-since`, revoca los tokens de los usuarios del DemoSeeder abiertos por la colección
+(también una sesión que tengas abierta en el navegador con esos usuarios desde esa hora: no usar la demo mientras corre); con
+`--dry-run`, solo cuenta. La corrida tiene al menos 5 caracteres y al menos un dígito (una palabra sola, como `Consultorio`,
+tomaría las agendas "Demo …" y se rechaza). La auditoría queda (es inmutable). Lo cubre `tests/Feature/Console/PostmanCleanupCommandTest.php`. A
+mano, para una corrida suelta: `php artisan postman:cleanup 188268 --dry-run` y después sin `--dry-run`.
+
 ## FASE 0 — Autenticación
 
 Entregas 0.3 y 0.4. Variables de la colección: `{{base_url}}` (por ejemplo, `http://syncvet.test`), `{{demo_password}}` (el
@@ -413,7 +435,7 @@ entrega 3.0 no tiene endpoints: se validó con la colección de auditoría como 
 | Colección | Entrega | Qué valida |
 |---|---|---|
 | [`postman/syncvet-fase-03-agendas.postman_collection.json`](postman/syncvet-fase-03-agendas.postman_collection.json) | 3.1 (R-050) | Alta del usuario de la corrida con el rol `veterinario`, su ficha y su servicio; agenda sin veterinario ni servicio (422); alta de una agenda con veterinario y horario y de otra con solo el servicio; nombre repetido en la sucursal con otras mayúsculas y sin acento, tramos superpuestos el mismo día y un tramo fuera de la grilla de 5 minutos (422); reemplazo del horario (los tramos que se tocan pasan); un bloqueo del lunes que viene en UTC y uno con el fin antes del inicio (422); el detalle con el bloqueo próximo; el recepcionista que lista agendas y bloqueos y no crea ni edita agendas ni crea bloqueos (403); los pendientes de la FASE 2: la baja del veterinario con una agenda (409 `VETERINARIAN_IN_USE`), la baja del servicio usado por una agenda (409 `SERVICE_IN_USE`) y su cambio de nombre (422 `SERVICE_NAME_NOT_EDITABLE`); inactivar una agenda, el listado sin ella y con `include_inactive=1`; la baja del bloqueo y de las agendas sin turnos (404 después); y la limpieza |
-| [`postman/syncvet-fase-03-turnos.postman_collection.json`](postman/syncvet-fase-03-turnos.postman_collection.json) | 3.2a (R-051) y 3.2b (R-053) | Alta del usuario de la corrida con el rol `veterinario`, su ficha, su servicio y una agenda con horario (el lunes en dos franjas pegadas) y un bloqueo; dos clientes y un paciente; turnos con paciente (el cliente es su dueño), con un cliente sin paciente y con un contacto; el mismo horario (409 `APPOINTMENT_OVERLAP`); un sobreturno con el recepcionista (201, `is_overbooked`); fuera del horario (422 `APPOINTMENT_OUTSIDE_HOURS`) y en el bloqueo (422 `APPOINTMENT_IN_BLOCK`); el paciente de otro cliente (422); mover con la misma duración y a un horario ocupado (409); el listado del lunes y el detalle; sin baja (405); el cambio de dueño del paciente y la edición de su turno con el formulario completo (200, queda el dueño actual); un turno que cruza dos franjas pegadas (201); la baja del cliente con un turno (409 `CLIENT_IN_USE`); los pendientes de la 3.1: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y su baja (409 `SCHEDULE_IN_USE`); una agenda inactiva no recibe turnos (422); los estados (3.2b), en una agenda del día de la corrida: confirmar y confirmar otra vez (422 `APPOINTMENT_INVALID_TRANSITION`), ausente antes de la hora (422) y a la hora, otro turno que toma el horario liberado, deshacer el ausente sin `overbook` (409 `APPOINTMENT_OVERLAP`) y con `overbook: true` (200, sobreturno), fichar sin paciente (422) y con paciente, atendido por otra ficha (403 `APPOINTMENT_NOT_YOURS`) y por la suya, fichar un atendido (422), cancelar sin motivo (422) y con motivo, mover un cancelado (422 `APPOINTMENT_NOT_EDITABLE`); y la limpieza |
+| [`postman/syncvet-fase-03-turnos.postman_collection.json`](postman/syncvet-fase-03-turnos.postman_collection.json) | 3.2a (R-051), 3.2b (R-053) y front-03 | Alta del usuario de la corrida con el rol `veterinario`, su ficha, su servicio y una agenda con horario (el lunes en dos franjas pegadas) y un bloqueo; dos clientes y un paciente; turnos con paciente (el cliente es su dueño), con un cliente sin paciente y con un contacto; el mismo horario (409 `APPOINTMENT_OVERLAP`); un sobreturno con el recepcionista (201, `is_overbooked`); fuera del horario (422 `APPOINTMENT_OUTSIDE_HOURS`) y en el bloqueo (422 `APPOINTMENT_IN_BLOCK`); el paciente de otro cliente (422); mover con la misma duración y a un horario ocupado (409); el listado del lunes y el detalle; el listado con `per_page=500` (200) y con 501 y 0 (422; front-03); sin baja (405); el cambio de dueño del paciente y la edición de su turno con el formulario completo (200, queda el dueño actual); un turno que cruza dos franjas pegadas (201); la baja del cliente con un turno (409 `CLIENT_IN_USE`); los pendientes de la 3.1: mover una agenda con turnos (422 `SCHEDULE_NOT_EDITABLE`) y su baja (409 `SCHEDULE_IN_USE`); una agenda inactiva no recibe turnos (422); los estados (3.2b), en una agenda del día de la corrida: confirmar y confirmar otra vez (422 `APPOINTMENT_INVALID_TRANSITION`), ausente antes de la hora (422) y a la hora, otro turno que toma el horario liberado, deshacer el ausente sin `overbook` (409 `APPOINTMENT_OVERLAP`) y con `overbook: true` (200, sobreturno), fichar sin paciente (422) y con paciente, atendido por otra ficha (403 `APPOINTMENT_NOT_YOURS`) y por la suya, fichar un atendido (422), cancelar sin motivo (422) y con motivo, mover un cancelado (422 `APPOINTMENT_NOT_EDITABLE`); y la limpieza |
 | [`postman/syncvet-fase-03-series.postman_collection.json`](postman/syncvet-fase-03-series.postman_collection.json) | 3.3 (R-054) | Series de turnos: semanal de 4, cada 2 semanas con fecha de fin, una con una fecha en un bloqueo (409 `APPOINTMENT_SERIES_CONFLICT` con la lista), más de 52 (422), mover un turno de la serie y cancelar uno, este y los siguientes y toda la serie (`meta.cancelled_count`); y la limpieza |
 | [`postman/syncvet-fase-03-disponibilidad.postman_collection.json`](postman/syncvet-fase-03-disponibilidad.postman_collection.json) | 3.4 (R-055) | La disponibilidad de una agenda con franjas pegadas, un bloqueo, un turno y el mismo veterinario ocupado en otra agenda; un servicio de 60 minutos; `duration_minutes`, que manda sobre el servicio, y uno inválido (422); dar un horario ofrecido (201) y que deje de figurar; una semana y más de 7 días (422); la cola del día del veterinario (su ficha y las agendas sin veterinario de su sucursal), con su propio `veterinarian_id`, con `all=1`, de la recepción (toda la sucursal) y sus filtros de agenda, veterinario y fecha; el veterinario que no da turnos (403); un cancelado que sale de la cola; una agenda inactiva (422); y la limpieza |
 
@@ -466,7 +488,7 @@ colección: sin las migraciones el alta de un turno o sus estados fallan, y sin 
 `vet-a@example.com` (`{{token_vet_demo}}`, otra ficha, para el 403 `APPOINTMENT_NOT_YOURS`), y la sucursal por defecto y la especie
 Canino de la clínica A. Los turnos los da el recepcionista; el atendido, el veterinario de la corrida.
 
-**58 requests y 107 pruebas.**
+**61 requests y 113 pruebas.**
 
 **Se corre más de una vez sin recrear la base.** El primer pedido genera un número de corrida (va en los documentos ficticios de los
 dos clientes, en el email y la contraseña del usuario de la corrida y en los nombres) y calcula el lunes que viene, el día de los
@@ -481,6 +503,11 @@ final elimina el bloqueo e inactiva las dos agendas (con turnos no se eliminan),
 **Filtro por fechas del listado.** `GET appointments` filtra por el inicio del turno (`starts_at`). Sin `from` ni `to`, trae los de
 hoy. **Solo `from` (o solo `to`) es solo ese día**, no "desde ese día": `from=2026-11-16` trae los turnos del lunes 16, de 00:00 a
 23:59:59 de Asunción. Para un rango, mandar los dos (hasta 31 días).
+
+**Turnos por página (front-03).** `GET appointments` acepta `per_page` de 1 a 500 (los demás listados, hasta 100): "22a" pide el
+lunes con `per_page=500` (200, `meta.pagination` con los cuatro turnos y `per_page` 500); "22b" y "22c", 501 y 0 (422 en `per_page`,
+"Pedí de 1 a 500 turnos por página."). Los negativos, el texto, el decimal, los demás listados en 101 y 500 y la cantidad de
+consultas con 300 turnos los cubre `AppointmentPerPageTest`.
 
 **Lo que no está en la colección.** Editar un turno fichado o atendido (422 `APPOINTMENT_NOT_EDITABLE`; la colección mueve un
 cancelado): lo cubre `AppointmentUpdateTest`. Fichar otro día y deshacer el ausente otro día o cerca de la medianoche (necesitan
@@ -498,6 +525,8 @@ npx newman run docs/05-pruebas/postman/syncvet-fase-03-turnos.postman_collection
 
 Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 58 pedidos y 107 aserciones, sin fallas.
 Validación del usuario del 2026-11-11, con las correcciones de la 3.3 (otra PC, Collection Runner, una iteración): 107 de 107, 0 errores (R-054).
+Corrida del 2026-11-18 (front-03, con "22a" a "22c"), contra la base de desarrollo con el servidor en el puerto 8001: 61 pedidos y 113
+aserciones, sin fallas.
 Hasta la revisión de la 3.3 fallaba con Newman (en la app de Postman, no): 13 scripts declaraban `const data`, y `data` ya existe
 como variable global en el entorno donde Newman corre los scripts (los datos de la iteración), así que la declaración chocaba. Ahora
 se llama `body`. **En un script nuevo, no declarar `data`** (ni otra variable global de Newman: `responseCode`, `responseTime`,
@@ -513,7 +542,8 @@ serie semanal de 4 (201, `meta.series_id`, la misma hora de reloj cada lunes), u
 entra: 4 turnos), una con una fecha en el bloqueo (409 `APPOINTMENT_SERIES_CONFLICT` con `errors.conflicts` y, en el listado, ningún
 turno suyo), más de 52 (422 en `recurrence.count`), mover un turno de la serie (conserva su `series_id`), cancelar uno (`scope:
 single`), este y los siguientes (`following`: el movido, que quedó antes, no cambia) y toda la serie (`series`), con
-`meta.cancelled_count`, y un alcance inválido (422). Al final, la limpieza.
+`meta.cancelled_count`, y un alcance inválido (422). Al final, la limpieza. Desde front-04, el 11b lista la serie quincenal entera
+con `series_id` y sin rango (4 turnos en 6 semanas, más que el tope de 31 días).
 
 **Lo que no está en la colección.** Una fecha ocupada y otra fuera del horario en la misma serie, el sobreturno en una serie, la
 serie que cruza el 15/10 y los fichados, ausentes, atendidos o ya empezados que la cancelación con alcance deja como están: los
@@ -531,6 +561,7 @@ npx newman run docs/05-pruebas/postman/syncvet-fase-03-series.postman_collection
 
 Corrida del 2026-11-10 contra la base de desarrollo, dos veces seguidas sin recrearla: 25 pedidos y 42 aserciones, sin fallas.
 Validación del usuario del 2026-11-11 (otra PC, Collection Runner, una iteración): 42 de 42, 0 errores (R-054).
+Corrida de front-04 (2026-11-20, base de desarrollo): 26 pedidos y 44 aserciones, sin fallas.
 
 #### Disponibilidad y cola del día (3.4)
 
@@ -603,7 +634,7 @@ con los valores de la corrida anterior (como el Collection Runner): sin fallas.
 ## Entrega de soporte del frontend (front-01)
 
 Entrega del backend pedida por la F1 del frontend (R-064), cerrada en R-065
-([resultado](../03-plan-desarrollo/fases/frontend/f1-clientes-y-pacientes.md#entrega-front-01)). No suma pedidos: suma dos
+([resultado](../03-plan-desarrollo/fases/frontend/f1-resultados.md#entrega-front-01)). No suma pedidos: suma dos
 aserciones a la colección de pacientes (61 → 63).
 
 | Cambio | Dónde se prueba |

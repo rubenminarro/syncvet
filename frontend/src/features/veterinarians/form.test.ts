@@ -127,3 +127,9 @@ describe('la comisión en pantalla', () => {
     expect(formatCommission(commission)).toBe(text);
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('la especialidad de 100 caracteres y un U+200B al final no pasa del máximo', () => {
+    expect(errorsOf({ specialty: `${'a'.repeat(100)}\u200B` }).specialty).toBeUndefined();
+  });
+});

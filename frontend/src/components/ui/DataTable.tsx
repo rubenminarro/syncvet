@@ -10,6 +10,8 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string | number;
+  /** Una clase para la fila (desde la 3.3: los turnos ausentes, atenuados). */
+  rowClassName?: (row: T) => string | undefined;
   pagination?: Pagination;
   onPageChange?: (page: number) => void;
   empty?: string;
@@ -30,6 +32,7 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
+  rowClassName,
   pagination,
   onPageChange,
   empty = 'No hay datos para mostrar.',
@@ -64,7 +67,7 @@ export function DataTable<T>({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={rowKey(row)}>
+                <tr key={rowKey(row)} className={rowClassName?.(row)}>
                   {columns.map((column) => (
                     <td key={column.header}>{column.cell(row)}</td>
                   ))}

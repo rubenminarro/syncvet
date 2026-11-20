@@ -7,6 +7,7 @@ import type {
   Warehouse,
   WarehousePayload,
 } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * Los formularios de la sucursal (con su depósito por defecto en el alta) y del depósito (2.1). Las reglas de forma de
@@ -78,7 +79,7 @@ function length(value: string): number {
  * `strtoupper` de PHP 8 ("ß" o "ñ" no cambian y la regla los rechaza, como la API).
  */
 export function normalizeCode(value: string): string {
-  return value.trim().replace(/[a-z]/g, (letter) => letter.toUpperCase());
+  return trimLikeApi(value).replace(/[a-z]/g, (letter) => letter.toUpperCase());
 }
 
 function codeError(value: string, messages: ReturnType<typeof codeMessages>): string | null {
@@ -101,7 +102,7 @@ function nameError(
   messages: ReturnType<typeof nameMessages>,
   { optional = false } = {},
 ): string | null {
-  const name = value.trim();
+  const name = trimLikeApi(value);
 
   if (name === '') {
     return optional ? null : messages.required;
@@ -120,7 +121,7 @@ function nameError(
 
 /** Un texto opcional: sin los espacios de los extremos, y null si queda vacío. */
 function optionalText(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = trimLikeApi(value);
 
   return trimmed === '' ? null : trimmed;
 }
@@ -189,8 +190,8 @@ export function branchFormErrors(
   { creating }: { creating: boolean },
 ): Partial<Record<keyof BranchFormValues, string>> {
   const m = BRANCH_MESSAGES;
-  const establishment = values.establishment.trim();
-  const address = values.address.trim();
+  const establishment = trimLikeApi(values.establishment);
+  const address = trimLikeApi(values.address);
   const phone = normalizePhone(values.phone);
   let addressError: string | null = null;
 
@@ -254,8 +255,8 @@ export function branchFormToPayload(
 ): BranchPayload {
   return {
     code: normalizeCode(values.code),
-    name: values.name.trim(),
-    establishment: values.establishment.trim(),
+    name: trimLikeApi(values.name),
+    establishment: trimLikeApi(values.establishment),
     address: optionalText(values.address),
     phone: optionalText(normalizePhone(values.phone)),
     is_default: wasDefault || values.is_default,
@@ -303,7 +304,7 @@ export function warehouseFormToPayload(
 ): WarehousePayload {
   return {
     code: normalizeCode(values.code),
-    name: values.name.trim(),
+    name: trimLikeApi(values.name),
     is_default: wasDefault || values.is_default,
   };
 }

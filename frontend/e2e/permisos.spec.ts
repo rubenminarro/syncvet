@@ -9,6 +9,7 @@ const ROLES = [
       'Inicio',
       'Clientes',
       'Pacientes',
+      'Agenda',
       'Especies',
       'Servicios',
       'Veterinarios',
@@ -18,12 +19,12 @@ const ROLES = [
   {
     role: 'recepcionista',
     user: USERS.recepcion,
-    menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios'],
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Agenda', 'Especies', 'Servicios', 'Veterinarios'],
   },
   {
     role: 'veterinario',
     user: USERS.vet,
-    menu: ['Inicio', 'Clientes', 'Pacientes', 'Especies', 'Servicios', 'Veterinarios'],
+    menu: ['Inicio', 'Clientes', 'Pacientes', 'Agenda', 'Especies', 'Servicios', 'Veterinarios'],
   },
 ] as const;
 
@@ -43,6 +44,21 @@ test('el administrador entra a /configuracion', async ({ page }) => {
   // La página de entrada (2.1): una tarjeta por sección.
   await expect(page.getByRole('heading', { name: 'Configuración' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Sucursales/ })).toBeVisible();
+  // Desde la 3.1a de la F3, las agendas.
+  await expect(page.getByRole('link', { name: /Agendas/ })).toBeVisible();
+});
+
+test('el recepcionista y el veterinario en /configuracion/agendas van a /sin-permiso (3.1a)', async ({
+  page,
+}) => {
+  for (const user of [USERS.recepcion, USERS.vet]) {
+    await login(page, user);
+    await page.goto('/configuracion/agendas');
+
+    await expect(page).toHaveURL(/\/sin-permiso$/);
+    await page.getByRole('button', { name: 'Salir' }).click();
+    await expect(page).toHaveURL(/\/ingresar$/);
+  }
 });
 
 test('una ruta sin permiso lleva a /sin-permiso, dentro del layout', async ({ page }) => {

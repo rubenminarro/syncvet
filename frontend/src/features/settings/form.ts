@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { normalizePhone, PHONE_PATTERN } from '../../lib/phone';
 import type { SettingKey, SystemSettings, SystemSettingsPayload } from './types';
+import { trimLikeApi } from '../../lib/format/text';
 
 /**
  * El formulario de la configuración de la clínica (2.5): las reglas de forma de UpdateSystemSettingsRequest y de
@@ -59,12 +60,12 @@ function length(value: string): number {
 
 /** El correo como se manda: sin los espacios de los extremos y en minúsculas (como `mb_strtolower` de la API). */
 export function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
+  return trimLikeApi(value).toLowerCase();
 }
 
 /** Un texto opcional: sin los espacios de los extremos, y null si queda vacío (la API borra la clave). */
 function optionalText(value: string): string | null {
-  const trimmed = value.trim();
+  const trimmed = trimLikeApi(value);
 
   return trimmed === '' ? null : trimmed;
 }
@@ -119,7 +120,7 @@ function requiredTextError(
   max: number,
   messages: { required: string; min: string; max: string },
 ): string | null {
-  const text = value.trim();
+  const text = trimLikeApi(value);
 
   if (text === '') {
     return messages.required;
@@ -160,13 +161,13 @@ export function settingsFormErrors(
     }
   }
 
-  const phone = normalizePhone(values.contact_phone.trim());
+  const phone = normalizePhone(trimLikeApi(values.contact_phone));
 
   if (phone !== '' && !PHONE_PATTERN.test(phone)) {
     errors['settings.contact_phone'] = m.contact_phone.regex;
   }
 
-  const website = values.website.trim();
+  const website = trimLikeApi(values.website);
 
   if (website !== '') {
     if (length(website) > WEBSITE_MAX) {
@@ -176,7 +177,7 @@ export function settingsFormErrors(
     }
   }
 
-  if (length(values.document_footer.trim()) > DOCUMENT_FOOTER_MAX) {
+  if (length(trimLikeApi(values.document_footer)) > DOCUMENT_FOOTER_MAX) {
     errors['settings.document_footer'] = m.document_footer.max;
   }
 
@@ -208,7 +209,7 @@ export const settingsFormSchema = z
 export function settingsFormToPayload(form: SettingsFormValues): SystemSettingsPayload {
   const values = form.settings;
   const email = normalizeEmail(values.contact_email);
-  const phone = normalizePhone(values.contact_phone.trim());
+  const phone = normalizePhone(trimLikeApi(values.contact_phone));
   const settings: Record<SettingKey, string | null> = {
     contact_email: email === '' ? null : email,
     contact_phone: phone === '' ? null : phone,
@@ -216,5 +217,5 @@ export function settingsFormToPayload(form: SettingsFormValues): SystemSettingsP
     document_footer: optionalText(values.document_footer),
   };
 
-  return { name: form.name.trim(), legal_name: form.legal_name.trim(), settings };
+  return { name: trimLikeApi(form.name), legal_name: trimLikeApi(form.legal_name), settings };
 }

@@ -41,7 +41,7 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos 
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 36 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](../docs/03-plan-desarrollo/fases/backend/fase-00-puesta-en-marcha.md#entrega-02)).
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 36 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](../docs/03-plan-desarrollo/fases/backend/fase-00-resultados.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: lo reemplazan la verificación en MySQL de la entrega 0.5 y
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
@@ -56,7 +56,7 @@ acceso por rol a cada ruta, los nombres del esquema y los documentos de ejemplo 
 0.5); cada regla de clientes, pacientes, especies y razas (FASE 1) y de sucursales y depósitos, usuarios, veterinarios, servicios,
 la configuración y la auditoría (FASE 2), y de las agendas, los turnos con sus estados y sus series, la disponibilidad y la cola del
 día (FASE 3, con la concurrencia en MySQL), con los mensajes en voseo y las fechas con hora. Al cierre de la FASE 3: 1395 casos, en
-SQLite y en MySQL ([cierre](../docs/03-plan-desarrollo/fases/backend/fase-03-agenda-y-turnos.md#cierre-de-la-fase-3)).
+SQLite y en MySQL ([cierre](../docs/03-plan-desarrollo/fases/backend/fase-03-resultados.md#cierre-de-la-fase-3)).
 
 ## Instalación
 

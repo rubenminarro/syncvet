@@ -173,3 +173,9 @@ describe('el depósito', () => {
     ).toBe(true);
   });
 });
+
+describe('deuda 28: los invisibles de los bordes se recortan como en la API (trimLikeApi)', () => {
+  it('el nombre "\\u200BA" tiene un solo carácter para la API', () => {
+    expect(errorsOf({ name: '\u200BA' }).name).toBe(BRANCH_MESSAGES.name.min);
+  });
+});
