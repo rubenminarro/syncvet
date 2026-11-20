@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Console;
 
+use App\Console\Commands\PostmanCleanupCommand;
 use App\Models\Appointment;
 use App\Models\Branch;
 use App\Models\Breed;
@@ -54,6 +55,17 @@ class PostmanCleanupCommandTest extends TestCase
         $this->branch = CurrentClinic::run($this->demo, fn () => Branch::where('is_default', true)->sole());
         $this->freezeToday();
         Storage::fake(PatientPhotoService::DISK);
+        $this->allowHere();
+    }
+
+    /**
+     * El comando solo corre con APP_ENV=local y en la base syncvet: los tests (testing, SQLite en memoria) lo habilitan a
+     * propósito; test_it_refuses_outside_local_and_the_development_database prueba cada negativa.
+     */
+    private function allowHere(string $environment = PostmanCleanupCommand::ENVIRONMENT, string $database = PostmanCleanupCommand::DATABASE): void
+    {
+        $this->app['env'] = $environment;
+        DB::connection()->setDatabaseName($database);
     }
 
     /**
@@ -243,11 +255,34 @@ class PostmanCleanupCommandTest extends TestCase
         $this->artisan('postman:cleanup', ['runs' => ['1234']])->assertFailed();
         $this->artisan('postman:cleanup', ['runs' => ['12%45']])->assertFailed();
 
-        $this->app['env'] = 'production';
-        $this->artisan('postman:cleanup', ['runs' => [self::RUN]])->assertFailed();
-        $this->app['env'] = 'testing';
-
         $this->inDemo(fn () => $this->assertNotNull(Schedule::find($run['schedule'])));
+    }
+
+    public function test_it_refuses_outside_local_and_the_development_database(): void
+    {
+        $run = $this->postmanRun(self::RUN);
+        $tables = fn () => collect(['appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'personal_access_tokens'])
+            ->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()])->all();
+        $before = $tables();
+        $cases = [
+            ['testing', 'syncvet'], ['production', 'syncvet'], ['staging', 'syncvet'],
+            ['local', 'syncvet_e2e'], ['local', 'syncvet_test_mysql'], ['local', ':memory:'],
+        ];
+
+        foreach ($cases as [$environment, $database]) {
+            $this->allowHere($environment, $database);
+            $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--tokens-since' => '2000-01-01T00:00:00Z'])
+                ->expectsOutputToContain('solo corre con APP_ENV=local y en la base de desarrollo (syncvet)')
+                ->assertFailed();
+        }
+
+        $this->assertSame($before, $tables());
+        $this->assertFalse(User::findOrFail($run['user'])->trashed());
+
+        // Con los dos en regla, sí.
+        $this->allowHere();
+        $this->artisan('postman:cleanup', ['runs' => [self::RUN]])->assertSuccessful();
+        $this->assertTrue(User::withTrashed()->findOrFail($run['user'])->trashed());
     }
 
     public function test_it_only_touches_the_demo_clinic(): void

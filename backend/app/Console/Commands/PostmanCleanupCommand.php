@@ -35,7 +35,9 @@ use Laravel\Sanctum\PersonalAccessToken;
  * paciente, así que una colección no puede limpiar lo suyo. Después de cada colección, la regresión corre
  * `php artisan postman:cleanup <corrida>` con el número de corrida que la colección dejó en su variable `run`.
  *
- * - Solo en local y testing (DemoSeeder::ENVIRONMENTS) y solo en la Clínica A del DemoSeeder.
+ * - Solo con APP_ENV=local y en la base de desarrollo (`syncvet`, DATABASE), y solo en la Clínica A del DemoSeeder: en otro
+ *   entorno (testing, production…) o en otra base (syncvet_e2e, syncvet_test_mysql…) se niega sin tocar nada. Sus tests
+ *   fijan los dos a propósito (PostmanCleanupCommandTest::allowHere).
  * - Lo de la corrida se reconoce por su número, como lo escriben las colecciones: los usuarios y los clientes con el email
  *   `…<corrida>@mailinator.com`; los servicios, las agendas, las especies y las razas con la corrida en el nombre; la ficha del
  *   veterinario de esos usuarios o con la matrícula `MP-<corrida>`; los pacientes de esos clientes, con el microchip
@@ -60,6 +62,12 @@ class PostmanCleanupCommand extends Command
 
     protected $description = 'La limpieza de lo que dejaron las corridas de las colecciones de Postman en la clínica de la demo (Clínica A)';
 
+    /** El único entorno en que corre. */
+    public const ENVIRONMENT = 'local';
+
+    /** La única base en la que corre: la de desarrollo, donde corren Newman y la demo. */
+    public const DATABASE = 'syncvet';
+
     /** Al menos 5 letras o dígitos: el número de corrida de las colecciones (6 dígitos, o la base 36 de sucursales). */
     private const RUN_PATTERN = '/^[A-Za-z0-9]{5,}$/';
 
@@ -72,8 +80,8 @@ class PostmanCleanupCommand extends Command
 
     public function handle(): int
     {
-        if (! app()->environment(DemoSeeder::ENVIRONMENTS)) {
-            $this->components->error('postman:cleanup solo corre en los entornos local y testing.');
+        if (! app()->environment(self::ENVIRONMENT) || DB::connection()->getDatabaseName() !== self::DATABASE) {
+            $this->components->error('postman:cleanup solo corre con APP_ENV=local y en la base de desarrollo (' . self::DATABASE . '): no borra nada en otro entorno ni en otra base.');
 
             return self::FAILURE;
         }

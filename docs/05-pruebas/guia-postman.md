@@ -18,8 +18,8 @@ node docs/05-pruebas/newman-todas.mjs turnos series   # solo las que tienen esos
 Corre cada colección con Newman (la contraseña sale de `DEMO_PASSWORD` o de `backend/.env`, sin mostrarla) y, después de cada una,
 `php artisan postman:cleanup <corrida> --tokens-since=<inicio>`: la API no tiene baja de turnos y, con turnos, tampoco se borran la
 agenda, el cliente ni el paciente, así que la colección sola no puede limpiar lo suyo. Cada colección copia su número de corrida a
-la variable global `postman_run`, que el script lee de las globales exportadas. El comando (solo en local y testing, solo en la
-Clínica A del DemoSeeder) borra lo de esa corrida, reconocido por su número entero (también lo dado de baja, con el sufijo
+la variable global `postman_run`, que el script lee de las globales exportadas. El comando (solo con `APP_ENV=local` y en la base
+`syncvet`, y solo en la Clínica A del DemoSeeder; en otro entorno o en otra base se niega sin tocar nada) borra lo de esa corrida, reconocido por su número entero (también lo dado de baja, con el sufijo
 `//deleted_…`): turnos, bloqueos, tramos, agendas, pacientes (con su foto), clientes, fichas, servicios, especies, razas, las
 sucursales `SUC-<corrida>-…` y los depósitos `DEP-<corrida>-…` (si el borrado es el por defecto de una sucursal que queda, como
 `SUC-PM`, el por defecto vuelve al primer depósito de la sucursal); los usuarios de la corrida quedan dados de baja y sin tokens
