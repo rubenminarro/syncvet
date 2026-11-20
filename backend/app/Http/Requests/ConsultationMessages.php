@@ -25,6 +25,10 @@ class ConsultationMessages
 
     public const BEFORE_CHECK_IN = 'La fecha de la consulta no puede ser anterior al fichado del turno.';
 
+    public const CLOSE_REASON_REQUIRED = 'Ingresá el motivo para cerrar la consulta.';
+
+    public const CLOSE_DIAGNOSIS_REQUIRED = 'Ingresá el diagnóstico para cerrar la consulta.';
+
     public const VETERINARIAN_REQUIRED = 'Indicá el veterinario de la consulta: no tenés una ficha de veterinario.';
 
     public const VETERINARIAN_FIXED = 'El veterinario de la consulta es el del turno o el de tu ficha: no se puede elegir otro.';

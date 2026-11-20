@@ -46,13 +46,14 @@ class PermissionsSyncCommandTest extends TestCase
     }
 
     /**
-     * La base como la dejó la FASE 3: sin el permiso nuevo, con uno que ya no está en PERMISSIONS y
+     * La base como la dejó la FASE 3: sin los permisos nuevos (show-clinical, 4.1; amend, 4.2), con consultations.reopen (salió en la 4.2) y
      * con la recepción con un permiso de más.
      */
     private function phase3Database(): void
     {
-        Permission::where('name', 'consultations.show-clinical')->delete();
-        Permission::create(['name' => 'consultations.obsolete', 'guard_name' => 'api']);
+        Permission::whereIn('name', ['consultations.show-clinical', 'consultations.amend'])->delete();
+        // El de la FASE 3 que salió en la 4.2 (una cerrada no se reabre), en el administrador como estaba.
+        Role::findByName('administrador', 'api')->givePermissionTo(Permission::create(['name' => 'consultations.reopen', 'guard_name' => 'api']));
         Role::findByName('recepcionista', 'api')->givePermissionTo('consultations.update');
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
@@ -64,7 +65,7 @@ class PermissionsSyncCommandTest extends TestCase
 
         $this->artisan('permissions:sync')
             ->expectsOutputToContain('consultations.show-clinical')
-            ->expectsOutputToContain('consultations.obsolete')
+            ->expectsOutputToContain('consultations.reopen')
             ->expectsOutputToContain('Permisos y roles sincronizados.')
             ->assertSuccessful();
 
@@ -73,7 +74,7 @@ class PermissionsSyncCommandTest extends TestCase
         $this->assertContains('consultations.show-clinical', $roles['administrador']);
         $this->assertContains('consultations.show-clinical', $roles['veterinario']);
         $this->assertNotContains('consultations.show-clinical', $roles['recepcionista']);
-        $this->assertFalse(Permission::where('name', 'consultations.obsolete')->exists());
+        $this->assertFalse(Permission::where('name', 'consultations.reopen')->exists());
     }
 
     public function test_running_it_twice_changes_nothing(): void

@@ -49,6 +49,7 @@ class UserService
         'appointments' => ['created_by', 'cancelled_by'],
         'inventory_movements' => ['created_by'],
         'consultations' => ['created_by', 'closed_by', 'cancelled_by'],
+        'consultation_amendments' => ['created_by'],
         'consultation_attachments' => ['uploaded_by'],
         'patient_applications' => ['created_by'],
         'patient_documents' => ['created_by', 'cancelled_by'],

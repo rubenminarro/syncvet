@@ -319,6 +319,10 @@ return [
         'diagnosis' => 'diagnóstico',
         'treatment' => 'tratamiento',
         'instructions' => 'indicaciones',
+
+        // Las enmiendas (FASE 4, entrega 4.2)
+        'content' => 'contenido',
+        'field' => 'campo enmendado',
     ],
 
 ];

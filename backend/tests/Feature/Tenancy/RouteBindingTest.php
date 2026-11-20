@@ -361,16 +361,23 @@ class RouteBindingTest extends TestCase
     }
 
     /**
-     * La consulta (FASE 4, entrega 4.1): una de otra clínica responde 404 en el detalle y en la
-     * edición (PATCH y PUT), y no cambia.
+     * La consulta (FASE 4, entregas 4.1 y 4.2): una de otra clínica responde 404 en el detalle, en la
+     * edición (PATCH y PUT), al cerrarla, enmendarla y anularla, y no cambia.
      */
     public static function consultationMethods(): array
     {
-        return ['GET' => ['get'], 'PATCH' => ['patch'], 'PUT' => ['put']];
+        return [
+            'GET' => ['get'],
+            'PATCH' => ['patch'],
+            'PUT' => ['put'],
+            'POST close' => ['post', '/close'],
+            'POST amendments' => ['post', '/amendments'],
+            'POST cancel' => ['post', '/cancel'],
+        ];
     }
 
     #[DataProvider('consultationMethods')]
-    public function test_consultation_of_another_clinic_is_not_found(string $method): void
+    public function test_consultation_of_another_clinic_is_not_found(string $method, string $action = ''): void
     {
         $foreignClinic = $this->createClinic();
         $patient = $this->patientOf($this->clientIn($foreignClinic));
@@ -385,6 +392,7 @@ class RouteBindingTest extends TestCase
                 'code' => 'VET-000001',
             ])->id),
             'consulted_at' => now(),
+            'reason' => 'Control',
             'diagnosis' => 'Ajeno',
             'status' => 'open',
             'created_by' => User::factory()->for($foreignClinic)->create()->id,
@@ -392,10 +400,17 @@ class RouteBindingTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->actingIn($this->createClinic(), ['consultations.show', 'consultations.update', 'consultations.show-clinical']);
+        $this->actingIn($this->createClinic(), [
+            'consultations.show', 'consultations.update', 'consultations.show-clinical',
+            'consultations.close', 'consultations.amend', 'consultations.cancel',
+        ]);
 
-        $this->assertErrorCode($this->json($method, "/api/consultations/{$id}", ['diagnosis' => 'Cambiado']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->json($method, "/api/consultations/{$id}{$action}", [
+            'diagnosis' => 'Cambiado', 'content' => 'Enmienda', 'reason' => 'Ajena', 'cancellation_reason' => 'Ajena',
+        ]), 404, 'RESOURCE_NOT_FOUND');
         $this->assertSame('Ajeno', DB::table('consultations')->where('id', $id)->value('diagnosis'));
+        $this->assertSame('open', DB::table('consultations')->where('id', $id)->value('status'));
+        $this->assertSame(0, DB::table('consultation_amendments')->count());
     }
 
     public function test_own_records_are_found(): void

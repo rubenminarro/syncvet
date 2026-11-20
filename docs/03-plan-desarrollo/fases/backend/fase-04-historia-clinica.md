@@ -339,6 +339,40 @@ FASE 3 no cambia, salvo los campos aditivos del turno).
 
 Nada: la 4.1 quedó cerrada en R-100 ([resultado](fase-04-resultados.md#entrega-41), con los desvíos y la validación).
 
+### 4.2 — Pendiente para el cierre
+
+Implementada en `feature/back-4-2-cierre` (desde `9e7c478`, commit WIP, 2026-11-20); falta la revisión (con la corrida completa,
+R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 82 → 85 (`POST consultations/{consultation}/close`,
+`/amendments` y `/cancel`); permisos 136 → 136 (`consultations.amend` nuevo, `consultations.reopen` fuera); migraciones 37 → 38
+(`create_consultation_amendments_table`). Las reglas, en [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+Desvíos y precisiones (para revisar en el cierre):
+
+1. **El peso no pasa a un paciente fallecido:** la regla del paciente (§6.2) solo deja cambiar su fecha y sus notas; la consulta se
+   cierra igual.
+2. **Cerrar bloquea el paciente antes que la consulta** (§3, paciente → consulta), para copiar el peso sin invertir el orden.
+3. **`CONSULTATION_AMENDMENT_IMMUTABLE`** (409), un `error_code` nuevo que no estaba en el diseño: lo lanza el modelo si algo intenta
+   editar o borrar una enmienda (como `AUDIT_LOG_IMMUTABLE`); ninguna ruta lo dispara.
+4. **La enmienda responde 201 con el detalle de la consulta** (con `amendments`), no con la enmienda sola.
+5. **`field`** acepta los campos que se editan en una abierta (`consulted_at` incluido) o `null`.
+6. **Anular** pasa a `no_charge` solo los ítems `pending`; uno facturado no se toca (desde la FASE 8 impedirá anular).
+7. **`postman:cleanup`** borra las enmiendas de la corrida con el constructor de consultas (sin auditoría), antes que sus consultas: el
+   modelo no se borra.
+8. **Tests:** `ConsultationImmutabilityTest` (cada escritura con una cerrada o anulada: PATCH, PUT y cerrar), además de los previstos;
+   `RouteBindingTest` suma las tres rutas; `PostmanCleanupCommandTest`, una enmienda en la corrida.
+
+**Pendiente de la 4.4:** al anular una consulta, sus aplicaciones se anulan con ella (pregunta 12), cuando exista la anulación de
+aplicaciones. La 4.2 no lo adelanta.
+
+Validación de la implementación (2026-11-20, R-100: sin la suite completa, que va en la revisión): los tests relacionados, 233 casos
+(3 omitidos de MySQL) con 3 fallas de la comparación del peso en SQLite (el test comparaba texto), corregidas y repetido su archivo
+(`ConsultationCloseTest`, 9 de 9). MySQL, los tests afectados (con la migración y el bloqueo de cerrar y anular): 60 de 60, 397
+aserciones. Newman, `syncvet-fase-04-consultas` ampliada: 45 pedidos y 84 aserciones, sin fallas; la limpieza, sin datos residuales.
+`permissions:sync` en la base local: `consultations.reopen` desaparece y `consultations.amend` queda en el administrador y el
+veterinario, no en la recepción. Mutaciones: cerrar sin diagnóstico (la detecta `ConsultationCloseTest`, "sin diagnóstico" y "sin los
+dos") y el PATCH sobre una cerrada (`ConsultationImmutabilityTest`, PATCH y PUT de una cerrada y de una anulada, y
+`ConsultationUpdateTest`).
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

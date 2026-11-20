@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 4: la consulta",
-        "description": "Validación manual de la consulta (FASE 4, entrega 4.1). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, la migración de la 4.1 (php artisan migrate) y los permisos al día (php artisan permissions:sync, por el permiso nuevo consultations.show-clinical). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) y el DELETE (405). No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "description": "Validación manual de la consulta (FASE 4, entregas 4.1 y 4.2). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la 4.1 y la 4.2 (php artisan migrate) y los permisos al día (php artisan permissions:sync: consultations.show-clinical y consultations.amend nuevos, consultations.reopen fuera). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) el DELETE (405); y la 4.2: cerrar la urgente sin diagnóstico (422 CONSULTATION_CLOSE_INCOMPLETE, errors por campo), enmendar una abierta (422 CONSULTATION_NOT_AMENDABLE), cerrar la del turno (200, el peso pasa al paciente), editarla y cerrarla otra vez (422 CONSULTATION_NOT_EDITABLE y CONSULTATION_NOT_CLOSABLE), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular la abierta y la cerrada (200), otra vez (422 CONSULTATION_NOT_CANCELLABLE) y el turno que sigue atendido. No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -1698,6 +1698,757 @@
                         {
                             "key": "token",
                             "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "31 Cerrar la consulta urgente sin diagnóstico → 422 CONSULTATION_CLOSE_INCOMPLETE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_CLOSE_INCOMPLETE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_CLOSE_INCOMPLETE'));",
+                            "pm.test('errors: solo el diagnóstico (el motivo está)', () => pm.expect(Object.keys(pm.response.json().errors)).to.eql(['diagnosis']));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{urgent_id}}/close",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{urgent_id}}",
+                        "close"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "32 Enmendar una abierta → 422 CONSULTATION_NOT_AMENDABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_AMENDABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_AMENDABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{urgent_id}}/amendments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{urgent_id}}",
+                        "amendments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"content\": \"Corrección\",\n    \"reason\": \"Error de carga\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "33 El veterinario cierra la consulta del turno → 200, el peso pasa al paciente",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Cerrada, con quién y cuándo', () => {",
+                            "    pm.expect(consultation.status.value).to.eql('closed');",
+                            "    pm.expect(consultation.closed_by.id).to.eql(Number(pm.collectionVariables.get('vet_user_id')));",
+                            "    pm.expect(consultation.closed_at).to.match(/Z$/);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/close",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "close"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "34 El paciente tiene el peso de la consulta",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('weight_kg 12.40', () => pm.expect(pm.response.json().data.weight_kg).to.eql('12.40'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "35 Editar la cerrada → 422 CONSULTATION_NOT_EDITABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"diagnosis\": \"Cambiado\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36 Cerrarla otra vez → 422 CONSULTATION_NOT_CLOSABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_CLOSABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_CLOSABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/close",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "close"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "37 Una enmienda con el motivo de 2 caracteres → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('Error en reason', () => pm.expect(pm.response.json().errors).to.have.property('reason'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/amendments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "amendments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"field\": \"diagnosis\",\n    \"content\": \"Gastroenteritis aguda.\",\n    \"reason\": \"ab\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "38 El veterinario enmienda el diagnóstico de la cerrada → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Lo escrito no cambia', () => pm.expect(consultation.diagnosis).to.eql('Gastroenteritis.'));",
+                            "pm.test('La enmienda, con su autor', () => {",
+                            "    pm.expect(consultation.amendments).to.have.length(1);",
+                            "    pm.expect(consultation.amendments[0].field).to.eql('diagnosis');",
+                            "    pm.expect(consultation.amendments[0].content).to.eql('Gastroenteritis aguda.');",
+                            "    pm.expect(consultation.amendments[0].created_by.id).to.eql(Number(pm.collectionVariables.get('vet_user_id')));",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/amendments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "amendments"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"field\": \"diagnosis\",\n    \"content\": \"Gastroenteritis aguda.\",\n    \"reason\": \"Faltó precisar el cuadro.\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "39 La recepción no ve las enmiendas",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Sin amendments', () => pm.expect(pm.response.json().data).to.not.have.property('amendments'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "40 El veterinario no anula → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{urgent_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{urgent_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Paciente equivocado\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "41 El administrador anula la urgente (abierta) → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('Anulada, con motivo, y visible', () => {",
+                            "    pm.expect(consultation.status.value).to.eql('cancelled');",
+                            "    pm.expect(consultation.cancellation_reason).to.eql('Paciente equivocado');",
+                            "    pm.expect(consultation.reason).to.eql('Urgencia: cojera');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{urgent_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{urgent_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Paciente equivocado\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "42 Anularla otra vez → 422 CONSULTATION_NOT_CANCELLABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_CANCELLABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_CANCELLABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{urgent_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{urgent_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Otra vez\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "43 El administrador anula la cerrada → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Anulada', () => pm.expect(pm.response.json().data.status.value).to.eql('cancelled'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Se registró en otra ficha\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "44 El turno sigue atendido",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('attended, con la consulta anulada', () => {",
+                            "    pm.expect(pm.response.json().data.status.value).to.eql('attended');",
+                            "    pm.expect(pm.response.json().data.consultation.status.value).to.eql('cancelled');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/appointments/{{appointment_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "appointments",
+                        "{{appointment_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
                             "type": "string"
                         }
                     ]

@@ -54,7 +54,10 @@ class RolesAndPermissionsSeeder extends Seeder
 
         /* historia clínica */
         'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
-        'consultations.close', 'consultations.reopen', 'consultations.cancel',
+        'consultations.close', 'consultations.cancel',
+        // FASE 4, entrega 4.2: enmendar una consulta cerrada (su veterinario y el administrador); sin
+        // consultations.reopen: una cerrada no se reabre (pregunta 4 y D4, R-099).
+        'consultations.amend',
         // FASE 4, entrega 4.1: el contenido clínico de la consulta (el administrador y el veterinario; la
         // recepción ve solo lo administrativo, pregunta 7 y ajuste de R-099).
         'consultations.show-clinical',
@@ -156,7 +159,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'appointments.index', 'appointments.show', 'appointments.check-in', 'appointments.attend',
                     'schedules.availability', 'appointments.queue',
                     'consultations.index', 'consultations.store', 'consultations.show', 'consultations.update',
-                    'consultations.close', 'consultations.show-clinical',
+                    'consultations.close', 'consultations.show-clinical', 'consultations.amend',
                     'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',
                     'consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy',
                     'patient-applications.index', 'patient-applications.store',

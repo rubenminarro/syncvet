@@ -104,6 +104,35 @@ class ConsultationLockTest extends TestCase
         $this->assertTrue(($this->lockedRead('consultations', true))($queries[0] ?? ''), "La primera consulta no es el bloqueo de la consulta:\n" . implode("\n", $queries));
     }
 
+    /**
+     * Entrega 4.2: cerrar toma el paciente (copia el peso) antes que la consulta (§3, paciente →
+     * consulta); anular, la consulta antes que sus ítems (consulta → ítem).
+     */
+    public function test_closing_locks_the_patient_before_the_consultation_and_cancelling_the_consultation_before_its_items(): void
+    {
+        $this->actAsVet();
+        $id = $this->opened(['appointment_id' => $this->checkedIn(), 'diagnosis' => 'Otitis', 'weight_kg' => 9]);
+        DB::table('consultation_items')->insert([
+            'clinic_id' => $this->clinic->id, 'consultation_id' => $id, 'type' => 'service', 'description' => 'Consulta',
+            'quantity' => '1.000', 'unit_price' => '1.00', 'discount' => '0.00', 'total' => '1.00', 'tax_rate' => '10',
+            'billing_status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/close")->assertOk());
+        $this->assertBefore($queries, $this->lockedRead('patients', true), $this->lockedRead('consultations', true), 'Cerrar: el paciente va antes que la consulta.');
+
+        $this->actAsAdmin();
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/cancel", ['cancellation_reason' => 'Error'])->assertOk());
+        $this->assertTrue(($this->lockedRead('consultations', true))($queries[0] ?? ''), "Anular: la primera consulta no es el bloqueo de la consulta:\n" . implode("\n", $queries));
+        $this->assertBefore(
+            $queries,
+            $this->lockedRead('consultations', true),
+            fn (string $sql) => preg_match('/^select \* from [`"]consultation_items[`"] where/', $sql) === 1
+                && (DB::getDriverName() !== 'mysql' || str_ends_with($sql, 'for update')),
+            'Anular: la consulta va antes que sus ítems.',
+        );
+    }
+
     public function test_a_deadlock_is_retried_and_a_lock_wait_timeout_is_not(): void
     {
         $appointment = $this->checkedIn();

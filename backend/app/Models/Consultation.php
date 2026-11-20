@@ -114,6 +114,14 @@ class Consultation extends Model
         return $this->hasMany(ConsultationItem::class);
     }
 
+    /**
+     * Las enmiendas de la consulta cerrada (FASE 4, entrega 4.2), de la más vieja a la más nueva.
+     */
+    public function amendments(): HasMany
+    {
+        return $this->hasMany(ConsultationAmendment::class)->orderBy('created_at')->orderBy('id');
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(ConsultationAttachment::class);

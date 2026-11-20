@@ -104,6 +104,11 @@ class PostmanCleanupCommandTest extends TestCase
             'veterinarian_id' => $vet->id, 'consulted_at' => now(), 'status' => 'open', 'created_by' => $user->id,
             'created_at' => now(), 'updated_at' => now(),
         ]);
+        // Con una enmienda (entrega 4.2): inmutable y restrictOnDelete, se borra antes que la consulta.
+        DB::table('consultation_amendments')->insert([
+            'clinic_id' => $this->demo->id, 'consultation_id' => $consultation, 'content' => 'Corrección', 'reason' => 'Error',
+            'created_by' => $user->id, 'created_at' => now(),
+        ]);
 
         return [
             'consultation' => $consultation, 'user' => $user->id, 'vet' => $vet->id, 'service' => $service->id, 'schedule' => $schedule->id, 'block' => $block->id,
@@ -127,7 +132,7 @@ class PostmanCleanupCommandTest extends TestCase
         $deletedVet = $this->veterinarianOf($this->veterinarianUser($this->demo, [$this->branch]), ['license_number' => 'MP-' . self::RUN . '//deleted_8_1795194786']);
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN]])
-            ->expectsOutputToContain('Corrida 123456: 1 consultas, 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
+            ->expectsOutputToContain('Corrida 123456: 1 enmiendas, 1 consultas, 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
             ->assertSuccessful();
 
         $this->inDemo(fn () => $this->assertNull(Client::withTrashed()->find($deletedClient->id)));
@@ -173,12 +178,12 @@ class PostmanCleanupCommandTest extends TestCase
     public function test_dry_run_counts_without_deleting_anything(): void
     {
         $run = $this->postmanRun(self::RUN);
-        $tables = fn () => collect(['consultations', 'appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'users'])
+        $tables = fn () => collect(['consultation_amendments', 'consultations', 'appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'users'])
             ->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()])->all();
         $before = $tables();
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--dry-run' => true])
-            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 1 consultas, 2 turnos,')
+            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 1 enmiendas, 1 consultas, 2 turnos,')
             ->assertSuccessful();
 
         $this->assertSame($before, $tables());

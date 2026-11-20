@@ -41,6 +41,42 @@ class ConsultationException extends AppException
         return new self('Elegí tu sucursal actual para abrir una consulta sin turno.', 422, 'CONSULTATION_NO_BRANCH');
     }
 
+    /**
+     * 422 CONSULTATION_NOT_CLOSABLE (4.2): cerrar una que no está abierta.
+     */
+    public static function notClosable(): self
+    {
+        return new self('La consulta no está abierta: no se puede cerrar.', 422, 'CONSULTATION_NOT_CLOSABLE');
+    }
+
+    /**
+     * 422 CONSULTATION_CLOSE_INCOMPLETE (4.2; pregunta 5): falta el motivo o el diagnóstico, en
+     * errors por campo.
+     *
+     * @param array<string, list<string>> $errors
+     */
+    public static function closeIncomplete(array $errors): self
+    {
+        return new self('Para cerrar la consulta, completá el motivo y el diagnóstico.', 422, 'CONSULTATION_CLOSE_INCOMPLETE', $errors);
+    }
+
+    /**
+     * 422 CONSULTATION_NOT_AMENDABLE (4.2): enmendar una que no está cerrada (abierta o anulada).
+     */
+    public static function notAmendable(): self
+    {
+        return new self('Solo se enmienda una consulta cerrada: una abierta se edita y una anulada no cambia.', 422, 'CONSULTATION_NOT_AMENDABLE');
+    }
+
+    /**
+     * 422 CONSULTATION_NOT_CANCELLABLE (4.2): anular una ya anulada (desde la FASE 8, también una con
+     * ítems facturados).
+     */
+    public static function notCancellable(): self
+    {
+        return new self('La consulta ya está anulada.', 422, 'CONSULTATION_NOT_CANCELLABLE');
+    }
+
     public static function patientDeceased(): self
     {
         return new self('El paciente falleció: no se le puede abrir una consulta.', 422, 'PATIENT_DECEASED');

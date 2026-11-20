@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AmendConsultationRequest;
+use App\Http\Requests\CancelConsultationRequest;
 use App\Http\Requests\IndexConsultationRequest;
 use App\Http\Requests\ListFilters;
 use App\Http\Requests\StoreConsultationRequest;
@@ -12,6 +14,7 @@ use App\Http\Resources\ShowConsultationResource;
 use App\Models\Consultation;
 use App\Services\ConsultationService;
 use App\Traits\ApiResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
@@ -37,6 +40,10 @@ class ConsultationController extends Controller implements HasMiddleware
             new Middleware('permission:consultations.store', only: ['store']),
             new Middleware('permission:consultations.show', only: ['show']),
             new Middleware('permission:consultations.update', only: ['update']),
+            // Entrega 4.2: cerrar, enmendar y anular.
+            new Middleware('permission:consultations.close', only: ['close']),
+            new Middleware('permission:consultations.amend', only: ['amend']),
+            new Middleware('permission:consultations.cancel', only: ['cancel']),
         ];
     }
 
@@ -97,6 +104,45 @@ class ConsultationController extends Controller implements HasMiddleware
     {
         return $this->successResponse(
             'Consulta encontrada.',
+            new ShowConsultationResource($this->consultationService->loadDetail($consultation)),
+            200
+        );
+    }
+
+    /**
+     * Cerrar (entrega 4.2), sin cuerpo: el motivo y el diagnóstico salen de la consulta.
+     */
+    public function close(Request $request, Consultation $consultation)
+    {
+        $consultation = $this->consultationService->close($consultation, $request->user());
+
+        return $this->successResponse(
+            'Consulta cerrada correctamente.',
+            new ShowConsultationResource($this->consultationService->loadDetail($consultation)),
+            200
+        );
+    }
+
+    /**
+     * Una enmienda de una cerrada (entrega 4.2): 201 con el detalle de la consulta, con la enmienda.
+     */
+    public function amend(AmendConsultationRequest $request, Consultation $consultation)
+    {
+        $consultation = $this->consultationService->amend($consultation, $request->validated(), $request->user());
+
+        return $this->successResponse(
+            'Enmienda registrada correctamente.',
+            new ShowConsultationResource($this->consultationService->loadDetail($consultation)),
+            201
+        );
+    }
+
+    public function cancel(CancelConsultationRequest $request, Consultation $consultation)
+    {
+        $consultation = $this->consultationService->cancel($consultation, $request->validated('cancellation_reason'), $request->user());
+
+        return $this->successResponse(
+            'Consulta anulada correctamente.',
             new ShowConsultationResource($this->consultationService->loadDetail($consultation)),
             200
         );

@@ -47,7 +47,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  *   estar entera (no dentro de otro número o palabra); lo dado de baja por la API se reconoce con su sufijo de DeletedSuffix.
  * - Con --tokens-since, revoca además los tokens de los usuarios del DemoSeeder creados desde esa hora: las colecciones
  *   ingresan con ellos y no salen. Con --dry-run, solo cuenta (todo en una transacción que se deshace).
- * - Las consultas (FASE 4) de esos turnos, pacientes, clientes o fichas se borran primero, de verdad (la API no las borra).
+ * - Las consultas (FASE 4) de esos turnos, pacientes, clientes o fichas se borran primero, de verdad (la API no las borra), con sus enmiendas (inmutables: con el constructor de consultas).
  * - Los turnos de esas agendas, clientes, pacientes, fichas o servicios, con sus bloqueos y sus tramos, se borran de verdad,
  *   como los clientes, los pacientes (y su foto), los servicios, las fichas, las especies y las razas. Los usuarios quedan dados
  *   de baja (SoftDeletes, sin tokens) y no se borran de verdad: la auditoría los referencia (audit_logs.user_id), y es inmutable.
@@ -214,7 +214,11 @@ class PostmanCleanupCommand extends Command
                 ->orWhereIn('veterinarian_id', $vets->modelKeys()))
             ->get();
 
+        // Sus enmiendas (entrega 4.2) primero: son inmutables (el modelo no se borra) y restrictOnDelete; sin auditoría.
+        $amendments = DB::table('consultation_amendments')->whereIn('consultation_id', $consultations->modelKeys())->delete();
+
         $summary = [
+            'amendments' => $amendments,
             'consultations' => $this->forceDeleteAll($consultations),
             'appointments' => $this->forceDeleteAll($appointments),
             'blocks' => $this->forceDeleteAll(ScheduleBlock::whereIn('schedule_id', $schedules->modelKeys())->get()),
@@ -363,7 +367,7 @@ class PostmanCleanupCommand extends Command
     private function describe(array $summary): string
     {
         $labels = [
-            'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
+            'amendments' => 'enmiendas', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
             'patients' => 'pacientes', 'clients' => 'clientes', 'veterinarians' => 'fichas', 'services' => 'servicios',
             'breeds' => 'razas', 'species' => 'especies', 'branches' => 'sucursales', 'warehouses' => 'depósitos', 'users' => 'usuarios dados de baja',
         ];

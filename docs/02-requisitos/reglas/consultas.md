@@ -58,3 +58,28 @@ contradice al código, manda el código.
 * **Permisos en una base que ya existe:** `php artisan permissions:sync` (idempotente; [`setup.md`](../../04-desarrollo/setup.md)):
   crea los permisos que faltan, quita los que salieron, le da al administrador todos y sincroniza los demás roles con `clinicRoles()`.
   Los usuarios conservan sus roles.
+* **Inmutabilidad** (entrega 4.2, D4): una consulta cerrada o anulada no se edita. Toda escritura sobre una consulta pasa por
+  `ConsultationService::lockEditable()` (el único lugar; lo reusan los ítems, las aplicaciones y los adjuntos de la 4.3 a la 4.5): la
+  consulta con `lockForUpdate`, la ficha (403 `CONSULTATION_NOT_YOURS`) y después el estado (422 `CONSULTATION_NOT_EDITABLE`).
+* **Cerrar** (`POST consultations/{consultation}/close`, `consultations.close`, sin cuerpo; preguntas 5, 8 y 14): la de su ficha o el
+  administrador (otro, 403 `CONSULTATION_NOT_YOURS`); solo abierta (422 `CONSULTATION_NOT_CLOSABLE`); exige el **motivo y el
+  diagnóstico** (si falta alguno, 422 `CONSULTATION_CLOSE_INCOMPLETE` con `errors` por campo, `reason` y `diagnosis`). Fija `closed_at`
+  y `closed_by` y copia el peso de la consulta al paciente, con su auditoría, si la consulta lo tiene y el paciente no falleció (un
+  fallecido solo cambia su fecha y sus notas, §6.2). No hay cierre automático: el listado con `status=open` muestra las pendientes.
+  El turno no cambia.
+* **Enmiendas** (`POST consultations/{consultation}/amendments`, `consultations.amend`: su veterinario y el administrador; pregunta 4):
+  una cerrada se corrige con registros aparte; lo escrito nunca cambia y no hay reapertura (`consultations.reopen` salió). Solo sobre
+  una cerrada (abierta o anulada, 422 `CONSULTATION_NOT_AMENDABLE`); la de su ficha o el administrador (403 `CONSULTATION_NOT_YOURS`).
+  `content` de 3 a 10000 caracteres, `reason` de 3 a 500 y `field` opcional, uno de los campos clínicos (los que se editan en una
+  abierta, `consulted_at` incluido) o `null` para una nota general. Responde 201 con el detalle de la consulta. La enmienda
+  (`consultation_amendments`) es inmutable (el modelo rechaza editarla o borrarla), sin `updated_at`, auditada; la consulta no se
+  borra mientras tenga enmiendas. En el detalle van en `amendments` (de la más vieja a la más nueva, con su autor y su hora), solo
+  con `consultations.show-clinical`.
+* **Anular** (`POST consultations/{consultation}/cancel`, `consultations.cancel`: el administrador; pregunta 12): con
+  `cancellation_reason` (de 3 a 500); abierta o cerrada (anulada, 422 `CONSULTATION_NOT_CANCELLABLE`). Fija `cancelled_at`,
+  `cancelled_by` y el motivo; queda visible, con todo su contenido. Sus ítems pendientes pasan a `no_charge` (no se cobran; uno
+  facturado no se toca, y desde la FASE 8 impedirá anular). El turno sigue atendido. **Pendiente de la 4.4:** sus aplicaciones se
+  anularán con ella cuando exista la anulación de aplicaciones.
+* **Concurrencia de la 4.2:** cerrar toma el paciente (copia el peso) y después la consulta, los dos con `lockForUpdate` (§3,
+  paciente → consulta); enmendar, la consulta; anular, la consulta y después sus ítems, por id (consulta → ítem). Los mismos
+  reintentos de `withRetries`.

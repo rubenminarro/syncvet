@@ -116,6 +116,10 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     // recepción la lista y la ve sin el contenido clínico (consultations.show-clinical). Sin baja
     // (DELETE → 405): se anula (4.2).
     Route::apiResource('consultations', ConsultationController::class)->except(['destroy']);
+    // Entrega 4.2: cerrar (su veterinario o el administrador), enmendar una cerrada y anular (el administrador).
+    Route::post('consultations/{consultation}/close', [ConsultationController::class, 'close'])->name('consultations.close');
+    Route::post('consultations/{consultation}/amendments', [ConsultationController::class, 'amend'])->name('consultations.amend');
+    Route::post('consultations/{consultation}/cancel', [ConsultationController::class, 'cancel'])->name('consultations.cancel');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

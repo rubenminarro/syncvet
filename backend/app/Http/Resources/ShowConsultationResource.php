@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
  * condición corporal y el texto del examen), el diagnóstico, el tratamiento y las indicaciones;
  * sin él (la recepción, pregunta 7), esas claves no están.
  *
- * Los ítems, las aplicaciones, los adjuntos y las enmiendas se suman en sus entregas (4.2 a 4.5).
+ * Con el permiso, además las enmiendas (4.2). Los ítems, las aplicaciones y los adjuntos se suman en sus entregas (4.3 a 4.5).
  * Espera además appointment, createdBy, closedBy y cancelledBy cargados
  * (ConsultationService::loadDetail).
  *
@@ -45,6 +45,15 @@ class ShowConsultationResource extends ConsultationResource
                 'physical_exam' => $this->physical_exam,
                 'treatment' => $this->treatment,
                 'instructions' => $this->instructions,
+                // Entrega 4.2: las enmiendas, de la más vieja a la más nueva; textos clínicos, como el resto.
+                'amendments' => $this->amendments->map(fn ($amendment) => [
+                    'id' => $amendment->id,
+                    'field' => $amendment->field,
+                    'content' => $amendment->content,
+                    'reason' => $amendment->reason,
+                    'created_by' => $this->user($amendment->createdBy),
+                    'created_at' => $amendment->created_at?->toISOString(),
+                ])->all(),
             ]),
             'created_by' => $this->user($this->createdBy),
             'closed_at' => $this->closed_at?->toISOString(),

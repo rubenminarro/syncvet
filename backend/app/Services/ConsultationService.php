@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\AppointmentTransition;
+use App\Enums\ConsultationItemBillingStatus;
 use App\Enums\ConsultationStatus;
 use App\Enums\DocumentSeries;
 use App\Enums\UserRole;
@@ -15,6 +16,8 @@ use App\Http\Requests\ConsultationMessages;
 use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Consultation;
+use App\Models\ConsultationAmendment;
+use App\Models\ConsultationItem;
 use App\Models\Patient;
 use App\Models\User;
 use App\Models\Veterinarian;
@@ -46,7 +49,8 @@ use Illuminate\Validation\ValidationException;
  *   fichado del turno.
  *
  * Editar (parcial): solo abierta (422 CONSULTATION_NOT_EDITABLE); la de su ficha o el
- * administrador (otro, 403 CONSULTATION_NOT_YOURS, antes que el estado).
+ * administrador (otro, 403 CONSULTATION_NOT_YOURS, antes que el estado), en lockEditable(), el único
+ * lugar de la inmutabilidad. Cerrar, enmendar y anular (4.2): close(), amend() y cancel().
  *
  * Concurrencia (§3, el orden de la FASE 3 más la consulta: veterinario → paciente → cliente →
  * turno → consulta → serie): abrir toma el veterinario, el paciente y el cliente con sharedLock (la
@@ -69,7 +73,7 @@ class ConsultationService
     /**
      * Los campos que se copian del pedido a la consulta (al abrir y al editar).
      */
-    private const CLINICAL_FIELDS = [
+    public const CLINICAL_FIELDS = [
         'consulted_at', 'reason', 'history', 'weight_kg', 'temperature_c', 'heart_rate', 'respiratory_rate',
         'mucous_membranes', 'capillary_refill_time', 'body_condition_score', 'physical_exam', 'diagnosis',
         'treatment', 'instructions',
@@ -108,16 +112,7 @@ class ConsultationService
     public function update(Consultation $consultation, array $data, User $user): Consultation
     {
         return $this->appointments->withRetries(fn () => DB::transaction(function () use ($consultation, $data, $user) {
-            $locked = Consultation::query()->whereKey($consultation->getKey())->lockForUpdate()->firstOrFail();
-
-            // La ficha va antes que el estado: un veterinario no averigua el estado de una
-            // consulta ajena por el error.
-            $this->ensureOwnConsultation($locked, $user);
-
-            if ($locked->status !== ConsultationStatus::OPEN) {
-                throw ConsultationException::notEditable();
-            }
-
+            $locked = $this->lockEditable($consultation, $user);
             $fields = Arr::only($data, self::CLINICAL_FIELDS);
 
             if (array_key_exists('consulted_at', $fields)) {
@@ -135,12 +130,149 @@ class ConsultationService
     }
 
     /**
+     * La inmutabilidad (entrega 4.2), en un solo lugar: toda escritura sobre una consulta (editar y,
+     * desde la 4.3 a la 4.5, los ítems, las aplicaciones y los adjuntos) la llama dentro de su
+     * transacción. Bloquea la consulta (lockForUpdate) antes de leer su estado; la ficha va antes
+     * que el estado (403 CONSULTATION_NOT_YOURS: un veterinario no averigua el estado de una
+     * consulta ajena por el error); cerrada o anulada, 422 CONSULTATION_NOT_EDITABLE.
+     */
+    public function lockEditable(Consultation $consultation, User $user): Consultation
+    {
+        $locked = Consultation::query()->whereKey($consultation->getKey())->lockForUpdate()->firstOrFail();
+
+        $this->ensureOwnConsultation($locked, $user);
+
+        if ($locked->status !== ConsultationStatus::OPEN) {
+            throw ConsultationException::notEditable();
+        }
+
+        return $locked;
+    }
+
+    /**
+     * Cerrar (entrega 4.2; preguntas 5, 8 y 14): la de su ficha o el administrador; solo abierta
+     * (422 CONSULTATION_NOT_CLOSABLE); con el motivo y el diagnóstico (si falta alguno, 422
+     * CONSULTATION_CLOSE_INCOMPLETE con errors por campo). Fija closed_at y closed_by y copia el peso
+     * al paciente si la consulta lo tiene (con su auditoría), salvo un paciente fallecido (solo
+     * cambian su fecha y sus notas, §6.2).
+     *
+     * Concurrencia (§3, paciente → consulta): el paciente con lockForUpdate (su edición y su cambio de
+     * dueño lo bloquean primero) y después la consulta, antes de leer su estado.
+     */
+    public function close(Consultation $consultation, User $user): Consultation
+    {
+        return $this->appointments->withRetries(fn () => DB::transaction(function () use ($consultation, $user) {
+            // patient_id no cambia nunca: se lee sin bloqueo.
+            $patientId = Consultation::query()->whereKey($consultation->getKey())->value('patient_id');
+            $patient = Patient::query()->withTrashed()->whereKey($patientId)->lockForUpdate()->first();
+            $locked = Consultation::query()->whereKey($consultation->getKey())->lockForUpdate()->firstOrFail();
+
+            $this->ensureOwnConsultation($locked, $user);
+
+            if ($locked->status !== ConsultationStatus::OPEN) {
+                throw ConsultationException::notClosable();
+            }
+
+            $missing = array_filter([
+                'reason' => blank($locked->reason) ? [ConsultationMessages::CLOSE_REASON_REQUIRED] : null,
+                'diagnosis' => blank($locked->diagnosis) ? [ConsultationMessages::CLOSE_DIAGNOSIS_REQUIRED] : null,
+            ]);
+
+            if ($missing !== []) {
+                throw ConsultationException::closeIncomplete($missing);
+            }
+
+            $locked->fill(['status' => ConsultationStatus::CLOSED, 'closed_at' => now(), 'closed_by' => $user->getKey()]);
+            $locked->save();
+
+            if ($locked->weight_kg !== null && $patient !== null && $patient->deceased_at === null) {
+                $patient->weight_kg = $locked->weight_kg;
+                $patient->save();
+            }
+
+            return $locked;
+        }), self::CONFLICT);
+    }
+
+    /**
+     * Enmendar una cerrada (entrega 4.2; pregunta 4 y D4): la de su ficha o el administrador (403
+     * CONSULTATION_NOT_YOURS); abierta o anulada, 422 CONSULTATION_NOT_AMENDABLE. La enmienda es
+     * inmutable; la consulta no cambia.
+     *
+     * @param array{content: string, reason: string, field?: ?string} $data
+     */
+    public function amend(Consultation $consultation, array $data, User $user): Consultation
+    {
+        return $this->appointments->withRetries(fn () => DB::transaction(function () use ($consultation, $data, $user) {
+            $locked = Consultation::query()->whereKey($consultation->getKey())->lockForUpdate()->firstOrFail();
+
+            $this->ensureOwnConsultation($locked, $user);
+
+            if ($locked->status !== ConsultationStatus::CLOSED) {
+                throw ConsultationException::notAmendable();
+            }
+
+            ConsultationAmendment::create([
+                'consultation_id' => $locked->getKey(),
+                'field' => $data['field'] ?? null,
+                'content' => $data['content'],
+                'reason' => $data['reason'],
+                'created_by' => $user->getKey(),
+            ]);
+
+            return $locked;
+        }), self::CONFLICT);
+    }
+
+    /**
+     * Anular (entrega 4.2; pregunta 12): solo el administrador (el permiso consultations.cancel),
+     * con motivo; abierta o cerrada (anulada, 422 CONSULTATION_NOT_CANCELLABLE). La consulta queda
+     * visible, con todo su contenido; sus ítems pendientes pasan a no_charge (no se cobran); el turno
+     * sigue atendido. Las aplicaciones se anulan con ella desde la 4.4, cuando exista su anulación.
+     *
+     * Concurrencia (§3, consulta → ítem): la consulta con lockForUpdate antes de leer su estado y
+     * después sus ítems, por id.
+     */
+    public function cancel(Consultation $consultation, string $reason, User $user): Consultation
+    {
+        return $this->appointments->withRetries(fn () => DB::transaction(function () use ($consultation, $reason, $user) {
+            $locked = Consultation::query()->whereKey($consultation->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->status === ConsultationStatus::CANCELLED) {
+                throw ConsultationException::notCancellable();
+            }
+
+            $locked->fill([
+                'status' => ConsultationStatus::CANCELLED,
+                'cancelled_at' => now(),
+                'cancelled_by' => $user->getKey(),
+                'cancellation_reason' => $reason,
+            ]);
+            $locked->save();
+
+            $items = ConsultationItem::query()->where('consultation_id', $locked->getKey())->orderBy('id')->lockForUpdate()->get();
+
+            // Desde la FASE 8, un ítem facturado impide anular (422 CONSULTATION_NOT_CANCELLABLE).
+            foreach ($items as $item) {
+                if ($item->billing_status === ConsultationItemBillingStatus::PENDING) {
+                    $item->billing_status = ConsultationItemBillingStatus::NO_CHARGE;
+                    $item->save();
+                }
+            }
+
+            return $locked;
+        }), self::CONFLICT);
+    }
+
+    /**
      * La consulta con lo que muestra el detalle (ShowConsultationResource).
      */
     public function loadDetail(Consultation $consultation): Consultation
     {
         return $consultation->load([
             'branch', 'patient', 'client', 'veterinarian.user', 'appointment', 'createdBy', 'closedBy', 'cancelledBy',
+            // Entrega 4.2: las enmiendas, con su autor.
+            'amendments.createdBy',
         ]);
     }
 
