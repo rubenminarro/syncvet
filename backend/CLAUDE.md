@@ -24,7 +24,7 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Stack:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`); MySQL 8, una base compartida por todas las clínicas, con `clinic_id`, scope global y fallo cerrado (D1: R-002, R-004 y R-007).
-* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). Sigue la FASE 4 (historia clínica), con el vínculo "atendido → consulta".
+* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). Sigue la FASE 4 (historia clínica): diseño aprobado (R-099), la entrega 4.1.
 * **Hoy:** 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F3 del frontend (R-098), 1511 casos (15085 aserciones en SQLite, 16 omitidos de MySQL; en MySQL, 1511 y 15167).
 * **Dónde seguir:** el punto de continuidad y las próximas tareas, en el [handoff](../docs/03-plan-desarrollo/handoff.md); cada módulo, en [`modulos.md`](../docs/03-plan-desarrollo/modulos.md); los comandos (`clinic:create`, `DemoSeeder`, `demo:agenda`, `files:prune-orphans`), en [`setup.md`](../docs/04-desarrollo/setup.md); `postman:cleanup` (la limpieza de Newman, solo local), en la [guía de Postman](../docs/05-pruebas/guia-postman.md).
 * **Detalle hasta R-090** (las carpetas de tests, los módulos con API y los comandos, como estaban en esta sección): [`historial-handoff.md`](../docs/03-plan-desarrollo/historial-handoff.md#estado-del-backend-backendclaudemd-1-hasta-r-090).
@@ -159,7 +159,8 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
-  **inmutables**: solo se anulan o se corrigen con otro registro.
+  **inmutables**: solo se anulan o se corrigen con otro registro. Una consulta cerrada no se edita: se corrige con enmiendas,
+  registros aparte ligados a la consulta; lo escrito nunca cambia. (D4, R-099)
 * Datos maestros con `SoftDeletes`; al eliminar se agrega `//deleted_<id>_<timestamp>` (`App\Support\DeletedSuffix`) a sus
   campos únicos para liberarlos. El id evita el choque de dos bajas del mismo valor en el mismo segundo; la columna deja lugar
   al sufijo entero.

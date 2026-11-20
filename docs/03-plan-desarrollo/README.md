@@ -25,7 +25,7 @@ pacientes, sin tests todavía. Registro: [`decisions/registro.md`](../01-arquite
 | [FASE 1](fases/backend/fase-01-clientes-y-pacientes.md) | Base | Clientes y pacientes | COMPLETADO (R-028): 1.1 (R-017), 1.2 (R-018, R-019), 1.3 (R-020 a R-022), 1.4 (R-023 a R-025) y 1.5 (R-026 a R-028) |
 | [FASE 2](fases/backend/fase-02-datos-maestros.md) | Base | Datos maestros | COMPLETADO (R-044): 2.1 (R-030, R-031), 2.2a (R-032, R-033), 2.2b (R-034, R-035), 2.3 (R-036, R-037), 2.4 (R-038, R-039), 2.5 (R-040, R-041) y 2.6 (R-042, R-043); diseño (R-029) |
 | [FASE 3](fases/backend/fase-03-agenda-y-turnos.md) | Atención | Agenda y turnos | COMPLETADO (R-056): 3.0 (deuda 16, R-049), 3.1 (R-050), 3.2a (R-051), 3.2b (R-053), 3.3 (R-054) y 3.4 (R-055); diseño (R-047, R-048) |
-| [FASE 4](fases/backend/fase-04-historia-clinica.md) | Atención | Historia clínica | PENDIENTE |
+| [FASE 4](fases/backend/fase-04-historia-clinica.md) | Atención | Historia clínica | DISEÑO APROBADO (R-099); sigue la 4.1 |
 | [FASE 5](fases/backend/fase-05-inventario.md) | Atención | Inventario | PENDIENTE |
 | [FASE 6](fases/backend/fase-06-documentos.md) | Comunicación | Documentos | PENDIENTE |
 | [FASE 7](fases/backend/fase-07-recordatorios.md) | Comunicación | Recordatorios y avisos | PENDIENTE |

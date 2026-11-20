@@ -11,9 +11,9 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-20 (R-098: la F3 del frontend, integrada a `main` con el merge `5f180f3`) |
-| Rama | `main`, en el merge `5f180f3` de `feature/f3-cierre` (las ramas se conservan) |
-| Sin integrar a `main` | Nada |
+| Actualizado | 2026-11-20 (R-099: el diseño de la FASE 4 del backend, aprobado) |
+| Rama | `feature/back-4-diseno` (desde `main` en `6fb4805`), con el diseño aprobado de la FASE 4 |
+| Sin integrar a `main` | `feature/back-4-diseno` (solo documentación); se integra con la FASE 4 |
 | Último checkpoint validado | El cierre de la F3 del frontend (R-098), el 2026-11-20 ([resultado](fases/frontend/f3-resultados.md#cierre-de-la-f3)) |
 | Tests del backend | Cierre de la F3 (R-098), sobre `3081c83`: `composer test`, 1511 casos, 16 omitidos (solo de MySQL), 15085 aserciones, en verde; `composer test:mysql`, 1511 de 1511, 15167 aserciones; Newman, las 14 colecciones, 491 pedidos y 1090 aserciones, sin fallas |
 | Tests del frontend | Cierre de la F3 (R-098), sobre `3081c83`: `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
@@ -24,7 +24,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 
 ## Estado del proyecto
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; después de la F3 del frontend, la FASE 4 (historia clínica).
+* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; la FASE 4 (historia clínica), con el diseño aprobado (R-099).
 * **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`).
 * El detalle, en el [roadmap](README.md) y en [`modulos.md`](modulos.md).
 
@@ -35,7 +35,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** El backend, FASE 4 (historia clínica): el análisis y el diseño ([documento de la fase](fases/backend/fase-04-historia-clinica.md)), con el vínculo "atendido → consulta" (la relación entre el turno atendido y la consulta, pendiente de la FASE 3) (D2, R-058) | La autorización del usuario |
+| 2 | **Siguiente.** El backend, FASE 4, entrega 4.1 (la consulta: abrir desde el turno o sin turno, editar, listado y detalle, `consultations.show-clinical` y `permissions:sync`), en `feature/back-4-1-consulta` desde el cierre del diseño ([diseño aprobado](fases/backend/fase-04-historia-clinica.md), R-099; el prompt, en su sección "Prompt de implementación") | La autorización del usuario |
 | 2b | Opcional: la deuda 29 (los bloqueos de la cola por sucursal, una entrega de soporte del backend) y la 19 (`typescript-eslint@8.73.0`), cuando el usuario lo pida ([deuda técnica](deuda-tecnica.md)) | Decisión del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |
