@@ -109,3 +109,4 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-097](registro/R-051-100.md#r-097-cierre-de-la-entrega-37-del-frontend-la-cola-del-día-2026-11-20) | 2026-11-20 | Cierre de la entrega 3.7 del frontend (la cola del día) |
 | [R-098](registro/R-051-100.md#r-098-cierre-de-la-f3-del-frontend-agenda-y-turnos-2026-11-20) | 2026-11-20 | Cierre de la F3 del frontend (agenda y turnos) |
 | [R-099](registro/R-051-100.md#r-099-diseño-de-la-fase-4-del-backend-aprobado-historia-clínica-2026-11-20) | 2026-11-20 | Diseño de la FASE 4 del backend aprobado (historia clínica) |
+| [R-100](registro/R-051-100.md#r-100-cierre-de-la-entrega-41-del-backend-la-consulta-y-el-presupuesto-por-entrega-nuevo-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.1 del backend (la consulta) y el presupuesto por entrega nuevo |

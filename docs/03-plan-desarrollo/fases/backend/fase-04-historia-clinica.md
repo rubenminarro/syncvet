@@ -1,8 +1,9 @@
 # FASE 4 — Historia clínica
 
 Etapa: Atención. Estado: **DISEÑO APROBADO** el 2026-11-20 (R-099), en `feature/back-4-diseno` (desde `main` en `6fb4805`, con la
-F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. Sigue la entrega 4.1, en
-`feature/back-4-1-consulta` desde el cierre de este diseño. El estado vigente de cada fase está en
+F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. La entrega 4.1 (la consulta),
+COMPLETADA (R-100) en `feature/back-4-1-consulta`; sigue la 4.2. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
+El estado vigente de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
 Este documento reemplaza al esqueleto de la fase (el objetivo, las 6 entregas del roadmap y 3 preguntas) y al borrador
@@ -321,8 +322,8 @@ corrección van en la 4.2, antes que los ítems, porque son la integridad de lo 
 
 | Entrega | Contenido | Migraciones | Tests (principales) | Newman | Estado |
 |---|---|---|---|---|---|
-| 4.1 | La consulta: abrir desde un turno fichado (y marcarlo atendido), desde uno atendido el mismo día o sin turno; editar abierta; listado y detalle (el Resource administrativo sin `consultations.show-clinical`); `consultation` en el detalle del turno y `has_consultation` en el listado y la cola; `consultations.show-clinical` y el comando `permissions:sync`; `postman:cleanup` borra las consultas de la corrida | La de C7 y C3 | `ConsultationStoreTest` (desde el turno, ya atendido hoy y otro día, con consulta, otro veterinario, fallecido, sin sucursal), `ConsultationUpdateTest` (otra ficha, límites), `ConsultationIndexTest` y `ConsultationShowTest` (filtros, N+1; la vista completa del administrador y del veterinario, la administrativa de la recepción), `ConsultationLockTest` y `ConsultationConcurrencyTest` (dos aperturas del mismo turno: una 201, otra 409; solo MySQL), `PermissionsSyncCommandTest`, `RoleAccessTest`, `RouteBindingTest`, `ClinicIsolation`, la foto de los roles | `syncvet-fase-04-consultas` (nueva) | PENDIENTE |
-| 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | PENDIENTE |
+| 4.1 | La consulta: abrir desde un turno fichado (y marcarlo atendido), desde uno atendido el mismo día o sin turno; editar abierta; listado y detalle (el Resource administrativo sin `consultations.show-clinical`); `consultation` en el detalle del turno y `has_consultation` en el listado y la cola; `consultations.show-clinical` y el comando `permissions:sync`; `postman:cleanup` borra las consultas de la corrida | La de C7 y C3 | `ConsultationStoreTest` (desde el turno, ya atendido hoy y otro día, con consulta, otro veterinario, fallecido, sin sucursal), `ConsultationUpdateTest` (otra ficha, límites), `ConsultationIndexTest` y `ConsultationShowTest` (filtros, N+1; la vista completa del administrador y del veterinario, la administrativa de la recepción), `ConsultationLockTest` y `ConsultationConcurrencyTest` (dos aperturas del mismo turno: una 201, otra 409; solo MySQL), `PermissionsSyncCommandTest`, `RoleAccessTest`, `RouteBindingTest`, `ClinicIsolation`, la foto de los roles | `syncvet-fase-04-consultas` (nueva) | COMPLETADO (R-100, [resultado](fase-04-resultados.md#entrega-41)), en `feature/back-4-1-consulta` |
+| 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | PENDIENTE (la siguiente) |
 | 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | PENDIENTE |
 | 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | PENDIENTE |
 | 4.5 | Los adjuntos | — | `ConsultationAttachmentTest` (el tipo por el contenido con una extensión que miente, el tamaño, el tope por consulta, la descarga con y sin permiso, el disco privado, `files:prune-orphans`) | La de consultas | PENDIENTE |
@@ -336,43 +337,7 @@ FASE 3 no cambia, salvo los campos aditivos del turno).
 
 ### 4.1 — Pendiente para el cierre
 
-Implementada en `feature/back-4-1-consulta` (commit WIP, 2026-11-20); falta la revisión y el cierre. Rutas 78 → 82 (`apiResource
-consultations` sin `destroy`); permisos 135 → 136 (`consultations.show-clinical`); migraciones 36 → 37. Las reglas, en
-[`consultas.md`](../../../02-requisitos/reglas/consultas.md).
-
-Desvíos y precisiones del diseño (para revisar en el cierre):
-
-1. **El veterinario del pedido:** el diseño no decía qué pasa si llega un `veterinarian_id` distinto del que corresponde (el del turno o
-   la ficha de quien abre): 422 en `veterinarian_id`, en lugar de ignorarlo en silencio. Uno del pedido, activo y no eliminado.
-2. **La vista administrativa:** las claves clínicas **no están** (no van en `null`). El motivo (`reason`) es administrativo (el
-   resumen del historial de la recepción lo incluye, según el diseño); en el listado, lo clínico es solo el diagnóstico.
-3. **`RoleAccessTest`:** un 403 de negocio (`APPOINTMENT_NOT_YOURS`, `CONSULTATION_NOT_YOURS`) cuenta como permitido (el permiso ya
-   pasó): editar la consulta de otra ficha sin cuerpo responde 403 `CONSULTATION_NOT_YOURS`.
-4. **Código compartido con la FASE 3:** `AppointmentService::withRetries` recibe un mensaje de conflicto opcional (la consulta dice
-   "La consulta cambió…" en lugar de "La agenda cambió…"); las reglas de `attend` (de quién es el turno) pasaron de `AppointmentTransitionService` a `AppointmentOwnership`, sin cambios (en la revisión).
-   `AppointmentQueueTest` reconoce la consulta de la cola con el `exists` de `has_consultation`.
-5. **Deuda 2 en `Consultation`:** la temperatura con `decimal:1` (su columna; antes `decimal:2`) y los signos vitales como enteros.
-6. **`has_consultation`** solo en el listado y en la cola (con `withExists`); el detalle del turno lleva `consultation`, y la
-   respuesta del alta de una serie no cambia.
-7. **Editar:** el administrador por su rol (`hasRole`); un rol propio con `consultations.update` y sin ficha recibe 403
-   `CONSULTATION_NOT_YOURS`.
-8. **`permissions:sync --dry-run`** (no estaba en el diseño): muestra los cambios sin aplicarlos.
-9. **Tests:** se sumaron `ConsultationShowTest` y `ConsultationsPhase4MigrationTest` (la bajada y la subida, en MySQL); el
-   aislamiento por clínica, en `RouteBindingTest` (`test_consultation_of_another_clinic_is_not_found`), `ConsultationIndexTest` y
-   `ConsultationStoreTest`.
-
-Validación (2026-11-20): `composer test` 1590 casos, 1571 en verde, 18 omitidos (de MySQL) y 1 falla (`AppointmentQueueTest`, la
-expresión de la consulta de la cola; corregida y repetido su archivo: 13 de 13). En MySQL, los tests afectados: 125 de 125, 1146
-aserciones (con `ConsultationConcurrencyTest`). Newman, `syncvet-fase-04-consultas`: 31 pedidos y 54 aserciones, sin fallas, y la
-limpieza sin datos residuales. `permissions:sync` en la base local: el permiso en el administrador y el veterinario, no en la recepción;
-la segunda corrida, sin cambios. Mutaciones: 4, todas detectadas: sacar el paso a atendido, aceptar el turno atendido otro día, dar el permiso a la recepción y
-saltear el fallecido.
-
-Revisión (2026-11-20): las reglas de `attend` pasaron a `AppointmentOwnership` (las usan fichar, atendido y abrir la consulta; el
-comportamiento de la FASE 3 no cambia) y el permiso clínico se pregunta una vez por pedido (`ConsultationResource::showsClinical`),
-con el conteo de consultas del listado también para la recepción. Sin cambios en la migración, la concurrencia ni la colección.
-`composer test`: 1590 casos, 1571 en verde, 18 omitidos (de MySQL) y 1 falla (`DemoAgendaCommandTest`, que arma
-`AppointmentTransitionService` a mano sin la dependencia nueva; corregido y repetido su archivo: 11 de 11).
+Nada: la 4.1 quedó cerrada en R-100 ([resultado](fase-04-resultados.md#entrega-41), con los desvíos y la validación).
 
 ## Preguntas del diseño
 
@@ -425,9 +390,3 @@ en feature/back-4-1-consulta.
 
 Sigue CLAUDE.md. Corre la suite e infórmame. No hagas commit.
 ```
-
-## Resultado
-
-PENDIENTE: lo completa el cierre de cada entrega en `fase-04-resultados.md`
-([`docs/03-plan-desarrollo/prompts/7-cierre.md`](../../prompts/7-cierre.md)): archivos, endpoints, tests y aserciones, desvíos del
-diseño y por qué.

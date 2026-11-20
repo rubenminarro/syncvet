@@ -87,9 +87,10 @@ repetidas):
 * **`environment: node` para los tests sin DOM.** Preparar jsdom es la mayor parte del tiempo de la suite: los `.test.ts` corren
   en `node` (proyecto `node` de `vite.config.ts`) y solo los `.test.tsx`, o un `.test.ts` que lo pide, en jsdom.
 * **Manda el [Presupuesto por entrega](../../CLAUDE.md#presupuesto-por-entrega)** del `CLAUDE.md` de la raíz (Playwright, Newman,
-  navegador, mutaciones y revisión).
+  navegador, mutaciones y revisión; R-100: una sola corrida completa por entrega, en la revisión, en verde en una sola corrida y con
+  la salida a un archivo; dos mutaciones, en la implementación).
 * **Durante el trabajo, `npx vitest related <archivos tocados> --run`**, o el archivo de test puntual. La suite completa,
-  `typecheck`, `lint` y `build`, una sola vez al final de la entrega.
+  `typecheck`, `lint` y `build`, una sola vez por entrega, en la revisión.
 * **Playwright**: en una entrega, solo los casos nuevos o tocados (`npx playwright test e2e/<archivo>.spec.ts`); `npm run test:e2e`
   completo, al cerrar la fase. Si la entrega cambia el menú (`src/app/menu.ts`) o el permiso de una ruta (`requirePermission`, un
   permiso de `PERMISSIONS`), corre también `e2e/permisos.spec.ts` (`npx playwright test e2e/<archivo>.spec.ts e2e/permisos.spec.ts`;

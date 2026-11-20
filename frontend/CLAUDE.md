@@ -151,7 +151,7 @@ Lo esencial; el detalle y el motivo de cada regla, en [`testing.md`](../docs/04-
 * **Manda el [Presupuesto por entrega](../CLAUDE.md#presupuesto-por-entrega)** del `CLAUDE.md` de la raíz.
 * **Versiones fijas en el diseño y un solo `npm ci`**; nada de `npm view` paquete por paquete.
 * **`environment: node` para los tests sin DOM**; jsdom, solo los `.test.tsx` o el `.test.ts` que lo pide.
-* **Durante el trabajo, `npx vitest related <archivos tocados> --run`**; la suite completa, `typecheck`, `lint` y `build`, una vez al final.
+* **Durante el trabajo, `npx vitest related <archivos tocados> --run`**; la suite completa, `typecheck`, `lint` y `build`, una vez, en la revisión, en verde en una sola corrida y con la salida a un archivo (R-100).
 * **Playwright**: solo los casos nuevos o tocados, más `e2e/permisos.spec.ts` si cambia el menú o el permiso de una ruta; completo, al cerrar la fase.
 * **Controles en Edge**: hasta 10, numerados, cada uno con el rol que usa y el dato que busca él mismo. El script recibe qué
   controles correr (`node controles.mjs 5` o `5,6`; sin argumentos, todos) e **ingresa solo con los roles de esos controles**, una

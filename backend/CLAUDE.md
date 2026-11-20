@@ -24,8 +24,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Stack:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`); MySQL 8, una base compartida por todas las clínicas, con `clinic_id`, scope global y fallo cerrado (D1: R-002, R-004 y R-007).
-* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). Sigue la FASE 4 (historia clínica): diseño aprobado (R-099), la entrega 4.1.
-* **Hoy:** 82 rutas, 136 permisos y 37 migraciones (la 4.1, en curso); la suite del cierre de la F3 del frontend (R-098), 1511 casos (15085 aserciones en SQLite, 16 omitidos de MySQL; en MySQL, 1511 y 15167).
+* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). FASE 4 (historia clínica), EN DESARROLLO en `feature/back-4-1-consulta`: diseño aprobado (R-099); la 4.1 (la consulta) cerrada (R-100). Sigue la 4.2 (cierre, enmiendas y anulación).
+* **Hoy:** 82 rutas, 136 permisos y 37 migraciones; la suite del cierre de la 4.1 (R-100), 1590 casos (15776 aserciones en SQLite, 18 omitidos de MySQL).
 * **Dónde seguir:** el punto de continuidad y las próximas tareas, en el [handoff](../docs/03-plan-desarrollo/handoff.md); cada módulo, en [`modulos.md`](../docs/03-plan-desarrollo/modulos.md); los comandos (`clinic:create`, `DemoSeeder`, `demo:agenda`, `files:prune-orphans`), en [`setup.md`](../docs/04-desarrollo/setup.md); `postman:cleanup` (la limpieza de Newman, solo local), en la [guía de Postman](../docs/05-pruebas/guia-postman.md).
 * **Detalle hasta R-090** (las carpetas de tests, los módulos con API y los comandos, como estaban en esta sección): [`historial-handoff.md`](../docs/03-plan-desarrollo/historial-handoff.md#estado-del-backend-backendclaudemd-1-hasta-r-090).
 
@@ -45,9 +45,9 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
   test:mysql`, de 5 a 6 min y medio), al cerrar la fase.
 * Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
   de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, solo los tests de lo tocado
-  (`XDEBUG_MODE=off php artisan test --filter <test>`). Al final de la entrega, una sola corrida completa: `composer test` (SQLite
-  en serie, alrededor de 3 min 20 s), de donde salen las cifras de aserciones del registro. La revisión corre solo
-  `composer test:fast` (SQLite en paralelo, alrededor de 1 min 20 s).
+  (`XDEBUG_MODE=off php artisan test --filter <test>`). Una sola corrida completa por entrega, en la revisión (R-100): `composer test`
+  (SQLite en serie, alrededor de 3 min 30 s), con la salida a un archivo y en verde en una sola corrida; de ahí salen las cifras de
+  aserciones del registro. `composer test:fast` (SQLite en paralelo, alrededor de 1 min 20 s), para una comprobación rápida.
 * En cada cierre de fase, `composer audit` tiene que quedar sin avisos. Un aviso se corrige con
   `composer update <paquete> --with-dependencies` dentro de las restricciones de `composer.json`. Si la corrección pide cambiar una
   restricción o subir de versión mayor, se consulta al usuario. Lo actualizado queda en el registro de decisiones (R-046).

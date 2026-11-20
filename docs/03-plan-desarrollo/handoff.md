@@ -11,11 +11,11 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-20 (R-099: el diseño de la FASE 4 del backend, aprobado) |
-| Rama | `feature/back-4-diseno` (desde `main` en `6fb4805`), con el diseño aprobado de la FASE 4 |
-| Sin integrar a `main` | `feature/back-4-diseno` (solo documentación); se integra con la FASE 4 |
-| Último checkpoint validado | El cierre de la F3 del frontend (R-098), el 2026-11-20 ([resultado](fases/frontend/f3-resultados.md#cierre-de-la-f3)) |
-| Tests del backend | Cierre de la F3 (R-098), sobre `3081c83`: `composer test`, 1511 casos, 16 omitidos (solo de MySQL), 15085 aserciones, en verde; `composer test:mysql`, 1511 de 1511, 15167 aserciones; Newman, las 14 colecciones, 491 pedidos y 1090 aserciones, sin fallas |
+| Actualizado | 2026-11-20 (R-100: la entrega 4.1 del backend, cerrada, y el presupuesto por entrega nuevo) |
+| Rama | `feature/back-4-1-consulta` (desde `844a7c0`, el diseño de la FASE 4 con su ajuste), con la 4.1 cerrada |
+| Sin integrar a `main` | `feature/back-4-diseno` y `feature/back-4-1-consulta`; se integran con la FASE 4 |
+| Último checkpoint validado | El cierre de la 4.1 del backend (R-100), el 2026-11-20, sobre `36aef4c` ([resultado](fases/backend/fase-04-resultados.md#entrega-41)) |
+| Tests del backend | Cierre de la 4.1 (R-100), sobre `36aef4c`: `composer test`, 1590 casos, 1572 en verde y 18 omitidos (de MySQL), 15776 aserciones, en una sola corrida; en la implementación, MySQL (los tests afectados) 125 de 125 y Newman `syncvet-fase-04-consultas`, 31 pedidos y 54 aserciones, sin fallas |
 | Tests del frontend | Cierre de la F3 (R-098), sobre `3081c83`: `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
 | Repositorio | Monorepo (R-057): `backend/`, `frontend/` y `docs/`; Claude Code, las skills y Newman, desde la raíz |
 | Historial | Cada entrega, en el `…-resultados.md` de su fase y en su R del [registro](../01-arquitectura/decisiones/registro.md); este handoff hasta R-090, en [`historial-handoff.md`](historial-handoff.md) |
@@ -24,7 +24,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 
 ## Estado del proyecto
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; la FASE 4 (historia clínica), con el diseño aprobado (R-099).
+* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; la FASE 4 (historia clínica), EN DESARROLLO: la 4.1 (la consulta), cerrada (R-100).
 * **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`).
 * El detalle, en el [roadmap](README.md) y en [`modulos.md`](modulos.md).
 
@@ -35,7 +35,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** El backend, FASE 4, entrega 4.1 (la consulta: abrir desde el turno o sin turno, editar, listado y detalle, `consultations.show-clinical` y `permissions:sync`), en `feature/back-4-1-consulta` desde el cierre del diseño ([diseño aprobado](fases/backend/fase-04-historia-clinica.md), R-099; el prompt, en su sección "Prompt de implementación") | La autorización del usuario |
+| 2 | **Siguiente.** El backend, FASE 4, entrega 4.2 (cierre de la consulta con motivo y diagnóstico, enmiendas y anulación; `consultations.amend` y sin `consultations.reopen`), en `feature/back-4-2-cierre` desde el cierre de la 4.1 ([diseño](fases/backend/fase-04-historia-clinica.md), R-099). Con el presupuesto por entrega nuevo (R-100, `CLAUDE.md` de la raíz) | La autorización del usuario |
 | 2b | Opcional: la deuda 29 (los bloqueos de la cola por sucursal, una entrega de soporte del backend) y la 19 (`typescript-eslint@8.73.0`), cuando el usuario lo pida ([deuda técnica](deuda-tecnica.md)) | Decisión del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |
