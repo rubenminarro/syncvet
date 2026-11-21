@@ -218,3 +218,69 @@ implementación y otra vez en la revisión (con el veterinario por defecto y los
 
 **Revisión.** Sin errores en el diff. Correcciones por decisión del usuario: el veterinario de la consulta por defecto, `null` al
 editar (422) y los totales de la consulta con los redondeos en un solo lugar. El uso del servicio ya tenía su test.
+
+### Entrega 4.4
+
+Las aplicaciones (vacunas, desparasitaciones y medicamentos). Implementación en `feature/back-4-4-aplicaciones`, creada desde
+`1b7399f` (el cierre de la 4.3), en el commit WIP `1e63f46`; revisión con correcciones en `5ae5098`; el cierre va en un commit aparte.
+Decisiones en [R-103](../../../01-arquitectura/decisiones/registro.md), con la del usuario sobre quién anula. Las reglas, en
+[`pacientes.md`](../../../02-requisitos/reglas/pacientes.md) y [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+**Archivos.**
+
+* Nuevos: la migración `2026_11_21_000002_add_cancellation_to_patient_applications`; `PatientApplicationService`,
+  `PatientApplicationController`, `PatientApplicationResource` y `PatientApplicationException`; `StorePatientApplicationRequest`,
+  `IndexPatientApplicationRequest`, `CancelPatientApplicationRequest` y `PatientApplicationMessages`.
+* Cambiados: `ConsultationService` (`ensureEditable()`, separado de `lockEditable()`; anular la consulta anula sus aplicaciones; el
+  detalle carga las aplicaciones), `ShowConsultationResource` (`applications`), `PatientApplication` (la anulación; deuda 2),
+  `UserService` (el uso de `cancelled_by`), `RolesAndPermissionsSeeder` y `tests/Fixtures/clinic-roles.json`
+  (`patient-applications.cancel`), `routes/api.php`, `lang/es/validation.php` y `PostmanCleanupCommand` (las aplicaciones de la corrida).
+* Tests nuevos: `PatientApplicationTest`. Cambiados: `ConsultationImmutabilityTest`, `ConsultationLockTest`, `RouteBindingTest`,
+  `RoleAccessTest` (el parámetro `application` y `PATIENT_APPLICATION_NOT_YOURS` como 403 de negocio), `PermissionsSyncCommandTest` y
+  `PostmanCleanupCommandTest`.
+* Documentación: `pacientes.md`, `consultas.md`, la guía de Postman y la colección nueva `syncvet-fase-04-aplicaciones`.
+
+**Endpoints.** `GET` y `POST patients/{patient}/applications`, `POST patient-applications/{application}/cancel`. Rutas 88 → 91,
+permisos 136 → 137, migraciones 38 → 39. El detalle de la consulta suma `applications`.
+
+**Tests.** Corrida de `composer test` de la revisión (2026-11-20, sobre el código de `5ae5098`; el cierre solo cambia documentación):
+1711 casos, 1693 en verde y 18 omitidos (de MySQL), 16807 aserciones, en una sola corrida. Frente al cierre de la 4.3 (R-102: 1675
+casos y 16460 aserciones): 36 casos más.
+
+* `PatientApplicationTest` (16, con *data providers*: 31 casos): con consulta (lote, próxima dosis, el veterinario de la consulta,
+  auditada) y sin consulta (otra ficha y el administrador); las reglas de la consulta (otro paciente, otra ficha, cerrada y anulada); el
+  paciente fallecido; las validaciones; la recepción (lista, no carga ni anula); el listado (filtros, anuladas marcadas, sin N+1); anular
+  con consulta abierta (otra ficha, la suya, otra vez, el administrador) y de una cerrada (422); sin consulta (la propia de hoy, la de otro
+  y la de ayer, el administrador); el borde de la medianoche; el motivo; las aplicaciones en el detalle de la consulta; y anularlas con la
+  consulta.
+* `ConsultationImmutabilityTest`: cargar una aplicación con una cerrada o anulada y anular una de una cerrada (3 casos más; 15 en total).
+* `ConsultationLockTest`: cargar (veterinario → paciente → consulta), anular (consulta → aplicación) y anular la consulta (ítems →
+  aplicaciones).
+* `RouteBindingTest`: las aplicaciones de un paciente de otra clínica y anular una ajena, 404.
+
+**MySQL, Newman y la base local** (en la implementación, sobre `1e63f46`; la revisión no tocó la migración, los bloqueos ni la
+colección). MySQL (`syncvet_test_mysql`), los tests afectados: 74 de 74, 512 aserciones. Newman, `syncvet-fase-04-aplicaciones`: 29
+pedidos y 43 aserciones, sin fallas; la limpieza borró las 2 aplicaciones, la consulta, el paciente, el cliente y la ficha, y dio de baja
+el usuario. `permissions:sync` en la base local: `patient-applications.cancel` en el administrador y el veterinario, no en la recepción.
+
+**Mutaciones** (2, R-100), detectadas y revertidas con el editor:
+
+* Permitir anular una aplicación de una consulta cerrada: `ConsultationImmutabilityTest` ("anular una aplicación closed") y dos de
+  `PatientApplicationTest`.
+* Que anular la consulta no anule sus aplicaciones: `PatientApplicationTest::test_cancelling_the_consultation_cancels_its_applications`.
+
+**Desvíos del diseño y precisiones.**
+
+1. Quién anula (decisión del usuario, R-103), con `PATIENT_APPLICATION_NOT_YOURS` (403), un `error_code` nuevo.
+2. Al anular, primero "ya anulada" y después la ficha y el estado de la consulta (`lockEditable()` separado en el bloqueo y
+   `ensureEditable()`).
+3. El veterinario de la aplicación: el de la consulta o la ficha de quien carga; no se recibe en el pedido.
+4. "El mismo día" es el de la carga (`created_at`, en Asunción).
+5. El listado pagina como los demás, sin tope de días ni rango por defecto y sin `search`.
+6. `next_dose_due_at` posterior al día de aplicación en Asunción.
+7. `postman:cleanup` borra las aplicaciones de la corrida antes que sus consultas y pacientes.
+8. La anulación y `dose_number` como entero en el modelo (deuda 2).
+9. Las aplicaciones, resumidas, en el detalle de la consulta (revisión: un faltante frente al diseño).
+
+**Revisión.** Ya estaban cubiertos otra ficha (403 `CONSULTATION_NOT_YOURS`), la regla del mismo día y la recepción. Correcciones: el
+test del borde de la medianoche y las aplicaciones en el detalle de la consulta, con su test.

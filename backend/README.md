@@ -9,7 +9,7 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos 
 
 | Carpeta | Contenido |
 |---|---|
-| `database/migrations` | 38 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4), `users.is_active` (FASE 2, entrega 2.2b), la matrícula del veterinario ampliada a 60 (entrega 2.3), el contacto y el sobreturno de los turnos (FASE 3, entrega 3.2a) , `attended_at` y `no_show_at` de los turnos (entrega 3.2b) y la consulta de la FASE 4 (entrega 4.1: `treatment`, `instructions`, `closed_at` y `cancelled_at` en `datetime`; 4.2: las enmiendas, `consultation_amendments`). `clinic_id` en las tablas de negocio (D1) |
+| `database/migrations` | 39 migraciones: clínicas, base de Laravel (usuarios, cache, colas, tokens, permisos), 19 de SyncVet, auditoría, configuración, secuencias, el documento del cliente ampliado a 50 caracteres y su número base (FASE 1, entrega 1.2) , el microchip del paciente ampliado a 60 (entrega 1.3) y la baja de especies y razas con sus nombres a 90 y 110 (entrega 1.4), `users.is_active` (FASE 2, entrega 2.2b), la matrícula del veterinario ampliada a 60 (entrega 2.3), el contacto y el sobreturno de los turnos (FASE 3, entrega 3.2a) , `attended_at` y `no_show_at` de los turnos (entrega 3.2b) y la consulta de la FASE 4 (entrega 4.1: `treatment`, `instructions`, `closed_at` y `cancelled_at` en `datetime`; 4.2: las enmiendas, `consultation_amendments`; 4.4: la anulación de las aplicaciones). `clinic_id` en las tablas de negocio (D1) |
 | `app/Enums` | 36 enums (estados y tipos) con `label()` en español |
 | `app/Models` | 35 modelos con casts, relaciones y `Auditable` / `SoftDeletes` donde corresponde; los de negocio con `BelongsToClinic`, especies y razas con `SharedCatalog`; las fechas con hora con el cast `AppDateTime` |
 | `app/Exceptions` | `AppException`, 17 excepciones de dominio y `ClinicContextMissingException` (fallo cerrado) |
@@ -18,8 +18,8 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos 
 | `app/Traits`, `app/Support` | `ApiResponse`, `Auditable`, `Decimal`, `CurrentClinic` (clínica en contexto), `ExecutionOrigin`, `UserPassword` (regla de contraseñas), `PwnedPasswordsVerifier`, `ApiDateTime` (fechas con hora), `PrivateImageStore` (foto y logo) y los auxiliares de nombres, búsquedas y bajas |
 | `app/Console/Commands` | `clinic:create`: alta de una clínica con su sucursal, su depósito y su primer administrador; `files:prune-orphans`: limpieza diaria de fotos y logos huérfanos (con `--dry-run`, [`docs/04-desarrollo/setup.md`](../docs/04-desarrollo/setup.md)) |
 | `bootstrap/app.php` | Mapeo de excepciones a JSON |
-| `routes/api.php` | 88 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, los turnos (únicos o en series) con sus estados, la disponibilidad de cada agenda, la cola del día y la consulta (FASE 4) |
-| `database/seeders` | `RolesAndPermissionsSeeder` (136 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
+| `routes/api.php` | 91 rutas: autenticación y perfil (`login`, `logout`, `me`, `me/current-branch`, `me/password`), clientes, pacientes y su foto, especies y razas, sucursales y depósitos, usuarios y roles, veterinarios, servicios, la configuración y el logo de la clínica, la auditoría, las agendas y sus bloqueos, los turnos (únicos o en series) con sus estados, la disponibilidad de cada agenda, la cola del día, la consulta y las aplicaciones (FASE 4) |
+| `database/seeders` | `RolesAndPermissionsSeeder` (137 permisos, 3 roles), `SpeciesSeeder` y `DemoSeeder` (datos de demostración, solo en `local` y `testing`) |
 
 ## Tablas por módulo
 
@@ -41,13 +41,13 @@ Estado: FASE 0 (puesta en marcha), FASE 1 (clientes y pacientes), FASE 2 (datos 
 
 Con el código de Laravel 13:
 
-* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 38 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](../docs/03-plan-desarrollo/fases/backend/fase-00-resultados.md#entrega-02)).
+* Las 27 migraciones que tenía el paquete base suben y bajan en SQLite con claves foráneas activas. Las 39 migraciones actuales suben en MySQL 8.4 (`syncvet_test_mysql`) con cada corrida de la suite; las de la FASE 1 (el documento del cliente, su número base, el microchip del paciente y la baja de especies y razas) se probaron también bajando y volviendo a subir, y las de la 2.2b (`users.is_active`) y la 2.3 (la matrícula del veterinario) también; la bajada de la 2.3 tiene además un test en MySQL. En la entrega 0.2 se verificaron en MySQL las 28 que había entonces ([resultado](../docs/03-plan-desarrollo/fases/backend/fase-00-resultados.md#entrega-02)).
 * Generan 221 sentencias MySQL; el nombre de índice más largo tiene 56 caracteres (límite 64). Se midió sobre el
   `schema-mysql.sql` del paquete base, quitado en el registro R-005: lo reemplazan la verificación en MySQL de la entrega 0.5 y
   `SchemaNamesTest`, que comprueba los nombres en cada corrida.
 * Prueba funcional de los Services: alta de cliente persona y empresa, códigos `PAC-000001` y `PAC-000002`, raza de otra
   especie (422), mismo dueño (422), cambio de dueño, baja con pacientes (409), baja que libera el documento, auditoría.
-* Los 136 permisos de los Controllers y de los roles existen en el seeder.
+* Los 137 permisos de los Controllers y de los roles existen en el seeder.
 
 La suite de PHPUnit (`php artisan test`) cubre los roles y permisos del seeder y de las rutas, y las respuestas de error en JSON
 (entrega 0.1); la separación por clínica (`tests/Feature/Tenancy`, 0.2); la autenticación (`tests/Feature/Auth`, 0.3);
