@@ -273,6 +273,9 @@ class ConsultationService
             'branch', 'patient', 'client', 'veterinarian.user', 'appointment', 'createdBy', 'closedBy', 'cancelledBy',
             // Entrega 4.2: las enmiendas, con su autor.
             'amendments.createdBy',
+            // Entrega 4.3: los servicios usados, por id, con el servicio y el veterinario de los honorarios.
+            'items' => fn ($query) => $query->orderBy('id'),
+            'items.service', 'items.veterinarian.user',
         ]);
     }
 

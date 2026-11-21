@@ -132,7 +132,7 @@ class PostmanCleanupCommandTest extends TestCase
         $deletedVet = $this->veterinarianOf($this->veterinarianUser($this->demo, [$this->branch]), ['license_number' => 'MP-' . self::RUN . '//deleted_8_1795194786']);
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN]])
-            ->expectsOutputToContain('Corrida 123456: 1 enmiendas, 1 consultas, 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
+            ->expectsOutputToContain('Corrida 123456: 1 enmiendas, 0 ítems, 1 consultas, 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
             ->assertSuccessful();
 
         $this->inDemo(fn () => $this->assertNull(Client::withTrashed()->find($deletedClient->id)));
@@ -183,7 +183,7 @@ class PostmanCleanupCommandTest extends TestCase
         $before = $tables();
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--dry-run' => true])
-            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 1 enmiendas, 1 consultas, 2 turnos,')
+            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 1 enmiendas, 0 ítems, 1 consultas, 2 turnos,')
             ->assertSuccessful();
 
         $this->assertSame($before, $tables());

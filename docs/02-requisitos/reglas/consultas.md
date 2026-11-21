@@ -85,3 +85,26 @@ contradice al código, manda el código.
   que no se traban entre sí. Cerrar toma el paciente (copia el peso) y después la consulta, los dos con `lockForUpdate` (§3,
   paciente → consulta); enmendar, la consulta; anular, la consulta y después sus ítems, por id (consulta → ítem). Los mismos
   reintentos de `withRetries`.
+* **Los servicios usados** (entrega 4.3; `ConsultationItemService`): ítems de tipo `service` (los de producto, en la FASE 5), con el
+  estado de cobro `pending`. `POST consultations/{consultation}/items` (`consultation-items.store`), `PATCH` y `DELETE
+  consultation-items/{item}` (`.update` y `.destroy`): solo con la consulta abierta y por su veterinario o el administrador, por
+  `lockEditable()` (422 `CONSULTATION_NOT_EDITABLE`; otra ficha, 403 `CONSULTATION_NOT_YOURS`); la recepción no los escribe. Un
+  ítem o una consulta de otra clínica, 404.
+  * **Sumar:** `service_id` (de la clínica, no eliminado) y **activo** (si no, 422 en `service_id`, "El servicio no existe o está
+    inactivo."); `quantity` mayor que cero, hasta 9999 y con hasta 3 decimales; `unit_price` opcional (si no llega, el precio del
+    catálogo); `discount` opcional (0 por defecto), **no mayor al subtotal** (422 en `discount`); los dos, importes enteros en
+    guaraníes (`WholeAmount`, hasta 12 dígitos). `veterinarian_id` opcional (honorarios), de la clínica, activo (si no llega,
+    `null`). Copia el nombre del servicio (`description`) y su tasa de IVA. Responde 201 con el detalle de la consulta.
+  * **Totales con BCMath** (§3): subtotal = cantidad × precio unitario, redondeado a 0 decimales (half-up); total = subtotal −
+    descuento. Sin `float`. Un total de más de 12 dígitos, 422 en `quantity`.
+  * **Editar** (parcial): la cantidad (no `null`), el precio unitario, el descuento y el veterinario, con los totales de nuevo; el
+    servicio y los demás campos, `prohibited` (para otro servicio, se quita y se suma otro). **Quitar:** baja física. El ítem es
+    auditable.
+  * **En el detalle**, `items` (por id: el tipo, el servicio, el veterinario, la descripción, la cantidad, el precio, el descuento,
+    el total, la tasa de IVA y el estado de cobro), **también para la recepción**: son para cobrar (pregunta 7). El listado no los
+    trae.
+  * **El uso del servicio** (§6.7): usado en una consulta, no cambia de nombre (422 `SERVICE_NAME_NOT_EDITABLE`) ni se elimina (409
+    `SERVICE_IN_USE`); su precio sí cambia, porque el ítem guarda el suyo.
+  * **Concurrencia** (§3: veterinario → servicio → consulta → ítem): el veterinario de los honorarios y el servicio con
+    `sharedLock` (su baja los bloquea para escribir antes de revisar el uso), la consulta con `lockForUpdate` (`lockEditable`) y, al
+    editar o quitar, el ítem con `lockForUpdate`. Anular la consulta toma la consulta y después sus ítems: el mismo orden.

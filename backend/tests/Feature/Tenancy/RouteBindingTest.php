@@ -373,6 +373,7 @@ class RouteBindingTest extends TestCase
             'POST close' => ['post', '/close'],
             'POST amendments' => ['post', '/amendments'],
             'POST cancel' => ['post', '/cancel'],
+            'POST items' => ['post', '/items'],
         ];
     }
 
@@ -402,15 +403,53 @@ class RouteBindingTest extends TestCase
 
         $this->actingIn($this->createClinic(), [
             'consultations.show', 'consultations.update', 'consultations.show-clinical',
-            'consultations.close', 'consultations.amend', 'consultations.cancel',
+            'consultations.close', 'consultations.amend', 'consultations.cancel', 'consultation-items.store',
         ]);
 
         $this->assertErrorCode($this->json($method, "/api/consultations/{$id}{$action}", [
             'diagnosis' => 'Cambiado', 'content' => 'Enmienda', 'reason' => 'Ajena', 'cancellation_reason' => 'Ajena',
+            'service_id' => 1, 'quantity' => 1,
         ]), 404, 'RESOURCE_NOT_FOUND');
         $this->assertSame('Ajeno', DB::table('consultations')->where('id', $id)->value('diagnosis'));
         $this->assertSame('open', DB::table('consultations')->where('id', $id)->value('status'));
         $this->assertSame(0, DB::table('consultation_amendments')->count());
+        $this->assertSame(0, DB::table('consultation_items')->count());
+    }
+
+    /**
+     * Un servicio usado en una consulta de otra clínica (FASE 4, entrega 4.3): editarlo o quitarlo
+     * responde 404 y no cambia.
+     */
+    public static function itemMethods(): array
+    {
+        return ['PATCH' => ['patch'], 'DELETE' => ['delete']];
+    }
+
+    #[DataProvider('itemMethods')]
+    public function test_consultation_item_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        [$vetId, $serviceId] = CurrentClinic::run($foreignClinic, fn () => [
+            Veterinarian::create(['user_id' => User::factory()->for($foreignClinic)->create()->id, 'code' => 'VET-000001'])->id,
+            Service::create(['code' => 'SRV-000001', 'name' => 'Consulta general'])->id,
+        ]);
+        $consultationId = DB::table('consultations')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'code' => 'CON-000001', 'branch_id' => $this->defaultBranchIn($foreignClinic)->id,
+            'patient_id' => $patient->id, 'client_id' => $patient->client_id, 'veterinarian_id' => $vetId,
+            'consulted_at' => now(), 'status' => 'open', 'created_by' => User::factory()->for($foreignClinic)->create()->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $itemId = DB::table('consultation_items')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'consultation_id' => $consultationId, 'type' => 'service', 'service_id' => $serviceId,
+            'description' => 'Consulta general', 'quantity' => '1.000', 'unit_price' => '150000.00', 'discount' => '0.00',
+            'total' => '150000.00', 'tax_rate' => 10, 'billing_status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), ['consultation-items.update', 'consultation-items.destroy']);
+
+        $this->assertErrorCode($this->json($method, "/api/consultation-items/{$itemId}", ['quantity' => 5]), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame(1, DB::table('consultation_items')->where('id', $itemId)->where('quantity', 1)->count());
     }
 
     public function test_own_records_are_found(): void

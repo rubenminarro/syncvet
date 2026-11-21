@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\ClinicLogoController;
 use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\ConsultationItemController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
@@ -120,6 +121,13 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::post('consultations/{consultation}/close', [ConsultationController::class, 'close'])->name('consultations.close');
     Route::post('consultations/{consultation}/amendments', [ConsultationController::class, 'amend'])->name('consultations.amend');
     Route::post('consultations/{consultation}/cancel', [ConsultationController::class, 'cancel'])->name('consultations.cancel');
+    // Entrega 4.3: los servicios usados. Sumar, anidado bajo la consulta; editar y quitar, por el ítem (shallow, como en el
+    // diseño). Un ítem de otra clínica, 404 (BelongsToClinic).
+    Route::scopeBindings()->group(function () {
+        Route::post('consultations/{consultation}/items', [ConsultationItemController::class, 'store'])->name('consultations.consultation-items.store');
+    });
+    Route::patch('consultation-items/{item}', [ConsultationItemController::class, 'update'])->name('consultation-items.update');
+    Route::delete('consultation-items/{item}', [ConsultationItemController::class, 'destroy'])->name('consultation-items.destroy');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

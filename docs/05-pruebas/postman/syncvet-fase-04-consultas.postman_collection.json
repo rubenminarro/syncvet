@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 4: la consulta",
-        "description": "Validación manual de la consulta (FASE 4, entregas 4.1 y 4.2). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la 4.1 y la 4.2 (php artisan migrate) y los permisos al día (php artisan permissions:sync: consultations.show-clinical y consultations.amend nuevos, consultations.reopen fuera). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) el DELETE (405); y la 4.2: cerrar la urgente sin diagnóstico (422 CONSULTATION_CLOSE_INCOMPLETE, errors por campo), enmendar una abierta (422 CONSULTATION_NOT_AMENDABLE), cerrar la del turno (200, el peso pasa al paciente), editarla y cerrarla otra vez (422 CONSULTATION_NOT_EDITABLE y CONSULTATION_NOT_CLOSABLE), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular la abierta y la cerrada (200), otra vez (422 CONSULTATION_NOT_CANCELLABLE) y el turno que sigue atendido. No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "description": "Validación manual de la consulta (FASE 4, entregas 4.1 a 4.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la 4.1 y la 4.2 (php artisan migrate) y los permisos al día (php artisan permissions:sync: consultations.show-clinical y consultations.amend nuevos, consultations.reopen fuera). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) el DELETE (405); y la 4.2: cerrar la urgente sin diagnóstico (422 CONSULTATION_CLOSE_INCOMPLETE, errors por campo), enmendar una abierta (422 CONSULTATION_NOT_AMENDABLE), cerrar la del turno (200, el peso pasa al paciente), editarla y cerrarla otra vez (422 CONSULTATION_NOT_EDITABLE y CONSULTATION_NOT_CLOSABLE), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular la abierta y la cerrada (200), otra vez (422 CONSULTATION_NOT_CANCELLABLE) y el turno que sigue atendido; y la 4.3: la recepción no suma servicios (403), sumar el servicio con el precio del catálogo (201) y otro con cantidad decimal, precio y descuento (el total con BCMath), un descuento mayor al subtotal (422), editar la cantidad (el total de nuevo), quitar, la recepción que ve los ítems sin el contenido clínico, el servicio usado que no cambia de nombre (422 SERVICE_NAME_NOT_EDITABLE), sumar a una cerrada (422 CONSULTATION_NOT_EDITABLE) y el ítem sin cobro al anular. No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -1705,6 +1705,456 @@
             }
         },
         {
+            "name": "30a La recepción no suma servicios → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/items",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "items"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": {{service_id}},\n    \"quantity\": 1\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30b El veterinario suma el servicio con el precio del catálogo → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const item = pm.response.json().data.items[0];",
+                            "pm.test('El precio y el nombre del catálogo, pendiente de cobro', () => {",
+                            "    pm.expect(item.unit_price).to.eql('150000.00');",
+                            "    pm.expect(item.total).to.eql('150000.00');",
+                            "    pm.expect(item.description).to.eql(`Consulta clínica ${pm.collectionVariables.get('run')}`);",
+                            "    pm.expect(item.billing_status.value).to.eql('pending');",
+                            "});",
+                            "pm.collectionVariables.set('item_id', String(item.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/items",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "items"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": {{service_id}},\n    \"quantity\": 1\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30c Otro, con cantidad, precio y descuento → 201, total con BCMath",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const item = pm.response.json().data.items[1];",
+                            "pm.test('1,5 × 33.333 = 49.999,5 → 50.000 − 5.000 = 45.000', () => {",
+                            "    pm.expect(item.quantity).to.eql('1.500');",
+                            "    pm.expect(item.total).to.eql('45000.00');",
+                            "});",
+                            "pm.collectionVariables.set('item2_id', String(item.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/items",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "items"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": {{service_id}},\n    \"quantity\": 1.5,\n    \"unit_price\": 33333,\n    \"discount\": 5000\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30d Un descuento mayor al subtotal → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('Error en discount', () => pm.expect(pm.response.json().errors).to.have.property('discount'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/items",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "items"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": {{service_id}},\n    \"quantity\": 1,\n    \"discount\": 150001\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30e Editar la cantidad del segundo → 200, el total de nuevo",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('2 × 33.333 = 66.666 − 5.000 = 61.666', () => pm.expect(pm.response.json().data.items[1].total).to.eql('61666.00'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultation-items/{{item2_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultation-items",
+                        "{{item2_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"quantity\": 2\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30f Quitar el segundo → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Queda uno', () => pm.expect(pm.response.json().data.items).to.have.length(1));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultation-items/{{item2_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultation-items",
+                        "{{item2_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30g La recepción ve los ítems (para cobrar), sin el contenido clínico",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const consultation = pm.response.json().data;",
+                            "pm.test('El ítem, sí; el diagnóstico, no', () => {",
+                            "    pm.expect(consultation.items[0].total).to.eql('150000.00');",
+                            "    pm.expect(consultation).to.not.have.property('diagnosis');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30h El servicio usado no cambia de nombre → 422 SERVICE_NAME_NOT_EDITABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code SERVICE_NAME_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('SERVICE_NAME_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/services/{{service_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "services",
+                        "{{service_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Otro nombre {{run}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "31 Cerrar la consulta urgente sin diagnóstico → 422 CONSULTATION_CLOSE_INCOMPLETE",
             "event": [
                 {
@@ -1991,6 +2441,64 @@
                         "{{consultation_id}}",
                         "close"
                     ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36a Sumar un servicio a la cerrada → 422 CONSULTATION_NOT_EDITABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/items",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "items"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"service_id\": {{service_id}},\n    \"quantity\": 1\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
                 },
                 "auth": {
                     "type": "bearer",
@@ -2409,6 +2917,50 @@
             }
         },
         {
+            "name": "43a Anulada, su ítem no se cobra (no_charge)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('El ítem, sin cobro', () => pm.expect(pm.response.json().data.items[0].billing_status.value).to.eql('no_charge'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "44 El turno sigue atendido",
             "event": [
                 {
@@ -2559,6 +3111,16 @@
         },
         {
             "key": "pending_appointment_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "item_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "item2_id",
             "value": "",
             "type": "string"
         }

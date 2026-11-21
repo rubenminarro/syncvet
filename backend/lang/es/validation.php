@@ -323,6 +323,15 @@ return [
         // Las enmiendas (FASE 4, entrega 4.2)
         'content' => 'contenido',
         'field' => 'campo enmendado',
+
+        // Los servicios usados en la consulta (FASE 4, entrega 4.3)
+        'quantity' => 'cantidad',
+        'unit_price' => 'precio unitario',
+        'discount' => 'descuento',
+        'consultation_id' => 'consulta',
+        'type' => 'tipo',
+        'total' => 'total',
+        'billing_status' => 'estado de cobro',
     ],
 
 ];

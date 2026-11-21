@@ -138,6 +138,33 @@ class ConsultationLockTest extends TestCase
         );
     }
 
+    /**
+     * Entrega 4.3 (§3: veterinario → servicio → consulta → ítem): sumar un servicio toma el veterinario de
+     * los honorarios y el servicio con sharedLock antes que la consulta; editar y quitar, la consulta antes
+     * que el ítem.
+     */
+    public function test_items_lock_veterinarian_and_service_before_the_consultation_and_it_before_the_item(): void
+    {
+        $service = \App\Support\CurrentClinic::run($this->clinic, fn () => \App\Models\Service::create(['code' => 'SRV-000001', 'name' => 'Consulta general', 'standard_price' => '150000']));
+        $this->actAsVet();
+        $id = $this->opened(['appointment_id' => $this->checkedIn()]);
+
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/items", [
+            'service_id' => $service->id, 'quantity' => 1, 'veterinarian_id' => $this->vet->id,
+        ])->assertCreated());
+        $this->assertBefore($queries, $this->lockedRead('veterinarians', false), $this->lockedRead('services', false), 'El veterinario va antes que el servicio.');
+        $this->assertBefore($queries, $this->lockedRead('services', false), $this->lockedRead('consultations', true), 'El servicio va antes que la consulta.');
+
+        $item = (int) DB::table('consultation_items')->value('id');
+        $isItemLock = fn (string $sql) => preg_match('/^select \* from [`"]consultation_items[`"] where .*[`"]consultation_items[`"]\.[`"]id[`"] = \?/', $sql) === 1
+            && (DB::getDriverName() !== 'mysql' || str_ends_with($sql, 'for update'));
+
+        foreach (['patch' => ['quantity' => 2], 'delete' => []] as $method => $body) {
+            $queries = $this->queriesOf(fn () => $this->json($method, "/api/consultation-items/{$item}", $body)->assertOk());
+            $this->assertBefore($queries, $this->lockedRead('consultations', true), $isItemLock, "{$method}: la consulta va antes que el ítem.");
+        }
+    }
+
     public function test_a_deadlock_is_retried_and_a_lock_wait_timeout_is_not(): void
     {
         $appointment = $this->checkedIn();

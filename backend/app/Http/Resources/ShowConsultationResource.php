@@ -13,8 +13,9 @@ use Illuminate\Http\Request;
  * condición corporal y el texto del examen), el diagnóstico, el tratamiento y las indicaciones;
  * sin él (la recepción, pregunta 7), esas claves no están.
  *
- * Con el permiso, además las enmiendas (4.2). Los ítems, las aplicaciones y los adjuntos se suman en sus entregas (4.3 a 4.5).
- * Espera además appointment, createdBy, closedBy y cancelledBy cargados
+ * Con el permiso, además las enmiendas (4.2). Para todos, los ítems (4.3: lo administrativo, para
+ * cobrar). Las aplicaciones y los adjuntos se suman en sus entregas (4.4 y 4.5).
+ * Espera además appointment, items.service, items.veterinarian.user, createdBy, closedBy y cancelledBy cargados
  * (ConsultationService::loadDetail).
  *
  * @mixin Consultation
@@ -33,6 +34,8 @@ class ShowConsultationResource extends ConsultationResource
                     'label' => $this->appointment->status->label(),
                 ],
             ],
+            // Entrega 4.3: los servicios usados, por id; administrativos (la recepción los cobra).
+            'items' => ConsultationItemResource::collection($this->items)->resolve($request),
             $this->mergeWhen(self::showsClinical($request), fn () => [
                 'history' => $this->history,
                 'weight_kg' => $this->weight_kg,

@@ -217,9 +217,12 @@ class PostmanCleanupCommand extends Command
         // Sus enmiendas (entrega 4.2) primero: son inmutables (el modelo no se borra) y restrictOnDelete; sin auditoría. Solo llega
         // acá con APP_ENV=local y la base syncvet (el guardia de handle(); test_it_refuses_outside_local_and_the_development_database).
         $amendments = DB::table('consultation_amendments')->whereIn('consultation_id', $consultations->modelKeys())->delete();
+        // Sus ítems (entrega 4.3) se van con la consulta (cascadeOnDelete); se cuentan antes.
+        $items = DB::table('consultation_items')->whereIn('consultation_id', $consultations->modelKeys())->count();
 
         $summary = [
             'amendments' => $amendments,
+            'items' => $items,
             'consultations' => $this->forceDeleteAll($consultations),
             'appointments' => $this->forceDeleteAll($appointments),
             'blocks' => $this->forceDeleteAll(ScheduleBlock::whereIn('schedule_id', $schedules->modelKeys())->get()),
@@ -368,7 +371,7 @@ class PostmanCleanupCommand extends Command
     private function describe(array $summary): string
     {
         $labels = [
-            'amendments' => 'enmiendas', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
+            'amendments' => 'enmiendas', 'items' => 'ítems', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
             'patients' => 'pacientes', 'clients' => 'clientes', 'veterinarians' => 'fichas', 'services' => 'servicios',
             'breeds' => 'razas', 'species' => 'especies', 'branches' => 'sucursales', 'warehouses' => 'depósitos', 'users' => 'usuarios dados de baja',
         ];

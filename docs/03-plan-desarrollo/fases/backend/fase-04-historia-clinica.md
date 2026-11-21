@@ -344,6 +344,35 @@ Nada: la 4.1 quedó cerrada en R-100 ([resultado](fase-04-resultados.md#entrega-
 Nada: la 4.2 quedó cerrada en R-101 ([resultado](fase-04-resultados.md#entrega-42), con los desvíos, la validación y lo pendiente de
 la 4.4: las aplicaciones de una consulta anulada se anulan con ella).
 
+### 4.3 — Pendiente para el cierre
+
+Implementada en `feature/back-4-3-servicios` (desde `c5e0873`, commit WIP, 2026-11-20); falta la revisión (con la corrida completa,
+R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 85 → 88 (`POST consultations/{consultation}/items`, `PATCH` y
+`DELETE consultation-items/{item}`); permisos 136, sin cambios (`consultation-items.*` ya estaban en el seeder: el administrador y el
+veterinario, no la recepción); migraciones 38, sin cambios. Las reglas, en [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+Desvíos y precisiones (para revisar en el cierre):
+
+1. **Rutas:** sumar, anidado bajo la consulta (en un grupo `scopeBindings()`); editar y quitar, por el ítem
+   (`consultation-items/{item}`), como dice la tabla de endpoints del diseño. Sin `PUT` del ítem: solo `PATCH`.
+2. **Las respuestas traen el detalle de la consulta** (201 al sumar, 200 al editar y al quitar), con sus ítems, como la enmienda.
+3. **`veterinarian_id`**, si no llega, queda en `null` (el diseño no fijaba un valor por defecto); uno inactivo, 422.
+4. **Los ítems, solo en el detalle** (también para la recepción); el listado no los trae.
+5. **Un total de más de 12 dígitos** responde 422 en `quantity` (la columna es `decimal(14,2)`).
+6. **Editar con `discount: null` o `unit_price: null`** deja el valor que tenía.
+7. **Deuda 2 en `ConsultationItem`:** la cantidad con `decimal:3` (su columna; antes `decimal:2`).
+8. **`postman:cleanup`** cuenta los ítems de la corrida (se borran en cascada con su consulta).
+9. **Tests:** `RoleAccessTest` suma el parámetro `item` (con un servicio propio, para que el de `service` siga sin uso);
+   `ConsultationLockTest`, el orden de los ítems.
+
+Validación de la implementación (2026-11-20, R-100: sin la suite completa, que va en la revisión): los tests relacionados, 271 casos
+(2 omitidos de MySQL) con 3 fallas de los propios tests (una expectativa duplicada de `postman:cleanup` y un cuerpo con `service_id`
+para editar un ítem), corregidas y repetidos sus archivos (102 de 102); el orden de bloqueo, 36 de 36. MySQL, los tests afectados (los
+bloqueos nuevos): 56 de 56, 350 aserciones. Newman, `syncvet-fase-04-consultas` ampliada: 55 pedidos y 104 aserciones, sin fallas; la
+limpieza, sin datos residuales. Mutaciones: aceptar un servicio inactivo (la detecta `ConsultationItemTest::test_an_inactive_service_is_rejected`)
+y sumar un ítem a una consulta cerrada (`ConsultationImmutabilityTest`, "sumar un ítem" cerrada y anulada, y `ConsultationItemTest`,
+la consulta cerrada o anulada y otra ficha).
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

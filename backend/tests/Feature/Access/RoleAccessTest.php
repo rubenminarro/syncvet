@@ -171,6 +171,25 @@ class RoleAccessTest extends TestCase
                 'created_at' => now(),
             ])->id),
         ];
+
+        // Un servicio usado en esa consulta (FASE 4, entrega 4.3): editarlo sin cuerpo responde 200 (el
+        // administrador) o 403 CONSULTATION_NOT_YOURS (una ficha ajena); quitarlo, lo mismo.
+        $this->parameters['item'] = (string) DB::table('consultation_items')->insertGetId([
+            'clinic_id' => $this->clinic->id,
+            'consultation_id' => (int) $this->parameters['consultation'],
+            'type' => 'service',
+            // Otro servicio: el de 'service' tiene que seguir sin uso (su baja responde 200).
+            'service_id' => CurrentClinic::run($this->clinic, fn () => Service::create(['code' => 'SRV-000003', 'name' => 'Vacunación'])->id),
+            'description' => 'Vacunación',
+            'quantity' => '1.000',
+            'unit_price' => '150000.00',
+            'discount' => '0.00',
+            'total' => '150000.00',
+            'tax_rate' => 10,
+            'billing_status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**
