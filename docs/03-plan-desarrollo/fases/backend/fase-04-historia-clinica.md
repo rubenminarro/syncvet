@@ -348,6 +348,44 @@ la 4.4: las aplicaciones de una consulta anulada se anulan con ella).
 
 Nada: la 4.3 quedó cerrada en R-102 ([resultado](fase-04-resultados.md#entrega-43), con los desvíos y la validación).
 
+### 4.4 — Pendiente para el cierre
+
+Implementada en `feature/back-4-4-aplicaciones` (desde `1b7399f`, commit WIP, 2026-11-20); falta la revisión (con la corrida completa,
+R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 88 → 91 (`GET` y `POST patients/{patient}/applications`, `POST
+patient-applications/{application}/cancel`); permisos 136 → 137 (`patient-applications.cancel`: el administrador y el veterinario);
+migraciones 38 → 39 (`add_cancellation_to_patient_applications`). `patient-applications.store` ya estaba en el seeder solo para el
+administrador y el veterinario, como dice el diseño. Las reglas, en [`pacientes.md`](../../../02-requisitos/reglas/pacientes.md) y
+[`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+**Decisión del usuario (para la R de la entrega):** quién anula una aplicación. Con consulta: solo abierta, por su veterinario o el
+administrador (cerrada, 422 `CONSULTATION_NOT_EDITABLE`: se anula con la consulta). Sin consulta: el administrador; el veterinario,
+solo la que cargó él el mismo día en Asunción (si no, 403 `PATIENT_APPLICATION_NOT_YOURS`, un `error_code` nuevo). El permiso, al
+administrador y al veterinario.
+
+Desvíos y precisiones (para revisar en el cierre):
+
+1. **Lo pendiente de la 4.2:** anular la consulta anula sus aplicaciones con el mismo motivo, en la misma transacción; una ya anulada
+   conserva la suya.
+2. **El orden de los errores al anular:** primero "ya anulada" (422 `PATIENT_APPLICATION_NOT_CANCELLABLE`), después la ficha y el
+   estado de la consulta. Para eso `lockEditable()` se separó en el bloqueo y `ensureEditable()` (las mismas reglas, en un solo lugar).
+3. **El veterinario de la aplicación:** el de la consulta; sin consulta, la ficha de quien la carga (o `null`). No se recibe en el
+   pedido.
+4. **"El mismo día"** es el día en que se cargó (`created_at`, en Asunción), no el de `applied_at`.
+5. **El listado** pagina como los demás (`per_page` de 1 a 100) y no tiene tope de días ni rango por defecto: sin `from`/`to`, todas.
+   Sin `search`.
+6. **`next_dose_due_at`** tiene que ser posterior al **día** de aplicación en Asunción (el mismo día, 422).
+7. **`RoleAccessTest`** acepta `PATIENT_APPLICATION_NOT_YOURS` como 403 de negocio y suma el parámetro `application`.
+8. **`postman:cleanup`** borra las aplicaciones de la corrida (de sus pacientes o consultas), antes que las consultas y los pacientes.
+9. **Deuda 2 en `PatientApplication`:** la anulación y `dose_number` como entero.
+
+Validación de la implementación (2026-11-20, R-100: sin la suite completa, que va en la revisión): los tests relacionados, 321 casos,
+318 en verde y 3 omitidos (de MySQL), sin fallas; el orden de bloqueo, 8 de 8. MySQL, los tests afectados (la migración y los
+bloqueos de anular): 74 de 74, 512 aserciones. Newman, `syncvet-fase-04-aplicaciones` (nueva): 29 pedidos y 43 aserciones, sin
+fallas; la limpieza borró las 2 aplicaciones y el resto de la corrida, sin datos residuales. `permissions:sync` en la base local:
+`patient-applications.cancel` en el administrador y el veterinario, no en la recepción. Mutaciones: permitir anular una aplicación de
+una consulta cerrada (la detectan `ConsultationImmutabilityTest`, "anular una aplicación closed", y dos de `PatientApplicationTest`) y
+que anular la consulta no anule sus aplicaciones (`PatientApplicationTest::test_cancelling_the_consultation_cancels_its_applications`).
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

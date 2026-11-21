@@ -19,6 +19,7 @@ use App\Models\Consultation;
 use App\Models\ConsultationAmendment;
 use App\Models\ConsultationItem;
 use App\Models\Patient;
+use App\Models\PatientApplication;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Support\ApiDateTime;
@@ -139,14 +140,23 @@ class ConsultationService
     public function lockEditable(Consultation $consultation, User $user): Consultation
     {
         $locked = Consultation::query()->whereKey($consultation->getKey())->lockForUpdate()->firstOrFail();
+        $this->ensureEditable($locked, $user);
 
+        return $locked;
+    }
+
+    /**
+     * Las reglas de lockEditable() sobre una consulta ya bloqueada (entrega 4.4: anular una aplicación
+     * bloquea la consulta y la aplicación, y revisa primero si la aplicación ya está anulada): la ficha
+     * (403 CONSULTATION_NOT_YOURS) y después el estado (422 CONSULTATION_NOT_EDITABLE).
+     */
+    public function ensureEditable(Consultation $locked, User $user): void
+    {
         $this->ensureOwnConsultation($locked, $user);
 
         if ($locked->status !== ConsultationStatus::OPEN) {
             throw ConsultationException::notEditable();
         }
-
-        return $locked;
     }
 
     /**
@@ -228,7 +238,7 @@ class ConsultationService
      * Anular (entrega 4.2; pregunta 12): solo el administrador (el permiso consultations.cancel),
      * con motivo; abierta o cerrada (anulada, 422 CONSULTATION_NOT_CANCELLABLE). La consulta queda
      * visible, con todo su contenido; sus ítems pendientes pasan a no_charge (no se cobran); el turno
-     * sigue atendido. Las aplicaciones se anulan con ella desde la 4.4, cuando exista su anulación.
+     * sigue atendido. Sus aplicaciones se anulan con ella, con el mismo motivo (4.4).
      *
      * Concurrencia (§3, consulta → ítem): la consulta con lockForUpdate antes de leer su estado y
      * después sus ítems, por id.
@@ -258,6 +268,16 @@ class ConsultationService
                     $item->billing_status = ConsultationItemBillingStatus::NO_CHARGE;
                     $item->save();
                 }
+            }
+
+            // Entrega 4.4 (pregunta 12, pendiente de la 4.2): sus aplicaciones se anulan con ella, con el
+            // mismo motivo, en la misma transacción (consulta → ítem → aplicación, por id).
+            $applications = PatientApplication::query()->where('consultation_id', $locked->getKey())->whereNull('cancelled_at')
+                ->orderBy('id')->lockForUpdate()->get();
+
+            foreach ($applications as $application) {
+                $application->fill(['cancelled_at' => $locked->cancelled_at, 'cancelled_by' => $user->getKey(), 'cancellation_reason' => $reason]);
+                $application->save();
             }
 
             return $locked;

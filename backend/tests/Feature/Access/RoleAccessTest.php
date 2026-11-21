@@ -190,6 +190,18 @@ class RoleAccessTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        // Una aplicación sin consulta del paciente (FASE 4, entrega 4.4): anularla sin cuerpo responde 422.
+        $this->parameters['application'] = (string) DB::table('patient_applications')->insertGetId([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => (int) $this->parameters['patient'],
+            'type' => 'vaccine',
+            'name' => 'Antirrábica',
+            'applied_at' => now()->format('Y-m-d H:i:s'),
+            'created_by' => User::factory()->for($this->clinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**
@@ -432,7 +444,7 @@ class RoleAccessTest extends TestCase
      * Un 403 de negocio cuenta como permitido: el permiso ya pasó y la regla de la ficha
      * (FASE 4, entrega 4.1: editar la consulta de otra ficha) lo rechaza después.
      */
-    private const BUSINESS_FORBIDDEN = ['APPOINTMENT_NOT_YOURS', 'CONSULTATION_NOT_YOURS'];
+    private const BUSINESS_FORBIDDEN = ['APPOINTMENT_NOT_YOURS', 'CONSULTATION_NOT_YOURS', 'PATIENT_APPLICATION_NOT_YOURS'];
 
     private function isAllowed(TestResponse $response): bool
     {

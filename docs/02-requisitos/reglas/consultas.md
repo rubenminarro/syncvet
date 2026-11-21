@@ -79,8 +79,8 @@ contradice al código, manda el código.
   `cancellation_reason` (de 3 a 500); abierta o cerrada (anulada, 422 `CONSULTATION_NOT_CANCELLABLE`). Fija `cancelled_at`,
   `cancelled_by` y el motivo; queda visible, con todo su contenido. Sus ítems pendientes pasan a `no_charge` (no se cobran; uno
   facturado no se toca, y desde la FASE 8 impedirá anular). El turno sigue atendido. **Anular una cerrada no revierte el peso que el
-  cierre le copió al paciente**: el paciente conserva el último peso medido, y si hace falta se corrige en su ficha. **Pendiente de la
-  4.4:** sus aplicaciones se anularán con ella cuando exista la anulación de aplicaciones.
+  cierre le copió al paciente**: el paciente conserva el último peso medido, y si hace falta se corrige en su ficha. **Sus aplicaciones
+  se anulan con ella** (4.4), con el mismo motivo, en la misma transacción; una ya anulada conserva su anulación.
 * **Concurrencia de la 4.2:** el mismo orden que la 4.1 y que el cambio de dueño (paciente → cliente; paciente → consulta → ítem), así
   que no se traban entre sí. Cerrar toma el paciente (copia el peso) y después la consulta, los dos con `lockForUpdate` (§3,
   paciente → consulta); enmendar, la consulta; anular, la consulta y después sus ítems, por id (consulta → ítem). Los mismos
@@ -111,3 +111,10 @@ contradice al código, manda el código.
   * **Concurrencia** (§3: veterinario → servicio → consulta → ítem): el veterinario de los honorarios y el servicio con
     `sharedLock` (su baja los bloquea para escribir antes de revisar el uso), la consulta con `lockForUpdate` (`lockEditable`) y, al
     editar o quitar, el ítem con `lockForUpdate`. Anular la consulta toma la consulta y después sus ítems: el mismo orden.
+* **Las aplicaciones** (entrega 4.4; `PatientApplicationService`; las reglas del paciente, en [`pacientes.md`](pacientes.md)):
+  vacunas, desparasitaciones internas y externas y medicamentos, con o sin consulta. Una aplicación con `consultation_id` sigue la
+  inmutabilidad: se carga solo con la consulta abierta, por su veterinario o el administrador (`lockEditable()`: 403
+  `CONSULTATION_NOT_YOURS`, 422 `CONSULTATION_NOT_EDITABLE`); la consulta tiene que ser del mismo paciente (422 en
+  `consultation_id`). Una aplicación de una consulta **cerrada** no se anula sola (422 `CONSULTATION_NOT_EDITABLE`): se anula con la
+  consulta. Concurrencia: cargar, el veterinario y el paciente (`sharedLock`) antes que la consulta; anular, la consulta antes que la
+  aplicación (`lockForUpdate`); anular la consulta, sus ítems y después sus aplicaciones.

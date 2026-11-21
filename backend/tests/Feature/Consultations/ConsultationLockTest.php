@@ -169,6 +169,40 @@ class ConsultationLockTest extends TestCase
         }
     }
 
+    /**
+     * Entrega 4.4 (§3: veterinario → paciente → consulta → aplicación): cargar con consulta toma el
+     * veterinario y el paciente (sharedLock) antes que la consulta; anular, la consulta antes que la
+     * aplicación; anular la consulta, sus ítems y después sus aplicaciones.
+     */
+    public function test_applications_lock_in_order(): void
+    {
+        $appointment = $this->checkedIn();
+        $patient = $this->patientIdOf($appointment);
+        $this->actAsVet();
+        $id = $this->opened(['appointment_id' => $appointment]);
+        $isApplicationLock = fn (string $sql) => preg_match('/^select \* from [`"]patient_applications[`"] where .*[`"]patient_applications[`"]\.[`"]id[`"] = \?/', $sql) === 1
+            && (DB::getDriverName() !== 'mysql' || str_ends_with($sql, 'for update'));
+        $body = ['type' => 'vaccine', 'name' => 'Antirrábica', 'applied_at' => '2026-11-10T08:50:00', 'consultation_id' => $id];
+
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/patients/{$patient}/applications", $body)->assertCreated());
+        $this->assertBefore($queries, $this->lockedRead('veterinarians', false), $this->lockedRead('patients', false), 'Cargar: el veterinario va antes que el paciente.');
+        $this->assertBefore($queries, $this->lockedRead('patients', false), $this->lockedRead('consultations', true), 'Cargar: el paciente va antes que la consulta.');
+
+        $application = (int) DB::table('patient_applications')->value('id');
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/patient-applications/{$application}/cancel", ['cancellation_reason' => 'Error'])->assertOk());
+        $this->assertBefore($queries, $this->lockedRead('consultations', true), $isApplicationLock, 'Anular: la consulta va antes que la aplicación.');
+
+        $this->postJson("/api/patients/{$patient}/applications", $body)->assertCreated();
+        $this->actAsAdmin();
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/cancel", ['cancellation_reason' => 'Error'])->assertOk());
+        $this->assertBefore(
+            $queries,
+            fn (string $sql) => str_contains($sql, 'consultation_items') && (DB::getDriverName() !== 'mysql' || str_ends_with($sql, 'for update')),
+            fn (string $sql) => str_contains($sql, 'from `patient_applications`') || str_contains($sql, 'from "patient_applications"'),
+            'Anular la consulta: los ítems van antes que las aplicaciones.',
+        );
+    }
+
     public function test_a_deadlock_is_retried_and_a_lock_wait_timeout_is_not(): void
     {
         $appointment = $this->checkedIn();

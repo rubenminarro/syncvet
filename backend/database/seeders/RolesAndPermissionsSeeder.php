@@ -64,6 +64,9 @@ class RolesAndPermissionsSeeder extends Seeder
         'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',
         'consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy',
         'patient-applications.index', 'patient-applications.store',
+        // FASE 4, entrega 4.4: anular una aplicación (el administrador y el veterinario, con las reglas de
+        // PatientApplicationService; decisión del usuario).
+        'patient-applications.cancel',
         'patient-documents.index', 'patient-documents.store', 'patient-documents.show', 'patient-documents.cancel',
         'document-templates.index', 'document-templates.store', 'document-templates.update', 'document-templates.destroy',
 
@@ -162,7 +165,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'consultations.close', 'consultations.show-clinical', 'consultations.amend',
                     'consultation-items.store', 'consultation-items.update', 'consultation-items.destroy',
                     'consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy',
-                    'patient-applications.index', 'patient-applications.store',
+                    'patient-applications.index', 'patient-applications.store', 'patient-applications.cancel',
                     'patient-documents.index', 'patient-documents.store', 'patient-documents.show',
                     'document-templates.index',
                     'reminders.index', 'reminders.store', 'reminders.update',

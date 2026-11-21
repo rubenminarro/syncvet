@@ -51,7 +51,7 @@ class UserService
         'consultations' => ['created_by', 'closed_by', 'cancelled_by'],
         'consultation_amendments' => ['created_by'],
         'consultation_attachments' => ['uploaded_by'],
-        'patient_applications' => ['created_by'],
+        'patient_applications' => ['created_by', 'cancelled_by'],
         'patient_documents' => ['created_by', 'cancelled_by'],
         'reminders' => ['created_by'],
         'client_notifications' => ['created_by'],

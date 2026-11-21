@@ -9,6 +9,7 @@ use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Consultation;
 use App\Models\Patient;
+use App\Models\PatientApplication;
 use App\Models\Schedule;
 use App\Models\ScheduleBlock;
 use App\Models\ScheduleHour;
@@ -219,8 +220,13 @@ class PostmanCleanupCommand extends Command
         $amendments = DB::table('consultation_amendments')->whereIn('consultation_id', $consultations->modelKeys())->delete();
         // Sus ítems (entrega 4.3) se van con la consulta (cascadeOnDelete); se cuentan antes.
         $items = DB::table('consultation_items')->whereIn('consultation_id', $consultations->modelKeys())->count();
+        // Las aplicaciones (entrega 4.4) de esos pacientes o consultas, antes que ellos (restrictOnDelete), modelo por modelo.
+        $applications = PatientApplication::query()
+            ->where(fn (Builder $q) => $q->whereIn('patient_id', $patients->modelKeys())->orWhereIn('consultation_id', $consultations->modelKeys()))
+            ->get();
 
         $summary = [
+            'applications' => $this->forceDeleteAll($applications),
             'amendments' => $amendments,
             'items' => $items,
             'consultations' => $this->forceDeleteAll($consultations),
@@ -371,7 +377,7 @@ class PostmanCleanupCommand extends Command
     private function describe(array $summary): string
     {
         $labels = [
-            'amendments' => 'enmiendas', 'items' => 'ítems', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
+            'applications' => 'aplicaciones', 'amendments' => 'enmiendas', 'items' => 'ítems', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
             'patients' => 'pacientes', 'clients' => 'clientes', 'veterinarians' => 'fichas', 'services' => 'servicios',
             'breeds' => 'razas', 'species' => 'especies', 'branches' => 'sucursales', 'warehouses' => 'depósitos', 'users' => 'usuarios dados de baja',
         ];

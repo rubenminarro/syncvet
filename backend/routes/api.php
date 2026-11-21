@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\ClinicLogoController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\ConsultationItemController;
+use App\Http\Controllers\Api\PatientApplicationController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
@@ -128,6 +129,12 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     });
     Route::patch('consultation-items/{item}', [ConsultationItemController::class, 'update'])->name('consultation-items.update');
     Route::delete('consultation-items/{item}', [ConsultationItemController::class, 'destroy'])->name('consultation-items.destroy');
+    // Entrega 4.4: las aplicaciones (vacunas, desparasitaciones y medicamentos), con o sin consulta. Sin baja: se anulan.
+    Route::scopeBindings()->group(function () {
+        Route::get('patients/{patient}/applications', [PatientApplicationController::class, 'index'])->name('patients.patient-applications.index');
+        Route::post('patients/{patient}/applications', [PatientApplicationController::class, 'store'])->name('patients.patient-applications.store');
+    });
+    Route::post('patient-applications/{application}/cancel', [PatientApplicationController::class, 'cancel'])->name('patient-applications.cancel');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

@@ -332,6 +332,16 @@ return [
         'type' => 'tipo',
         'total' => 'total',
         'billing_status' => 'estado de cobro',
+
+        // Las aplicaciones (FASE 4, entrega 4.4)
+        'applied_at' => 'fecha de aplicación',
+        'lot_number' => 'lote',
+        'lot_expires_at' => 'vencimiento del lote',
+        'dose' => 'dosis',
+        'route' => 'vía',
+        'dose_number' => 'número de dosis',
+        'next_dose_due_at' => 'próxima dosis',
+        'type.*' => 'tipo',
     ],
 
 ];

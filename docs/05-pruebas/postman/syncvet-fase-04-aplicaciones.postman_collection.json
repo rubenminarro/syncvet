@@ -1,0 +1,1720 @@
+{
+    "info": {
+        "name": "SyncVet — FASE 4: las aplicaciones",
+        "description": "Validación manual de las aplicaciones (FASE 4, entrega 4.4). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la FASE 4 (php artisan migrate) y los permisos al día (php artisan permissions:sync, por el permiso nuevo patient-applications.cancel). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente y en los emails) y las fechas de hoy, mañana y dentro de un año en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), un cliente con su paciente y una consulta sin turno. Prueba: la recepción no carga (403); una vacuna con la consulta, el lote y la próxima dosis (201) y una desparasitación sin consulta (201); la fecha de mañana y la próxima dosis el mismo día (422); el listado de la recepción y el filtro por tipo; la recepción no anula (403); el veterinario anula la que cargó hoy sin consulta (200) y otra vez (422 PATIENT_APPLICATION_NOT_CANCELLABLE); el listado la marca anulada; cerrar la consulta y anular su vacuna (422 CONSULTATION_NOT_EDITABLE); anular la consulta, que anula la vacuna con el mismo motivo; y el paciente fallecido (422 PATIENT_DECEASED). No limpia lo suyo (la API no borra aplicaciones, consultas ni pacientes con historia): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs aplicaciones lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "01a Login del administrador (clínica A)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Valores únicos de esta corrida: la colección se corre más de una vez sin recrear la base.",
+                            "// La corrida, entre 100100 y 109997: el documento ficticio 99xxxxxx (R-011) de su cliente queda en 991001… a 991099…,",
+                            "// lejos de los del DemoSeeder (99100001 y 99100002) y de los rangos de las otras colecciones. También va en los emails.",
+                            "const run = 100100 + Math.floor(Math.random() * 9898);",
+                            "pm.collectionVariables.set('run', String(run));",
+                            "pm.globals.set('postman_run', pm.collectionVariables.get('run')); // la limpieza (php artisan postman:cleanup)",
+                            "pm.collectionVariables.set('doc', `99${run}`);",
+                            "// Hoy, mañana y dentro de un año en Asunción (UTC-3 todo el año): las aplicaciones van a las 00:05 de hoy, así que la",
+                            "// colección corre a cualquier hora después de esa.",
+                            "const asuncion = new Date(Date.now() - 3 * 60 * 60 * 1000);",
+                            "const day = (d) => new Date(Date.UTC(asuncion.getUTCFullYear(), asuncion.getUTCMonth(), asuncion.getUTCDate() + d)).toISOString().slice(0, 10);",
+                            "pm.collectionVariables.set('today', day(0));",
+                            "pm.collectionVariables.set('tomorrow', day(1));",
+                            "pm.collectionVariables.set('next_year', day(365));"
+                        ]
+                    }
+                },
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_admin', pm.response.json().data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"admin-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "01b Login del recepcionista (clínica A)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_reception', pm.response.json().data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"recepcion-a@example.com\",\n    \"password\": \"{{demo_password}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "02 Sucursal por defecto",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('default_branch_id', String(pm.response.json().data.find(b => b.is_default).id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/branches?per_page=100",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "branches"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "100"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "03 Especie Canino",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('canino_id', String(pm.response.json().data.find(s => s.name === 'Canino').id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/species?per_page=100",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "species"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "100"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "04 Alta del usuario de la corrida con el rol veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('vet_user_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/users",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "users"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"first_name\": \"Valeria\",\n    \"last_name\": \"Postman\",\n    \"email\": \"aplicaciones{{run}}@mailinator.com\",\n    \"password\": \"Clave-Aplicaciones-{{run}}!\",\n    \"roles\": [\n        \"veterinario\"\n    ],\n    \"branch_ids\": [\n        {{default_branch_id}}\n    ]\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "05 Alta de su ficha de veterinario",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('vet_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/veterinarians",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "veterinarians"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"user_id\": {{vet_user_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "06 Login del veterinario de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.collectionVariables.set('token_vet', pm.response.json().data.token);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/login",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"aplicaciones{{run}}@mailinator.com\",\n    \"password\": \"Clave-Aplicaciones-{{run}}!\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            }
+        },
+        {
+            "name": "07 El veterinario elige su sucursal actual",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/me/current-branch",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "me",
+                        "current-branch"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"branch_id\": {{default_branch_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "08 Cliente de la corrida",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('client_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"document_number\": \"{{doc}}\",\n    \"first_name\": \"Inés\",\n    \"last_name\": \"Aplicaciones\",\n    \"email\": \"ines.aplicaciones.{{run}}@mailinator.com\",\n    \"phone\": \"+595981900001\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "09 Paciente del cliente",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('patient_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/clients/{{client_id}}/patients",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "clients",
+                        "{{client_id}}",
+                        "patients"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Toto\",\n    \"species_id\": {{canino_id}}\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "10 El veterinario abre una consulta sin turno",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.collectionVariables.set('consultation_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"patient_id\": {{patient_id}},\n    \"reason\": \"Vacunación anual\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "11 La recepción no carga aplicaciones → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"type\": \"vaccine\",\n    \"name\": \"Antirrábica\",\n    \"applied_at\": \"{{today}}T00:05:00-03:00\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "12 La vacuna, en la consulta, con lote y próxima dosis → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const application = pm.response.json().data;",
+                            "pm.test('De la consulta y del veterinario de la consulta, sin anular', () => {",
+                            "    pm.expect(application.consultation.id).to.eql(Number(pm.collectionVariables.get('consultation_id')));",
+                            "    pm.expect(application.veterinarian.id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "    pm.expect(application.next_dose_due_at).to.eql(pm.collectionVariables.get('next_year'));",
+                            "    pm.expect(application.cancelled).to.eql(false);",
+                            "});",
+                            "pm.collectionVariables.set('vaccine_id', String(application.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"type\": \"vaccine\",\n    \"name\": \"Antirrábica\",\n    \"applied_at\": \"{{today}}T00:05:00-03:00\",\n    \"consultation_id\": {{consultation_id}},\n    \"lot_number\": \"L-2026\",\n    \"dose\": \"1 ml\",\n    \"route\": \"Subcutánea\",\n    \"dose_number\": 1,\n    \"next_dose_due_at\": \"{{next_year}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "13 Una desparasitación sin consulta → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "pm.test('Sin consulta', () => pm.expect(pm.response.json().data.consultation).to.eql(null));",
+                            "pm.collectionVariables.set('deworming_id', String(pm.response.json().data.id));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"type\": \"external_deworming\",\n    \"name\": \"Pipeta\",\n    \"applied_at\": \"{{today}}T00:05:00-03:00\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "14 Con fecha de mañana → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('Error en applied_at', () => pm.expect(pm.response.json().errors).to.have.property('applied_at'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"type\": \"vaccine\",\n    \"name\": \"Antirrábica\",\n    \"applied_at\": \"{{tomorrow}}T10:00:00-03:00\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "15 La próxima dosis el mismo día → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('Error en next_dose_due_at', () => pm.expect(pm.response.json().errors).to.have.property('next_dose_due_at'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"type\": \"vaccine\",\n    \"name\": \"Antirrábica\",\n    \"applied_at\": \"{{today}}T00:05:00-03:00\",\n    \"next_dose_due_at\": \"{{today}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "16 La recepción lista las dos",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Las dos, con meta.pagination', () => {",
+                            "    pm.expect(pm.response.json().data).to.have.length(2);",
+                            "    pm.expect(pm.response.json().meta.pagination.total).to.eql(2);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "17 Filtro por tipo: solo la vacuna",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Una, la vacuna', () => {",
+                            "    pm.expect(pm.response.json().data).to.have.length(1);",
+                            "    pm.expect(pm.response.json().data[0].id).to.eql(Number(pm.collectionVariables.get('vaccine_id')));",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications?type=vaccine",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ],
+                    "query": [
+                        {
+                            "key": "type",
+                            "value": "vaccine"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "18 La recepción no anula → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patient-applications/{{deworming_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patient-applications",
+                        "{{deworming_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Cargada por error\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "19 El veterinario anula la que cargó hoy sin consulta → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const application = pm.response.json().data;",
+                            "pm.test('Anulada, con quién y por qué', () => {",
+                            "    pm.expect(application.cancelled).to.eql(true);",
+                            "    pm.expect(application.cancelled_by.id).to.eql(Number(pm.collectionVariables.get('vet_user_id')));",
+                            "    pm.expect(application.cancellation_reason).to.eql('Cargada por error');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patient-applications/{{deworming_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patient-applications",
+                        "{{deworming_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Cargada por error\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "20 Anularla otra vez → 422 PATIENT_APPLICATION_NOT_CANCELLABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code PATIENT_APPLICATION_NOT_CANCELLABLE', () => pm.expect(pm.response.json().error_code).to.eql('PATIENT_APPLICATION_NOT_CANCELLABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patient-applications/{{deworming_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patient-applications",
+                        "{{deworming_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Otra vez\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "21 El listado marca la anulada",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const deworming = pm.response.json().data.find(a => a.id === Number(pm.collectionVariables.get('deworming_id')));",
+                            "pm.test('Visible y marcada', () => pm.expect(deworming.cancelled).to.eql(true));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "22 El veterinario completa el diagnóstico",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"diagnosis\": \"Sano.\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "23 El veterinario cierra la consulta",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/close",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "close"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "24 Anular la vacuna de la consulta cerrada → 422 CONSULTATION_NOT_EDITABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patient-applications/{{vaccine_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patient-applications",
+                        "{{vaccine_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Error\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "25 El administrador anula la consulta → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/cancel",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "cancel"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"cancellation_reason\": \"Paciente equivocado\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "26 La vacuna quedó anulada con la consulta, con el mismo motivo",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "const vaccine = pm.response.json().data[0];",
+                            "pm.test('Anulada con la consulta', () => {",
+                            "    pm.expect(vaccine.cancelled).to.eql(true);",
+                            "    pm.expect(vaccine.cancellation_reason).to.eql('Paciente equivocado');",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications?type=vaccine",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ],
+                    "query": [
+                        {
+                            "key": "type",
+                            "value": "vaccine"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "27 El paciente fallece",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "PATCH",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"deceased_at\": \"{{today}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "28 Cargarle una aplicación → 422 PATIENT_DECEASED",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code PATIENT_DECEASED', () => pm.expect(pm.response.json().error_code).to.eql('PATIENT_DECEASED'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/applications",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "applications"
+                    ]
+                },
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"type\": \"medication\",\n    \"name\": \"Analgésico\",\n    \"applied_at\": \"{{today}}T00:05:00-03:00\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8001/api",
+            "type": "string"
+        },
+        {
+            "key": "demo_password",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "run",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "doc",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "today",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "tomorrow",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "next_year",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_admin",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_reception",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "token_vet",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "default_branch_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "canino_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_user_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vet_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "client_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "patient_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "consultation_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "vaccine_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "deworming_id",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

@@ -417,6 +417,30 @@ class RouteBindingTest extends TestCase
     }
 
     /**
+     * Las aplicaciones (FASE 4, entrega 4.4): las de un paciente de otra clínica (listarlas y cargarle una)
+     * y anular una de otra clínica responden 404, sin cambios.
+     */
+    public function test_applications_of_another_clinic_are_not_found(): void
+    {
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $id = DB::table('patient_applications')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'patient_id' => $patient->id, 'type' => 'vaccine', 'name' => 'Antirrábica',
+            'applied_at' => now(), 'created_by' => User::factory()->for($foreignClinic)->create()->id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), ['patient-applications.index', 'patient-applications.store', 'patient-applications.cancel']);
+
+        $this->assertErrorCode($this->getJson("/api/patients/{$patient->id}/applications"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->postJson("/api/patients/{$patient->id}/applications", [
+            'type' => 'vaccine', 'name' => 'Ajena', 'applied_at' => '2026-01-01T10:00:00',
+        ]), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->postJson("/api/patient-applications/{$id}/cancel", ['cancellation_reason' => 'Ajena']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame(1, DB::table('patient_applications')->count());
+        $this->assertNull(DB::table('patient_applications')->where('id', $id)->value('cancelled_at'));
+    }
+
+    /**
      * Un servicio usado en una consulta de otra clínica (FASE 4, entrega 4.3): editarlo o quitarlo
      * responde 404 y no cambia.
      */

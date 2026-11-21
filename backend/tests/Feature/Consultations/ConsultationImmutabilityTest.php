@@ -10,11 +10,14 @@ use Tests\Concerns\InteractsWithConsultations;
 use Tests\TestCase;
 
 /**
- * La inmutabilidad (FASE 4, entregas 4.2 y 4.3; D4): cada ruta de escritura de la consulta con una
- * cerrada o una anulada responde 422 y no cambia nada, ni la consulta ni sus ítems. Editar (PATCH y
- * PUT) y los ítems (sumar, editar y quitar, 4.3), 422 CONSULTATION_NOT_EDITABLE
- * (ConsultationService::lockEditable, el lugar único); cerrar, 422 CONSULTATION_NOT_CLOSABLE.
- * Enmendar y anular, en sus tests.
+ * La inmutabilidad (FASE 4, entregas 4.2 a 4.4; D4): cada ruta de escritura de la consulta con una
+ * cerrada o una anulada responde 422 y no cambia nada, ni la consulta, ni sus ítems, ni sus
+ * aplicaciones. Editar (PATCH y PUT), los ítems (sumar, editar y quitar, 4.3) y las aplicaciones (cargar
+ * con la consulta y anular una de ella, 4.4), 422 CONSULTATION_NOT_EDITABLE
+ * (ConsultationService::lockEditable y ensureEditable, el lugar único); cerrar, 422
+ * CONSULTATION_NOT_CLOSABLE. Una aplicación de una anulada ya está anulada (422
+ * PATIENT_APPLICATION_NOT_CANCELLABLE, en PatientApplicationTest). Enmendar y anular la consulta, en sus
+ * tests.
  */
 class ConsultationImmutabilityTest extends TestCase
 {
@@ -31,7 +34,10 @@ class ConsultationImmutabilityTest extends TestCase
             $cases["sumar un ítem {$status}"] = [$status, 'post', '/api/consultations/{id}/items', 'CONSULTATION_NOT_EDITABLE'];
             $cases["editar un ítem {$status}"] = [$status, 'patch', '/api/consultation-items/{item}', 'CONSULTATION_NOT_EDITABLE'];
             $cases["quitar un ítem {$status}"] = [$status, 'delete', '/api/consultation-items/{item}', 'CONSULTATION_NOT_EDITABLE'];
+            $cases["cargar una aplicación {$status}"] = [$status, 'post', '/api/patients/{patient}/applications', 'CONSULTATION_NOT_EDITABLE'];
         }
+
+        $cases['anular una aplicación closed'] = ['closed', 'post', '/api/patient-applications/{application}/cancel', 'CONSULTATION_NOT_EDITABLE'];
 
         return $cases;
     }
@@ -42,18 +48,33 @@ class ConsultationImmutabilityTest extends TestCase
         $this->setUpClinic();
         $service = CurrentClinic::run($this->clinic, fn () => Service::create(['code' => 'SRV-000001', 'name' => 'Consulta general', 'standard_price' => '150000']));
         $this->actAsVet();
-        $id = $this->opened(['appointment_id' => $this->checkedIn(), 'diagnosis' => 'Otitis']);
+        $appointment = $this->checkedIn();
+        $patient = $this->patientIdOf($appointment);
+        $id = $this->opened(['appointment_id' => $appointment, 'diagnosis' => 'Otitis']);
         $this->postJson("/api/consultations/{$id}/items", ['service_id' => $service->id, 'quantity' => 1])->assertCreated();
+        $application = $this->postJson("/api/patients/{$patient}/applications", [
+            'type' => 'vaccine', 'name' => 'Antirrábica', 'applied_at' => '2026-11-10T08:50:00', 'consultation_id' => $id,
+        ])->assertCreated()->json('data.id');
         $item = (int) DB::table('consultation_items')->value('id');
         DB::table('consultations')->where('id', $id)->update(['status' => $status]);
-        $before = [(array) $this->consultationRow($id), DB::table('consultation_items')->get()->map(fn ($row) => (array) $row)->all()];
+        $snapshot = fn () => [
+            (array) $this->consultationRow($id),
+            DB::table('consultation_items')->get()->map(fn ($row) => (array) $row)->all(),
+            DB::table('patient_applications')->get()->map(fn ($row) => (array) $row)->all(),
+        ];
+        $before = $snapshot();
         $this->actAsAdmin();
 
         // Un cuerpo válido para cada ruta: editar un ítem no acepta service_id.
-        $body = str_contains($uri, '{item}') ? ['quantity' => 3] : ['diagnosis' => 'Cambiado', 'service_id' => $service->id, 'quantity' => 3];
-        $response = $this->json($method, str_replace(['{id}', '{item}'], [$id, $item], $uri), $body);
+        $body = match (true) {
+            str_contains($uri, '{item}') => ['quantity' => 3],
+            str_contains($uri, '{application}') => ['cancellation_reason' => 'Por error'],
+            str_contains($uri, '{patient}') => ['type' => 'vaccine', 'name' => 'Otra', 'applied_at' => '2026-11-10T08:55:00', 'consultation_id' => $id],
+            default => ['diagnosis' => 'Cambiado', 'service_id' => $service->id, 'quantity' => 3],
+        };
+        $response = $this->json($method, str_replace(['{id}', '{item}', '{patient}', '{application}'], [$id, $item, $patient, $application], $uri), $body);
 
         $this->assertErrorCode($response, 422, $errorCode);
-        $this->assertSame($before, [(array) $this->consultationRow($id), DB::table('consultation_items')->get()->map(fn ($row) => (array) $row)->all()]);
+        $this->assertSame($before, $snapshot());
     }
 }

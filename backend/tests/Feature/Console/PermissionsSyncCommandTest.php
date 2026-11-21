@@ -51,7 +51,7 @@ class PermissionsSyncCommandTest extends TestCase
      */
     private function phase3Database(): void
     {
-        Permission::whereIn('name', ['consultations.show-clinical', 'consultations.amend'])->delete();
+        Permission::whereIn('name', ['consultations.show-clinical', 'consultations.amend', 'patient-applications.cancel'])->delete();
         // El de la FASE 3 que salió en la 4.2 (una cerrada no se reabre), en el administrador como estaba.
         Role::findByName('administrador', 'api')->givePermissionTo(Permission::create(['name' => 'consultations.reopen', 'guard_name' => 'api']));
         Role::findByName('recepcionista', 'api')->givePermissionTo('consultations.update');
