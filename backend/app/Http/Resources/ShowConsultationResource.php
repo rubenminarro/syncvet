@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Consultation;
+use App\Support\ConsultationTotals;
 use Illuminate\Http\Request;
 
 /**
@@ -36,6 +37,8 @@ class ShowConsultationResource extends ConsultationResource
             ],
             // Entrega 4.3: los servicios usados, por id; administrativos (la recepción los cobra).
             'items' => ConsultationItemResource::collection($this->items)->resolve($request),
+            // Revisión de la 4.3: lo que se cobra (sin los no_charge), con BCMath (ConsultationTotals).
+            'totals' => ConsultationTotals::of($this->items),
             $this->mergeWhen(self::showsClinical($request), fn () => [
                 'history' => $this->history,
                 'weight_kg' => $this->weight_kg,

@@ -155,6 +155,10 @@ class ConsultationLockTest extends TestCase
         $this->assertBefore($queries, $this->lockedRead('veterinarians', false), $this->lockedRead('services', false), 'El veterinario va antes que el servicio.');
         $this->assertBefore($queries, $this->lockedRead('services', false), $this->lockedRead('consultations', true), 'El servicio va antes que la consulta.');
 
+        // Sin veterinarian_id (revisión de la 4.3): el de la consulta, también antes que el servicio.
+        $queries = $this->queriesOf(fn () => $this->postJson("/api/consultations/{$id}/items", ['service_id' => $service->id, 'quantity' => 1])->assertCreated());
+        $this->assertBefore($queries, $this->lockedRead('veterinarians', false), $this->lockedRead('services', false), 'Sin veterinario: el de la consulta va antes que el servicio.');
+
         $item = (int) DB::table('consultation_items')->value('id');
         $isItemLock = fn (string $sql) => preg_match('/^select \* from [`"]consultation_items[`"] where .*[`"]consultation_items[`"]\.[`"]id[`"] = \?/', $sql) === 1
             && (DB::getDriverName() !== 'mysql' || str_ends_with($sql, 'for update'));

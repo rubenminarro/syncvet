@@ -2061,6 +2061,8 @@
                             "const consultation = pm.response.json().data;",
                             "pm.test('El ítem, sí; el diagnóstico, no', () => {",
                             "    pm.expect(consultation.items[0].total).to.eql('150000.00');",
+                            "    pm.expect(consultation.items[0].veterinarian.id).to.eql(Number(pm.collectionVariables.get('vet_id')));",
+                            "    pm.expect(consultation.totals).to.eql({ subtotal: '150000.00', discount: '0.00', total: '150000.00' });",
                             "    pm.expect(consultation).to.not.have.property('diagnosis');",
                             "});"
                         ]

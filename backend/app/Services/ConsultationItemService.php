@@ -13,7 +13,7 @@ use App\Models\ConsultationItem;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
-use App\Support\Decimal;
+use App\Support\ConsultationTotals;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,11 +25,13 @@ use Illuminate\Validation\ValidationException;
  *   ConsultationService::lockEditable() (403 CONSULTATION_NOT_YOURS; 422 CONSULTATION_NOT_EDITABLE).
  * - Sumar: el servicio activo de la clínica (si no, 422 en service_id); la cantidad mayor que cero;
  *   el precio unitario del pedido o, si no llega, el del catálogo; el descuento (0 por defecto) no
- *   mayor al subtotal; veterinarian_id opcional (honorarios), activo. Copia el nombre del servicio
- *   (description) y su tasa de IVA.
- * - Totales con BCMath sobre strings (§3), en guaraníes sin decimales: subtotal = cantidad × precio
- *   unitario, redondeado a 0 decimales (half-up); total = subtotal − descuento.
- * - Editar (parcial): cantidad, precio unitario, descuento y veterinario, con los totales de nuevo.
+ *   mayor al subtotal; veterinarian_id opcional (honorarios), activo; si no llega, el de la consulta.
+ *   Copia el nombre del servicio (description) y su tasa de IVA.
+ * - Totales con BCMath sobre strings (§3), en guaraníes sin decimales (ConsultationTotals, el único
+ *   lugar del cálculo y los redondeos): subtotal = cantidad × precio unitario, redondeado a 0
+ *   decimales (half-up); total = subtotal − descuento.
+ * - Editar (parcial): cantidad, precio unitario, descuento y veterinario, con los totales de nuevo;
+ *   lo que no llega queda como estaba (null en los importes, 422).
  *   Quitar: baja física, auditada.
  *
  * Concurrencia (§3: veterinario → servicio → consulta → ítem): el veterinario y el servicio con
@@ -51,7 +53,11 @@ class ConsultationItemService
     public function add(Consultation $consultation, array $data, User $user): Consultation
     {
         return $this->appointments->withRetries(fn () => DB::transaction(function () use ($consultation, $data, $user) {
-            $veterinarianId = $this->lockVeterinarian($data['veterinarian_id'] ?? null);
+            // Sin veterinarian_id, el de la consulta (revisión de la 4.3). veterinarian_id de la consulta no
+            // cambia nunca: se lee sin bloqueo, para bloquear el veterinario antes que la consulta (§3).
+            $veterinarianId = isset($data['veterinarian_id'])
+                ? $this->lockVeterinarian((int) $data['veterinarian_id'])
+                : $this->lockVeterinarian((int) Consultation::query()->whereKey($consultation->getKey())->value('veterinarian_id'), false);
             $service = Service::query()->whereKey((int) $data['service_id'])->sharedLock()
                 ->first(['id', 'name', 'standard_price', 'tax_rate', 'status']);
 
@@ -60,9 +66,7 @@ class ConsultationItemService
             }
 
             $locked = $this->consultations->lockEditable($consultation, $user);
-            $unitPrice = array_key_exists('unit_price', $data) && $data['unit_price'] !== null
-                ? (string) $data['unit_price']
-                : (string) $service->standard_price;
+            $unitPrice = isset($data['unit_price']) ? (string) $data['unit_price'] : (string) $service->standard_price;
 
             ConsultationItem::create([
                 'consultation_id' => $locked->getKey(),
@@ -85,17 +89,19 @@ class ConsultationItemService
     public function update(ConsultationItem $item, array $data, User $user): Consultation
     {
         return $this->appointments->withRetries(fn () => DB::transaction(function () use ($item, $data, $user) {
-            $veterinarianId = array_key_exists('veterinarian_id', $data) ? $this->lockVeterinarian($data['veterinarian_id']) : null;
+            $veterinarianId = isset($data['veterinarian_id']) ? $this->lockVeterinarian((int) $data['veterinarian_id']) : null;
             $locked = $this->consultations->lockEditable($this->consultationOf($item), $user);
             $lockedItem = ConsultationItem::query()->whereKey($item->getKey())->lockForUpdate()->firstOrFail();
 
+            // Lo que no llega queda como estaba (UpdateConsultationItemRequest no acepta null en los
+            // importes ni en la cantidad).
             $fields = $this->amounts(
                 (string) ($data['quantity'] ?? $lockedItem->quantity),
                 (string) ($data['unit_price'] ?? $lockedItem->unit_price),
                 (string) ($data['discount'] ?? $lockedItem->discount),
             );
 
-            if (array_key_exists('veterinarian_id', $data)) {
+            if ($veterinarianId !== null) {
                 $fields['veterinarian_id'] = $veterinarianId;
             }
 
@@ -117,48 +123,42 @@ class ConsultationItemService
     }
 
     /**
-     * La cantidad, el precio unitario, el descuento y el total, con BCMath: subtotal = cantidad ×
-     * precio, redondeado a 0 decimales (guaraníes); el descuento, no mayor al subtotal (422); el
-     * total, hasta WholeAmount de 12 dígitos (422 en quantity).
+     * Los importes del ítem (ConsultationTotals::line, el único lugar del cálculo y los redondeos), con
+     * las reglas del pedido: el descuento, no mayor al subtotal (422 en discount); el subtotal, hasta
+     * 12 dígitos (422 en quantity).
      *
      * @return array{quantity: string, unit_price: string, discount: string, total: string}
      */
     public function amounts(string $quantity, string $unitPrice, string $discount): array
     {
-        $subtotal = Decimal::round(bcmul($quantity, $unitPrice, 6), 0);
+        $line = ConsultationTotals::line($quantity, $unitPrice, $discount);
 
-        if (bccomp($discount, $subtotal, 2) > 0) {
+        if (bccomp($line['discount'], $line['subtotal'], 2) > 0) {
             throw ValidationException::withMessages(['discount' => ConsultationItemMessages::DISCOUNT_TOO_HIGH]);
         }
 
-        if (strlen(ltrim($subtotal, '0')) > ConsultationItemMessages::MAX_DIGITS) {
+        if (strlen(explode('.', $line['subtotal'])[0]) > ConsultationItemMessages::MAX_DIGITS) {
             throw ValidationException::withMessages(['quantity' => ConsultationItemMessages::TOTAL_TOO_HIGH]);
         }
 
-        return [
-            'quantity' => Decimal::round($quantity, 3),
-            'unit_price' => Decimal::round($unitPrice, 2),
-            'discount' => Decimal::round($discount, 2),
-            'total' => Decimal::round(bcsub($subtotal, $discount, 2), 2),
-        ];
+        unset($line['subtotal']);
+
+        return $line;
     }
 
     /**
-     * El veterinario de los honorarios, activo y no eliminado, con sharedLock; null si no llega.
+     * El veterinario de los honorarios, con sharedLock: el del pedido, activo y no eliminado (si no,
+     * 422); el de la consulta ($requireActive false), como esté.
      */
-    private function lockVeterinarian(mixed $id): ?int
+    private function lockVeterinarian(int $id, bool $requireActive = true): int
     {
-        if ($id === null) {
-            return null;
-        }
+        $veterinarian = Veterinarian::query()->withTrashed()->whereKey($id)->sharedLock()->first(['id', 'status', 'deleted_at']);
 
-        $veterinarian = Veterinarian::query()->whereKey((int) $id)->sharedLock()->first(['id', 'status']);
-
-        if ($veterinarian === null || $veterinarian->status !== VeterinarianStatus::ACTIVE) {
+        if ($requireActive && ($veterinarian === null || $veterinarian->trashed() || $veterinarian->status !== VeterinarianStatus::ACTIVE)) {
             throw ValidationException::withMessages(['veterinarian_id' => ConsultationMessages::VETERINARIAN_INACTIVE]);
         }
 
-        return (int) $veterinarian->getKey();
+        return $id;
     }
 
     private function consultationOf(ConsultationItem $item): Consultation

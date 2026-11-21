@@ -356,13 +356,17 @@ Desvíos y precisiones (para revisar en el cierre):
 1. **Rutas:** sumar, anidado bajo la consulta (en un grupo `scopeBindings()`); editar y quitar, por el ítem
    (`consultation-items/{item}`), como dice la tabla de endpoints del diseño. Sin `PUT` del ítem: solo `PATCH`.
 2. **Las respuestas traen el detalle de la consulta** (201 al sumar, 200 al editar y al quitar), con sus ítems, como la enmienda.
-3. **`veterinarian_id`**, si no llega, queda en `null` (el diseño no fijaba un valor por defecto); uno inactivo, 422.
+3. **`veterinarian_id`**, si no llega, es el de la consulta (decisión del usuario en la revisión; en la implementación quedaba en
+   `null`); uno del pedido inactivo, 422.
 4. **Los ítems, solo en el detalle** (también para la recepción); el listado no los trae.
 5. **Un total de más de 12 dígitos** responde 422 en `quantity` (la columna es `decimal(14,2)`).
-6. **Editar con `discount: null` o `unit_price: null`** deja el valor que tenía.
+6. **Editar con `null`** en la cantidad, el precio unitario, el descuento o el veterinario responde 422 (decisión del usuario en la
+   revisión; en la implementación dejaba el valor): lo que no cambia no se manda.
 7. **Deuda 2 en `ConsultationItem`:** la cantidad con `decimal:3` (su columna; antes `decimal:2`).
 8. **`postman:cleanup`** cuenta los ítems de la corrida (se borran en cascada con su consulta).
-9. **Tests:** `RoleAccessTest` suma el parámetro `item` (con un servicio propio, para que el de `service` siga sin uso);
+9. **Los totales de la consulta** (`totals` en el detalle, revisión): la suma de lo que se cobra, con el cálculo y los redondeos en
+   `AppSupportConsultationTotals` (por ítem y de la consulta).
+10. **Tests:** `RoleAccessTest` suma el parámetro `item` (con un servicio propio, para que el de `service` siga sin uso);
    `ConsultationLockTest`, el orden de los ítems.
 
 Validación de la implementación (2026-11-20, R-100: sin la suite completa, que va en la revisión): los tests relacionados, 271 casos
@@ -372,6 +376,13 @@ bloqueos nuevos): 56 de 56, 350 aserciones. Newman, `syncvet-fase-04-consultas` 
 limpieza, sin datos residuales. Mutaciones: aceptar un servicio inactivo (la detecta `ConsultationItemTest::test_an_inactive_service_is_rejected`)
 y sumar un ítem a una consulta cerrada (`ConsultationImmutabilityTest`, "sumar un ítem" cerrada y anulada, y `ConsultationItemTest`,
 la consulta cerrada o anulada y otra ficha).
+
+Revisión (2026-11-20): sin errores en el diff. Por decisión del usuario, el veterinario por defecto del ítem es el de la consulta
+(leído sin bloqueo y bloqueado antes que el servicio, §3) y un `null` en la edición responde 422. Los totales de la consulta, en el
+detalle (`totals`), con el cálculo y los redondeos en `App\Support\ConsultationTotals`. El uso del servicio
+(`SERVICE_NAME_NOT_EDITABLE` y `SERVICE_IN_USE`) ya tenía su test. Tests de lo tocado, 113 de 113; el orden de bloqueo, 7 de 7 y,
+en MySQL, con los ítems, 41 de 41. `composer test`: 1675 casos, 1657 en verde, 18 omitidos (de MySQL), 16460 aserciones, en una
+sola corrida. Newman, con el veterinario por defecto y los totales: 55 pedidos y 104 aserciones, sin fallas; la limpieza, sin datos.
 
 ## Preguntas del diseño
 

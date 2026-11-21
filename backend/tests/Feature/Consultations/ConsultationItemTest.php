@@ -58,7 +58,9 @@ class ConsultationItemTest extends TestCase
             ->assertJsonPath('data.items.0.total', '150000.00')
             ->assertJsonPath('data.items.0.tax_rate.value', 10)
             ->assertJsonPath('data.items.0.billing_status.value', 'pending')
-            ->assertJsonPath('data.items.0.veterinarian', null);
+            // Sin veterinarian_id, el de la consulta (revisión de la 4.3).
+            ->assertJsonPath('data.items.0.veterinarian.id', $this->vet->id)
+            ->assertJsonPath('data.totals', ['subtotal' => '150000.00', 'discount' => '0.00', 'total' => '150000.00']);
 
         $this->assertSame(1, DB::table('audit_logs')->where('auditable_type', 'consultation_item')->where('event', 'created')->count());
     }
@@ -128,6 +130,46 @@ class ConsultationItemTest extends TestCase
 
         DB::table('veterinarians')->where('id', $other->id)->update(['status' => 'inactive']);
         $this->add(['veterinarian_id' => $other->id])->assertUnprocessable()->assertJsonPath('errors.veterinarian_id.0', 'El veterinario está inactivo.');
+    }
+
+    /**
+     * Revisión de la 4.3: en la edición, lo que no cambia no se manda; null en un campo, 422.
+     */
+    public static function nullOnEdit(): array
+    {
+        return [
+            'cantidad' => ['quantity'],
+            'precio unitario' => ['unit_price'],
+            'descuento' => ['discount'],
+            'veterinario' => ['veterinarian_id'],
+        ];
+    }
+
+    #[DataProvider('nullOnEdit')]
+    public function test_null_on_edit_is_rejected(string $field): void
+    {
+        $this->add(['quantity' => 2, 'discount' => 1000])->assertCreated();
+        $id = $this->itemId();
+
+        $this->patchJson("/api/consultation-items/{$id}", [$field => null])->assertUnprocessable()->assertJsonValidationErrors([$field]);
+
+        $row = DB::table('consultation_items')->where('id', $id)->first();
+        $this->assertSame([2.0, 150000.0, 1000.0, $this->vet->id], [(float) $row->quantity, (float) $row->unit_price, (float) $row->discount, (int) $row->veterinarian_id]);
+    }
+
+    /**
+     * Los totales de la consulta (ConsultationTotals): la suma de lo que se cobra, sin volver a
+     * redondear; al anular, los no_charge quedan fuera.
+     */
+    public function test_the_consultation_totals(): void
+    {
+        $this->add(['quantity' => '1.5', 'unit_price' => 33333, 'discount' => 5000])->assertCreated();
+        $this->add(['quantity' => 2])->assertCreated()
+            ->assertJsonPath('data.totals', ['subtotal' => '350000.00', 'discount' => '5000.00', 'total' => '345000.00']);
+
+        DB::table('consultation_items')->where('id', $this->itemId())->update(['billing_status' => 'no_charge']);
+        $this->getJson("/api/consultations/{$this->consultation}")->assertOk()
+            ->assertJsonPath('data.totals', ['subtotal' => '50000.00', 'discount' => '5000.00', 'total' => '45000.00']);
     }
 
     public function test_edit_recalculates_and_delete_removes(): void

@@ -93,15 +93,18 @@ contradice al código, manda el código.
   * **Sumar:** `service_id` (de la clínica, no eliminado) y **activo** (si no, 422 en `service_id`, "El servicio no existe o está
     inactivo."); `quantity` mayor que cero, hasta 9999 y con hasta 3 decimales; `unit_price` opcional (si no llega, el precio del
     catálogo); `discount` opcional (0 por defecto), **no mayor al subtotal** (422 en `discount`); los dos, importes enteros en
-    guaraníes (`WholeAmount`, hasta 12 dígitos). `veterinarian_id` opcional (honorarios), de la clínica, activo (si no llega,
-    `null`). Copia el nombre del servicio (`description`) y su tasa de IVA. Responde 201 con el detalle de la consulta.
-  * **Totales con BCMath** (§3): subtotal = cantidad × precio unitario, redondeado a 0 decimales (half-up); total = subtotal −
-    descuento. Sin `float`. Un total de más de 12 dígitos, 422 en `quantity`.
-  * **Editar** (parcial): la cantidad (no `null`), el precio unitario, el descuento y el veterinario, con los totales de nuevo; el
+    guaraníes (`WholeAmount`, hasta 12 dígitos). `veterinarian_id` opcional (honorarios), de la clínica, activo; si no llega,
+    el de la consulta. Copia el nombre del servicio (`description`) y su tasa de IVA. Responde 201 con el detalle de la consulta.
+  * **Totales con BCMath** (§3), en un solo lugar (`AppSupportConsultationTotals`): por ítem, subtotal = cantidad × precio
+    unitario, redondeado a 0 decimales (half-up); total = subtotal − descuento. Sin `float`. Un subtotal de más de 12 dígitos, 422
+    en `quantity`. **De la consulta**, en el detalle, `totals` (`subtotal`, `discount` y `total`): la suma de los ítems que se cobran
+    (sin los `no_charge` de una anulada), sin volver a redondear.
+  * **Editar** (parcial): la cantidad, el precio unitario, el descuento y el veterinario, con los totales de nuevo. Lo que no
+    cambia no se manda: ninguno acepta `null` (422); para quitar el descuento, `0`. El
     servicio y los demás campos, `prohibited` (para otro servicio, se quita y se suma otro). **Quitar:** baja física. El ítem es
     auditable.
   * **En el detalle**, `items` (por id: el tipo, el servicio, el veterinario, la descripción, la cantidad, el precio, el descuento,
-    el total, la tasa de IVA y el estado de cobro), **también para la recepción**: son para cobrar (pregunta 7). El listado no los
+    el total, la tasa de IVA y el estado de cobro) y `totals`, **también para la recepción**: son para cobrar (pregunta 7). El listado no los
     trae.
   * **El uso del servicio** (§6.7): usado en una consulta, no cambia de nombre (422 `SERVICE_NAME_NOT_EDITABLE`) ni se elimina (409
     `SERVICE_IN_USE`); su precio sí cambia, porque el ítem guarda el suyo.
