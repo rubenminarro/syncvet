@@ -222,6 +222,49 @@ class PatientApplicationTest extends TestCase
         $this->cancel($mineYesterday)->assertOk();
     }
 
+    /**
+     * El borde de la medianoche (revisión de la 4.4): "el mismo día" es el día de created_at en Asunción,
+     * con created_by igual al usuario. Con el reloj a las 00:00:10, una cargada a las 23:59:59 de ayer ya
+     * no es suya para anular; una de las 00:00:00 de hoy, sí. La de otro usuario a las 00:00:00, tampoco.
+     */
+    public function test_the_same_day_rule_at_midnight(): void
+    {
+        $user = $this->actAsVet();
+        $yesterday = $this->load()->json('data.id');
+        $today = $this->load()->json('data.id');
+        $someoneElse = $this->load()->json('data.id');
+        DB::table('patient_applications')->where('id', $yesterday)->update(['created_at' => '2026-11-10 23:59:59']);
+        DB::table('patient_applications')->where('id', $today)->update(['created_at' => '2026-11-11 00:00:00']);
+        DB::table('patient_applications')->where('id', $someoneElse)->update([
+            'created_at' => '2026-11-11 00:00:00', 'created_by' => $this->userWithRoles($this->clinic, ['veterinario'])->id,
+        ]);
+        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-11-11 00:00:10', 'America/Asuncion'));
+        $this->actingAs($user, 'sanctum');
+
+        $this->assertErrorCode($this->cancel($yesterday), 403, 'PATIENT_APPLICATION_NOT_YOURS');
+        $this->assertErrorCode($this->cancel($someoneElse), 403, 'PATIENT_APPLICATION_NOT_YOURS');
+        $this->cancel($today)->assertOk();
+    }
+
+    /**
+     * El detalle de la consulta lista sus aplicaciones (el detalle del diseño; revisión de la 4.4), también
+     * para la recepción, con las anuladas marcadas.
+     */
+    public function test_the_consultation_detail_lists_its_applications(): void
+    {
+        $first = $this->load(['consultation_id' => $this->consultation, 'applied_at' => '2026-11-10T08:45:00'])->json('data.id');
+        $second = $this->load(['consultation_id' => $this->consultation, 'type' => 'medication', 'name' => 'Analgésico'])->json('data.id');
+        $this->load()->assertCreated();
+        $this->cancel($second)->assertOk();
+        $this->actAsReceptionist();
+
+        $applications = $this->getJson("/api/consultations/{$this->consultation}")->assertOk()->json('data.applications');
+
+        $this->assertSame([$first, $second], array_column($applications, 'id'));
+        $this->assertSame([false, true], array_column($applications, 'cancelled'));
+        $this->assertSame('medication', $applications[1]['type']['value']);
+    }
+
     public static function invalidReason(): array
     {
         return ['sin motivo' => [null], 'de 2' => ['ab'], 'de 501' => [str_repeat('a', 501)]];

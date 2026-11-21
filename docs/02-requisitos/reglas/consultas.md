@@ -118,3 +118,6 @@ contradice al código, manda el código.
   `consultation_id`). Una aplicación de una consulta **cerrada** no se anula sola (422 `CONSULTATION_NOT_EDITABLE`): se anula con la
   consulta. Concurrencia: cargar, el veterinario y el paciente (`sharedLock`) antes que la consulta; anular, la consulta antes que la
   aplicación (`lockForUpdate`); anular la consulta, sus ítems y después sus aplicaciones.
+* **En el detalle de la consulta** (revisión de la 4.4), `applications`: sus aplicaciones por `applied_at` e id, resumidas (id, tipo,
+  nombre, fecha de aplicación, número de dosis, próxima dosis y si está anulada), también para la recepción; el detalle completo, en
+  `GET patients/{patient}/applications`.

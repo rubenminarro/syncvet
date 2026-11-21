@@ -386,6 +386,14 @@ fallas; la limpieza borró las 2 aplicaciones y el resto de la corrida, sin dato
 una consulta cerrada (la detectan `ConsultationImmutabilityTest`, "anular una aplicación closed", y dos de `PatientApplicationTest`) y
 que anular la consulta no anule sus aplicaciones (`PatientApplicationTest::test_cancelling_the_consultation_cancels_its_applications`).
 
+Revisión (2026-11-20): ya estaban cubiertos el veterinario de otra ficha que carga o anula en una consulta abierta (403
+`CONSULTATION_NOT_YOURS`), la regla del mismo día (`created_by` y el día de `created_at` en Asunción) y la recepción que lista pero
+no carga ni anula. Correcciones: el test del borde de la medianoche (cargada a las 23:59:59 de ayer, de otro usuario a las 00:00:00 y
+propia a las 00:00:00, con el reloj a las 00:00:10) y, un faltante frente al diseño, las aplicaciones en el detalle de la consulta
+(`applications`, resumidas, también para la recepción), con su test. Tests de lo tocado, 80 de 80. `composer test`: 1711 casos, 1693
+en verde, 18 omitidos (de MySQL), 16807 aserciones, en una sola corrida. Sin cambios en la migración, los bloqueos ni la colección (el
+detalle suma una clave): sin MySQL, Newman ni mutaciones.
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

@@ -296,6 +296,8 @@ class ConsultationService
             // Entrega 4.3: los servicios usados, por id, con el servicio y el veterinario de los honorarios.
             'items' => fn ($query) => $query->orderBy('id'),
             'items.service', 'items.veterinarian.user',
+            // Revisión de la 4.4: las aplicaciones de la consulta, por fecha e id.
+            'applications' => fn ($query) => $query->orderBy('applied_at')->orderBy('id'),
         ]);
     }
 
