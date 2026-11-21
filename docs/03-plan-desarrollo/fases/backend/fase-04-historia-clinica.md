@@ -2,7 +2,7 @@
 
 Etapa: Atención. Estado: **DISEÑO APROBADO** el 2026-11-20 (R-099), en `feature/back-4-diseno` (desde `main` en `6fb4805`, con la
 F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. Las entregas 4.1 (la consulta,
-R-100) y 4.2 (cierre, enmiendas y anulación, R-101), COMPLETADAS; sigue la 4.3. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
+R-100), 4.2 (cierre, enmiendas y anulación, R-101) y 4.3 (los servicios usados, R-102), COMPLETADAS; sigue la 4.4. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
 El estado vigente de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
@@ -324,8 +324,8 @@ corrección van en la 4.2, antes que los ítems, porque son la integridad de lo 
 |---|---|---|---|---|---|
 | 4.1 | La consulta: abrir desde un turno fichado (y marcarlo atendido), desde uno atendido el mismo día o sin turno; editar abierta; listado y detalle (el Resource administrativo sin `consultations.show-clinical`); `consultation` en el detalle del turno y `has_consultation` en el listado y la cola; `consultations.show-clinical` y el comando `permissions:sync`; `postman:cleanup` borra las consultas de la corrida | La de C7 y C3 | `ConsultationStoreTest` (desde el turno, ya atendido hoy y otro día, con consulta, otro veterinario, fallecido, sin sucursal), `ConsultationUpdateTest` (otra ficha, límites), `ConsultationIndexTest` y `ConsultationShowTest` (filtros, N+1; la vista completa del administrador y del veterinario, la administrativa de la recepción), `ConsultationLockTest` y `ConsultationConcurrencyTest` (dos aperturas del mismo turno: una 201, otra 409; solo MySQL), `PermissionsSyncCommandTest`, `RoleAccessTest`, `RouteBindingTest`, `ClinicIsolation`, la foto de los roles | `syncvet-fase-04-consultas` (nueva) | COMPLETADO (R-100, [resultado](fase-04-resultados.md#entrega-41)), en `feature/back-4-1-consulta` |
 | 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | COMPLETADO (R-101, [resultado](fase-04-resultados.md#entrega-42)), en `feature/back-4-2-cierre` |
-| 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | PENDIENTE (la siguiente) |
-| 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | PENDIENTE |
+| 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | COMPLETADO (R-102, [resultado](fase-04-resultados.md#entrega-43)), en `feature/back-4-3-servicios` |
+| 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | PENDIENTE (la siguiente) |
 | 4.5 | Los adjuntos | — | `ConsultationAttachmentTest` (el tipo por el contenido con una extensión que miente, el tamaño, el tope por consulta, la descarga con y sin permiso, el disco privado, `files:prune-orphans`) | La de consultas | PENDIENTE |
 | 4.6 | El historial del paciente | — | `PatientHistoryTest` (consultas y aplicaciones juntas, orden, paginación, anuladas marcadas, el peso de cada consulta, fallecido visible, la vista de la recepción, N+1) | La de aplicaciones | PENDIENTE |
 
@@ -346,43 +346,7 @@ la 4.4: las aplicaciones de una consulta anulada se anulan con ella).
 
 ### 4.3 — Pendiente para el cierre
 
-Implementada en `feature/back-4-3-servicios` (desde `c5e0873`, commit WIP, 2026-11-20); falta la revisión (con la corrida completa,
-R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 85 → 88 (`POST consultations/{consultation}/items`, `PATCH` y
-`DELETE consultation-items/{item}`); permisos 136, sin cambios (`consultation-items.*` ya estaban en el seeder: el administrador y el
-veterinario, no la recepción); migraciones 38, sin cambios. Las reglas, en [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
-
-Desvíos y precisiones (para revisar en el cierre):
-
-1. **Rutas:** sumar, anidado bajo la consulta (en un grupo `scopeBindings()`); editar y quitar, por el ítem
-   (`consultation-items/{item}`), como dice la tabla de endpoints del diseño. Sin `PUT` del ítem: solo `PATCH`.
-2. **Las respuestas traen el detalle de la consulta** (201 al sumar, 200 al editar y al quitar), con sus ítems, como la enmienda.
-3. **`veterinarian_id`**, si no llega, es el de la consulta (decisión del usuario en la revisión; en la implementación quedaba en
-   `null`); uno del pedido inactivo, 422.
-4. **Los ítems, solo en el detalle** (también para la recepción); el listado no los trae.
-5. **Un total de más de 12 dígitos** responde 422 en `quantity` (la columna es `decimal(14,2)`).
-6. **Editar con `null`** en la cantidad, el precio unitario, el descuento o el veterinario responde 422 (decisión del usuario en la
-   revisión; en la implementación dejaba el valor): lo que no cambia no se manda.
-7. **Deuda 2 en `ConsultationItem`:** la cantidad con `decimal:3` (su columna; antes `decimal:2`).
-8. **`postman:cleanup`** cuenta los ítems de la corrida (se borran en cascada con su consulta).
-9. **Los totales de la consulta** (`totals` en el detalle, revisión): la suma de lo que se cobra, con el cálculo y los redondeos en
-   `AppSupportConsultationTotals` (por ítem y de la consulta).
-10. **Tests:** `RoleAccessTest` suma el parámetro `item` (con un servicio propio, para que el de `service` siga sin uso);
-   `ConsultationLockTest`, el orden de los ítems.
-
-Validación de la implementación (2026-11-20, R-100: sin la suite completa, que va en la revisión): los tests relacionados, 271 casos
-(2 omitidos de MySQL) con 3 fallas de los propios tests (una expectativa duplicada de `postman:cleanup` y un cuerpo con `service_id`
-para editar un ítem), corregidas y repetidos sus archivos (102 de 102); el orden de bloqueo, 36 de 36. MySQL, los tests afectados (los
-bloqueos nuevos): 56 de 56, 350 aserciones. Newman, `syncvet-fase-04-consultas` ampliada: 55 pedidos y 104 aserciones, sin fallas; la
-limpieza, sin datos residuales. Mutaciones: aceptar un servicio inactivo (la detecta `ConsultationItemTest::test_an_inactive_service_is_rejected`)
-y sumar un ítem a una consulta cerrada (`ConsultationImmutabilityTest`, "sumar un ítem" cerrada y anulada, y `ConsultationItemTest`,
-la consulta cerrada o anulada y otra ficha).
-
-Revisión (2026-11-20): sin errores en el diff. Por decisión del usuario, el veterinario por defecto del ítem es el de la consulta
-(leído sin bloqueo y bloqueado antes que el servicio, §3) y un `null` en la edición responde 422. Los totales de la consulta, en el
-detalle (`totals`), con el cálculo y los redondeos en `App\Support\ConsultationTotals`. El uso del servicio
-(`SERVICE_NAME_NOT_EDITABLE` y `SERVICE_IN_USE`) ya tenía su test. Tests de lo tocado, 113 de 113; el orden de bloqueo, 7 de 7 y,
-en MySQL, con los ítems, 41 de 41. `composer test`: 1675 casos, 1657 en verde, 18 omitidos (de MySQL), 16460 aserciones, en una
-sola corrida. Newman, con el veterinario por defecto y los totales: 55 pedidos y 104 aserciones, sin fallas; la limpieza, sin datos.
+Nada: la 4.3 quedó cerrada en R-102 ([resultado](fase-04-resultados.md#entrega-43), con los desvíos y la validación).
 
 ## Preguntas del diseño
 

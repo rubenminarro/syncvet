@@ -111,3 +111,4 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-099](registro/R-051-100.md#r-099-diseño-de-la-fase-4-del-backend-aprobado-historia-clínica-2026-11-20) | 2026-11-20 | Diseño de la FASE 4 del backend aprobado (historia clínica) |
 | [R-100](registro/R-051-100.md#r-100-cierre-de-la-entrega-41-del-backend-la-consulta-y-el-presupuesto-por-entrega-nuevo-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.1 del backend (la consulta) y el presupuesto por entrega nuevo |
 | [R-101](registro/R-101-150.md#r-101-cierre-de-la-entrega-42-del-backend-cierre-enmiendas-y-anulación-de-la-consulta-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.2 del backend (cierre, enmiendas y anulación de la consulta) |
+| [R-102](registro/R-101-150.md#r-102-cierre-de-la-entrega-43-del-backend-los-servicios-usados-en-la-consulta-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.3 del backend (los servicios usados en la consulta) |

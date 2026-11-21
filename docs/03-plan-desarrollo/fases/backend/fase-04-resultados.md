@@ -157,3 +157,64 @@ local, intacta en la revisión (2 clínicas, los 6 usuarios de la demo, las 5 ag
 paciente → consulta → ítem). Ya estaban los tests de enmendar una anulada y de la recepción sin las enmiendas. Correcciones: el test
 de bloqueo suma la enmienda; el test de la negativa de `postman:cleanup`, las enmiendas y las consultas; `consultas.md`, el peso al
 anular; `backend/CLAUDE.md`, no migrar "para los tests".
+
+### Entrega 4.3
+
+Los servicios usados en la consulta. Implementación en `feature/back-4-3-servicios`, creada desde `c5e0873` (el cierre de la 4.2), en
+el commit WIP `15d4346`; revisión con correcciones en `d847243`; el cierre va en un commit aparte. Decisiones en
+[R-102](../../../01-arquitectura/decisiones/registro.md). Las reglas, en [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+**Archivos.**
+
+* Nuevos: `ConsultationItemService` (sumar, editar y quitar; reusa `lockEditable()`), `App\Support\ConsultationTotals` (el cálculo y
+  los redondeos, por ítem y de la consulta), `ConsultationItemController`, `ConsultationItemResource`, `StoreConsultationItemRequest`,
+  `UpdateConsultationItemRequest` y `ConsultationItemMessages`.
+* Cambiados: `ShowConsultationResource` (`items` y `totals`, administrativos), `ConsultationService::loadDetail` (los ítems),
+  `ConsultationItem` (la cantidad con `decimal:3`; deuda 2), `routes/api.php`, `lang/es/validation.php` y `PostmanCleanupCommand` (cuenta
+  los ítems).
+* Tests nuevos: `ConsultationItemTest`. Cambiados: `ConsultationImmutabilityTest`, `ConsultationLockTest`, `RouteBindingTest`,
+  `RoleAccessTest` (el parámetro `item`) y `PostmanCleanupCommandTest`.
+* Documentación: `consultas.md`, la guía de Postman y la colección `syncvet-fase-04-consultas` ampliada.
+
+**Endpoints.** `POST consultations/{consultation}/items`, `PATCH` y `DELETE consultation-items/{item}`. Rutas 85 → 88; permisos (136) y
+migraciones (38), sin cambios. El detalle de la consulta suma `items` y `totals`.
+
+**Tests.** Corrida de `composer test` de la revisión (2026-11-20, sobre el código de `d847243`; el cierre solo cambia documentación):
+1675 casos, 1657 en verde y 18 omitidos (de MySQL), 16460 aserciones, en una sola corrida. Frente al cierre de la 4.2 (R-101: 1631
+casos y 16085 aserciones): 44 casos más.
+
+* `ConsultationItemTest` (12, con *data providers*: 34 casos): el precio del catálogo, el veterinario de la consulta y los totales;
+  los totales con BCMath (enteros, descuento, redondeos hacia arriba y hacia abajo, sin `float`, medio guaraní, descuento igual al
+  subtotal, precio cero); las validaciones; `null` al editar (422); los totales de la consulta (sin los `no_charge`); el servicio
+  inactivo; el veterinario de los honorarios activo; editar y quitar (auditados); la consulta cerrada o anulada; otra ficha y el
+  administrador; la recepción (ve, no escribe); el servicio usado (`SERVICE_NAME_NOT_EDITABLE`, `SERVICE_IN_USE`, el precio del ítem).
+* `ConsultationImmutabilityTest`: sumar, editar y quitar ítems con una cerrada o anulada (6 casos más; 12 en total).
+* `ConsultationLockTest`: el veterinario (del pedido o de la consulta) y el servicio antes que la consulta, y la consulta antes que el
+  ítem.
+* `RouteBindingTest`: un ítem de otra clínica (`PATCH` y `DELETE`) y sumar a una consulta ajena, 404.
+
+**MySQL y Newman.** MySQL (`syncvet_test_mysql`), los tests afectados por los bloqueos nuevos: 56 de 56 (350 aserciones) en la
+implementación y 41 de 41 (276) en la revisión. Newman, `syncvet-fase-04-consultas`: 55 pedidos y 104 aserciones, sin fallas, en la
+implementación y otra vez en la revisión (con el veterinario por defecto y los totales); la limpieza, sin datos residuales.
+
+**Mutaciones** (2, R-100), detectadas y revertidas con el editor:
+
+* Aceptar un servicio inactivo: `ConsultationItemTest::test_an_inactive_service_is_rejected`.
+* Sumar un ítem a una consulta cerrada: `ConsultationImmutabilityTest` ("sumar un ítem", cerrada y anulada) y `ConsultationItemTest`
+  (la consulta cerrada o anulada, y otra ficha).
+
+**Desvíos del diseño y precisiones.**
+
+1. Editar y quitar, por el ítem (`consultation-items/{item}`, como la tabla de endpoints del diseño); sumar, anidado bajo la consulta;
+   sin `PUT` del ítem.
+2. Las respuestas traen el detalle de la consulta (201 al sumar, 200 al editar y al quitar).
+3. Sin `veterinarian_id`, el ítem toma el veterinario de la consulta (revisión; en la implementación quedaba en `null`).
+4. Los ítems y los totales, solo en el detalle (también para la recepción); el listado no los trae.
+5. Un subtotal de más de 12 dígitos, 422 en `quantity`.
+6. Editar con `null` en la cantidad, el precio, el descuento o el veterinario, 422 (revisión; en la implementación dejaba el valor).
+7. La cantidad con `decimal:3` en el modelo (deuda 2).
+8. `postman:cleanup` cuenta los ítems de la corrida (se borran en cascada con su consulta).
+9. Los totales de la consulta (`totals`), nuevos en la revisión, con el cálculo en `ConsultationTotals`.
+
+**Revisión.** Sin errores en el diff. Correcciones por decisión del usuario: el veterinario de la consulta por defecto, `null` al
+editar (422) y los totales de la consulta con los redondeos en un solo lugar. El uso del servicio ya tenía su test.
