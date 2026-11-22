@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\SystemSettingKey;
 use App\Models\Clinic;
+use App\Models\ConsultationAttachment;
 use App\Models\Patient;
 use App\Support\CurrentClinic;
 use Illuminate\Support\Facades\Log;
@@ -16,8 +17,10 @@ use Throwable;
  * borrado falló, un proceso que murió antes del commit).
  *
  * Por cada clínica, con la clínica en contexto, solo mira su carpeta de fotos
- * (clinics/{id}/patients/ del disco patient_photos) y la de su logo (clinics/{id}/logo/
- * del disco clinic_logos). Nunca borra fuera de esas carpetas, aunque una ruta de la
+ * (clinics/{id}/patients/ del disco patient_photos), la de su logo (clinics/{id}/logo/
+ * del disco clinic_logos) y la de los adjuntos de sus consultas (clinics/{id}/consultations/
+ * del disco consultation_attachments, FASE 4, entrega 4.5; conserva el path de cada
+ * adjunto). Nunca borra fuera de esas carpetas, aunque una ruta de la
  * base apunte a otro lugar: las rutas de la base solo sirven para conservar archivos.
  * Conserva el photo_path de cada paciente, también eliminado (P15), el logo_path de la
  * clínica y todo archivo de menos de 24 horas (una subida en curso).
@@ -89,10 +92,13 @@ class OrphanFileService
             $orphans = [];
             $photos = Patient::withTrashed()->whereNotNull('photo_path')->pluck('photo_path')->all();
             $logo = app(SystemSettingsService::class)->get(SystemSettingKey::LOGO_PATH);
+            // Entrega 4.5: los adjuntos de las consultas (sin baja lógica: quitar uno borra la fila).
+            $attachments = ConsultationAttachment::query()->pluck('path')->all();
 
             $folders = [
                 [PatientPhotoService::DISK, "clinics/{$clinic->id}/patients/", array_flip($photos)],
                 [ClinicLogoService::DISK, ClinicLogoService::folder($clinic->id), $logo !== null ? [$logo => true] : []],
+                [ConsultationAttachmentService::DISK, "clinics/{$clinic->id}/consultations/", array_flip($attachments)],
             ];
 
             foreach ($folders as [$disk, $folder, $kept]) {

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\ClinicLogoController;
+use App\Http\Controllers\Api\ConsultationAttachmentController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\ConsultationItemController;
 use App\Http\Controllers\Api\PatientApplicationController;
@@ -135,6 +136,13 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
         Route::post('patients/{patient}/applications', [PatientApplicationController::class, 'store'])->name('patients.patient-applications.store');
     });
     Route::post('patient-applications/{application}/cancel', [PatientApplicationController::class, 'cancel'])->name('patient-applications.cancel');
+    // Entrega 4.5: los adjuntos de la consulta. Subir y descargar, anidados bajo la consulta (el adjunto, de esa consulta);
+    // quitar, por el adjunto (shallow). La descarga, siempre por acá: el disco es privado.
+    Route::scopeBindings()->group(function () {
+        Route::post('consultations/{consultation}/attachments', [ConsultationAttachmentController::class, 'store'])->name('consultations.consultation-attachments.store');
+        Route::get('consultations/{consultation}/attachments/{attachment}', [ConsultationAttachmentController::class, 'download'])->name('consultations.consultation-attachments.index');
+    });
+    Route::delete('consultation-attachments/{attachment}', [ConsultationAttachmentController::class, 'destroy'])->name('consultation-attachments.destroy');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

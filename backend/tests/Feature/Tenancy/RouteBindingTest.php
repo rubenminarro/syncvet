@@ -11,8 +11,11 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
+use App\Services\ConsultationAttachmentService;
 use App\Support\CurrentClinic;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithBranches;
 use Tests\TestCase;
@@ -474,6 +477,48 @@ class RouteBindingTest extends TestCase
 
         $this->assertErrorCode($this->json($method, "/api/consultation-items/{$itemId}", ['quantity' => 5]), 404, 'RESOURCE_NOT_FOUND');
         $this->assertSame(1, DB::table('consultation_items')->where('id', $itemId)->where('quantity', 1)->count());
+    }
+
+    /**
+     * Los adjuntos (FASE 4, entrega 4.5): subir a una consulta de otra clínica, descargar uno de ella (por su
+     * consulta o por la consulta propia, con el id ajeno) y quitarlo responden 404, sin cambios ni archivos.
+     */
+    public function test_attachments_of_another_clinic_are_not_found(): void
+    {
+        Storage::fake(ConsultationAttachmentService::DISK);
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $uploader = User::factory()->for($foreignClinic)->create()->id;
+        $consultationId = DB::table('consultations')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'code' => 'CON-000001', 'branch_id' => $this->defaultBranchIn($foreignClinic)->id,
+            'patient_id' => $patient->id, 'client_id' => $patient->client_id,
+            'veterinarian_id' => CurrentClinic::run($foreignClinic, fn () => Veterinarian::create(['user_id' => $uploader, 'code' => 'VET-000001'])->id),
+            'consulted_at' => now(), 'status' => 'open', 'created_by' => $uploader, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $path = "clinics/{$foreignClinic->id}/consultations/{$consultationId}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.pdf";
+        Storage::disk(ConsultationAttachmentService::DISK)->put($path, '%PDF-1.4');
+        $attachmentId = DB::table('consultation_attachments')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'consultation_id' => $consultationId, 'path' => $path, 'original_name' => 'ajeno.pdf',
+            'mime_type' => 'application/pdf', 'size_bytes' => 8, 'uploaded_by' => $uploader, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $own = $this->createClinic();
+        $ownPatient = $this->patientOf($this->clientIn($own));
+        $ownConsultation = DB::table('consultations')->insertGetId([
+            'clinic_id' => $own->id, 'code' => 'CON-000001', 'branch_id' => $this->defaultBranchIn($own)->id,
+            'patient_id' => $ownPatient->id, 'client_id' => $ownPatient->client_id,
+            'veterinarian_id' => CurrentClinic::run($own, fn () => Veterinarian::create(['user_id' => User::factory()->for($own)->create()->id, 'code' => 'VET-000001'])->id),
+            'consulted_at' => now(), 'status' => 'open', 'created_by' => User::factory()->for($own)->create()->id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingIn($own, ['consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy']);
+
+        $file = UploadedFile::fake()->createWithContent('estudio.pdf', '%PDF-1.4');
+        $this->assertErrorCode($this->post("/api/consultations/{$consultationId}/attachments", ['file' => $file], ['Accept' => 'application/json']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->getJson("/api/consultations/{$consultationId}/attachments/{$attachmentId}"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->getJson("/api/consultations/{$ownConsultation}/attachments/{$attachmentId}"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->deleteJson("/api/consultation-attachments/{$attachmentId}"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame(1, DB::table('consultation_attachments')->count());
+        $this->assertSame([$path], Storage::disk(ConsultationAttachmentService::DISK)->allFiles());
     }
 
     public function test_own_records_are_found(): void

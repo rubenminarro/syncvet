@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 4: la consulta",
-        "description": "Validación manual de la consulta (FASE 4, entregas 4.1 a 4.3). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la 4.1 y la 4.2 (php artisan migrate) y los permisos al día (php artisan permissions:sync: consultations.show-clinical y consultations.amend nuevos, consultations.reopen fuera). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) el DELETE (405); y la 4.2: cerrar la urgente sin diagnóstico (422 CONSULTATION_CLOSE_INCOMPLETE, errors por campo), enmendar una abierta (422 CONSULTATION_NOT_AMENDABLE), cerrar la del turno (200, el peso pasa al paciente), editarla y cerrarla otra vez (422 CONSULTATION_NOT_EDITABLE y CONSULTATION_NOT_CLOSABLE), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular la abierta y la cerrada (200), otra vez (422 CONSULTATION_NOT_CANCELLABLE) y el turno que sigue atendido; y la 4.3: la recepción no suma servicios (403), sumar el servicio con el precio del catálogo (201) y otro con cantidad decimal, precio y descuento (el total con BCMath), un descuento mayor al subtotal (422), editar la cantidad (el total de nuevo), quitar, la recepción que ve los ítems sin el contenido clínico, el servicio usado que no cambia de nombre (422 SERVICE_NAME_NOT_EDITABLE), sumar a una cerrada (422 CONSULTATION_NOT_EDITABLE) y el ítem sin cobro al anular. No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "description": "Validación manual de la consulta (FASE 4, entregas 4.1 a 4.3 y 4.5). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la 4.1 y la 4.2 (php artisan migrate) y los permisos al día (php artisan permissions:sync: consultations.show-clinical y consultations.amend nuevos, consultations.reopen fuera). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente, los emails y los nombres) y la fecha de hoy en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), su servicio, su agenda (todos los días de 00:00 a 23:55), un cliente con su paciente y dos turnos de hoy. Prueba: abrir desde el turno fichado (201, el turno pasa a atendido; la recepción, 403), abrir otra vez (409 CONSULTATION_ALREADY_EXISTS), consultation en el detalle del turno y has_consultation en el listado, editar (parcial; la temperatura fuera de rango, 422; la recepción, 403), la vista de la recepción sin el contenido clínico y la del administrador con él, la consulta sin turno, el listado (y un rango de más de 31 días, 422), abrir desde un turno sin fichar (422 APPOINTMENT_INVALID_TRANSITION) el DELETE (405); y la 4.2: cerrar la urgente sin diagnóstico (422 CONSULTATION_CLOSE_INCOMPLETE, errors por campo), enmendar una abierta (422 CONSULTATION_NOT_AMENDABLE), cerrar la del turno (200, el peso pasa al paciente), editarla y cerrarla otra vez (422 CONSULTATION_NOT_EDITABLE y CONSULTATION_NOT_CLOSABLE), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular la abierta y la cerrada (200), otra vez (422 CONSULTATION_NOT_CANCELLABLE) y el turno que sigue atendido; y la 4.3: la recepción no suma servicios (403), sumar el servicio con el precio del catálogo (201) y otro con cantidad decimal, precio y descuento (el total con BCMath), un descuento mayor al subtotal (422), editar la cantidad (el total de nuevo), quitar, la recepción que ve los ítems sin el contenido clínico, el servicio usado que no cambia de nombre (422 SERVICE_NAME_NOT_EDITABLE), sumar a una cerrada (422 CONSULTATION_NOT_EDITABLE) y el ítem sin cobro al anular; y la 4.5 (los archivos de docs/05-pruebas/postman/archivos, correrla desde la raíz): la recepción no adjunta (403), una imagen PNG y un PDF (201, sin la ruta del archivo), un texto con extensión .pdf (422: el tipo sale del contenido), la descarga con el tipo detectado y nosniff, la recepción que no descarga (403) ni ve los adjuntos, quitar el PDF (200), y adjuntar y quitar en la cerrada (422 CONSULTATION_NOT_EDITABLE), que conserva su adjunto. No limpia lo suyo (la API no borra consultas ni turnos): lo borra php artisan postman:cleanup <corrida>, con los adjuntos y sus archivos (node docs/05-pruebas/newman-todas.mjs consultas lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -2157,6 +2157,416 @@
             }
         },
         {
+            "name": "30i La recepción no sube adjuntos → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments"
+                    ]
+                },
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "docs/05-pruebas/postman/archivos/adjunto-estudio.png"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30j El veterinario adjunta una imagen PNG → 201, sin la ruta",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const list = pm.response.json().data.attachments;",
+                            "pm.test('Un adjunto, PNG, con su nombre', () => { pm.expect(list).to.have.length(1); pm.expect(list[0].mime_type).to.eql('image/png'); pm.expect(list[0].original_name).to.eql('adjunto-estudio.png'); });",
+                            "pm.test('Sin la clave path', () => pm.expect(list[0]).to.not.have.property('path'));",
+                            "pm.test('Sin la ruta del archivo', () => pm.expect(pm.response.text()).to.not.include('clinics/'));",
+                            "pm.collectionVariables.set('attachment_id', list[0].id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments"
+                    ]
+                },
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "docs/05-pruebas/postman/archivos/adjunto-estudio.png"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30k El veterinario adjunta un PDF → 201",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                            "const list = pm.response.json().data.attachments;",
+                            "pm.test('Dos adjuntos; el segundo, PDF', () => { pm.expect(list).to.have.length(2); pm.expect(list[1].mime_type).to.eql('application/pdf'); });",
+                            "pm.test('Sin la ruta del archivo', () => pm.expect(pm.response.text()).to.not.include('clinics/'));",
+                            "pm.collectionVariables.set('attachment2_id', list[1].id);"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments"
+                    ]
+                },
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "docs/05-pruebas/postman/archivos/adjunto-laboratorio.pdf"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30l Un texto con extensión .pdf (la extensión miente) → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code VALIDATION_ERROR', () => pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR'));",
+                            "pm.test('El error en file', () => pm.expect(pm.response.json().errors.file[0]).to.include('JPEG, PNG o WebP, o un PDF'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments"
+                    ]
+                },
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "docs/05-pruebas/postman/archivos/adjunto-miente.pdf"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30m El veterinario descarga la imagen → 200, el tipo del contenido y nosniff",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Content-Type image/png', () => pm.expect(pm.response.headers.get('Content-Type')).to.eql('image/png'));",
+                            "pm.test('X-Content-Type-Options nosniff', () => pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff'));",
+                            "pm.test('Descarga con el nombre saneado', () => { const d = pm.response.headers.get('Content-Disposition'); pm.expect(d).to.include('attachment'); pm.expect(d).to.include('adjunto-estudio.png'); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments/{{attachment_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments",
+                        "{{attachment_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30n La recepción no descarga adjuntos → 403 FORBIDDEN",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                            "pm.test('error_code FORBIDDEN', () => pm.expect(pm.response.json().error_code).to.eql('FORBIDDEN'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments/{{attachment_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments",
+                        "{{attachment_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30o La recepción no ve los adjuntos en el detalle",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Sin attachments', () => pm.expect(pm.response.json().data).to.not.have.property('attachments'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30p El veterinario quita el PDF → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Queda la imagen', () => { const list = pm.response.json().data.attachments; pm.expect(list).to.have.length(1); pm.expect(String(list[0].id)).to.eql(String(pm.collectionVariables.get('attachment_id'))); });"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultation-attachments/{{attachment2_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultation-attachments",
+                        "{{attachment2_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
             "name": "31 Cerrar la consulta urgente sin diagnóstico → 422 CONSULTATION_CLOSE_INCOMPLETE",
             "event": [
                 {
@@ -2508,6 +2918,151 @@
                         {
                             "key": "token",
                             "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36b Adjuntar a la cerrada → 422 CONSULTATION_NOT_EDITABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments"
+                    ]
+                },
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "docs/05-pruebas/postman/archivos/adjunto-laboratorio.pdf"
+                        }
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36c Quitar un adjunto de la cerrada → 422 CONSULTATION_NOT_EDITABLE",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "pm.test('error_code CONSULTATION_NOT_EDITABLE', () => pm.expect(pm.response.json().error_code).to.eql('CONSULTATION_NOT_EDITABLE'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "DELETE",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultation-attachments/{{attachment_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultation-attachments",
+                        "{{attachment_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "36d La cerrada conserva su adjunto: el administrador lo descarga → 200",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Content-Type image/png', () => pm.expect(pm.response.headers.get('Content-Type')).to.eql('image/png'));"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/consultations/{{consultation_id}}/attachments/{{attachment_id}}",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "consultations",
+                        "{{consultation_id}}",
+                        "attachments",
+                        "{{attachment_id}}"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_admin}}",
                             "type": "string"
                         }
                     ]
@@ -3123,6 +3678,16 @@
         },
         {
             "key": "item2_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "attachment_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "attachment2_id",
             "value": "",
             "type": "string"
         }

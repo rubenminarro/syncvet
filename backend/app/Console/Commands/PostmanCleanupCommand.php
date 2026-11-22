@@ -8,6 +8,7 @@ use App\Models\Breed;
 use App\Models\Client;
 use App\Models\Clinic;
 use App\Models\Consultation;
+use App\Models\ConsultationAttachment;
 use App\Models\Patient;
 use App\Models\PatientApplication;
 use App\Models\Schedule;
@@ -18,6 +19,7 @@ use App\Models\Species;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
+use App\Services\ConsultationAttachmentService;
 use App\Services\PatientPhotoService;
 use App\Support\ApiDateTime;
 use App\Support\CurrentClinic;
@@ -48,7 +50,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  *   estar entera (no dentro de otro número o palabra); lo dado de baja por la API se reconoce con su sufijo de DeletedSuffix.
  * - Con --tokens-since, revoca además los tokens de los usuarios del DemoSeeder creados desde esa hora: las colecciones
  *   ingresan con ellos y no salen. Con --dry-run, solo cuenta (todo en una transacción que se deshace).
- * - Las consultas (FASE 4) de esos turnos, pacientes, clientes o fichas se borran primero, de verdad (la API no las borra), con sus enmiendas (inmutables: con el constructor de consultas).
+ * - Las consultas (FASE 4) de esos turnos, pacientes, clientes o fichas se borran primero, de verdad (la API no las borra), con sus enmiendas (inmutables: con el constructor de consultas) y sus adjuntos (entrega 4.5: la fila, con su auditoría, y el archivo del disco consultation_attachments, después de la transacción).
  * - Los turnos de esas agendas, clientes, pacientes, fichas o servicios, con sus bloqueos y sus tramos, se borran de verdad,
  *   como los clientes, los pacientes (y su foto), los servicios, las fichas, las especies y las razas. Los usuarios quedan dados
  *   de baja (SoftDeletes, sin tokens) y no se borran de verdad: la auditoría los referencia (audit_logs.user_id), y es inmutable.
@@ -83,6 +85,13 @@ class PostmanCleanupCommand extends Command
      * @var list<string>
      */
     private array $photos = [];
+
+    /**
+     * Los archivos de los adjuntos borrados (FASE 4, entrega 4.5): como las fotos, después de la transacción.
+     *
+     * @var list<string>
+     */
+    private array $attachmentFiles = [];
 
     public function handle(): int
     {
@@ -124,12 +133,17 @@ class PostmanCleanupCommand extends Command
 
         foreach ($runs as $run) {
             $this->photos = [];
+            $this->attachmentFiles = [];
             $summary = CurrentClinic::run($clinic, fn () => $this->option('dry-run')
                 ? $this->rolledBack(fn () => $this->cleanup($clinic, $run))
                 : DB::transaction(fn () => $this->cleanup($clinic, $run)));
 
             if (! $this->option('dry-run') && $this->photos !== []) {
                 Storage::disk(PatientPhotoService::DISK)->delete($this->photos);
+            }
+
+            if (! $this->option('dry-run') && $this->attachmentFiles !== []) {
+                Storage::disk(ConsultationAttachmentService::DISK)->delete($this->attachmentFiles);
             }
 
             $this->components->info(($this->option('dry-run') ? 'Sin borrar (--dry-run). ' : '') . "Corrida {$run}: " . $this->describe($summary));
@@ -220,6 +234,9 @@ class PostmanCleanupCommand extends Command
         $amendments = DB::table('consultation_amendments')->whereIn('consultation_id', $consultations->modelKeys())->delete();
         // Sus ítems (entrega 4.3) se van con la consulta (cascadeOnDelete); se cuentan antes.
         $items = DB::table('consultation_items')->whereIn('consultation_id', $consultations->modelKeys())->count();
+        // Sus adjuntos (entrega 4.5), modelo por modelo (con su auditoría); los archivos, del disco después de la transacción.
+        $attachments = ConsultationAttachment::query()->whereIn('consultation_id', $consultations->modelKeys())->get();
+        $this->attachmentFiles = $attachments->pluck('path')->filter(fn ($path) => is_string($path) && $path !== '')->values()->all();
         // Las aplicaciones (entrega 4.4) de esos pacientes o consultas, antes que ellos (restrictOnDelete), modelo por modelo.
         $applications = PatientApplication::query()
             ->where(fn (Builder $q) => $q->whereIn('patient_id', $patients->modelKeys())->orWhereIn('consultation_id', $consultations->modelKeys()))
@@ -229,6 +246,7 @@ class PostmanCleanupCommand extends Command
             'applications' => $this->forceDeleteAll($applications),
             'amendments' => $amendments,
             'items' => $items,
+            'attachments' => $this->forceDeleteAll($attachments),
             'consultations' => $this->forceDeleteAll($consultations),
             'appointments' => $this->forceDeleteAll($appointments),
             'blocks' => $this->forceDeleteAll(ScheduleBlock::whereIn('schedule_id', $schedules->modelKeys())->get()),
@@ -377,7 +395,7 @@ class PostmanCleanupCommand extends Command
     private function describe(array $summary): string
     {
         $labels = [
-            'applications' => 'aplicaciones', 'amendments' => 'enmiendas', 'items' => 'ítems', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
+            'applications' => 'aplicaciones', 'amendments' => 'enmiendas', 'items' => 'ítems', 'attachments' => 'adjuntos', 'consultations' => 'consultas', 'appointments' => 'turnos', 'blocks' => 'bloqueos', 'hours' => 'tramos', 'schedules' => 'agendas',
             'patients' => 'pacientes', 'clients' => 'clientes', 'veterinarians' => 'fichas', 'services' => 'servicios',
             'breeds' => 'razas', 'species' => 'especies', 'branches' => 'sucursales', 'warehouses' => 'depósitos', 'users' => 'usuarios dados de baja',
         ];

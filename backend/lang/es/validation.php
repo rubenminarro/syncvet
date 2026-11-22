@@ -342,6 +342,9 @@ return [
         'dose_number' => 'número de dosis',
         'next_dose_due_at' => 'próxima dosis',
         'type.*' => 'tipo',
+
+        // Los adjuntos de la consulta (FASE 4, entrega 4.5)
+        'file' => 'archivo',
     ],
 
 ];

@@ -14,9 +14,9 @@ use Illuminate\Http\Request;
  * condición corporal y el texto del examen), el diagnóstico, el tratamiento y las indicaciones;
  * sin él (la recepción, pregunta 7), esas claves no están.
  *
- * Con el permiso, además las enmiendas (4.2). Para todos, los ítems (4.3: lo administrativo, para
- * cobrar) y las aplicaciones (4.4, resumidas). Los adjuntos se suman en la 4.5.
- * Espera además appointment, items.service, items.veterinarian.user, createdBy, closedBy y cancelledBy cargados
+ * Con el permiso, además las enmiendas (4.2) y los adjuntos (4.5, sin la ruta). Para todos, los ítems
+ * (4.3: lo administrativo, para cobrar) y las aplicaciones (4.4, resumidas).
+ * Espera además appointment, items.service, items.veterinarian.user, attachments.uploadedBy, createdBy, closedBy y cancelledBy cargados
  * (ConsultationService::loadDetail).
  *
  * @mixin Consultation
@@ -70,6 +70,16 @@ class ShowConsultationResource extends ConsultationResource
                     'reason' => $amendment->reason,
                     'created_by' => $this->user($amendment->createdBy),
                     'created_at' => $amendment->created_at?->toISOString(),
+                ])->all(),
+                // Entrega 4.5: los adjuntos, por id, sin la ruta del archivo (se descargan por
+                // GET consultations/{consultation}/attachments/{attachment}); la recepción no los ve.
+                'attachments' => $this->attachments->map(fn ($attachment) => [
+                    'id' => $attachment->id,
+                    'original_name' => $attachment->original_name,
+                    'mime_type' => $attachment->mime_type,
+                    'size_bytes' => $attachment->size_bytes,
+                    'uploaded_by' => $this->user($attachment->uploadedBy),
+                    'created_at' => $attachment->created_at?->toISOString(),
                 ])->all(),
             ]),
             'created_by' => $this->user($this->createdBy),

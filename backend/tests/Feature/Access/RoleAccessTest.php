@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Services\ClinicLogoService;
+use App\Services\ConsultationAttachmentService;
 use App\Services\PatientPhotoService;
 use App\Support\CurrentClinic;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -187,6 +188,23 @@ class RoleAccessTest extends TestCase
             'total' => '150000.00',
             'tax_rate' => 10,
             'billing_status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Un adjunto de esa consulta, con su archivo (FASE 4, entrega 4.5): descargarlo responde 200; quitarlo, 200 (el
+        // administrador) o 403 CONSULTATION_NOT_YOURS; subir uno sin archivo, 422.
+        Storage::fake(ConsultationAttachmentService::DISK);
+        $attachment = "clinics/{$this->clinic->id}/consultations/{$this->parameters['consultation']}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.pdf";
+        Storage::disk(ConsultationAttachmentService::DISK)->put($attachment, '%PDF-1.4');
+        $this->parameters['attachment'] = (string) DB::table('consultation_attachments')->insertGetId([
+            'clinic_id' => $this->clinic->id,
+            'consultation_id' => (int) $this->parameters['consultation'],
+            'path' => $attachment,
+            'original_name' => 'estudio.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 8,
+            'uploaded_by' => User::factory()->for($this->clinic)->create()->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

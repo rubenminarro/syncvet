@@ -121,3 +121,33 @@ contradice al código, manda el código.
 * **En el detalle de la consulta** (revisión de la 4.4), `applications`: sus aplicaciones por `applied_at` e id, resumidas (id, tipo,
   nombre, fecha de aplicación, número de dosis, próxima dosis y si está anulada), también para la recepción; el detalle completo, en
   `GET patients/{patient}/applications`.
+* **Los adjuntos** (entrega 4.5; `ConsultationAttachmentService`; pregunta 17): imágenes JPEG, PNG y WebP y PDF.
+  * **Subir** (`POST consultations/{consultation}/attachments`, `consultation-attachments.store`, multipart, campo `file`): solo con
+    la consulta abierta, por su veterinario o el administrador (`lockEditable()`: 403 `CONSULTATION_NOT_YOURS`, 422
+    `CONSULTATION_NOT_EDITABLE`). **El tipo sale del contenido** (finfo, la regla `mimetypes`), nunca de la extensión del nombre ni del
+    `Content-Type` del pedido: un PNG llamado `.pdf` se guarda como PNG, y un texto o un HTML llamado `.pdf` se rechaza (422 en `file`).
+    **Hasta 10 MB** (`StoreConsultationAttachmentRequest::MAX_KILOBYTES`); más, 413 `PAYLOAD_TOO_LARGE`, también lo que PHP corta
+    antes (`upload_max_filesize`, `post_max_size`). **Hasta 20 por consulta**, contados con la consulta bloqueada: el 21, 422 en
+    `file`. El archivo no se vuelve a codificar (es un estudio clínico). Responde 201 con el detalle de la consulta.
+  * **Disco privado** `consultation_attachments` (`storage/app/private/consultation-attachments`, sin `serve` ni URL, como
+    `patient_photos`), en `clinics/{clinic_id}/consultations/{consultation_id}/{uuid}.{ext}`: el nombre en disco es generado y la
+    extensión es la del tipo detectado. `original_name` guarda el nombre subido **saneado** (sin carpetas, sin caracteres de control
+    ni `\ / : * ? " < > |`, hasta 255 caracteres; vacío, "adjunto"), solo para mostrar. El archivo se escribe antes de la
+    transacción; si la transacción falla (la consulta no es editable, el tope, un deadlock agotado), se borra.
+  * **Descargar** (`GET consultations/{consultation}/attachments/{attachment}`, `consultation-attachments.index`: el veterinario y el
+    administrador; la recepción, no): siempre por el endpoint, nunca por una URL pública. Responde el archivo con el `Content-Type`
+    del tipo detectado, `Content-Disposition: attachment` con el nombre saneado (y la extensión del tipo detectado: un PNG subido
+    como `estudio.pdf` se descarga como `estudio.png`), `X-Content-Type-Options: nosniff`, una CSP que no deja ejecutar nada y sin
+    caché. Un adjunto de otra consulta (`scopeBindings`) o de otra clínica, una ruta fuera de la carpeta de su consulta o un archivo
+    que falta, 404 (con un aviso en el log, sin la ruta en la respuesta). Una consulta cerrada o anulada conserva sus adjuntos y se
+    descargan igual.
+  * **Quitar** (`DELETE consultation-attachments/{attachment}`, `.destroy`): solo con la consulta abierta (422
+    `CONSULTATION_NOT_EDITABLE`), por su veterinario o el administrador. Baja física de la fila y, después del commit, del archivo (un
+    borrado que falla queda en el log y lo levanta `files:prune-orphans`). Auditado, con la ruta como `"(archivo)"`.
+  * **En el detalle**, `attachments` (por id: id, nombre saneado, tipo, tamaño, quién lo subió y cuándo), **sin la ruta** (ninguna
+    respuesta la incluye), solo con `consultations.show-clinical`: la recepción no los ve.
+  * **`files:prune-orphans`** cubre el disco: borra los archivos de más de 24 horas de `clinics/{id}/consultations/` que no son el
+    `path` de ningún adjunto. **`postman:cleanup`** borra los adjuntos de las consultas de la corrida (la fila, con su auditoría) y,
+    después de la transacción, sus archivos.
+  * **Concurrencia** (§3: consulta → adjunto): la consulta con `lockForUpdate` (`lockEditable`) antes de contar o escribir y, al
+    quitar, el adjunto con `lockForUpdate`. Los reintentos de `withRetries`.

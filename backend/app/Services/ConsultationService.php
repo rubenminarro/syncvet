@@ -298,6 +298,10 @@ class ConsultationService
             'items.service', 'items.veterinarian.user',
             // Revisión de la 4.4: las aplicaciones de la consulta, por fecha e id.
             'applications' => fn ($query) => $query->orderBy('applied_at')->orderBy('id'),
+            // Entrega 4.5: los adjuntos, por id, con quién los subió (el Resource los muestra solo con
+            // consultations.show-clinical).
+            'attachments' => fn ($query) => $query->orderBy('id'),
+            'attachments.uploadedBy',
         ]);
     }
 

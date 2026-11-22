@@ -612,10 +612,10 @@ reglas, en [`consultas.md`](../02-requisitos/reglas/consultas.md).
 
 | Colección | Entrega | Qué valida |
 |---|---|---|
-| [`postman/syncvet-fase-04-consultas.postman_collection.json`](postman/syncvet-fase-04-consultas.postman_collection.json) | 4.1 a 4.3 | Alta del usuario de la corrida con el rol `veterinario`, su ficha, su sucursal actual, su servicio y una agenda abierta todo el día; un cliente con su paciente y un turno de hoy que la recepción ficha; la recepción no abre (403); el veterinario abre desde el turno fichado (201, el turno pasa a atendido, código `CON-`) y otra vez (409 `CONSULTATION_ALREADY_EXISTS`); `consultation` en el detalle del turno y `has_consultation` en el listado; la edición parcial, la temperatura fuera de rango (422) y la recepción que no edita (403); la vista de la recepción sin el contenido clínico y la del administrador con él; la consulta sin turno (la sucursal actual); el listado del paciente, el de la recepción sin el diagnóstico y un rango de más de 31 días (422); abrir desde un turno sin fichar (422 `APPOINTMENT_INVALID_TRANSITION`); el `DELETE` (405); y la 4.2: cerrar sin diagnóstico (422 `CONSULTATION_CLOSE_INCOMPLETE`, `errors` por campo), enmendar una abierta (422 `CONSULTATION_NOT_AMENDABLE`), cerrar (200, el peso pasa al paciente), editar y cerrar una cerrada (422 `CONSULTATION_NOT_EDITABLE` y `CONSULTATION_NOT_CLOSABLE`), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular una abierta y una cerrada (200), otra vez (422 `CONSULTATION_NOT_CANCELLABLE`) y el turno que sigue atendido; y la 4.3: la recepción no suma servicios (403), sumar el servicio con el precio del catálogo y otro con cantidad decimal, precio y descuento (el total con BCMath), un descuento mayor al subtotal (422), editar y quitar, la recepción que ve los ítems sin el contenido clínico, el servicio usado que no cambia de nombre (422 `SERVICE_NAME_NOT_EDITABLE`), sumar a una cerrada (422 `CONSULTATION_NOT_EDITABLE`) y el ítem sin cobro al anular |
+| [`postman/syncvet-fase-04-consultas.postman_collection.json`](postman/syncvet-fase-04-consultas.postman_collection.json) | 4.1 a 4.3 y 4.5 | Alta del usuario de la corrida con el rol `veterinario`, su ficha, su sucursal actual, su servicio y una agenda abierta todo el día; un cliente con su paciente y un turno de hoy que la recepción ficha; la recepción no abre (403); el veterinario abre desde el turno fichado (201, el turno pasa a atendido, código `CON-`) y otra vez (409 `CONSULTATION_ALREADY_EXISTS`); `consultation` en el detalle del turno y `has_consultation` en el listado; la edición parcial, la temperatura fuera de rango (422) y la recepción que no edita (403); la vista de la recepción sin el contenido clínico y la del administrador con él; la consulta sin turno (la sucursal actual); el listado del paciente, el de la recepción sin el diagnóstico y un rango de más de 31 días (422); abrir desde un turno sin fichar (422 `APPOINTMENT_INVALID_TRANSITION`); el `DELETE` (405); y la 4.2: cerrar sin diagnóstico (422 `CONSULTATION_CLOSE_INCOMPLETE`, `errors` por campo), enmendar una abierta (422 `CONSULTATION_NOT_AMENDABLE`), cerrar (200, el peso pasa al paciente), editar y cerrar una cerrada (422 `CONSULTATION_NOT_EDITABLE` y `CONSULTATION_NOT_CLOSABLE`), una enmienda inválida (422) y una válida (201, lo escrito no cambia), la recepción sin las enmiendas, el veterinario que no anula (403), anular una abierta y una cerrada (200), otra vez (422 `CONSULTATION_NOT_CANCELLABLE`) y el turno que sigue atendido; y la 4.3: la recepción no suma servicios (403), sumar el servicio con el precio del catálogo y otro con cantidad decimal, precio y descuento (el total con BCMath), un descuento mayor al subtotal (422), editar y quitar, la recepción que ve los ítems sin el contenido clínico, el servicio usado que no cambia de nombre (422 `SERVICE_NAME_NOT_EDITABLE`), sumar a una cerrada (422 `CONSULTATION_NOT_EDITABLE`) y el ítem sin cobro al anular; y la 4.5: la recepción no adjunta (403), una imagen PNG y un PDF (201, sin la ruta del archivo), un texto con extensión `.pdf` (422: el tipo sale del contenido), la descarga con el tipo detectado, el nombre y `nosniff`, la recepción que no descarga (403) ni ve los adjuntos, quitar el PDF (200), adjuntar y quitar en la cerrada (422 `CONSULTATION_NOT_EDITABLE`) y la cerrada que conserva su adjunto |
 | [`postman/syncvet-fase-04-aplicaciones.postman_collection.json`](postman/syncvet-fase-04-aplicaciones.postman_collection.json) | 4.4 | Alta del usuario de la corrida con el rol `veterinario`, su ficha y su sucursal actual; un cliente con su paciente y una consulta sin turno; la recepción no carga (403); una vacuna con la consulta, el lote y la próxima dosis (201) y una desparasitación sin consulta (201); la fecha de mañana y la próxima dosis el mismo día (422); el listado de la recepción y el filtro por tipo; la recepción no anula (403); el veterinario anula la que cargó hoy sin consulta (200) y otra vez (422 `PATIENT_APPLICATION_NOT_CANCELLABLE`); el listado la marca anulada; cerrar la consulta y anular su vacuna (422 `CONSULTATION_NOT_EDITABLE`); anular la consulta, que anula la vacuna con el mismo motivo; y el paciente fallecido (422 `PATIENT_DECEASED`) |
 
-#### La consulta (4.1 a 4.3)
+#### La consulta (4.1 a 4.3 y 4.5)
 
 **Migrar y poner los permisos al día.** La 4.1 tiene una migración (`adjust_consultations_for_phase_4`) y un permiso nuevo,
 `consultations.show-clinical` (el administrador y el veterinario). Si la base no se recrea, correr `php artisan migrate` y
@@ -627,12 +627,18 @@ veterinario ve la consulta sin el contenido clínico. La 4.2 suma otra migració
 **Necesita internet y el `DemoSeeder`.** Los emails de la corrida son `@mailinator.com` (la validación consulta su MX); usa
 `admin-a@example.com`, `recepcion-a@example.com` y la sucursal por defecto de la clínica A.
 
-**55 requests y 104 pruebas.**
+**Los archivos de la 4.5.** Los adjuntos salen de [`postman/archivos`](postman/archivos), con rutas relativas a la raíz del
+repositorio: la colección se corre desde la raíz (Newman), o en Postman con la carpeta de trabajo en la raíz (Settings → General →
+Working directory). Son chicos y ficticios: `adjunto-estudio.png` (una imagen de 4 × 4), `adjunto-laboratorio.pdf` (un PDF sin
+páginas) y `adjunto-miente.pdf` (texto plano con nombre de PDF, que se rechaza). La 4.5 no tiene migraciones ni permisos nuevos
+(`consultation-attachments.*` ya estaban en el seeder).
+
+**66 requests y 132 pruebas.**
 
 **Se corre más de una vez sin recrear la base.** El primer pedido genera un número de corrida (entre 110000 y 149998: el documento
 del cliente queda en 9911… a 9914…) y la fecha de hoy en Asunción. Los turnos van en la agenda de la corrida, abierta de 00:00 a
 23:55, a las 00:00 y a la 01:00 de hoy, así que corre a cualquier hora. La API no borra consultas ni turnos: la corrida no limpia lo
-suyo; lo borra `php artisan postman:cleanup <corrida>` (las consultas primero), que `node docs/05-pruebas/newman-todas.mjs consultas`
+suyo; lo borra `php artisan postman:cleanup <corrida>` (las consultas primero, con sus adjuntos y sus archivos), que `node docs/05-pruebas/newman-todas.mjs consultas`
 corre al terminar.
 
 **Lo que no está en la colección.** El turno atendido el mismo día y otro día (422 `CONSULTATION_APPOINTMENT_NOT_TODAY`), el paciente
@@ -647,7 +653,11 @@ límites y su inmutabilidad: `ConsultationAmendmentTest`; un ítem pendiente y u
 escritura sobre una cerrada o anulada (PATCH, PUT, cerrar): `ConsultationImmutabilityTest`. De la 4.3: los totales (redondeos,
 sin `float`), las validaciones, el servicio inactivo, el veterinario de los honorarios, otra ficha y el administrador, y la baja del
 servicio usado: `ConsultationItemTest`; los ítems con una cerrada o anulada: `ConsultationImmutabilityTest`; un ítem de otra clínica:
-`RouteBindingTest`.
+`RouteBindingTest`. De la 4.5: JPEG y WebP, un PDF llamado `.png`, un SVG, el tamaño justo y el de un byte más (413), lo que corta
+PHP (413), el tope de 20 (el 21, 422, sin dejar el archivo), otra ficha (403 `CONSULTATION_NOT_YOURS`), el adjunto de otra consulta,
+el archivo que falta o fuera de su carpeta (404), el nombre saneado, la auditoría con `"(archivo)"`, el disco privado y
+`files:prune-orphans`: `ConsultationAttachmentTest`; subir y quitar en una cerrada o anulada: `ConsultationImmutabilityTest`; un
+adjunto de otra clínica: `RouteBindingTest`.
 
 **Con Newman.** Con el servidor en el puerto 8001, desde la raíz:
 
@@ -658,7 +668,9 @@ node docs/05-pruebas/newman-todas.mjs consultas
 Corrida del 2026-11-20 contra la base de desarrollo: 31 pedidos y 54 aserciones, sin fallas; la limpieza borró 2 consultas, 2 turnos,
 la agenda, el paciente, el cliente, la ficha y el servicio, y dio de baja el usuario. Con la 4.2, el mismo día: 45 pedidos y 84
 aserciones, sin fallas; la limpieza borró además la enmienda (antes que su consulta). Con la 4.3, el mismo día: 55 pedidos y 104 aserciones, sin
-fallas; la limpieza contó el ítem, que se va con su consulta.
+fallas; la limpieza contó el ítem, que se va con su consulta. Con la 4.5, el 2026-11-22: 66 pedidos y 132 aserciones, sin fallas
+(la primera corrida tuvo una falla del script de la colección, que comparaba el id guardado como texto con un número; corregida);
+la limpieza borró además el adjunto que quedaba, con su archivo (el disco quedó vacío).
 
 #### Las aplicaciones (4.4)
 

@@ -3,8 +3,11 @@
 namespace Tests\Feature\Consultations;
 
 use App\Models\Service;
+use App\Services\ConsultationAttachmentService;
 use App\Support\CurrentClinic;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithConsultations;
 use Tests\TestCase;
@@ -13,7 +16,8 @@ use Tests\TestCase;
  * La inmutabilidad (FASE 4, entregas 4.2 a 4.4; D4): cada ruta de escritura de la consulta con una
  * cerrada o una anulada responde 422 y no cambia nada, ni la consulta, ni sus ítems, ni sus
  * aplicaciones. Editar (PATCH y PUT), los ítems (sumar, editar y quitar, 4.3) y las aplicaciones (cargar
- * con la consulta y anular una de ella, 4.4), 422 CONSULTATION_NOT_EDITABLE
+ * con la consulta y anular una de ella, 4.4) y los adjuntos (subir, sin dejar el archivo, y quitar,
+ * 4.5), 422 CONSULTATION_NOT_EDITABLE
  * (ConsultationService::lockEditable y ensureEditable, el lugar único); cerrar, 422
  * CONSULTATION_NOT_CLOSABLE. Una aplicación de una anulada ya está anulada (422
  * PATIENT_APPLICATION_NOT_CANCELLABLE, en PatientApplicationTest). Enmendar y anular la consulta, en sus
@@ -35,6 +39,9 @@ class ConsultationImmutabilityTest extends TestCase
             $cases["editar un ítem {$status}"] = [$status, 'patch', '/api/consultation-items/{item}', 'CONSULTATION_NOT_EDITABLE'];
             $cases["quitar un ítem {$status}"] = [$status, 'delete', '/api/consultation-items/{item}', 'CONSULTATION_NOT_EDITABLE'];
             $cases["cargar una aplicación {$status}"] = [$status, 'post', '/api/patients/{patient}/applications', 'CONSULTATION_NOT_EDITABLE'];
+            // Entrega 4.5: subir un adjunto (el archivo ya escrito se borra) y quitar uno.
+            $cases["subir un adjunto {$status}"] = [$status, 'post', '/api/consultations/{id}/attachments', 'CONSULTATION_NOT_EDITABLE'];
+            $cases["quitar un adjunto {$status}"] = [$status, 'delete', '/api/consultation-attachments/{attachment}', 'CONSULTATION_NOT_EDITABLE'];
         }
 
         $cases['anular una aplicación closed'] = ['closed', 'post', '/api/patient-applications/{application}/cancel', 'CONSULTATION_NOT_EDITABLE'];
@@ -56,11 +63,16 @@ class ConsultationImmutabilityTest extends TestCase
             'type' => 'vaccine', 'name' => 'Antirrábica', 'applied_at' => '2026-11-10T08:50:00', 'consultation_id' => $id,
         ])->assertCreated()->json('data.id');
         $item = (int) DB::table('consultation_items')->value('id');
+        Storage::fake(ConsultationAttachmentService::DISK);
+        $attachment = $this->post("/api/consultations/{$id}/attachments", ['file' => $this->pdf()], ['Accept' => 'application/json'])
+            ->assertCreated()->json('data.attachments.0.id');
         DB::table('consultations')->where('id', $id)->update(['status' => $status]);
         $snapshot = fn () => [
             (array) $this->consultationRow($id),
             DB::table('consultation_items')->get()->map(fn ($row) => (array) $row)->all(),
             DB::table('patient_applications')->get()->map(fn ($row) => (array) $row)->all(),
+            DB::table('consultation_attachments')->get()->map(fn ($row) => (array) $row)->all(),
+            Storage::disk(ConsultationAttachmentService::DISK)->allFiles(),
         ];
         $before = $snapshot();
         $this->actAsAdmin();
@@ -72,9 +84,20 @@ class ConsultationImmutabilityTest extends TestCase
             str_contains($uri, '{patient}') => ['type' => 'vaccine', 'name' => 'Otra', 'applied_at' => '2026-11-10T08:55:00', 'consultation_id' => $id],
             default => ['diagnosis' => 'Cambiado', 'service_id' => $service->id, 'quantity' => 3],
         };
-        $response = $this->json($method, str_replace(['{id}', '{item}', '{patient}', '{application}'], [$id, $item, $patient, $application], $uri), $body);
+        $uri = str_replace(['{id}', '{item}', '{patient}', '{application}', '{attachment}'], [$id, $item, $patient, $application, $attachment], $uri);
+        $response = str_ends_with($uri, '/attachments')
+            ? $this->post($uri, ['file' => $this->pdf()], ['Accept' => 'application/json'])
+            : $this->json($method, $uri, $body);
 
         $this->assertErrorCode($response, 422, $errorCode);
         $this->assertSame($before, $snapshot());
+    }
+
+    private function pdf(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'adj');
+        file_put_contents($path, "%PDF-1.4\n%%EOF\n");
+
+        return new UploadedFile($path, 'estudio.pdf', 'application/pdf', null, true);
     }
 }
