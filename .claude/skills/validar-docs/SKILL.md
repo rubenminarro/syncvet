@@ -6,16 +6,18 @@ allowed-tools: Read Grep Glob Bash(php .claude/skills/validar-docs/scripts/check
 
 # Validar la documentación
 
-Auditar e informar. **Es de solo lectura: no modificar, crear ni borrar archivos, ni ejecutar comandos que lo hagan.** Corregir lo
-encontrado es un pedido aparte del usuario.
+Auditar e informar. **Es de solo lectura: no modificar, crear ni borrar archivos del repositorio, ni ejecutar comandos que lo
+hagan** (la única escritura es la salida del script, en el scratchpad). Corregir lo encontrado es un pedido aparte del usuario.
 
 ## 1. Comprobaciones automáticas
 
-Desde la raíz del repositorio:
+Desde la raíz del repositorio, con la salida a un archivo:
 
 ```bash
-php .claude/skills/validar-docs/scripts/check-docs.php --detalle
+php .claude/skills/validar-docs/scripts/check-docs.php --detalle > "<scratchpad>/check-docs.txt" 2>&1
 ```
+
+Leer del archivo solo el resumen, los hallazgos y la lista de excluidas (`Grep -n` para ubicarlos), no la salida entera.
 
 El script revisa enlaces y anclas (también de los `CLAUDE.md` y `README.md` de la raíz, `backend/` y `frontend/`), documentos huérfanos desde `docs/README.md`, rutas citadas que no existen (`docs/…` desde la raíz; `app/…`, `tests/…` y las demás carpetas de Laravel, desde `backend/`) y las cifras de los documentos
 vivos contra el código. Código de salida 1 si hay hallazgos.

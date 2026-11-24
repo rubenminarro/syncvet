@@ -1,7 +1,7 @@
 ---
 name: cambiar-pc
 description: Pone al día esta PC al llegar de otra (o al instalar una nueva). Trae los cambios, revisa PHP, Node, el .env, las dependencias, la base y Laragon, y propone lo que falta. Usar al cambiar de computadora o cuando el entorno falla sin causa clara.
-allowed-tools: Read Grep Glob Bash(git fetch *) Bash(git status *) Bash(git branch --show-current) Bash(git log *) Bash(git rev-list *) Bash(bash .claude/skills/cambiar-pc/scripts/check-env.sh*)
+allowed-tools: Read Grep Glob Bash(git fetch *) Bash(git status *) Bash(git branch --show-current) Bash(git log *) Bash(git rev-list *) Bash(bash .claude/skills/cambiar-pc/scripts/check-env.sh*) Bash(tail -n *)
 ---
 
 # Cambiar de PC
@@ -13,8 +13,11 @@ valores del `.env`** (solo los nombres de las claves). Todo, desde la raíz del 
 
 ```bash
 git fetch origin --prune
-bash .claude/skills/cambiar-pc/scripts/check-env.sh > "<scratchpad>/check-env.txt" 2>&1; tail -n 40 "<scratchpad>/check-env.txt"
+bash .claude/skills/cambiar-pc/scripts/check-env.sh > "<scratchpad>/check-env.txt" 2>&1
+tail -n 40 "<scratchpad>/check-env.txt"
 ```
+
+Son tres comandos separados, sin `;` ni `&&`: así cada uno coincide con su permiso de `allowed-tools`.
 
 El script tarda unos 15 s. Hace los controles de [`setup.md`](../../../docs/04-desarrollo/setup.md) y muestra una línea por control
 (`OK`, `AVISO` o `FALLA`): Git y los restos del monorepo, PHP (versión, extensiones, GD, zona `-03:00`, `curl.cainfo`, límites),

@@ -3,7 +3,7 @@ name: cerrar-fase
 description: Cierra una fase ya entregada: corre la regresión completa de cierre (backend en SQLite y en MySQL en serie, composer audit, frontend completo, Playwright y Newman con todas las colecciones), documenta el cierre, lo commitea y lo sube, y con autorización hace el merge --no-ff a main.
 disable-model-invocation: true
 argument-hint: "<backend N | frontend FN>"
-allowed-tools: Read Grep Glob Bash(git status *) Bash(git status) Bash(git log *) Bash(git diff *) Bash(git branch *) Bash(git rev-parse *) Bash(git rev-list *) Bash(git fetch *) Bash(git add *) Bash(git commit *) Bash(git push *) Bash(php .claude/skills/validar-docs/scripts/check-docs.php*)
+allowed-tools: Read Grep Glob Edit Write Bash(git status *) Bash(git status) Bash(git log *) Bash(git diff *) Bash(git branch --show-current) Bash(git rev-parse *) Bash(git rev-list *) Bash(git fetch *) Bash(git add *) Bash(git commit *) Bash(git push) Bash(php .claude/skills/validar-docs/scripts/check-docs.php*) Bash(composer test*) Bash(composer audit*) Bash(npm run typecheck*) Bash(npm run lint*) Bash(npm run build*) Bash(npm run test:e2e*) Bash(npm test*) Bash(npm audit*) Bash(php artisan test --filter*) Bash(php artisan migrate:status*) Bash(php artisan route:list*) Bash(XDEBUG_MODE=off php artisan serve --port=8001*) Bash(node docs/05-pruebas/newman-todas.mjs*)
 ---
 
 # Cerrar una fase
@@ -77,7 +77,11 @@ regla de negocio, un contrato, un permiso o un `error_code`.
 ## 4. Documentar el cierre
 
 Valen las reglas de la tabla del paso 4 de [`cerrar-entrega`](../cerrar-entrega/SKILL.md) (no inventar, una fuente, el registro
-solo crece, el handoff se reemplaza) y la tabla **Mantenimiento** de `docs/README.md`. Si algo no encaja, preguntar antes de editar.
+solo crece, el handoff se reemplaza, **agregar al final sin leer el archivo entero**) y la tabla **Mantenimiento** de
+`docs/README.md`. Si algo no encaja, preguntar antes de editar.
+
+Del cierre modelo, leer solo su sección: ubicar `## Cierre de la FASE 4` con `Grep -n` en `fase-04-resultados.md` y leer desde ahí
+hasta el final (unas 100 líneas de 520).
 
 | Documento | Qué cambia |
 |---|---|

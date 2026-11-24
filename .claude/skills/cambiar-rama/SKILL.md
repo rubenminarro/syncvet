@@ -2,14 +2,15 @@
 name: cambiar-rama
 description: Cambia a otra rama y deja el entorno acorde (dependencias, base de desarrollo, permisos, cachés). Detecta qué cambió entre las dos ramas y propone solo lo necesario. Usar al cambiar de rama para probar o seguir otra entrega. Recibe el nombre de la rama.
 argument-hint: <rama>
-allowed-tools: Read Grep Glob Bash(git fetch *) Bash(git status *) Bash(git branch *) Bash(git log *) Bash(git rev-parse *) Bash(git rev-list *) Bash(bash .claude/skills/cambiar-rama/scripts/diff-rama.sh *)
+allowed-tools: Read Grep Glob Bash(git fetch *) Bash(git status *) Bash(git branch --show-current) Bash(git for-each-ref *) Bash(git log *) Bash(git rev-parse *) Bash(git rev-list *) Bash(bash .claude/skills/cambiar-rama/scripts/diff-rama.sh *)
 ---
 
 # Cambiar de rama
 
 Pasa a la rama `$ARGUMENTS` y deja el entorno de desarrollo acorde. **No corre la suite de tests, no commitea, no hace push y no
 crea ramas** (para una rama nueva de una tarea, la crea el flujo de la entrega). Todo, desde la raíz del repositorio. Sin argumento,
-listar las ramas recientes (`git branch --sort=-committerdate | head -n 10`) y preguntar.
+listar las ramas recientes (`git for-each-ref --sort=-committerdate --count=10 --format='%(refname:short)' refs/heads/`) y
+preguntar.
 
 ## 1. Antes de cambiar
 
