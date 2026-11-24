@@ -11,12 +11,12 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-20 (R-098: la F3 del frontend, integrada a `main` con el merge `5f180f3`) |
-| Rama | `main`, en el merge `5f180f3` de `feature/f3-cierre` (las ramas se conservan) |
-| Sin integrar a `main` | Nada |
-| Último checkpoint validado | El cierre de la F3 del frontend (R-098), el 2026-11-20 ([resultado](fases/frontend/f3-resultados.md#cierre-de-la-f3)) |
-| Tests del backend | Cierre de la F3 (R-098), sobre `3081c83`: `composer test`, 1511 casos, 16 omitidos (solo de MySQL), 15085 aserciones, en verde; `composer test:mysql`, 1511 de 1511, 15167 aserciones; Newman, las 14 colecciones, 491 pedidos y 1090 aserciones, sin fallas |
-| Tests del frontend | Cierre de la F3 (R-098), sobre `3081c83`: `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
+| Actualizado | 2026-11-24 (R-106: la FASE 4 del backend, cerrada e integrada a `main`) |
+| Rama | `main`, con el merge `--no-ff` de `feature/back-4-6-historial` (el hash, en `git log origin/main`; se anota aquí al empezar lo siguiente) |
+| Sin integrar a `main` | Nada: las ramas de la FASE 4 (`feature/back-4-diseno` a `feature/back-4-6-historial`) quedan integradas y se conservan |
+| Último checkpoint validado | El cierre de la FASE 4 (R-106), el 2026-11-24 ([cierre](fases/backend/fase-04-resultados.md#cierre-de-la-fase-4)): el backend, sobre el código de `7aef80b`; el frontend, con la corrección de los tipos auditables del cierre |
+| Tests del backend | Cierre de la FASE 4 (R-106): 1767 casos; `composer test`, 17374 aserciones y 18 omitidos (de MySQL); `composer test:mysql` en serie, 1767 de 1767 y 17485 aserciones; `composer audit` sin avisos; Newman, las 16 colecciones, 589 pedidos y 1275 aserciones, sin fallas |
+| Tests del frontend | Regresión del cierre de la FASE 4 (R-106): `typecheck`, `lint` y `build` sin avisos; `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
 | Repositorio | Monorepo (R-057): `backend/`, `frontend/` y `docs/`; Claude Code, las skills y Newman, desde la raíz |
 | Historial | Cada entrega, en el `…-resultados.md` de su fase y en su R del [registro](../01-arquitectura/decisiones/registro.md); este handoff hasta R-090, en [`historial-handoff.md`](historial-handoff.md) |
 
@@ -24,7 +24,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 
 ## Estado del proyecto
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; después de la F3 del frontend, la FASE 4 (historia clínica).
+* **Backend:** FASE 0 a FASE 4 completadas e integradas a `main` (la FASE 4, historia clínica, en R-106).
 * **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`).
 * El detalle, en el [roadmap](README.md) y en [`modulos.md`](modulos.md).
 
@@ -35,7 +35,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** El backend, FASE 4 (historia clínica): el análisis y el diseño ([documento de la fase](fases/backend/fase-04-historia-clinica.md)), con el vínculo "atendido → consulta" (la relación entre el turno atendido y la consulta, pendiente de la FASE 3) (D2, R-058) | La autorización del usuario |
+| 2 | **Siguiente.** Decidir con el usuario entre el frontend de la historia clínica (F4, con su análisis y su diseño, sobre la API de la [FASE 4](fases/backend/fase-04-historia-clinica.md)) y el análisis de la FASE 5 del backend, en una rama nueva desde `main` | Decisión del usuario |
 | 2b | Opcional: la deuda 29 (los bloqueos de la cola por sucursal, una entrega de soporte del backend) y la 19 (`typescript-eslint@8.73.0`), cuando el usuario lo pida ([deuda técnica](deuda-tecnica.md)) | Decisión del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |

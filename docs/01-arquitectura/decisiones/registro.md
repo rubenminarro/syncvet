@@ -4,7 +4,7 @@ Una sección por entrega o decisión, numerada `R-NNN` en orden correlativo (R-0
 registro y no coincide con la de las entregas de cada fase (0.1, 0.2…). Solo crece: las secciones viejas no se corrigen.
 
 Este archivo es el índice: una línea por decisión, con su fecha y su título. Cada decisión está en el archivo de su rango, de
-50 en 50 (`registro/R-001-050.md`, `registro/R-051-100.md`…). Una decisión nueva va al final del archivo de su rango (si no existe,
+50 en 50 ([`registro/R-001-050.md`](registro/R-001-050.md), [`registro/R-051-100.md`](registro/R-051-100.md), [`registro/R-101-150.md`](registro/R-101-150.md)…). Una decisión nueva va al final del archivo de su rango (si no existe,
 se crea) y suma su línea al final de esta tabla. El historial del handoff hasta R-090 está en
 [`historial-handoff.md`](../../03-plan-desarrollo/historial-handoff.md).
 
@@ -108,3 +108,11 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-096](registro/R-051-100.md#r-096-cierre-de-la-entrega-36-del-frontend-las-series-2026-11-20) | 2026-11-20 | Cierre de la entrega 3.6 del frontend (las series) |
 | [R-097](registro/R-051-100.md#r-097-cierre-de-la-entrega-37-del-frontend-la-cola-del-día-2026-11-20) | 2026-11-20 | Cierre de la entrega 3.7 del frontend (la cola del día) |
 | [R-098](registro/R-051-100.md#r-098-cierre-de-la-f3-del-frontend-agenda-y-turnos-2026-11-20) | 2026-11-20 | Cierre de la F3 del frontend (agenda y turnos) |
+| [R-099](registro/R-051-100.md#r-099-diseño-de-la-fase-4-del-backend-aprobado-historia-clínica-2026-11-20) | 2026-11-20 | Diseño de la FASE 4 del backend aprobado (historia clínica) |
+| [R-100](registro/R-051-100.md#r-100-cierre-de-la-entrega-41-del-backend-la-consulta-y-el-presupuesto-por-entrega-nuevo-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.1 del backend (la consulta) y el presupuesto por entrega nuevo |
+| [R-101](registro/R-101-150.md#r-101-cierre-de-la-entrega-42-del-backend-cierre-enmiendas-y-anulación-de-la-consulta-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.2 del backend (cierre, enmiendas y anulación de la consulta) |
+| [R-102](registro/R-101-150.md#r-102-cierre-de-la-entrega-43-del-backend-los-servicios-usados-en-la-consulta-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.3 del backend (los servicios usados en la consulta) |
+| [R-103](registro/R-101-150.md#r-103-cierre-de-la-entrega-44-del-backend-las-aplicaciones-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.4 del backend (las aplicaciones) |
+| [R-104](registro/R-101-150.md#r-104-cierre-de-la-entrega-45-del-backend-los-adjuntos-de-la-consulta-2026-11-24) | 2026-11-24 | Cierre de la entrega 4.5 del backend (los adjuntos de la consulta) |
+| [R-105](registro/R-101-150.md#r-105-cierre-de-la-entrega-46-del-backend-el-historial-del-paciente-2026-11-24) | 2026-11-24 | Cierre de la entrega 4.6 del backend (el historial del paciente) |
+| [R-106](registro/R-101-150.md#r-106-cierre-de-la-fase-4-y-merge-a-main-2026-11-24) | 2026-11-24 | Cierre de la FASE 4 y merge a `main` |

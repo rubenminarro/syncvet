@@ -10,6 +10,11 @@ use App\Http\Controllers\Api\BreedController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientPatientController;
 use App\Http\Controllers\Api\ClinicLogoController;
+use App\Http\Controllers\Api\ConsultationAttachmentController;
+use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\ConsultationItemController;
+use App\Http\Controllers\Api\PatientApplicationController;
+use App\Http\Controllers\Api\PatientHistoryController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
@@ -110,6 +115,38 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
     Route::post('appointments/{appointment}/no-show', [AppointmentTransitionController::class, 'noShow'])->name('appointments.no-show');
     Route::post('appointments/{appointment}/undo-no-show', [AppointmentTransitionController::class, 'undoNoShow'])->name('appointments.undo-no-show');
     Route::post('appointments/{appointment}/cancel', [AppointmentTransitionController::class, 'cancel'])->name('appointments.cancel');
+
+    // La consulta (FASE 4, entrega 4.1): la abren y la editan el administrador y el veterinario; la
+    // recepción la lista y la ve sin el contenido clínico (consultations.show-clinical). Sin baja
+    // (DELETE → 405): se anula (4.2).
+    Route::apiResource('consultations', ConsultationController::class)->except(['destroy']);
+    // Entrega 4.2: cerrar (su veterinario o el administrador), enmendar una cerrada y anular (el administrador).
+    Route::post('consultations/{consultation}/close', [ConsultationController::class, 'close'])->name('consultations.close');
+    Route::post('consultations/{consultation}/amendments', [ConsultationController::class, 'amend'])->name('consultations.amend');
+    Route::post('consultations/{consultation}/cancel', [ConsultationController::class, 'cancel'])->name('consultations.cancel');
+    // Entrega 4.3: los servicios usados. Sumar, anidado bajo la consulta; editar y quitar, por el ítem (shallow, como en el
+    // diseño). Un ítem de otra clínica, 404 (BelongsToClinic).
+    Route::scopeBindings()->group(function () {
+        Route::post('consultations/{consultation}/items', [ConsultationItemController::class, 'store'])->name('consultations.consultation-items.store');
+    });
+    Route::patch('consultation-items/{item}', [ConsultationItemController::class, 'update'])->name('consultation-items.update');
+    Route::delete('consultation-items/{item}', [ConsultationItemController::class, 'destroy'])->name('consultation-items.destroy');
+    // Entrega 4.4: las aplicaciones (vacunas, desparasitaciones y medicamentos), con o sin consulta. Sin baja: se anulan.
+    Route::scopeBindings()->group(function () {
+        Route::get('patients/{patient}/applications', [PatientApplicationController::class, 'index'])->name('patients.patient-applications.index');
+        Route::post('patients/{patient}/applications', [PatientApplicationController::class, 'store'])->name('patients.patient-applications.store');
+    });
+    Route::post('patient-applications/{application}/cancel', [PatientApplicationController::class, 'cancel'])->name('patient-applications.cancel');
+    // Entrega 4.5: los adjuntos de la consulta. Subir y descargar, anidados bajo la consulta (el adjunto, de esa consulta);
+    // quitar, por el adjunto (shallow). La descarga, siempre por acá: el disco es privado.
+    Route::scopeBindings()->group(function () {
+        Route::post('consultations/{consultation}/attachments', [ConsultationAttachmentController::class, 'store'])->name('consultations.consultation-attachments.store');
+        Route::get('consultations/{consultation}/attachments/{attachment}', [ConsultationAttachmentController::class, 'download'])->name('consultations.consultation-attachments.index');
+    });
+    Route::delete('consultation-attachments/{attachment}', [ConsultationAttachmentController::class, 'destroy'])->name('consultation-attachments.destroy');
+    // Entrega 4.6: el historial del paciente (sus consultas y sus aplicaciones juntas), con consultations.index y
+    // patient-applications.index (los dos; sin permiso propio).
+    Route::get('patients/{patient}/history', [PatientHistoryController::class, 'index'])->name('patients.history');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

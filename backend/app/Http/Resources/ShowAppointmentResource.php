@@ -9,7 +9,8 @@ use Illuminate\Http\Request;
  * Detalle de un turno (FASE 3, entrega 3.2a): lo del listado más las notas, quién lo creó,
  * las horas de confirmación, fichado, atendido y ausente (3.2b) y cancelación (UTC, "Z"),
  * quién lo canceló y el motivo.
- * Espera además createdBy y cancelledBy cargados (AppointmentService::loadDetail).
+ * Desde la FASE 4 (entrega 4.1), la consulta del turno (id, código y estado) o null.
+ * Espera además createdBy, cancelledBy y consultation cargados (AppointmentService::loadDetail).
  *
  * @mixin Appointment
  */
@@ -36,6 +37,15 @@ class ShowAppointmentResource extends AppointmentResource
             ],
             'cancellation_reason' => $this->cancellation_reason,
             'created_at' => $this->created_at?->toISOString(),
+            // FASE 4, entrega 4.1: la consulta abierta desde el turno, o null (aditivo).
+            'consultation' => $this->consultation === null ? null : [
+                'id' => $this->consultation->id,
+                'code' => $this->consultation->code,
+                'status' => [
+                    'value' => $this->consultation->status->value,
+                    'label' => $this->consultation->status->label(),
+                ],
+            ],
         ];
     }
 }

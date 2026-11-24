@@ -25,3 +25,4 @@ Qué tiene que hacer SyncVet y con qué reglas.
 | 6.9 | [Auditoría](reglas/auditoria.md) |
 | 6.10 | [Agendas, horario semanal y bloqueos](reglas/agendas.md) y [turnos, estados, disponibilidad y cola del día](reglas/turnos.md) |
 | 6.11 | [Pendientes de diseño](reglas/pendientes-de-diseno.md) |
+| 6.12 | [La consulta (historia clínica)](reglas/consultas.md) |

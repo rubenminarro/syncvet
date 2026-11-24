@@ -10,6 +10,13 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Lo usado o cobrado en una consulta (FASE 4, entrega 4.3: los de tipo service; los de producto, en la
+ * FASE 5). Lo crea ConsultationItemService con el precio, el descuento y el total en guaraníes
+ * (BCMath) y el estado de cobro pending; al anular la consulta, los pendientes pasan a no_charge.
+ *
+ * Deuda 2 (revisado en la 4.3): la cantidad con 3 decimales, como su columna (antes decimal:2).
+ */
 class ConsultationItem extends Model
 {
     use BelongsToClinic, Auditable;
@@ -34,7 +41,7 @@ class ConsultationItem extends Model
     {
         return [
             'type' => ConsultationItemType::class,
-            'quantity' => 'decimal:2',
+            'quantity' => 'decimal:3',
             'unit_price' => 'decimal:2',
             'discount' => 'decimal:2',
             'tax_rate' => TaxRate::class,

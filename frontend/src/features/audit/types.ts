@@ -35,6 +35,8 @@ export const AUDITABLE_TYPES = [
   { value: 'client', label: 'Cliente' },
   { value: 'clinic', label: 'Clínica' },
   { value: 'consultation', label: 'Consulta' },
+  { value: 'consultation_amendment', label: 'Enmienda de consulta' },
+  { value: 'consultation_attachment', label: 'Adjunto de consulta' },
   { value: 'consultation_item', label: 'Ítem de consulta' },
   { value: 'document_template', label: 'Plantilla de documento' },
   { value: 'invoice', label: 'Factura' },

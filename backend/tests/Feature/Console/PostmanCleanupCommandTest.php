@@ -17,6 +17,7 @@ use App\Models\Species;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
+use App\Services\ConsultationAttachmentService;
 use App\Services\PatientPhotoService;
 use App\Support\CurrentClinic;
 use Database\Seeders\DemoSeeder;
@@ -55,6 +56,7 @@ class PostmanCleanupCommandTest extends TestCase
         $this->branch = CurrentClinic::run($this->demo, fn () => Branch::where('is_default', true)->sole());
         $this->freezeToday();
         Storage::fake(PatientPhotoService::DISK);
+        Storage::fake(ConsultationAttachmentService::DISK);
         $this->allowHere();
     }
 
@@ -96,10 +98,34 @@ class PostmanCleanupCommandTest extends TestCase
 
         $this->actAsReception($this->demo);
         $this->booked($schedule, ['starts_at' => $this->at('10:00')]);
-        $this->booked($schedule, ['starts_at' => $this->at('11:00'), 'patient_id' => $patient->id, 'client_id' => $client->id, 'contact_name' => null, 'contact_phone' => null]);
+        $withPatient = $this->booked($schedule, ['starts_at' => $this->at('11:00'), 'patient_id' => $patient->id, 'client_id' => $client->id, 'contact_name' => null, 'contact_phone' => null]);
+        // Una consulta del turno con paciente (FASE 4, entrega 4.1): se borra antes que el turno (restrictOnDelete).
+        $consultation = DB::table('consultations')->insertGetId([
+            'clinic_id' => $this->demo->id, 'code' => "CON-{$run}", 'branch_id' => $this->branch->id,
+            'patient_id' => $patient->id, 'client_id' => $client->id, 'appointment_id' => $withPatient,
+            'veterinarian_id' => $vet->id, 'consulted_at' => now(), 'status' => 'open', 'created_by' => $user->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        // Con una enmienda (entrega 4.2): inmutable y restrictOnDelete, se borra antes que la consulta.
+        DB::table('consultation_amendments')->insert([
+            'clinic_id' => $this->demo->id, 'consultation_id' => $consultation, 'content' => 'Corrección', 'reason' => 'Error',
+            'created_by' => $user->id, 'created_at' => now(),
+        ]);
+        // Y una aplicación del paciente (entrega 4.4): restrictOnDelete, se borra antes que el paciente y la consulta.
+        DB::table('patient_applications')->insert([
+            'clinic_id' => $this->demo->id, 'patient_id' => $patient->id, 'consultation_id' => $consultation, 'type' => 'vaccine',
+            'name' => 'Antirrábica', 'applied_at' => now(), 'created_by' => $user->id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        // Y un adjunto con su archivo (entrega 4.5): la fila y el archivo se borran.
+        $attachment = "clinics/{$this->demo->id}/consultations/{$consultation}/estudio-{$run}.pdf";
+        Storage::disk(ConsultationAttachmentService::DISK)->put($attachment, '%PDF-1.4');
+        DB::table('consultation_attachments')->insert([
+            'clinic_id' => $this->demo->id, 'consultation_id' => $consultation, 'path' => $attachment, 'original_name' => 'estudio.pdf',
+            'mime_type' => 'application/pdf', 'size_bytes' => 8, 'uploaded_by' => $user->id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
 
         return [
-            'user' => $user->id, 'vet' => $vet->id, 'service' => $service->id, 'schedule' => $schedule->id, 'block' => $block->id,
+            'attachment' => $attachment, 'consultation' => $consultation, 'user' => $user->id, 'vet' => $vet->id, 'service' => $service->id, 'schedule' => $schedule->id, 'block' => $block->id,
             'client' => $client->id, 'patient' => $patient->id, 'species' => $species->id, 'breed' => $breed->id,
         ];
     }
@@ -120,7 +146,7 @@ class PostmanCleanupCommandTest extends TestCase
         $deletedVet = $this->veterinarianOf($this->veterinarianUser($this->demo, [$this->branch]), ['license_number' => 'MP-' . self::RUN . '//deleted_8_1795194786']);
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN]])
-            ->expectsOutputToContain('Corrida 123456: 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
+            ->expectsOutputToContain('Corrida 123456: 1 aplicaciones, 1 enmiendas, 0 ítems, 1 adjuntos, 1 consultas, 2 turnos, 1 bloqueos, 7 tramos, 1 agendas, 1 pacientes, 2 clientes, 2 fichas, 1 servicios, 1 razas, 1 especies, 0 sucursales, 0 depósitos, 1 usuarios dados de baja.')
             ->assertSuccessful();
 
         $this->inDemo(fn () => $this->assertNull(Client::withTrashed()->find($deletedClient->id)));
@@ -131,6 +157,7 @@ class PostmanCleanupCommandTest extends TestCase
             $this->assertNotNull(Client::find($lookalikeClient->id));
             $this->assertNotNull(Service::find($lookalikeService->id));
             $this->assertNull(Schedule::find($run['schedule']));
+            $this->assertSame(0, DB::table('consultations')->where('id', $run['consultation'])->count());
             $this->assertSame(0, Appointment::where('schedule_id', $run['schedule'])->count());
             $this->assertNull(ScheduleBlock::find($run['block']));
             $this->assertSame(0, ScheduleHour::where('schedule_id', $run['schedule'])->count());
@@ -141,12 +168,17 @@ class PostmanCleanupCommandTest extends TestCase
             $this->assertNull(Species::withTrashed()->find($run['species']));
             $this->assertNull(Breed::withTrashed()->find($run['breed']));
             Storage::disk(PatientPhotoService::DISK)->assertMissing("{$this->demo->id}/foto-" . self::RUN . '.jpg');
+            $this->assertSame(0, DB::table('consultation_attachments')->where('consultation_id', $run['consultation'])->count());
+            Storage::disk(ConsultationAttachmentService::DISK)->assertMissing($run['attachment']);
 
             // La otra corrida y la demo, intactas.
             $this->assertNotNull(Schedule::find($other['schedule']));
+            $this->assertSame(1, DB::table('consultations')->where('id', $other['consultation'])->count());
             $this->assertSame(2, Appointment::where('schedule_id', $other['schedule'])->count());
             $this->assertNotNull(Patient::find($other['patient']));
             Storage::disk(PatientPhotoService::DISK)->assertExists("{$this->demo->id}/foto-" . self::OTHER_RUN . '.jpg');
+            $this->assertSame(1, DB::table('consultation_attachments')->where('consultation_id', $other['consultation'])->count());
+            Storage::disk(ConsultationAttachmentService::DISK)->assertExists($other['attachment']);
             $this->assertSame($demoAppointments + 2, Appointment::count());
             $this->assertSame(5, Schedule::where('name', 'like', 'Demo %')->count());
         });
@@ -164,17 +196,18 @@ class PostmanCleanupCommandTest extends TestCase
     public function test_dry_run_counts_without_deleting_anything(): void
     {
         $run = $this->postmanRun(self::RUN);
-        $tables = fn () => collect(['appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'users'])
+        $tables = fn () => collect(['patient_applications', 'consultation_amendments', 'consultation_attachments', 'consultations', 'appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'users'])
             ->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()])->all();
         $before = $tables();
 
         $this->artisan('postman:cleanup', ['runs' => [self::RUN], '--dry-run' => true])
-            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 2 turnos,')
+            ->expectsOutputToContain('Sin borrar (--dry-run). Corrida 123456: 1 aplicaciones, 1 enmiendas, 0 ítems, 1 adjuntos, 1 consultas, 2 turnos,')
             ->assertSuccessful();
 
         $this->assertSame($before, $tables());
         $this->assertFalse(User::findOrFail($run['user'])->trashed());
         Storage::disk(PatientPhotoService::DISK)->assertExists("{$this->demo->id}/foto-" . self::RUN . '.jpg');
+        Storage::disk(ConsultationAttachmentService::DISK)->assertExists($run['attachment']);
     }
 
     public function test_it_leaves_the_demo_users_untouched(): void
@@ -267,7 +300,7 @@ class PostmanCleanupCommandTest extends TestCase
     public function test_it_refuses_outside_local_and_the_development_database(): void
     {
         $run = $this->postmanRun(self::RUN);
-        $tables = fn () => collect(['appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'personal_access_tokens'])
+        $tables = fn () => collect(['patient_applications', 'consultation_amendments', 'consultation_attachments', 'consultations', 'appointments', 'schedules', 'clients', 'patients', 'services', 'veterinarians', 'personal_access_tokens'])
             ->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()])->all();
         $before = $tables();
         $cases = [

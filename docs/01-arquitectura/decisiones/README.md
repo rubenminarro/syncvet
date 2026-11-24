@@ -11,12 +11,12 @@ cambió.
 | D1 | Una base compartida con `clinic_id` | [R-002](registro.md), ajustada en [R-004](registro.md) e implementada en [R-007](registro.md) |
 | D3 | Turnos recurrentes: todos al crear la serie (semanal o cada N semanas, hasta 52), la serie entera o nada | [R-047](registro.md) (pregunta P1 de la FASE 3) |
 | D2 | Frontend en paralelo o al final | El frontend recorre F0 a F3 sobre la API de las fases 1 a 3 y después sigue la FASE 4 del backend | [R-058](registro.md) |
+| D4 | Qué se edita en una consulta cerrada | Una consulta cerrada no se edita: se corrige con enmiendas, registros aparte ligados a la consulta; lo escrito nunca cambia. | [R-099](registro.md) (pregunta 4 del diseño de la FASE 4) |
 
 ## Decisiones pendientes
 
 | # | Decisión | Recomendación | Antes de |
 |---|---|---|---|
-| D4 | Qué se edita en una consulta cerrada | Nada: se reabre con permiso y queda auditado | FASE 4 |
 | D5 | Proveedor de WhatsApp | WhatsApp Cloud API oficial | FASE 7 |
 | D6 | Integración SIFEN | Propia, detrás de una interfaz | FASE 9 |
 | D7 | Hosting y respaldos | A definir con el costo por clínica | FASE 10 |

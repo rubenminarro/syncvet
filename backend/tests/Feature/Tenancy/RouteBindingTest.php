@@ -11,8 +11,11 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
+use App\Services\ConsultationAttachmentService;
 use App\Support\CurrentClinic;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithBranches;
 use Tests\TestCase;
@@ -28,6 +31,8 @@ class RouteBindingTest extends TestCase
     private const PERMISSIONS = [
         'clients.show', 'clients.update', 'clients.destroy',
         'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.destroy', 'patients.change-owner',
+        // El historial (FASE 4, entrega 4.6).
+        'consultations.index', 'patient-applications.index',
     ];
 
     public static function clientRoutes(): array
@@ -48,6 +53,7 @@ class RouteBindingTest extends TestCase
             'PATCH patients/{patient}' => ['patch', '/api/patients/%d'],
             'DELETE patients/{patient}' => ['delete', '/api/patients/%d'],
             'POST patients/{patient}/change-owner' => ['post', '/api/patients/%d/change-owner'],
+            'GET patients/{patient}/history' => ['get', '/api/patients/%d/history'],
         ];
     }
 
@@ -358,6 +364,164 @@ class RouteBindingTest extends TestCase
         );
         $this->assertSame('Ajeno', DB::table('appointments')->where('id', $id)->value('notes'));
         $this->assertSame('pending_confirmation', DB::table('appointments')->where('id', $id)->value('status'));
+    }
+
+    /**
+     * La consulta (FASE 4, entregas 4.1 y 4.2): una de otra clínica responde 404 en el detalle, en la
+     * edición (PATCH y PUT), al cerrarla, enmendarla y anularla, y no cambia.
+     */
+    public static function consultationMethods(): array
+    {
+        return [
+            'GET' => ['get'],
+            'PATCH' => ['patch'],
+            'PUT' => ['put'],
+            'POST close' => ['post', '/close'],
+            'POST amendments' => ['post', '/amendments'],
+            'POST cancel' => ['post', '/cancel'],
+            'POST items' => ['post', '/items'],
+        ];
+    }
+
+    #[DataProvider('consultationMethods')]
+    public function test_consultation_of_another_clinic_is_not_found(string $method, string $action = ''): void
+    {
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $id = DB::table('consultations')->insertGetId([
+            'clinic_id' => $foreignClinic->id,
+            'code' => 'CON-000001',
+            'branch_id' => $this->defaultBranchIn($foreignClinic)->id,
+            'patient_id' => $patient->id,
+            'client_id' => $patient->client_id,
+            'veterinarian_id' => CurrentClinic::run($foreignClinic, fn () => Veterinarian::create([
+                'user_id' => User::factory()->for($foreignClinic)->create()->id,
+                'code' => 'VET-000001',
+            ])->id),
+            'consulted_at' => now(),
+            'reason' => 'Control',
+            'diagnosis' => 'Ajeno',
+            'status' => 'open',
+            'created_by' => User::factory()->for($foreignClinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), [
+            'consultations.show', 'consultations.update', 'consultations.show-clinical',
+            'consultations.close', 'consultations.amend', 'consultations.cancel', 'consultation-items.store',
+        ]);
+
+        $this->assertErrorCode($this->json($method, "/api/consultations/{$id}{$action}", [
+            'diagnosis' => 'Cambiado', 'content' => 'Enmienda', 'reason' => 'Ajena', 'cancellation_reason' => 'Ajena',
+            'service_id' => 1, 'quantity' => 1,
+        ]), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame('Ajeno', DB::table('consultations')->where('id', $id)->value('diagnosis'));
+        $this->assertSame('open', DB::table('consultations')->where('id', $id)->value('status'));
+        $this->assertSame(0, DB::table('consultation_amendments')->count());
+        $this->assertSame(0, DB::table('consultation_items')->count());
+    }
+
+    /**
+     * Las aplicaciones (FASE 4, entrega 4.4): las de un paciente de otra clínica (listarlas y cargarle una)
+     * y anular una de otra clínica responden 404, sin cambios.
+     */
+    public function test_applications_of_another_clinic_are_not_found(): void
+    {
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $id = DB::table('patient_applications')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'patient_id' => $patient->id, 'type' => 'vaccine', 'name' => 'Antirrábica',
+            'applied_at' => now(), 'created_by' => User::factory()->for($foreignClinic)->create()->id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), ['patient-applications.index', 'patient-applications.store', 'patient-applications.cancel']);
+
+        $this->assertErrorCode($this->getJson("/api/patients/{$patient->id}/applications"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->postJson("/api/patients/{$patient->id}/applications", [
+            'type' => 'vaccine', 'name' => 'Ajena', 'applied_at' => '2026-01-01T10:00:00',
+        ]), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->postJson("/api/patient-applications/{$id}/cancel", ['cancellation_reason' => 'Ajena']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame(1, DB::table('patient_applications')->count());
+        $this->assertNull(DB::table('patient_applications')->where('id', $id)->value('cancelled_at'));
+    }
+
+    /**
+     * Un servicio usado en una consulta de otra clínica (FASE 4, entrega 4.3): editarlo o quitarlo
+     * responde 404 y no cambia.
+     */
+    public static function itemMethods(): array
+    {
+        return ['PATCH' => ['patch'], 'DELETE' => ['delete']];
+    }
+
+    #[DataProvider('itemMethods')]
+    public function test_consultation_item_of_another_clinic_is_not_found(string $method): void
+    {
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        [$vetId, $serviceId] = CurrentClinic::run($foreignClinic, fn () => [
+            Veterinarian::create(['user_id' => User::factory()->for($foreignClinic)->create()->id, 'code' => 'VET-000001'])->id,
+            Service::create(['code' => 'SRV-000001', 'name' => 'Consulta general'])->id,
+        ]);
+        $consultationId = DB::table('consultations')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'code' => 'CON-000001', 'branch_id' => $this->defaultBranchIn($foreignClinic)->id,
+            'patient_id' => $patient->id, 'client_id' => $patient->client_id, 'veterinarian_id' => $vetId,
+            'consulted_at' => now(), 'status' => 'open', 'created_by' => User::factory()->for($foreignClinic)->create()->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $itemId = DB::table('consultation_items')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'consultation_id' => $consultationId, 'type' => 'service', 'service_id' => $serviceId,
+            'description' => 'Consulta general', 'quantity' => '1.000', 'unit_price' => '150000.00', 'discount' => '0.00',
+            'total' => '150000.00', 'tax_rate' => 10, 'billing_status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingIn($this->createClinic(), ['consultation-items.update', 'consultation-items.destroy']);
+
+        $this->assertErrorCode($this->json($method, "/api/consultation-items/{$itemId}", ['quantity' => 5]), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame(1, DB::table('consultation_items')->where('id', $itemId)->where('quantity', 1)->count());
+    }
+
+    /**
+     * Los adjuntos (FASE 4, entrega 4.5): subir a una consulta de otra clínica, descargar uno de ella (por su
+     * consulta o por la consulta propia, con el id ajeno) y quitarlo responden 404, sin cambios ni archivos.
+     */
+    public function test_attachments_of_another_clinic_are_not_found(): void
+    {
+        Storage::fake(ConsultationAttachmentService::DISK);
+        $foreignClinic = $this->createClinic();
+        $patient = $this->patientOf($this->clientIn($foreignClinic));
+        $uploader = User::factory()->for($foreignClinic)->create()->id;
+        $consultationId = DB::table('consultations')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'code' => 'CON-000001', 'branch_id' => $this->defaultBranchIn($foreignClinic)->id,
+            'patient_id' => $patient->id, 'client_id' => $patient->client_id,
+            'veterinarian_id' => CurrentClinic::run($foreignClinic, fn () => Veterinarian::create(['user_id' => $uploader, 'code' => 'VET-000001'])->id),
+            'consulted_at' => now(), 'status' => 'open', 'created_by' => $uploader, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $path = "clinics/{$foreignClinic->id}/consultations/{$consultationId}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.pdf";
+        Storage::disk(ConsultationAttachmentService::DISK)->put($path, '%PDF-1.4');
+        $attachmentId = DB::table('consultation_attachments')->insertGetId([
+            'clinic_id' => $foreignClinic->id, 'consultation_id' => $consultationId, 'path' => $path, 'original_name' => 'ajeno.pdf',
+            'mime_type' => 'application/pdf', 'size_bytes' => 8, 'uploaded_by' => $uploader, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $own = $this->createClinic();
+        $ownPatient = $this->patientOf($this->clientIn($own));
+        $ownConsultation = DB::table('consultations')->insertGetId([
+            'clinic_id' => $own->id, 'code' => 'CON-000001', 'branch_id' => $this->defaultBranchIn($own)->id,
+            'patient_id' => $ownPatient->id, 'client_id' => $ownPatient->client_id,
+            'veterinarian_id' => CurrentClinic::run($own, fn () => Veterinarian::create(['user_id' => User::factory()->for($own)->create()->id, 'code' => 'VET-000001'])->id),
+            'consulted_at' => now(), 'status' => 'open', 'created_by' => User::factory()->for($own)->create()->id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingIn($own, ['consultation-attachments.index', 'consultation-attachments.store', 'consultation-attachments.destroy']);
+
+        $file = UploadedFile::fake()->createWithContent('estudio.pdf', '%PDF-1.4');
+        $this->assertErrorCode($this->post("/api/consultations/{$consultationId}/attachments", ['file' => $file], ['Accept' => 'application/json']), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->getJson("/api/consultations/{$consultationId}/attachments/{$attachmentId}"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->getJson("/api/consultations/{$ownConsultation}/attachments/{$attachmentId}"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertErrorCode($this->deleteJson("/api/consultation-attachments/{$attachmentId}"), 404, 'RESOURCE_NOT_FOUND');
+        $this->assertSame(1, DB::table('consultation_attachments')->count());
+        $this->assertSame([$path], Storage::disk(ConsultationAttachmentService::DISK)->allFiles());
     }
 
     public function test_own_records_are_found(): void

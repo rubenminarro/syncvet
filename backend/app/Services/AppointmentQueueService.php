@@ -61,6 +61,8 @@ class AppointmentQueueService
 
         $appointments = Appointment::query()
             ->with(self::RELATIONS)
+            // FASE 4, entrega 4.1: has_consultation (una subconsulta, sin N+1).
+            ->withExists('consultation')
             ->where('branch_id', $user->current_branch_id)
             ->where('status', '!=', AppointmentStatus::CANCELLED->value)
             ->where('starts_at', '>=', $day->startOfDay()->format('Y-m-d H:i:s'))

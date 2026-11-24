@@ -304,6 +304,47 @@ return [
         // Disponibilidad y cola del día (FASE 3, entrega 3.4)
         'date' => 'fecha',
         'all' => 'toda la sucursal',
+
+        // La consulta (FASE 4, entrega 4.1)
+        'appointment_id' => 'turno',
+        'consulted_at' => 'fecha de la consulta',
+        'history' => 'anamnesis',
+        'temperature_c' => 'temperatura',
+        'heart_rate' => 'frecuencia cardíaca',
+        'respiratory_rate' => 'frecuencia respiratoria',
+        'mucous_membranes' => 'mucosas',
+        'capillary_refill_time' => 'tiempo de llenado capilar',
+        'body_condition_score' => 'condición corporal',
+        'physical_exam' => 'examen físico',
+        'diagnosis' => 'diagnóstico',
+        'treatment' => 'tratamiento',
+        'instructions' => 'indicaciones',
+
+        // Las enmiendas (FASE 4, entrega 4.2)
+        'content' => 'contenido',
+        'field' => 'campo enmendado',
+
+        // Los servicios usados en la consulta (FASE 4, entrega 4.3)
+        'quantity' => 'cantidad',
+        'unit_price' => 'precio unitario',
+        'discount' => 'descuento',
+        'consultation_id' => 'consulta',
+        'type' => 'tipo',
+        'total' => 'total',
+        'billing_status' => 'estado de cobro',
+
+        // Las aplicaciones (FASE 4, entrega 4.4)
+        'applied_at' => 'fecha de aplicación',
+        'lot_number' => 'lote',
+        'lot_expires_at' => 'vencimiento del lote',
+        'dose' => 'dosis',
+        'route' => 'vía',
+        'dose_number' => 'número de dosis',
+        'next_dose_due_at' => 'próxima dosis',
+        'type.*' => 'tipo',
+
+        // Los adjuntos de la consulta (FASE 4, entrega 4.5)
+        'file' => 'archivo',
     ],
 
 ];

@@ -30,6 +30,8 @@ class AuditLog extends Model
         'client',
         'clinic',
         'consultation',
+        'consultation_amendment',
+        'consultation_attachment',
         'consultation_item',
         'document_template',
         'invoice',

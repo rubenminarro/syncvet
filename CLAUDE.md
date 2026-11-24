@@ -69,36 +69,41 @@ código. Ninguna entrega empieza sin autorización del usuario y ninguna fase se
 **Manda sobre las demás reglas de velocidad y de ritmo** (las de este archivo, `backend/CLAUDE.md` y `frontend/CLAUDE.md`): si
 alguna pide más corridas, vale esta.
 
-* **Durante la entrega**, solo los tests de lo tocado: `npx vitest related <archivos> --run` en el frontend;
+R-100 (2026-11-20, al cerrar la 4.1 del backend):
+
+* **En la implementación, solo los tests relacionados**: `npx vitest related <archivos> --run` en el frontend;
   `php artisan test --filter <test>` (sin Xdebug) en el backend. Las entregas del frontend corren además, desde `backend/`,
   `php artisan test --filter=FictitiousDocumentsTest`: revisa `frontend/src` y `frontend/e2e` (ningún número de 7 a 9 dígitos con
   forma de cédula o RUC real).
-* **Al final**, una sola corrida completa del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y `build`; en el backend,
-  `composer test`. La suite del backend en MySQL, solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y
-  entonces solo los tests afectados; la suite completa en MySQL y en serie, al cerrar la fase.
-* **Si la corrida final falla por un detalle** (un tipo, una regla de lint, un formato), se corrige y se repiten solo el paso que
-  falló y los tests del archivo tocado, no la corrida entera. **Excepción, `npm test` del frontend:** si falla en un archivo, después
-  de corregirlo se repite la suite completa (`npm test`), no solo ese archivo, para que la cifra registrada sea siempre la de una
-  corrida real en verde (lo que pasó en la 2.3, desvío 7).
+* **Una sola corrida completa por entrega, en la revisión**, del lado que cambió: en el frontend, `typecheck`, `lint`, `test` y
+  `build`; en el backend, `composer test`. **Tiene que dar todo verde en una sola corrida:** si algo falla, se corrige y se repite la
+  corrida completa, para que la cifra registrada sea siempre la de una corrida real en verde.
+* **La salida de los tests, siempre a un archivo**; se leen solo el resumen y las fallas.
+* **MySQL** (solo si la entrega toca migraciones, concurrencia o búsqueda de texto, y solo los tests afectados), **Newman** (solo la
+  colección del módulo tocado) y **mutaciones**: una vez, en la implementación. La revisión no los repite, salvo que toque lo que
+  cubren (la migración, la concurrencia, lo que usa la colección o la regla mutada). La suite completa en MySQL y en serie, Newman
+  con todas las colecciones y Playwright completo, al cerrar la fase ([Cierre de fase](#cierre-de-fase)).
+* **Mutaciones**: dos por entrega, sobre las reglas críticas, revertidas con el editor ([Ritmo de las entregas](#ritmo-de-las-entregas)).
+* **Tests compactos**: *data providers* para los límites y las validaciones; no se repite lo que ya cubren `RoleAccessTest` (el acceso
+  por rol a cada ruta) y el aislamiento por clínica (`RouteBindingTest` y los tests de `tests/Feature/Tenancy`).
+* **`/validar-docs` y las cifras de los documentos** (tests, rutas, permisos, migraciones), solo en `/cerrar-entrega`.
+* **Informes** al usuario, en listas simples, sin tablas.
 * **Playwright**: solo los casos nuevos o tocados de la entrega; la corrida completa, al cerrar la fase. **Toda entrega que
   cambie el menú o el permiso de una ruta** (`src/app/menu.ts`, un `requirePermission` o un permiso de `PERMISSIONS`) corre
   también `e2e/permisos.spec.ts`, además de su propio spec (R-084: en la F2, la 2.3 y la 2.4 sumaron ítems al menú y ese spec
   recién falló en el cierre de la fase).
-* **Newman**: solo la colección del módulo tocado; todas, al cerrar la fase.
 * **Navegador** (Edge sin ventana): como máximo 10 controles, y capturas solo si cambió una pantalla. Si un caso de Playwright ya
   cubre un flujo, los controles en Edge son solo para lo que Playwright no ve (capturas o detalles visuales). El script de los
   controles ingresa **una sola vez por rol**, **revoca siempre sus tokens al terminar** (en un `finally`, también si falla) y, si
   falla por un error del propio script, se corrige y se repite **solo el control que falló**, no la corrida entera (en la 3.2, seis
   corridas dejaron 19 ingresos y 7 tokens sin revocar, desvío 15).
-* **Mutaciones**: 3 o 4, de las reglas más importantes.
-* **Revisión**: lee el diff y corre solo `composer test:fast` o `npm test`; no repite suites, Playwright ni el navegador.
+* **Revisión**: lee el diff, corrige y hace la corrida completa de la entrega; no repite Playwright ni el navegador.
 * **Esperas**: mientras corre algo largo, no se consulta en bucle; se espera el aviso de fin.
 
 ### Ritmo de las entregas
 
-* En la implementación, mutaciones solo de las protecciones críticas de la entrega (3 o 4, el presupuesto); la revisión hace las
-  suyas.
-* En cada mutación se corren solo los tests relacionados; la suite completa, al final.
+* En la implementación, dos mutaciones de las protecciones críticas de la entrega (el presupuesto); la revisión no las repite.
+* En cada mutación se corren solo los tests relacionados; la suite completa, una vez, en la revisión.
 * **Las mutaciones se revierten con el editor** (Edit/Write), nunca con `git checkout`, `git restore` ni `git stash` sobre archivos
   con cambios propios sin commitear: devuelven el archivo al último commit y se llevan el trabajo de la entrega (front-04, desvío 1;
   el detalle, en `docs/04-desarrollo/testing.md`).
@@ -141,8 +146,9 @@ de una PC.
 
 ## 3. Estado
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; el detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`). Sigue el
-  backend, FASE 4 (historia clínica). El detalle, en
+* **Backend:** FASE 0 a FASE 4 completadas e integradas a `main`; la FASE 4 (historia clínica), con sus seis entregas (R-100 a
+  R-105), cerrada en R-106. El detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
+* **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`). Sigue
+  decidir con el usuario entre el frontend de la historia clínica y la FASE 5 del backend. El detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1 y en el [handoff](docs/03-plan-desarrollo/handoff.md).
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

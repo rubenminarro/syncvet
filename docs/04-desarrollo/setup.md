@@ -115,6 +115,17 @@ php artisan migrate:fresh --seed
 php artisan db:seed --class=DemoSeeder
 ```
 
+**Para conservar los datos** (sin `migrate:fresh`), migrar y poner los permisos al día:
+
+```bash
+php artisan migrate
+php artisan permissions:sync
+```
+
+`permissions:sync` (FASE 4, entrega 4.1) deja los permisos y los roles como `RolesAndPermissionsSeeder`: crea los permisos nuevos,
+quita los que salieron, le da al administrador todos y sincroniza los demás roles. Es idempotente y los usuarios conservan sus roles;
+`--dry-run` muestra los cambios sin aplicarlos. Cada entrega que cambia un permiso lo corre en su validación.
+
 Con una base vieja, la API falla de formas que no dicen la causa. En la validación de la entrega 1.2 (FASE 1), el login respondió
 500: la base `syncvet` tenía el esquema anterior a la entrega 0.2, sin `audit_logs.clinic_id`, y el login fallido no pudo
 registrarse en la auditoría. `php artisan migrate:status` muestra las migraciones pendientes. `migrate:fresh` borra todos los

@@ -10,6 +10,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Consulta (FASE 4, historia clínica; diseño R-099). La abre ConsultationService: desde un turno
+ * fichado (que pasa a atendido), desde uno atendido el mismo día o sin turno. client_id es el dueño
+ * del paciente al abrirla y no cambia con un cambio de dueño posterior. Cerrada no se edita (se
+ * corrige con enmiendas, 4.2); no se borra.
+ *
+ * Deuda 2 (revisado en la 4.1): plan pasó a treatment y se sumó instructions (migración
+ * adjust_consultations_for_phase_4); closed_at y cancelled_at son datetime con AppDateTime; la
+ * temperatura tiene un decimal, como su columna; los signos vitales, enteros.
+ */
 class Consultation extends Model
 {
     use BelongsToClinic, Auditable;
@@ -33,7 +43,8 @@ class Consultation extends Model
         'body_condition_score',
         'physical_exam',
         'diagnosis',
-        'plan',
+        'treatment',
+        'instructions',
         'status',
         'created_by',
         'closed_at',
@@ -48,7 +59,10 @@ class Consultation extends Model
         return [
             'consulted_at' => AppDateTime::class,
             'weight_kg' => 'decimal:2',
-            'temperature_c' => 'decimal:2',
+            'temperature_c' => 'decimal:1',
+            'heart_rate' => 'integer',
+            'respiratory_rate' => 'integer',
+            'body_condition_score' => 'integer',
             'status' => ConsultationStatus::class,
             'closed_at' => AppDateTime::class,
             'cancelled_at' => AppDateTime::class,
@@ -98,6 +112,14 @@ class Consultation extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ConsultationItem::class);
+    }
+
+    /**
+     * Las enmiendas de la consulta cerrada (FASE 4, entrega 4.2), de la más vieja a la más nueva.
+     */
+    public function amendments(): HasMany
+    {
+        return $this->hasMany(ConsultationAmendment::class)->orderBy('created_at')->orderBy('id');
     }
 
     public function attachments(): HasMany

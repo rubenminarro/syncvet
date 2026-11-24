@@ -24,8 +24,8 @@ Si una regla de este archivo contradice al código, **el código manda**: regist
 ## 1. Estado actual
 
 * **Stack:** Laravel 13 (PHP ^8.3), Sanctum (tokens Bearer), spatie/laravel-permission (guard `api`); MySQL 8, una base compartida por todas las clínicas, con `clinic_id`, scope global y fallo cerrado (D1: R-002, R-004 y R-007).
-* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). Sigue la FASE 4 (historia clínica), con el vínculo "atendido → consulta".
-* **Hoy:** 78 rutas, 135 permisos y 36 migraciones; la suite del cierre de la F3 del frontend (R-098), 1511 casos (15085 aserciones en SQLite, 16 omitidos de MySQL; en MySQL, 1511 y 15167).
+* **Fases:** FASE 0 a FASE 3 completadas e integradas a `main` (R-014, R-028, R-044 y R-056), con front-00 a front-02 (R-059, R-065 y R-078); front-03, demo-02 y front-04 (R-088, R-090 y R-095), integradas a `main` con la F3 del frontend (R-098, merge `5f180f3`). FASE 4 (historia clínica), COMPLETADA e integrada a `main` (R-106): diseño (R-099) y las seis entregas: la 4.1 (la consulta, R-100), la 4.2 (cierre, enmiendas y anulación, R-101), la 4.3 (los servicios usados, R-102), la 4.4 (las aplicaciones, R-103), la 4.5 (los adjuntos, R-104) y la 4.6 (el historial del paciente, R-105). Sigue decidir con el usuario entre el frontend de la historia clínica y la FASE 5.
+* **Hoy:** 95 rutas, 137 permisos y 39 migraciones; la suite del cierre de la FASE 4 (R-106), 1767 casos (17374 aserciones en SQLite con 18 omitidos; 17485 en MySQL, sin omitidos).
 * **Dónde seguir:** el punto de continuidad y las próximas tareas, en el [handoff](../docs/03-plan-desarrollo/handoff.md); cada módulo, en [`modulos.md`](../docs/03-plan-desarrollo/modulos.md); los comandos (`clinic:create`, `DemoSeeder`, `demo:agenda`, `files:prune-orphans`), en [`setup.md`](../docs/04-desarrollo/setup.md); `postman:cleanup` (la limpieza de Newman, solo local), en la [guía de Postman](../docs/05-pruebas/guia-postman.md).
 * **Detalle hasta R-090** (las carpetas de tests, los módulos con API y los comandos, como estaban en esta sección): [`historial-handoff.md`](../docs/03-plan-desarrollo/historial-handoff.md#estado-del-backend-backendclaudemd-1-hasta-r-090).
 
@@ -43,11 +43,15 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 * MySQL (`syncvet_test_mysql`): en una entrega, solo si toca migraciones, concurrencia o búsqueda de texto, y solo los tests
   afectados (`--filter`, con `DB_CONNECTION=mysql DB_DATABASE=syncvet_test_mysql`). La suite completa en MySQL (`composer
   test:mysql`, de 5 a 6 min y medio), al cerrar la fase.
+* **Nunca `php artisan migrate` ni otro comando de base "para los tests"** (`migrate --env=testing`, `db:seed`, `migrate:fresh`):
+  las suites preparan su propia base (`composer test`, SQLite en `database/testing.sqlite`, por `phpunit.xml`; `composer test:mysql`,
+  `syncvet_test_mysql`), y sin `.env.testing` un comando de Artisan usa `.env`, es decir la base local `syncvet` (lo que pasó en la
+  4.2). La base local se migra solo a propósito, para la API, Newman o la demo.
 * Los tests corren siempre sin Xdebug (Laragon lo carga en modo `debug`, y así la suite tarda casi 3 veces más): con los scripts
   de composer o con `XDEBUG_MODE=off` (`docs/04-desarrollo/testing.md`, Velocidad). Durante el trabajo, solo los tests de lo tocado
-  (`XDEBUG_MODE=off php artisan test --filter <test>`). Al final de la entrega, una sola corrida completa: `composer test` (SQLite
-  en serie, alrededor de 3 min 20 s), de donde salen las cifras de aserciones del registro. La revisión corre solo
-  `composer test:fast` (SQLite en paralelo, alrededor de 1 min 20 s).
+  (`XDEBUG_MODE=off php artisan test --filter <test>`). Una sola corrida completa por entrega, en la revisión (R-100): `composer test`
+  (SQLite en serie, alrededor de 3 min 30 s), con la salida a un archivo y en verde en una sola corrida; de ahí salen las cifras de
+  aserciones del registro. `composer test:fast` (SQLite en paralelo, alrededor de 1 min 20 s), para una comprobación rápida.
 * En cada cierre de fase, `composer audit` tiene que quedar sin avisos. Un aviso se corrige con
   `composer update <paquete> --with-dependencies` dentro de las restricciones de `composer.json`. Si la corrección pide cambiar una
   restricción o subir de versión mayor, se consulta al usuario. Lo actualizado queda en el registro de decisiones (R-046).
@@ -159,7 +163,8 @@ y los tests; el paso 2 parte de la sección 6; el diseño de cada fase va en `do
 * **Códigos internos** (`PAC-`, `CON-`, `SRV-`, `PRO-`, `VET-`): salen de `DocumentSequenceService::create()` (serie en
   `App\Enums\DocumentSeries`), nunca de `max(id) + 1`. Puede haber huecos: no son documentos fiscales.
 * Documentos emitidos (factura emitida, pago, movimiento de inventario, documento del paciente, consulta cerrada) son
-  **inmutables**: solo se anulan o se corrigen con otro registro.
+  **inmutables**: solo se anulan o se corrigen con otro registro. Una consulta cerrada no se edita: se corrige con enmiendas,
+  registros aparte ligados a la consulta; lo escrito nunca cambia. (D4, R-099)
 * Datos maestros con `SoftDeletes`; al eliminar se agrega `//deleted_<id>_<timestamp>` (`App\Support\DeletedSuffix`) a sus
   campos únicos para liberarlos. El id evita el choque de dos bajas del mismo valor en el mismo segundo; la columna deja lugar
   al sufijo entero.
@@ -281,6 +286,7 @@ archivo.** Las referencias `§6.N` de la documentación llevan a estos archivos.
 * [6.10 Agendas, horario semanal y bloqueos](../docs/02-requisitos/reglas/agendas.md): sucursal y veterinario, horario, inactivación, baja física, bloqueos, listados y concurrencia.
 * [6.10 (continuación) Turnos](../docs/02-requisitos/reglas/turnos.md): alta, edición y superposición, estados del turno, series, disponibilidad y cola del día.
 * [6.11 Pendientes de diseño](../docs/02-requisitos/reglas/pendientes-de-diseno.md): consultas, stock, facturación y caja.
+* [6.12 La consulta](../docs/02-requisitos/reglas/consultas.md): abrir desde el turno o sin turno, el veterinario, editar, límites, listado, la vista de la recepción (`consultations.show-clinical`) y concurrencia.
 
 ---
 

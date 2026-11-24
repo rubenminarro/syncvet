@@ -150,19 +150,22 @@ class AppointmentService
     {
         return $appointment->load([
             'schedule', 'branch', 'veterinarian.user', 'service', 'patient', 'client', 'createdBy', 'cancelledBy',
+            // FASE 4, entrega 4.1: la consulta abierta desde el turno (ShowAppointmentResource).
+            'consultation',
         ]);
     }
 
     /**
      * Repite el intento si la agenda o el turno cambiaron entre la lectura y el bloqueo, o si
      * MySQL informa un deadlock; después de ATTEMPTS, 409 CONFLICT. Una espera vencida (1205),
-     * 409 CONFLICT enseguida. Lo usan también las transiciones (AppointmentTransitionService).
+     * 409 CONFLICT enseguida. Lo usan también las transiciones (AppointmentTransitionService) y la
+     * consulta (ConsultationService, FASE 4), con su propio mensaje de conflicto ($conflictMessage).
      *
      * @template T
      * @param callable(): T $attempt
      * @return T
      */
-    public function withRetries(callable $attempt): mixed
+    public function withRetries(callable $attempt, ?string $conflictMessage = null): mixed
     {
         for ($try = 1; $try <= self::ATTEMPTS; $try++) {
             try {
@@ -173,7 +176,7 @@ class AppointmentService
                 // Una espera vencida (1205) no se repite: ya esperó innodb_lock_wait_timeout
                 // y repetirla podría triplicar la espera. 409 CONFLICT enseguida.
                 if ($this->isLockWaitTimeout($e)) {
-                    throw $this->conflict();
+                    throw $this->conflict($conflictMessage);
                 }
 
                 if (! $this->causedByConcurrencyError($e)) {
@@ -182,13 +185,13 @@ class AppointmentService
             }
         }
 
-        throw $this->conflict();
+        throw $this->conflict($conflictMessage);
     }
 
-    private function conflict(): AppointmentException
+    private function conflict(?string $message = null): AppointmentException
     {
         return new AppointmentException(
-            'La agenda cambió mientras se guardaba el turno: volvé a intentarlo.',
+            $message ?? 'La agenda cambió mientras se guardaba el turno: volvé a intentarlo.',
             409,
             'CONFLICT'
         );

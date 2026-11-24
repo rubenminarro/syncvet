@@ -9,6 +9,7 @@ use App\Models\Concerns\BelongsToClinic;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Turno (FASE 3, entrega 3.2a): de una agenda, con paciente, con un cliente sin paciente o
@@ -127,5 +128,13 @@ class Appointment extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * La consulta abierta desde el turno (FASE 4, entrega 4.1): como máximo una (índice único).
+     */
+    public function consultation(): HasOne
+    {
+        return $this->hasOne(Consultation::class);
     }
 }

@@ -203,9 +203,9 @@ class ClinicRolesTest extends TestCase
             $names[] = $route['name'];
 
             $this->assertSame(
-                [$this->expectedPermission($route['name'])],
-                $route['permissions'],
-                "La ruta {$route['key']} ({$route['action']}) debe exigir {$this->expectedPermission($route['name'])}; si es a propósito, agregarla con su motivo en ROUTES_WITH_ANOTHER_PERMISSION.",
+                array_map(fn (string $permission) => [$permission], $this->expectedPermissions($route['name'])),
+                $route['permission_groups'],
+                "La ruta {$route['key']} ({$route['action']}) debe exigir " . implode(' y ', $this->expectedPermissions($route['name'])) . '; si es a propósito, agregarla con su motivo en ROUTES_WITH_ANOTHER_PERMISSION.',
             );
         }
 

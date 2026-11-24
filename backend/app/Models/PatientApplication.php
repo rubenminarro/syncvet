@@ -9,6 +9,14 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Aplicación de un paciente (FASE 4, entrega 4.4; pregunta 12 del diseño, R-099): vacuna,
+ * desparasitación interna o externa o medicamento, con el lote y la próxima dosis como texto y fecha;
+ * con o sin consulta. La carga y la anula PatientApplicationService; no se borra: anulada, queda visible
+ * y marcada (cancelled_at, cancelled_by, cancellation_reason). Se anula también con su consulta.
+ *
+ * Deuda 2 (revisado en la 4.4): la anulación y dose_number como entero.
+ */
 class PatientApplication extends Model
 {
     use BelongsToClinic, Auditable;
@@ -30,6 +38,10 @@ class PatientApplication extends Model
         'next_dose_due_at',
         'notes',
         'created_by',
+        // Entrega 4.4: la anulación.
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
     ];
 
     protected function casts(): array
@@ -39,7 +51,14 @@ class PatientApplication extends Model
             'lot_expires_at' => 'date',
             'applied_at' => AppDateTime::class,
             'next_dose_due_at' => 'date',
+            'dose_number' => 'integer',
+            'cancelled_at' => AppDateTime::class,
         ];
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by')->withTrashed();
     }
 
     public function createdBy(): BelongsTo

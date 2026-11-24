@@ -60,6 +60,16 @@ return [
             'report' => false,
         ],
 
+        // Adjuntos de la consulta (FASE 4, entrega 4.5): privado y sin `serve`, como las fotos.
+        // Solo se descargan por GET api/consultations/{consultation}/attachments/{attachment}.
+        'consultation_attachments' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/consultation-attachments'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

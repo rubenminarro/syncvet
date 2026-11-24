@@ -8,8 +8,9 @@ use Illuminate\Console\Command;
 /**
  * Limpieza de archivos huérfanos (FASE 2, entrega 2.5; deuda 14): las fotos de
  * pacientes y los logos que no son el photo_path de ningún paciente (también
- * eliminado) ni el logo_path de su clínica, con más de 24 horas. Solo mira las carpetas
- * de fotos y de logos de cada clínica (OrphanFileService). Con --dry-run informa lo
+ * eliminado) ni el logo_path de su clínica, y (FASE 4, entrega 4.5) los adjuntos de
+ * consultas sin su fila, con más de 24 horas. Solo mira las carpetas de fotos, de
+ * logos y de adjuntos de cada clínica (OrphanFileService). Con --dry-run informa lo
  * mismo que borraría, sin borrar.
  *
  * Termina con 1 si un borrado falló o si una clínica no se pudo revisar (en esa no se
@@ -23,7 +24,7 @@ class PruneOrphanFilesCommand extends Command
     protected $signature = 'files:prune-orphans
         {--dry-run : Solo listar los archivos huérfanos, sin borrarlos}';
 
-    protected $description = 'Limpieza de las fotos de pacientes y los logos huérfanos de más de 24 horas';
+    protected $description = 'Limpieza de las fotos de pacientes, los logos y los adjuntos de consultas huérfanos de más de 24 horas';
 
     public function handle(OrphanFileService $orphans): int
     {

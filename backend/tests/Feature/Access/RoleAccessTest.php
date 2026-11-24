@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Veterinarian;
 use App\Models\Warehouse;
 use App\Services\ClinicLogoService;
+use App\Services\ConsultationAttachmentService;
 use App\Services\PatientPhotoService;
 use App\Support\CurrentClinic;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -141,6 +142,29 @@ class RoleAccessTest extends TestCase
                 'created_at' => now(),
                 'updated_at' => now(),
             ]),
+            // Una consulta abierta, sin turno, de otro paciente y otra ficha (FASE 4, entrega 4.1):
+            // editarla sin cuerpo responde 200 (el administrador) o 403 CONSULTATION_NOT_YOURS
+            // (una ficha ajena: el permiso ya pasó, BUSINESS_FORBIDDEN).
+            'consultation' => (string) CurrentClinic::run($this->clinic, function () use ($branch) {
+                $patient = $this->patientOf($this->clientIn($this->clinic));
+
+                return DB::table('consultations')->insertGetId([
+                    'clinic_id' => $this->clinic->id,
+                    'code' => 'CON-000001',
+                    'branch_id' => $branch->id,
+                    'patient_id' => $patient->id,
+                    'client_id' => $patient->client_id,
+                    'veterinarian_id' => Veterinarian::create([
+                        'user_id' => User::factory()->for($this->clinic)->create()->id,
+                        'code' => 'VET-000002',
+                    ])->id,
+                    'consulted_at' => now()->format('Y-m-d H:i:s'),
+                    'status' => 'open',
+                    'created_by' => User::factory()->for($this->clinic)->create()->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }),
             // Un registro de auditoría de la clínica (FASE 2, entrega 2.6): solo se consulta.
             'auditLog' => (string) CurrentClinic::run($this->clinic, fn () => AuditLog::create([
                 'clinic_id' => $this->clinic->id,
@@ -148,6 +172,54 @@ class RoleAccessTest extends TestCase
                 'created_at' => now(),
             ])->id),
         ];
+
+        // Un servicio usado en esa consulta (FASE 4, entrega 4.3): editarlo sin cuerpo responde 200 (el
+        // administrador) o 403 CONSULTATION_NOT_YOURS (una ficha ajena); quitarlo, lo mismo.
+        $this->parameters['item'] = (string) DB::table('consultation_items')->insertGetId([
+            'clinic_id' => $this->clinic->id,
+            'consultation_id' => (int) $this->parameters['consultation'],
+            'type' => 'service',
+            // Otro servicio: el de 'service' tiene que seguir sin uso (su baja responde 200).
+            'service_id' => CurrentClinic::run($this->clinic, fn () => Service::create(['code' => 'SRV-000003', 'name' => 'Vacunación'])->id),
+            'description' => 'Vacunación',
+            'quantity' => '1.000',
+            'unit_price' => '150000.00',
+            'discount' => '0.00',
+            'total' => '150000.00',
+            'tax_rate' => 10,
+            'billing_status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Un adjunto de esa consulta, con su archivo (FASE 4, entrega 4.5): descargarlo responde 200; quitarlo, 200 (el
+        // administrador) o 403 CONSULTATION_NOT_YOURS; subir uno sin archivo, 422.
+        Storage::fake(ConsultationAttachmentService::DISK);
+        $attachment = "clinics/{$this->clinic->id}/consultations/{$this->parameters['consultation']}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.pdf";
+        Storage::disk(ConsultationAttachmentService::DISK)->put($attachment, '%PDF-1.4');
+        $this->parameters['attachment'] = (string) DB::table('consultation_attachments')->insertGetId([
+            'clinic_id' => $this->clinic->id,
+            'consultation_id' => (int) $this->parameters['consultation'],
+            'path' => $attachment,
+            'original_name' => 'estudio.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 8,
+            'uploaded_by' => User::factory()->for($this->clinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Una aplicación sin consulta del paciente (FASE 4, entrega 4.4): anularla sin cuerpo responde 422.
+        $this->parameters['application'] = (string) DB::table('patient_applications')->insertGetId([
+            'clinic_id' => $this->clinic->id,
+            'patient_id' => (int) $this->parameters['patient'],
+            'type' => 'vaccine',
+            'name' => 'Antirrábica',
+            'applied_at' => now()->format('Y-m-d H:i:s'),
+            'created_by' => User::factory()->for($this->clinic)->create()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**
@@ -159,7 +231,7 @@ class RoleAccessTest extends TestCase
         $permissions = RolesAndPermissionsSeeder::clinicRoles()[$role]['permissions'];
         $user = $this->userWithRole($this->clinic, $role);
 
-        [$allowed, $forbidden] = $this->assertAccess($user, fn (array $route) => array_intersect($route['permissions'], $permissions) !== []);
+        [$allowed, $forbidden] = $this->assertAccess($user, fn (array $route) => $this->permissionsReach($route, $permissions));
 
         // Que la matriz no sea trivial: el rol tiene rutas permitidas y prohibidas.
         $this->assertGreaterThan(0, $allowed, "{$role} no tiene ninguna ruta permitida.");
@@ -386,9 +458,19 @@ class RoleAccessTest extends TestCase
         }, $route['uri']);
     }
 
+    /**
+     * Un 403 de negocio cuenta como permitido: el permiso ya pasó y la regla de la ficha
+     * (FASE 4, entrega 4.1: editar la consulta de otra ficha) lo rechaza después.
+     */
+    private const BUSINESS_FORBIDDEN = ['APPOINTMENT_NOT_YOURS', 'CONSULTATION_NOT_YOURS', 'PATIENT_APPLICATION_NOT_YOURS'];
+
     private function isAllowed(TestResponse $response): bool
     {
-        return ! in_array($response->getStatusCode(), [401, 403, 404, 405], true) && $response->getStatusCode() < 500;
+        if ($response->getStatusCode() === 403) {
+            return in_array($response->json('error_code'), self::BUSINESS_FORBIDDEN, true);
+        }
+
+        return ! in_array($response->getStatusCode(), [401, 404, 405], true) && $response->getStatusCode() < 500;
     }
 
     private function isForbidden(TestResponse $response): bool
@@ -398,6 +480,7 @@ class RoleAccessTest extends TestCase
 
     private function list(array $route): string
     {
-        return implode('|', $route['permissions']);
+        // Los de un grupo son uno u otro (`a|b`); los grupos, todos a la vez (`a y b`, como el historial).
+        return implode(' y ', array_map(fn (array $group) => implode('|', $group), $route['permission_groups']));
     }
 }

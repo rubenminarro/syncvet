@@ -59,3 +59,34 @@ código, manda el código.
   (guardar, reemplazar después del commit, validar la ruta contra la carpeta del dueño y descargar con sus cabeceras) y en
   `App\Http\Requests\PrivateImageRequest` (tipo por el contenido, 413, megapíxeles y la imagen vuelta a codificar). La foto mantiene
   sus respuestas, códigos, mensajes y rutas.
+* **Aplicaciones** (FASE 4, entrega 4.4; `PatientApplicationService`; con una consulta, las reglas de
+  [`consultas.md`](consultas.md)): vacunas, desparasitaciones internas y externas y medicamentos del paciente.
+  * **Listar** (`GET patients/{patient}/applications`, `patient-applications.index`: los tres roles, también la recepción): de la más
+    reciente a la más vieja por `applied_at` e id, paginado (`per_page` de 1 a 100); filtros `type` (uno o varios) y `from`/`to` sobre
+    `applied_at` (una fecha sola es el día entero de Asunción; sin tope de días; sin ellos, todas). Las anuladas aparecen, marcadas
+    (`cancelled`, `cancelled_at`, `cancelled_by` y `cancellation_reason`). También de un paciente fallecido. Sin N+1.
+  * **Cargar** (`POST patients/{patient}/applications`, `patient-applications.store`: el administrador y el veterinario; la recepción,
+    no): `type`, `name` (2 a 200) y `applied_at` (un instante, no futuro); opcionales `consultation_id`, `lot_number` (50),
+    `lot_expires_at` (fecha), `dose` (50), `route` (30), `dose_number` (1 a 255), `next_dose_due_at` (fecha, **posterior** al día de
+    aplicación en Asunción) y `notes` (1000). Un paciente **fallecido** no recibe aplicaciones (422 `PATIENT_DECEASED`). El veterinario
+    de la aplicación es el de la consulta; sin consulta, la ficha de quien la carga (o `null`). Auditada.
+  * **Anular** (`POST patient-applications/{application}/cancel`, `patient-applications.cancel`: el administrador y el veterinario;
+    decisión del usuario en la 4.4): con `cancellation_reason` (3 a 500). Ya anulada, 422 `PATIENT_APPLICATION_NOT_CANCELLABLE`. **Con
+    consulta:** solo abierta (cerrada, 422 `CONSULTATION_NOT_EDITABLE`: se anula con la consulta), por su veterinario o el
+    administrador (otro, 403 `CONSULTATION_NOT_YOURS`). **Sin consulta:** el administrador; el veterinario, solo la que cargó él el
+    mismo día en Asunción (si no, 403 `PATIENT_APPLICATION_NOT_YOURS`). No se borra: queda visible, marcada.
+  * Al anular una consulta, sus aplicaciones se anulan con ella ([`consultas.md`](consultas.md)). La próxima dosis
+    (`next_dose_due_at`) la usarán los recordatorios (FASE 7).
+* **Historial del paciente** (FASE 4, entrega 4.6; pregunta 18): `GET patients/{patient}/history`, sin permiso propio: exige
+  `consultations.index` **y** `patient-applications.index` (los dos; con uno solo, 403 `FORBIDDEN`); los tienen los tres roles.
+  * Sus consultas y sus aplicaciones **juntas**, de la más reciente a la más vieja por su fecha (`consulted_at` de la consulta,
+    `applied_at` de la aplicación); en la misma fecha, la consulta antes que la aplicación, y después el id mayor. De toda la clínica
+    (no de la sucursal actual). Paginado de a **20** por defecto (`per_page` de 1 a 100, `page`), con `meta.pagination`; sin otros
+    filtros. Sin N+1.
+  * Cada elemento: `type` (`consultation` o `application`), `occurred_at` (la fecha, en UTC con `Z`), `cancelled` (anulada) y el
+    elemento en `consultation` o en `application` (el otro, `null`). La consulta, con el resumen de su listado (código, fecha, estado,
+    sucursal, paciente, cliente, veterinario, turno y motivo) y, con `consultations.show-clinical` (el administrador y el veterinario),
+    además el **diagnóstico** y el **peso** (`weight_kg`, para ver su evolución); la recepción no los recibe (las claves no están). La
+    aplicación, como en su listado, para todos.
+  * Las anuladas aparecen, marcadas. También el historial de un paciente **fallecido** (pregunta 11). Un paciente de otra clínica o
+    eliminado, 404. Solo lectura: no bloquea nada.

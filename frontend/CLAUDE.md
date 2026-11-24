@@ -9,8 +9,8 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F3 (agenda y turnos), COMPLETADA (R-098) e integrada a `main` (`5f180f3`); diseño en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md) (R-085). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Sigue la FASE 4 del backend (historia clínica) |
-| Tests | Vitest: 1835 tests en 89 archivos, en verde (cierre de la F3, R-098); Playwright: 46 de 46 en una sola corrida (22 archivos) |
+| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Después, en el cierre de la FASE 4 del backend (R-106), los tipos auditables `consultation_amendment` y `consultation_attachment` en la auditoría. Sigue decidir con el usuario entre el frontend de la historia clínica y la FASE 5 del backend |
+| Tests | Vitest: 1835 tests en 89 archivos, en verde (regresión del cierre de la FASE 4, R-106; antes, el cierre de la F3, R-098); Playwright: 46 de 46 en una sola corrida (22 archivos) |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
 [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend); el resultado de cada entrega, en el `fN-resultados.md` de su fase;
@@ -151,7 +151,7 @@ Lo esencial; el detalle y el motivo de cada regla, en [`testing.md`](../docs/04-
 * **Manda el [Presupuesto por entrega](../CLAUDE.md#presupuesto-por-entrega)** del `CLAUDE.md` de la raíz.
 * **Versiones fijas en el diseño y un solo `npm ci`**; nada de `npm view` paquete por paquete.
 * **`environment: node` para los tests sin DOM**; jsdom, solo los `.test.tsx` o el `.test.ts` que lo pide.
-* **Durante el trabajo, `npx vitest related <archivos tocados> --run`**; la suite completa, `typecheck`, `lint` y `build`, una vez al final.
+* **Durante el trabajo, `npx vitest related <archivos tocados> --run`**; la suite completa, `typecheck`, `lint` y `build`, una vez, en la revisión, en verde en una sola corrida y con la salida a un archivo (R-100).
 * **Playwright**: solo los casos nuevos o tocados, más `e2e/permisos.spec.ts` si cambia el menú o el permiso de una ruta; completo, al cerrar la fase.
 * **Controles en Edge**: hasta 10, numerados, cada uno con el rol que usa y el dato que busca él mismo. El script recibe qué
   controles correr (`node controles.mjs 5` o `5,6`; sin argumentos, todos) e **ingresa solo con los roles de esos controles**, una

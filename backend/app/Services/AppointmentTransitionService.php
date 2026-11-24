@@ -48,7 +48,8 @@ class AppointmentTransitionService
     private const CANCELLABLE_IN_SERIES = [AppointmentStatus::PENDING_CONFIRMATION, AppointmentStatus::CONFIRMED];
 
     public function __construct(
-        protected AppointmentService $appointments
+        protected AppointmentService $appointments,
+        protected AppointmentOwnership $ownership
     ) {
     }
 
@@ -187,7 +188,7 @@ class AppointmentTransitionService
             // El permiso de la ficha va antes que el estado: un veterinario no averigua el
             // estado de un turno ajeno por el error.
             if ($transition === AppointmentTransition::CHECK_IN || $transition === AppointmentTransition::ATTEND) {
-                $this->ensureOwnAppointment($locked);
+                $this->ownership->ensure($locked);
             }
 
             if (! $transition->allowsFrom($locked->status)) {
@@ -201,33 +202,4 @@ class AppointmentTransitionService
         }));
     }
 
-    /**
-     * Pregunta 18 (decisiones del usuario en la 3.2b): un usuario con el rol veterinario o con
-     * una ficha de veterinario, y sin appointments.update, ficha y marca atendido solo los turnos
-     * de su ficha (no eliminada) o los de agendas sin veterinario; sin ficha, o con la ficha
-     * eliminada, solo los de agendas sin veterinario. Si no, 403 APPOINTMENT_NOT_YOURS. El
-     * administrador (Gate::before) y quien tiene appointments.update, cualquiera.
-     */
-    private function ensureOwnAppointment(Appointment $appointment): void
-    {
-        /** @var User $user */
-        $user = Auth::user();
-
-        if ($user->can('appointments.update') || $appointment->veterinarian_id === null) {
-            return;
-        }
-
-        // Solo una ficha no eliminada (el scope de SoftDeletes).
-        $ownId = Veterinarian::query()->where('user_id', $user->getKey())->value('id');
-
-        if ($ownId === null && ! $user->hasRole(UserRole::VETERINARIAN->value, 'api')) {
-            return;
-        }
-
-        if ($ownId !== null && (int) $appointment->veterinarian_id === (int) $ownId) {
-            return;
-        }
-
-        throw AppointmentException::notYours();
-    }
 }
