@@ -358,3 +358,63 @@ adjunto que quedaba con su archivo. MySQL no se corrió: sin migraciones ni un o
 **Revisión.** Sin hallazgos graves; la arquitectura, los permisos, el orden de bloqueo y la separación por clínica, correctos.
 Correcciones: el saneado del nombre (los controles C1 y las marcas de dirección: `informe‮fdp.exe` se veía como `informeexe.pdf`), los
 tests de quitar una ruta ajena y de la descarga de una cerrada o anulada, y los temporales de `ConsultationImmutabilityTest`.
+
+### Entrega 4.6
+
+El historial del paciente (consultas y aplicaciones juntas). Implementación en `feature/back-4-6-historial`, creada desde `0b83449`
+(el cierre de la 4.5), en el commit WIP `fb45c21` (2026-11-24); la revisión, con una corrección en los tests, en `7aef80b`; el cierre va en un
+commit aparte. Decisiones en [R-105](../../../01-arquitectura/decisiones/registro.md). Las reglas, en
+[`pacientes.md`](../../../02-requisitos/reglas/pacientes.md).
+
+**Archivos.**
+
+* Nuevos: `PatientHistoryService`, `PatientHistoryController`, `IndexPatientHistoryRequest` y `PatientHistoryResource`; la ruta en
+  `routes/api.php`.
+* Tests nuevos: `PatientHistoryTest`. Cambiados: `InteractsWithApiRoutes` (un grupo de permisos por middleware, `permission_groups`,
+  y `permissionsReach()`), `ClinicRolesTest` y `RoleAccessTest` (varios permisos a la vez en una ruta) y `RouteBindingTest`.
+* Documentación: `pacientes.md`, la guía de Postman y la colección `syncvet-fase-04-aplicaciones` ampliada.
+
+**Endpoints.** `GET patients/{patient}/history` (nombre `patients.history`), con `consultations.index` **y**
+`patient-applications.index` (dos middleware: hacen falta los dos). Rutas 94 → 95; permisos (137) y migraciones (39), sin cambios. Sin
+`error_code` nuevos.
+
+**Tests.** Corrida de `composer test` de la revisión (2026-11-24, sobre el código de `7aef80b`, con la corrección de la revisión en
+`RoleAccessTest`; el cierre solo agrega documentación): 1767 casos, 1749 en verde y 18 omitidos (de MySQL), 17374 aserciones, en una
+sola corrida. Frente al cierre de la 4.5 (R-104: 1749 casos y 17154 aserciones): 18 casos más.
+
+* `PatientHistoryTest` (11, con *data providers*: 17 casos): consultas y aplicaciones juntas, de la más reciente a la más vieja, sin
+  las de otro paciente; la misma fecha (la consulta primero y después el id mayor); la paginación (de a 20, hasta 100) y los
+  `per_page` inválidos (422); las anuladas, marcadas; el diagnóstico y el peso solo con `consultations.show-clinical`; un fallecido
+  conserva su historial; un paciente sin registros; con uno solo de los dos permisos, 403; sin N+1.
+* `RouteBindingTest`: el historial de un paciente de otra clínica, 404.
+
+**Newman** (en la implementación, sobre `fb45c21`; la revisión no tocó lo que usa la colección): `syncvet-fase-04-aplicaciones`
+ampliada, 32 pedidos y 53 aserciones, sin fallas (la primera corrida tuvo dos errores del script de la colección, corregidos); la
+limpieza no dejó datos. MySQL no se corrió: sin migraciones, concurrencia ni búsqueda de texto (el `UNION ALL` se prueba en MySQL con
+la suite completa del cierre de la fase).
+
+**Mutaciones** (2, en la implementación), detectadas y revertidas con el editor:
+
+* Quitar `permission:patient-applications.index`: `PatientHistoryTest::test_it_requires_both_permissions` y `ClinicRolesTest`.
+* Dar el peso sin el permiso clínico:
+  `PatientHistoryTest::test_the_diagnosis_and_the_weight_only_with_the_clinical_permission`.
+
+**Desvíos del diseño y precisiones.**
+
+1. **Los dos permisos a la vez:** dos middleware (`permission:consultations.index` y `permission:patient-applications.index`), no
+   `permission:a|b` (uno u otro). La infraestructura de los tests de permisos suponía un `permission:` por ruta: ahora junta un grupo
+   por middleware (uno de cada grupo) y `ROUTES_WITH_ANOTHER_PERMISSION` acepta una lista.
+2. **El peso, solo con `consultations.show-clinical`** (confirmado por el usuario): el diseño nombraba solo el diagnóstico; el peso es
+   parte del examen clínico en el detalle (`ShowConsultationResource`) y la recepción ve el resumen administrativo.
+3. **La forma de cada elemento:** `type`, `occurred_at`, `cancelled` y el elemento en `consultation` o en `application` (el otro,
+   `null`); la consulta, con `ConsultationResource` más `weight_kg`; la aplicación, con `PatientApplicationResource`.
+4. **El orden en la misma fecha** (confirmado por el usuario): la consulta antes que la aplicación y después el id mayor.
+5. **La página en la base:** un `UNION ALL` de dos consultas livianas (tipo, id y fecha, cada una con el scope de la clínica) y después
+   los modelos de la página con sus relaciones: 4 consultas más el conteo.
+6. **Sin filtros:** solo `per_page` (1 a 100, 20 por defecto; los listados, 10) y `page`.
+7. **La base local de una PC** tenía pendientes las 3 migraciones de la FASE 4: se migró y se corrió `permissions:sync` para Newman.
+
+**Revisión.** Sin fallas en el código: las relaciones del historial son las de los listados (`withTrashed()` en el cliente, el
+paciente y el veterinario) y el `UNION ALL` aplica el scope de la clínica. Una corrección en los tests: `RoleAccessTest::list()`
+nombraba los permisos de la ruta como `a|b` (uno u otro); ahora usa los grupos (`a y b` en el historial), solo en los mensajes de
+falla.

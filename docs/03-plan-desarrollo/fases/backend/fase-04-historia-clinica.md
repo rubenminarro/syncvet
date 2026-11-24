@@ -2,8 +2,8 @@
 
 Etapa: Atención. Estado: **DISEÑO APROBADO** el 2026-11-20 (R-099), en `feature/back-4-diseno` (desde `main` en `6fb4805`, con la
 F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. Las entregas 4.1 (la consulta,
-R-100), 4.2 (cierre, enmiendas y anulación, R-101), 4.3 (los servicios usados, R-102) y 4.4 (las aplicaciones, R-103), COMPLETADAS; sigue
-la 4.5. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
+R-100), 4.2 (cierre, enmiendas y anulación, R-101), 4.3 (los servicios usados, R-102), 4.4 (las aplicaciones, R-103), 4.5 (los
+adjuntos, R-104) y 4.6 (el historial del paciente, R-105), COMPLETADAS; sigue el cierre de la fase. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
 El estado vigente de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
@@ -328,7 +328,7 @@ corrección van en la 4.2, antes que los ítems, porque son la integridad de lo 
 | 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | COMPLETADO (R-102, [resultado](fase-04-resultados.md#entrega-43)), en `feature/back-4-3-servicios` |
 | 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | COMPLETADO (R-103, [resultado](fase-04-resultados.md#entrega-44)), en `feature/back-4-4-aplicaciones` |
 | 4.5 | Los adjuntos | — | `ConsultationAttachmentTest` (el tipo por el contenido con una extensión que miente, el tamaño, el tope por consulta, la descarga con y sin permiso, el disco privado, `files:prune-orphans`) | La de consultas | COMPLETADO (R-104, [resultado](fase-04-resultados.md#entrega-45)), en `feature/back-4-5-adjuntos` |
-| 4.6 | El historial del paciente | — | `PatientHistoryTest` (consultas y aplicaciones juntas, orden, paginación, anuladas marcadas, el peso de cada consulta, fallecido visible, la vista de la recepción, N+1) | La de aplicaciones | PENDIENTE (la siguiente) |
+| 4.6 | El historial del paciente | — | `PatientHistoryTest` (consultas y aplicaciones juntas, orden, paginación, anuladas marcadas, el peso de cada consulta, fallecido visible, la vista de la recepción, N+1) | La de aplicaciones | COMPLETADO (R-105, [resultado](fase-04-resultados.md#entrega-46)), en `feature/back-4-6-historial` |
 
 **En cada entrega**: las reglas nuevas en un archivo `docs/02-requisitos/reglas/consultas.md` (y `pacientes.md` para el historial), la
 guía de Postman y la colección; la suite con el presupuesto por entrega; MySQL solo si toca migraciones o concurrencia (la 4.1, la
@@ -361,43 +361,8 @@ y el aviso del límite de subida de PHP).
 
 ### 4.6 — Pendiente para el cierre
 
-Implementada en `feature/back-4-6-historial` (desde `0b83449`, el cierre de la 4.5; commit WIP, 2026-11-24); falta la revisión (con la
-corrida completa, R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 94 → 95 (`GET patients/{patient}/history`,
-nombre `patients.history`); permisos (137) y migraciones (39), sin cambios. Sin `error_code` nuevos. Las reglas, en
-[`pacientes.md`](../../../02-requisitos/reglas/pacientes.md).
-
-**El límite de subida de PHP (R-104), resuelto:** el usuario confirmó el 2026-11-24 que en las dos PC `upload_max_filesize` es de al
-menos `10M` y `post_max_size` de al menos `11M`. El cierre quita la tarea 2a del handoff.
-
-Desvíos y precisiones (para revisar en el cierre):
-
-1. **Los dos permisos a la vez:** el controlador declara dos middleware (`permission:consultations.index` y
-   `permission:patient-applications.index`), no `permission:a|b` (que sería uno u otro). La infraestructura de los tests de permisos
-   suponía un solo `permission:` por ruta: `InteractsWithApiRoutes` ahora junta un grupo por middleware (`permission_groups`, uno de
-   cada grupo) y `ROUTES_WITH_ANOTHER_PERMISSION` acepta una lista (`patients.history`); `ClinicRolesTest` compara los grupos y
-   `RoleAccessTest` decide el acceso de cada rol con `permissionsReach()`. Con uno solo de los dos, 403 (`PatientHistoryTest`).
-2. **El peso solo con `consultations.show-clinical`:** el diseño dice "sin `consultations.show-clinical`, sin el diagnóstico"; el peso
-   también se oculta a la recepción, porque en el detalle de la consulta es parte del examen clínico (`ShowConsultationResource`) y la
-   tabla de roles le da a la recepción "el resumen administrativo (sin diagnóstico ni textos clínicos)".
-3. **La forma de cada elemento:** `type`, `occurred_at`, `cancelled` y el elemento en `consultation` o en `application` (el otro,
-   `null`). La consulta reusa `ConsultationResource` (el resumen del listado, con el motivo) más `weight_kg`; la aplicación,
-   `PatientApplicationResource`.
-4. **El orden en la misma fecha:** la consulta antes que la aplicación y después el id mayor (en el diseño, solo "de la más reciente a
-   la más vieja").
-5. **La página en la base:** un `UNION ALL` de dos consultas livianas (tipo, id y fecha, cada una con el scope de la clínica, que
-   `toBase()` aplica) y después los modelos de la página con sus relaciones: 4 consultas más el conteo, sin N+1.
-6. **Sin filtros:** solo `per_page` (1 a 100, 20 por defecto) y `page`; el diseño no pide otros.
-7. **MySQL no se corrió:** sin migraciones, concurrencia ni búsqueda de texto. El `UNION ALL` con `ORDER BY` sobre la subconsulta es
-   SQL estándar; la suite completa en MySQL, al cerrar la fase.
-8. **La base local de esta PC** tenía pendientes las 3 migraciones de la FASE 4: se migró y se corrió `permissions:sync` para Newman.
-
-Validación de la implementación (2026-11-24, R-100: sin la suite completa, que va en la revisión): `PatientHistoryTest` (nuevo, 11
-tests, 17 casos) y los relacionados (`RouteBindingTest`, `ClinicRolesTest`, `RoleAccessTest`, `ValidationTranslationsTest`,
-`SnakeCaseKeysTest`, `VoseoTest` y `HttpVerbsTest`), 114 casos y 5634 aserciones, sin fallas. Newman, `syncvet-fase-04-aplicaciones`
-ampliada: 32 pedidos y 53 aserciones, sin fallas (la primera corrida tuvo dos errores del script de la colección, corregidos); la
-limpieza no dejó datos. Mutaciones: quitar `permission:patient-applications.index` (la detectan
-`PatientHistoryTest::test_it_requires_both_permissions` y `ClinicRolesTest`) y dar el peso sin el permiso clínico (la detecta
-`PatientHistoryTest::test_the_diagnosis_and_the_weight_only_with_the_clinical_permission`); las dos, revertidas con el editor.
+Nada: la 4.6 quedó cerrada en R-105 ([resultado](fase-04-resultados.md#entrega-46), con los desvíos confirmados por el usuario, la
+revisión y la validación). Sigue el [cierre de la fase](#criterio-de-cierre).
 
 ## Preguntas del diseño
 

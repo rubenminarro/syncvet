@@ -114,3 +114,4 @@ se crea) y suma su línea al final de esta tabla. El historial del handoff hasta
 | [R-102](registro/R-101-150.md#r-102-cierre-de-la-entrega-43-del-backend-los-servicios-usados-en-la-consulta-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.3 del backend (los servicios usados en la consulta) |
 | [R-103](registro/R-101-150.md#r-103-cierre-de-la-entrega-44-del-backend-las-aplicaciones-2026-11-20) | 2026-11-20 | Cierre de la entrega 4.4 del backend (las aplicaciones) |
 | [R-104](registro/R-101-150.md#r-104-cierre-de-la-entrega-45-del-backend-los-adjuntos-de-la-consulta-2026-11-24) | 2026-11-24 | Cierre de la entrega 4.5 del backend (los adjuntos de la consulta) |
+| [R-105](registro/R-101-150.md#r-105-cierre-de-la-entrega-46-del-backend-el-historial-del-paciente-2026-11-24) | 2026-11-24 | Cierre de la entrega 4.6 del backend (el historial del paciente) |
