@@ -112,6 +112,9 @@ Las comillas simples dejan el valor literal: sin ellas, un `#` puede leerse como
 variable. Un `.env` copiado antes de la entrega 0.4 no tiene la línea: agregarla (está en `.env.example`). Sin ella, el `DemoSeeder`
 se detiene con "Definí DEMO_PASSWORD en .env".
 
+> **Con Claude Code:** `/cambiar-rama <rama>` cambia de rama, compara las dos con
+> `.claude/skills/cambiar-rama/scripts/diff-rama.sh` y, con confirmación, aplica lo de esta sección que haga falta.
+
 **Después de cambiar a una rama con migraciones nuevas, recrear la base** antes de probar:
 
 ```bash

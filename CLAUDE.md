@@ -29,7 +29,7 @@ Si una regla contradice al código, **el código manda**: registrar la discrepan
 ```text
 syncvet/
 ├── CLAUDE.md        Este archivo: proceso y reglas comunes
-├── .claude/skills/  /retomar, /cambiar-pc, /cerrar-entrega y /validar-docs, para todo el repositorio
+├── .claude/skills/  /retomar, /cambiar-pc, /cambiar-rama, /cerrar-entrega y /validar-docs, para todo el repositorio
 ├── .claude/hooks/   El hook que rechaza `cat >` sin entrada (configurado en .claude/settings.json)
 ├── backend/         API Laravel, con su CLAUDE.md y su README.md (instalación)
 ├── frontend/        React 19 + TypeScript + Vite + Tabler, con su CLAUDE.md y su README.md (instalación)
@@ -123,7 +123,8 @@ Cada entrega actualiza, en la misma rama, lo que indica la tabla **Mantenimiento
 `/cerrar-entrega` lo hace sobre una entrega ya validada y termina siempre con el commit y el push del cierre ("git status limpio,
 commit y push confirmados"); `/validar-docs` audita enlaces y cifras; `/retomar` informa el estado al
 empezar una sesión; `/cambiar-pc` pone al día la PC al llegar de otra (diagnóstico del entorno y, con confirmación, `pull`,
-dependencias y migraciones).
+dependencias y migraciones); `/cambiar-rama` cambia de rama y deja el entorno acorde (dependencias, base y permisos, según lo
+que cambió).
 
 Los desvíos, decisiones pendientes y notas para el cierre se escriben en el repositorio (sección "Pendiente para el cierre" de la
 entrega en el documento de la fase) y se suben con el commit WIP, nunca solo en la memoria de Claude Code: el usuario trabaja en más
