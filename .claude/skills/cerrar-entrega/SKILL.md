@@ -3,7 +3,7 @@ name: cerrar-entrega
 description: Actualiza la documentación de una entrega ya validada, según las reglas de docs/README.md, y la commitea y la sube.
 disable-model-invocation: true
 argument-hint: "[nombre de la entrega]"
-allowed-tools: Read Grep Glob Bash(git status *) Bash(git status) Bash(git log *) Bash(git diff *) Bash(git branch --show-current) Bash(git add *) Bash(git commit *) Bash(git push *) Bash(git rev-parse *) Bash(php .claude/skills/validar-docs/scripts/check-docs.php*)
+allowed-tools: Read Grep Glob Bash(git status *) Bash(git status) Bash(git log *) Bash(git diff *) Bash(git branch --show-current) Bash(git add *) Bash(git commit *) Bash(git push) Bash(git push -u origin *) Bash(git rev-parse *) Edit Write Bash(php .claude/skills/validar-docs/scripts/check-docs.php*)
 ---
 
 # Cerrar una entrega
@@ -55,8 +55,9 @@ Mostrar la lista propuesta y qué es lo dudoso. No resolverlo por cuenta propia.
 | Sin certeza sobre un dato | Usar `PENDIENTE DE VERIFICACIÓN`, o preguntar |
 | Qué leer | Solo lo de la entrega: el handoff (corto), las últimas líneas del índice del registro (`docs/01-arquitectura/decisiones/registro.md`) y la sección de la entrega en el diseño de su fase, con su "Pendiente para el cierre". Ni el historial del handoff ni los resultados de otras entregas |
 | Numeración | Mantener las fases. La sección nueva toma el número siguiente a la última `R-NNN` del índice del registro (correlativo, no es el número de la entrega) |
-| Decisión nueva | Su sección `# R-NNN Título (AAAA-MM-DD)` va al final del archivo de su rango, `docs/01-arquitectura/decisiones/registro/R-051-100.md` (de 50 en 50; el siguiente, `R-101-150.md`, se crea con la misma cabecera), y su línea al final de la tabla del índice: ``| [R-NNN](registro/R-051-100.md#ancla) | AAAA-MM-DD | Título |``, con el ancla del título (`/validar-docs` comprueba número, archivo, ancla, fecha y título) |
+| Decisión nueva | Su sección `# R-NNN Título (AAAA-MM-DD)` va al final del archivo de su rango en `docs/01-arquitectura/decisiones/registro/`, de 50 en 50: el que cita la última línea del índice (hoy `R-101-150.md`); al pasar de rango (R-151), el archivo siguiente se crea con la misma cabecera. Su línea va al final de la tabla del índice: ``| [R-NNN](registro/R-101-150.md#ancla) | AAAA-MM-DD | Título |``, con el ancla del título (`/validar-docs` comprueba número, archivo, ancla, fecha y título) |
 | Resultado | El de la entrega va en el `…-resultados.md` de su fase (`fases/frontend/f3-resultados.md`, `fases/backend/fase-03-resultados.md`), no en el diseño |
+| Agregar al final | El registro y los `…-resultados.md` pesan hasta 190 KB: **nunca leerlos enteros**. Para agregar una sección, leer solo las últimas ~40 líneas (`Read` con `offset`; el total, con `Grep -c ''`) y editar desde ahí. Para tocar una sección concreta, ubicarla con `Grep -n` y leer solo ese tramo |
 | Handoff | Se **reemplazan** el punto de continuidad y las próximas tareas con el estado nuevo, en líneas cortas: no se le agrega historial ("Antes, …"). Lo que cerró la entrega queda en su resultado y en su R |
 | Cifras | Tests, rutas y commits salen de lo verificado, nunca de memoria |
 | Una fuente | Actualizar donde vive cada dato y enlazar desde el resto |

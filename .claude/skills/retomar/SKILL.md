@@ -24,7 +24,9 @@ El backend y el frontend están en el mismo repositorio (monorepo, R-057): un so
 
 Leer el [`CLAUDE.md`](../../../CLAUDE.md) de la raíz, [`backend/CLAUDE.md`](../../../backend/CLAUDE.md) y
 [`frontend/CLAUDE.md`](../../../frontend/CLAUDE.md), al menos la sección 1 (**Estado actual**) de cada uno: Claude Code no carga solo
-el de una subcarpeta hasta leer un archivo de ella. El informe da el estado de los dos proyectos.
+el de una subcarpeta hasta leer un archivo de ella. El informe da el estado de los dos proyectos. El de la raíz ya está en el
+contexto; `backend/CLAUDE.md` (~30 KB) y `frontend/CLAUDE.md` (~17 KB) no se leen enteros: ubicar las secciones con
+`Grep -n '^## '` y leer solo la §1 (`Read` con `offset` y `limit`).
 
 **Leer solo lo necesario** (R-091):
 
