@@ -34,7 +34,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 
 | Orden | Tarea | Bloqueo |
 |---|---|---|
-| 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
+| 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057); al llegar a una PC, `/cambiar-pc` los revisa | Ninguno |
 | 2 | **Siguiente.** Decidir con el usuario entre el frontend de la historia clínica (F4, con su análisis y su diseño, sobre la API de la [FASE 4](fases/backend/fase-04-historia-clinica.md)) y el análisis de la FASE 5 del backend, en una rama nueva desde `main` | Decisión del usuario |
 | 2b | Opcional: la deuda 29 (los bloqueos de la cola por sucursal, una entrega de soporte del backend) y la 19 (`typescript-eslint@8.73.0`), cuando el usuario lo pida ([deuda técnica](deuda-tecnica.md)) | Decisión del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |

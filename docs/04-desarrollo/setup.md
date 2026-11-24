@@ -1,5 +1,9 @@
 # Instalación en una computadora nueva
 
+> **Al cambiar de PC:** `/cambiar-pc` desde la raíz (Claude Code) corre los controles de este documento con
+> `.claude/skills/cambiar-pc/scripts/check-env.sh` (también se puede correr a mano, con Git Bash) y, con confirmación, trae los
+> cambios, instala las dependencias y migra la base. Cada `FALLA` o `AVISO` nombra la sección de este documento que lo explica.
+
 Requisitos: PHP 8.3+ con `bcmath`, `pdo_mysql`, `pdo_sqlite`, `intl`; Composer; MySQL 8.
 
 ```bash
