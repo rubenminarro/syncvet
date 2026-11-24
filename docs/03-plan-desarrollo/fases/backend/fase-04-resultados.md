@@ -284,3 +284,77 @@ el usuario. `permissions:sync` en la base local: `patient-applications.cancel` e
 
 **Revisión.** Ya estaban cubiertos otra ficha (403 `CONSULTATION_NOT_YOURS`), la regla del mismo día y la recepción. Correcciones: el
 test del borde de la medianoche y las aplicaciones en el detalle de la consulta, con su test.
+
+### Entrega 4.5
+
+Los adjuntos de la consulta (imágenes y PDF, en un disco privado). Implementación en `feature/back-4-5-adjuntos`, creada desde
+`2fa780c` (el cierre de la 4.4), en el commit WIP `36f825a` (2026-11-22); revisión con correcciones en `fac086f` (2026-11-24); el
+cierre va en un commit aparte. Decisiones en [R-104](../../../01-arquitectura/decisiones/registro.md). Las reglas, en
+[`consultas.md`](../../../02-requisitos/reglas/consultas.md).
+
+**Archivos.**
+
+* Nuevos: `ConsultationAttachmentService`, `ConsultationAttachmentController` y `StoreConsultationAttachmentRequest`; el disco
+  `consultation_attachments` en `config/filesystems.php`.
+* Cambiados: `ConsultationAttachment` (`Auditable`, la ruta oculta y como `"(archivo)"` en la auditoría), `AuditLog`
+  (`consultation_attachment` en `AUDITABLE_TYPES`), `ConsultationService` (el detalle carga los adjuntos), `ShowConsultationResource`
+  (`attachments`, sin la ruta, solo con `consultations.show-clinical`), `OrphanFileService` y `PruneOrphanFilesCommand` (el disco
+  nuevo), `PostmanCleanupCommand` (los adjuntos de la corrida y sus archivos), `routes/api.php` y `lang/es/validation.php`.
+* Tests nuevos: `ConsultationAttachmentTest`. Cambiados: `ConsultationImmutabilityTest`, `RouteBindingTest`, `RoleAccessTest` (el
+  parámetro `attachment`) y `PostmanCleanupCommandTest`.
+* Documentación: `consultas.md`, la guía de Postman y la colección `syncvet-fase-04-consultas` ampliada, con sus archivos de prueba en
+  `docs/05-pruebas/postman/archivos/`.
+
+**Endpoints.** `POST consultations/{consultation}/attachments` (multipart, campo `file`), `GET
+consultations/{consultation}/attachments/{attachment}` (el archivo; las dos con `scopeBindings`) y `DELETE
+consultation-attachments/{attachment}`. Rutas 91 → 94; permisos (137) y migraciones (39), sin cambios. El detalle de la consulta suma
+`attachments`. Sin `error_code` nuevos.
+
+**Tests.** Corrida de `composer test` de la revisión (2026-11-24, sobre el código de `fac086f`; el cierre solo cambia documentación):
+1749 casos, 1731 en verde y 18 omitidos (de MySQL), 17154 aserciones, en una sola corrida. Frente al cierre de la 4.4 (R-103: 1711
+casos y 16807 aserciones): 38 casos más.
+
+* `ConsultationAttachmentTest` (17, con *data providers*: 33 casos): cada tipo permitido con el nombre generado; el tipo por el
+  contenido (un PNG llamado `.pdf`, un PDF llamado `.png`; HTML, texto y SVG rechazados); 10 MB y 10 MB más un byte (413), y el que
+  corta PHP; el archivo obligatorio; el tope de 20; otra ficha no sube ni quita; la descarga con y sin permiso (los encabezados y el
+  nombre); los adjuntos en el detalle solo con `consultations.show-clinical`; el adjunto de otra consulta (404); el archivo que falta y
+  la ruta ajena (404); quitar una ruta ajena sin borrarla; la descarga de una cerrada y de una anulada; quitar con la auditoría; el
+  saneado del nombre; el disco privado; `files:prune-orphans`.
+* `ConsultationImmutabilityTest`: subir y quitar un adjunto con una cerrada o anulada (4 casos más; 19 en total).
+* `RouteBindingTest`: subir, descargar y quitar los adjuntos de otra clínica, 404.
+
+**Newman** (en la implementación, sobre `36f825a`; la revisión no tocó lo que usa la colección): `syncvet-fase-04-consultas` ampliada,
+66 pedidos y 132 aserciones, sin fallas (la primera corrida tuvo una falla del script de la colección, corregida); la limpieza borró el
+adjunto que quedaba con su archivo. MySQL no se corrió: sin migraciones ni un orden de bloqueo nuevo (consulta → adjunto, como consulta
+→ ítem).
+
+**Mutaciones** (2 en la implementación y 1 en la revisión), detectadas y revertidas con el editor:
+
+* Validar el tipo por la extensión: los 5 casos de `test_the_type_comes_from_the_content_not_from_the_name`.
+* Descargar sin el permiso: `test_download_with_and_without_permission` y 5 de `RoleAccessTest`.
+* Quitar sin el control de la carpeta (`owns()`): `test_remove_never_deletes_a_foreign_file` (revisión).
+
+**Desvíos del diseño y precisiones.**
+
+1. El tope de 20 responde 422 `VALIDATION_ERROR` en `file`, sin un `error_code` nuevo.
+2. El archivo no se vuelve a codificar (es un estudio clínico): lo protegen el tipo por el contenido, el nombre generado, el disco
+   privado y la descarga con `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox` y `Cache-Control: private, no-store`.
+3. La descarga es `attachment`, con el nombre saneado y la extensión del tipo detectado; `original_name` guarda el nombre subido,
+   saneado, para mostrar.
+4. El saneado del nombre: sin carpetas, sin controles (C0 y C1), sin marcas de dirección del texto (revisión) ni `: * ? " < > |`, con
+   los espacios juntos, sin puntos ni espacios en los bordes y hasta 255 caracteres; vacío o con UTF-8 inválido, "adjunto".
+5. El archivo se escribe antes de la transacción y se borra si falla; quitar borra el archivo después del commit, y nunca uno con una
+   ruta fuera de la carpeta de su consulta.
+6. El archivo que falta, 404 `RESOURCE_NOT_FOUND`.
+7. Una consulta cerrada o anulada conserva sus adjuntos, y se descargan.
+8. La auditoría, con la ruta como `"(archivo)"`.
+9. El aislamiento por clínica, en `RouteBindingTest`.
+10. `postman:cleanup` borra los adjuntos de la corrida con su auditoría y sus archivos después de la transacción.
+11. Los tests usan archivos reales: `UploadedFile::fake()` informa el tipo por la extensión.
+12. **El límite de PHP:** con `upload_max_filesize=8M` y `post_max_size=10M` (el PHP 8.3.30 de una de las PC), un archivo de más de
+    8 MB responde 413 antes de Laravel. Hace falta al menos `10M` y `11M`. En la PC de la revisión (PHP 8.3.16) están en `2G`. En
+    producción, lo mismo en su PHP y en el servidor web (FASE 10).
+
+**Revisión.** Sin hallazgos graves; la arquitectura, los permisos, el orden de bloqueo y la separación por clínica, correctos.
+Correcciones: el saneado del nombre (los controles C1 y las marcas de dirección: `informe‮fdp.exe` se veía como `informeexe.pdf`), los
+tests de quitar una ruta ajena y de la descarga de una cerrada o anulada, y los temporales de `ConsultationImmutabilityTest`.

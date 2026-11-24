@@ -11,11 +11,11 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-20 (R-103: la entrega 4.4 del backend, cerrada) |
-| Rama | `feature/back-4-4-aplicaciones` (desde `1b7399f`, el cierre de la 4.3), con la 4.4 cerrada |
-| Sin integrar a `main` | `feature/back-4-diseno`, `feature/back-4-1-consulta`, `feature/back-4-2-cierre`, `feature/back-4-3-servicios` y `feature/back-4-4-aplicaciones`; se integran con la FASE 4 |
-| Último checkpoint validado | El cierre de la 4.4 del backend (R-103), el 2026-11-20, sobre el código de `5ae5098` ([resultado](fases/backend/fase-04-resultados.md#entrega-44)) |
-| Tests del backend | Revisión de la 4.4 (R-103), sobre el código de `5ae5098`: `composer test`, 1711 casos, 1693 en verde y 18 omitidos (de MySQL), 16807 aserciones, en una sola corrida; en la implementación, MySQL (los tests afectados) 74 de 74 y Newman `syncvet-fase-04-aplicaciones`, 29 pedidos y 43 aserciones, sin fallas |
+| Actualizado | 2026-11-24 (R-104: la entrega 4.5 del backend, cerrada) |
+| Rama | `feature/back-4-5-adjuntos` (desde `2fa780c`, el cierre de la 4.4), con la 4.5 cerrada |
+| Sin integrar a `main` | `feature/back-4-diseno`, `feature/back-4-1-consulta`, `feature/back-4-2-cierre`, `feature/back-4-3-servicios`, `feature/back-4-4-aplicaciones` y `feature/back-4-5-adjuntos`; se integran con la FASE 4 |
+| Último checkpoint validado | El cierre de la 4.5 del backend (R-104), el 2026-11-24, sobre el código de `fac086f` ([resultado](fases/backend/fase-04-resultados.md#entrega-45)) |
+| Tests del backend | Revisión de la 4.5 (R-104), sobre el código de `fac086f`: `composer test`, 1749 casos, 1731 en verde y 18 omitidos (de MySQL), 17154 aserciones, en una sola corrida; en la implementación, Newman `syncvet-fase-04-consultas`, 66 pedidos y 132 aserciones, sin fallas |
 | Tests del frontend | Cierre de la F3 (R-098), sobre `3081c83`: `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
 | Repositorio | Monorepo (R-057): `backend/`, `frontend/` y `docs/`; Claude Code, las skills y Newman, desde la raíz |
 | Historial | Cada entrega, en el `…-resultados.md` de su fase y en su R del [registro](../01-arquitectura/decisiones/registro.md); este handoff hasta R-090, en [`historial-handoff.md`](historial-handoff.md) |
@@ -24,7 +24,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 
 ## Estado del proyecto
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; la FASE 4 (historia clínica), EN DESARROLLO: la 4.1 (la consulta, R-100), la 4.2 (cierre, enmiendas y anulación, R-101), la 4.3 (los servicios usados, R-102) y la 4.4 (las aplicaciones, R-103), cerradas.
+* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; la FASE 4 (historia clínica), EN DESARROLLO: la 4.1 (la consulta, R-100), la 4.2 (cierre, enmiendas y anulación, R-101), la 4.3 (los servicios usados, R-102), la 4.4 (las aplicaciones, R-103) y la 4.5 (los adjuntos, R-104), cerradas.
 * **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`).
 * El detalle, en el [roadmap](README.md) y en [`modulos.md`](modulos.md).
 
@@ -35,7 +35,8 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** El backend, FASE 4, entrega 4.5 (los adjuntos de la consulta: imágenes y PDF hasta 10 MB y 20 por consulta, el tipo por el contenido, el disco privado `consultation_attachments` y la descarga siempre por el endpoint con permiso; solo con la consulta abierta, por `lockEditable`), en una rama nueva desde el cierre de la 4.4 ([diseño](fases/backend/fase-04-historia-clinica.md), R-099). Con el presupuesto por entrega de R-100 | La autorización del usuario |
+| 2 | **Siguiente.** El backend, FASE 4, entrega 4.6 (el historial del paciente: consultas y aplicaciones juntas, ordenadas y paginadas, las anuladas marcadas, el peso de cada consulta y la vista de la recepción), en una rama nueva desde el cierre de la 4.5 ([diseño](fases/backend/fase-04-historia-clinica.md), R-099). Con el presupuesto por entrega de R-100 | La autorización del usuario |
+| 2a | En la PC con PHP 8.3.30: `upload_max_filesize` de al menos `10M` y `post_max_size` de al menos `11M` en el `php.ini` de Laragon, para los adjuntos de 10 MB (R-104; en la otra PC ya están en `2G`) | Ninguno |
 | 2b | Opcional: la deuda 29 (los bloqueos de la cola por sucursal, una entrega de soporte del backend) y la 19 (`typescript-eslint@8.73.0`), cuando el usuario lo pida ([deuda técnica](deuda-tecnica.md)) | Decisión del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |

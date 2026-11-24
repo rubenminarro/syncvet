@@ -327,8 +327,8 @@ corrección van en la 4.2, antes que los ítems, porque son la integridad de lo 
 | 4.2 | Cierre (motivo y diagnóstico, `closed_by`, el peso al paciente), enmiendas y anulación; `consultations.amend` y sin `consultations.reopen` | Enmiendas | `ConsultationCloseTest`, `ConsultationAmendmentTest`, `ConsultationCancelTest` (el turno sigue atendido), la inmutabilidad (cada ruta de escritura con una cerrada → 422) | La de consultas, ampliada | COMPLETADO (R-101, [resultado](fase-04-resultados.md#entrega-42)), en `feature/back-4-2-cierre` |
 | 4.3 | Los servicios usados (ítems de tipo `service`) | — | `ConsultationItemTest` (precio del catálogo, descuento, totales con BCMath, servicio inactivo, cerrada), el uso del servicio (`SERVICE_NAME_NOT_EDITABLE`) | La de consultas | COMPLETADO (R-102, [resultado](fase-04-resultados.md#entrega-43)), en `feature/back-4-3-servicios` |
 | 4.4 | Las aplicaciones (vacunas, desparasitaciones y medicamentos), con y sin consulta, y su anulación; `patient-applications.cancel` | La de la anulación | `PatientApplicationTest` (con y sin consulta, próxima dosis, fallecido, cerrada, anular, anuladas con la consulta) | `syncvet-fase-04-aplicaciones` (nueva) | COMPLETADO (R-103, [resultado](fase-04-resultados.md#entrega-44)), en `feature/back-4-4-aplicaciones` |
-| 4.5 | Los adjuntos | — | `ConsultationAttachmentTest` (el tipo por el contenido con una extensión que miente, el tamaño, el tope por consulta, la descarga con y sin permiso, el disco privado, `files:prune-orphans`) | La de consultas | PENDIENTE (la siguiente) |
-| 4.6 | El historial del paciente | — | `PatientHistoryTest` (consultas y aplicaciones juntas, orden, paginación, anuladas marcadas, el peso de cada consulta, fallecido visible, la vista de la recepción, N+1) | La de aplicaciones | PENDIENTE |
+| 4.5 | Los adjuntos | — | `ConsultationAttachmentTest` (el tipo por el contenido con una extensión que miente, el tamaño, el tope por consulta, la descarga con y sin permiso, el disco privado, `files:prune-orphans`) | La de consultas | COMPLETADO (R-104, [resultado](fase-04-resultados.md#entrega-45)), en `feature/back-4-5-adjuntos` |
+| 4.6 | El historial del paciente | — | `PatientHistoryTest` (consultas y aplicaciones juntas, orden, paginación, anuladas marcadas, el peso de cada consulta, fallecido visible, la vista de la recepción, N+1) | La de aplicaciones | PENDIENTE (la siguiente) |
 
 **En cada entrega**: las reglas nuevas en un archivo `docs/02-requisitos/reglas/consultas.md` (y `pacientes.md` para el historial), la
 guía de Postman y la colección; la suite con el presupuesto por entrega; MySQL solo si toca migraciones o concurrencia (la 4.1, la
@@ -356,73 +356,8 @@ desvíos y la validación).
 
 ### 4.5 — Pendiente para el cierre
 
-Implementada en `feature/back-4-5-adjuntos` (desde `2fa780c`, el cierre de la 4.4; commit WIP, 2026-11-22); falta la revisión (con la
-corrida completa, R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 91 → 94 (`POST
-consultations/{consultation}/attachments`, `GET consultations/{consultation}/attachments/{attachment}` y `DELETE
-consultation-attachments/{attachment}`); permisos (137) y migraciones (39), sin cambios: `consultation-attachments.*` ya estaban en el
-seeder (el administrador y el veterinario) y `consultation_attachments` ya alcanza. Disco nuevo `consultation_attachments`
-(`config/filesystems.php`). Sin `error_code` nuevos. Las reglas, en [`consultas.md`](../../../02-requisitos/reglas/consultas.md).
-
-**Para avisar al usuario (no se cambió `php.ini`):** el PHP de Laragon (`php-8.3.30`, el único: lo usan la consola, Apache y
-`php artisan serve`) tiene `upload_max_filesize=8M` y `post_max_size=10M` (`memory_limit=512M`, `max_file_uploads=20`). No alcanzan
-para 10 MB: un archivo de más de 8 MB lo corta PHP antes de Laravel y la API responde 413 `PAYLOAD_TOO_LARGE` (el caso está cubierto),
-así que en este equipo el límite real es 8 MB. Para los 10 MB, `upload_max_filesize` de al menos `10M` y `post_max_size` de al menos
-`11M` (el multipart suma los encabezados); en producción, lo mismo en su PHP y en el límite del servidor web (FASE 10).
-
-Desvíos y precisiones (para revisar en el cierre):
-
-1. **El tope de 20** responde 422 `VALIDATION_ERROR` con el mensaje en `file` (sin un `error_code` nuevo: el diseño dice "422").
-2. **El archivo no se vuelve a codificar** (a diferencia de la foto y el logo): es un estudio clínico y se guarda tal cual. La
-   protección es el tipo por el contenido (finfo, `mimetypes`), el nombre generado, el disco privado y la descarga con `nosniff`, una
-   CSP `default-src 'none'; sandbox` y `Cache-Control: private, no-store`.
-3. **La descarga es `attachment`** (la foto es `inline`), con el nombre saneado y **la extensión del tipo detectado** (un PNG subido como
-   `estudio.pdf` se descarga como `estudio.png`); `original_name` guarda el nombre subido saneado, tal cual, para mostrar. El nombre
-   con tildes va en `filename*` (UTF-8) y en ASCII en `filename`.
-4. **El saneado del nombre:** sin carpetas (`/` y `\`), sin caracteres de control ni `: * ? " < > |`, con los espacios juntos, sin
-   puntos ni espacios en los bordes y hasta 255 caracteres (conserva la extensión); vacío o con UTF-8 inválido, "adjunto". Las barras
-   (y el `%` del nombre ASCII de respaldo, que Laravel quita), además, harían fallar el encabezado `Content-Disposition` (Symfony
-   las rechaza).
-5. **El archivo se escribe antes de la transacción** (como `PrivateImageStore`): la ficha y el estado se revisan con la consulta
-   bloqueada, y si fallan (403, 422, el tope, un deadlock agotado) el archivo se borra. Quitar borra el archivo después del commit; uno
-   con una ruta fuera de la carpeta de su consulta no se toca (y la descarga responde 404, con un aviso en el log).
-6. **El 404 de un archivo que falta** usa `RESOURCE_NOT_FOUND` (la foto tiene `PATIENT_PHOTO_NOT_FOUND`; acá no hace falta otro código).
-7. **Una consulta cerrada o anulada conserva sus adjuntos y se descargan** (la colección lo prueba con la cerrada).
-8. **La auditoría:** `ConsultationAttachment` pasa a `Auditable` (con `path` como `"(archivo)"` y oculto en `toArray`), y
-   `consultation_attachment` se suma a `AuditLog::AUDITABLE_TYPES` (`AuditableTypesTest`).
-9. **`ClinicIsolation`:** no hay un test con ese nombre; el aislamiento por clínica de los adjuntos (subir, descargar por la consulta
-   ajena y por la propia con el id ajeno, y quitar: 404, sin cambios ni archivos) está en `RouteBindingTest`, como el de los ítems y las
-   aplicaciones.
-10. **MySQL no se corrió:** no hay bloqueos de un orden nuevo (la consulta con `lockEditable()` y después el adjunto, como consulta →
-    ítem) ni migraciones.
-11. **`postman:cleanup`** borra los adjuntos de las consultas de la corrida modelo por modelo (con su auditoría) y sus archivos después
-    de la transacción, como las fotos; el resumen suma "adjuntos".
-12. **Los tests usan archivos reales** (`Illuminate\Http\UploadedFile` sobre un temporal): `UploadedFile::fake()` informa el tipo por la
-    extensión del nombre y no probaría la validación por el contenido.
-
-Validación de la implementación (2026-11-22, R-100: sin la suite completa, que va en la revisión): los tests relacionados
-(`ConsultationAttachmentTest`, nuevo, 28 casos; `ConsultationImmutabilityTest`, `RouteBindingTest`, `RoleAccessTest`,
-`PostmanCleanupCommandTest`, `PruneOrphanFilesTest` y los que recorren rutas, modelos, mensajes y documentos ficticios), 255 casos y
-6436 aserciones, sin fallas. Newman, `syncvet-fase-04-consultas` ampliada: 66 pedidos y 132 aserciones, sin fallas (la primera corrida
-tuvo una falla del script de la colección, corregida); la limpieza borró el adjunto que quedaba con su archivo, sin datos residuales.
-Mutaciones: validar el tipo por la extensión (la detectan los 5 casos de
-`ConsultationAttachmentTest::test_the_type_comes_from_the_content_not_from_the_name`) y descargar sin el permiso (la detectan
-`ConsultationAttachmentTest::test_download_with_and_without_permission` y 5 de `RoleAccessTest`); las dos, revertidas con el editor.
-
-Revisión (2026-11-24, sobre `36f825a`): sin hallazgos graves; la suite completa antes de los arreglos, 1744 casos (1726 en verde, 18
-omitidos de MySQL), 17131 aserciones. Cuatro hallazgos menores, corregidos:
-
-1. **`sanitizeName` no quitaba los controles C1 ni las marcas de dirección del texto** (U+200E, U+200F, U+202A a U+202E, U+2066 a
-   U+2069): `informe‮fdp.exe` se mostraba como `informeexe.pdf` (la descarga no corría riesgo: su extensión sale del tipo detectado).
-   Ahora los quita (`\p{Cc}` y esos rangos); dos casos más en `names()`.
-2. **Quitar un adjunto con una ruta fuera de su carpeta no tenía test**: `test_remove_never_deletes_a_foreign_file` (la mutación
-   de sacar `owns()` de `remove` la detecta; revertida con el editor).
-3. **La descarga de una consulta cerrada o anulada solo la probaba la colección** (desvío 7):
-   `test_a_finished_consultation_keeps_its_attachments_downloadable`, con las dos.
-4. **`ConsultationImmutabilityTest::pdf()` dejaba temporales sin borrar**: ahora los borra en `tearDown`.
-
-Después de los arreglos, `composer test` en una sola corrida: 1749 casos, 1731 en verde y 18 omitidos (de MySQL), 17154 aserciones.
-**`php.ini`:** en la PC de la revisión (`php-8.3.16`), `upload_max_filesize` y `post_max_size` ya están en `2G` (el usuario los
-cambió): los 10 MB entran. En la otra PC (`php-8.3.30`), verificar que tengan al menos `10M` y `11M`.
+Nada: la 4.5 quedó cerrada en R-104 ([resultado](fase-04-resultados.md#entrega-45), con los desvíos, la revisión, la validación
+y el aviso del límite de subida de PHP).
 
 ## Preguntas del diseño
 
