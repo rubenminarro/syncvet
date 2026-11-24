@@ -1,9 +1,9 @@
 # FASE 4 — Historia clínica
 
-Etapa: Atención. Estado: **DISEÑO APROBADO** el 2026-11-20 (R-099), en `feature/back-4-diseno` (desde `main` en `6fb4805`, con la
+Etapa: Atención. Estado: **COMPLETADA** el 2026-11-24 (R-106, merge a `main`); diseño aprobado el 2026-11-20 (R-099), en `feature/back-4-diseno` (desde `main` en `6fb4805`, con la
 F3 del frontend integrada, R-098), con las 18 [preguntas del diseño](#preguntas-del-diseño) respondidas. Las entregas 4.1 (la consulta,
 R-100), 4.2 (cierre, enmiendas y anulación, R-101), 4.3 (los servicios usados, R-102), 4.4 (las aplicaciones, R-103), 4.5 (los
-adjuntos, R-104) y 4.6 (el historial del paciente, R-105), COMPLETADAS; sigue el cierre de la fase. Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
+adjuntos, R-104) y 4.6 (el historial del paciente, R-105), COMPLETADAS, y el [cierre de la fase](fase-04-resultados.md#cierre-de-la-fase-4). Los resultados, en [`fase-04-resultados.md`](fase-04-resultados.md).
 El estado vigente de cada fase está en
 [`docs/03-plan-desarrollo/README.md`](../../README.md).
 
@@ -362,7 +362,7 @@ y el aviso del límite de subida de PHP).
 ### 4.6 — Pendiente para el cierre
 
 Nada: la 4.6 quedó cerrada en R-105 ([resultado](fase-04-resultados.md#entrega-46), con los desvíos confirmados por el usuario, la
-revisión y la validación). Sigue el [cierre de la fase](#criterio-de-cierre).
+revisión y la validación). La fase, cerrada en R-106 ([cierre](fase-04-resultados.md#cierre-de-la-fase-4)).
 
 ## Preguntas del diseño
 

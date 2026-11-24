@@ -11,12 +11,12 @@ Si este documento contradice al código, manda el código.
 
 | Dato | Valor |
 |---|---|
-| Actualizado | 2026-11-24 (R-105: la entrega 4.6 del backend, cerrada; la última de la FASE 4) |
-| Rama | `feature/back-4-6-historial` (desde `0b83449`, el cierre de la 4.5), con la 4.6 cerrada |
-| Sin integrar a `main` | `feature/back-4-diseno` y las ramas de la 4.1 a la 4.6 (`feature/back-4-1-consulta` … `feature/back-4-6-historial`), cada una desde la anterior; se integran con el cierre de la FASE 4 |
-| Último checkpoint validado | El cierre de la 4.6 del backend (R-105), el 2026-11-24, sobre el código de `7aef80b` (la revisión; el cierre solo cambia documentación) ([resultado](fases/backend/fase-04-resultados.md#entrega-46)) |
-| Tests del backend | Revisión de la 4.6 (R-105): `composer test`, 1767 casos, 1749 en verde y 18 omitidos (de MySQL), 17374 aserciones, en una sola corrida; en la implementación, Newman `syncvet-fase-04-aplicaciones`, 32 pedidos y 53 aserciones, sin fallas |
-| Tests del frontend | Cierre de la F3 (R-098), sobre `3081c83`: `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
+| Actualizado | 2026-11-24 (R-106: la FASE 4 del backend, cerrada e integrada a `main`) |
+| Rama | `main`, con el merge `--no-ff` de `feature/back-4-6-historial` (el hash, en `git log origin/main`; se anota aquí al empezar lo siguiente) |
+| Sin integrar a `main` | Nada: las ramas de la FASE 4 (`feature/back-4-diseno` a `feature/back-4-6-historial`) quedan integradas y se conservan |
+| Último checkpoint validado | El cierre de la FASE 4 (R-106), el 2026-11-24 ([cierre](fases/backend/fase-04-resultados.md#cierre-de-la-fase-4)): el backend, sobre el código de `7aef80b`; el frontend, con la corrección de los tipos auditables del cierre |
+| Tests del backend | Cierre de la FASE 4 (R-106): 1767 casos; `composer test`, 17374 aserciones y 18 omitidos (de MySQL); `composer test:mysql` en serie, 1767 de 1767 y 17485 aserciones; `composer audit` sin avisos; Newman, las 16 colecciones, 589 pedidos y 1275 aserciones, sin fallas |
+| Tests del frontend | Regresión del cierre de la FASE 4 (R-106): `typecheck`, `lint` y `build` sin avisos; `npm test` del frontend, 1835 tests en 89 archivos, en verde; Playwright completo, 46 de 46 en una sola corrida |
 | Repositorio | Monorepo (R-057): `backend/`, `frontend/` y `docs/`; Claude Code, las skills y Newman, desde la raíz |
 | Historial | Cada entrega, en el `…-resultados.md` de su fase y en su R del [registro](../01-arquitectura/decisiones/registro.md); este handoff hasta R-090, en [`historial-handoff.md`](historial-handoff.md) |
 
@@ -24,7 +24,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 
 ## Estado del proyecto
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; la FASE 4 (historia clínica), EN DESARROLLO: la 4.1 (la consulta, R-100), la 4.2 (cierre, enmiendas y anulación, R-101), la 4.3 (los servicios usados, R-102), la 4.4 (las aplicaciones, R-103), la 4.5 (los adjuntos, R-104) y la 4.6 (el historial del paciente, R-105), cerradas; sigue el cierre de la fase.
+* **Backend:** FASE 0 a FASE 4 completadas e integradas a `main` (la FASE 4, historia clínica, en R-106).
 * **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`).
 * El detalle, en el [roadmap](README.md) y en [`modulos.md`](modulos.md).
 
@@ -35,7 +35,7 @@ El estado actual siempre se confirma con `git log origin/main` y `php artisan te
 | Orden | Tarea | Bloqueo |
 |---|---|---|
 | 1 | En cada PC, los pasos de [`setup.md`](../04-desarrollo/setup.md#migración-al-monorepo-r-057) | Ninguno |
-| 2 | **Siguiente.** El cierre de la FASE 4 del backend ([criterio de cierre](fases/backend/fase-04-historia-clinica.md#criterio-de-cierre)): `composer test` y `composer test:mysql` en serie, `composer audit`, Newman con **todas** las colecciones (`node docs/05-pruebas/newman-todas.mjs`), la regresión del frontend y el merge a `main` con `--no-ff` | La autorización del usuario |
+| 2 | **Siguiente.** Decidir con el usuario entre el frontend de la historia clínica (F4, con su análisis y su diseño, sobre la API de la [FASE 4](fases/backend/fase-04-historia-clinica.md)) y el análisis de la FASE 5 del backend, en una rama nueva desde `main` | Decisión del usuario |
 | 2b | Opcional: la deuda 29 (los bloqueos de la cola por sucursal, una entrega de soporte del backend) y la 19 (`typescript-eslint@8.73.0`), cuando el usuario lo pida ([deuda técnica](deuda-tecnica.md)) | Decisión del usuario |
 | 3a | Prueba manual del usuario: una foto vertical de un celular en el detalle del paciente (la orientación la aplica el backend, R-027; desvío 11 de la 1.4) | Ninguno |
 | 4 | Opcional, de la revisión de la 1.3a: mirar con ventana el selector nativo de la fecha de nacimiento (desvío 10) | Ninguno |

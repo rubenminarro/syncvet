@@ -146,10 +146,9 @@ de una PC.
 
 ## 3. Estado
 
-* **Backend:** FASE 0 a FASE 3 completadas e integradas a `main`; FASE 4 (historia clínica) en desarrollo, con sus seis entregas
-  cerradas: la 4.1 (la consulta, R-100), la 4.2 (cierre, enmiendas y anulación, R-101), la 4.3 (los servicios usados, R-102), la 4.4
-  (las aplicaciones, R-103), la 4.5 (los adjuntos, R-104) y la 4.6 (el historial del paciente, R-105); sigue el cierre de la fase. El detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
-* **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`). Sigue el
-  backend, FASE 4 (historia clínica). El detalle, en
+* **Backend:** FASE 0 a FASE 4 completadas e integradas a `main`; la FASE 4 (historia clínica), con sus seis entregas (R-100 a
+  R-105), cerrada en R-106. El detalle, en [`backend/CLAUDE.md`](backend/CLAUDE.md) §1.
+* **Frontend:** F0 a F3 completadas e integradas a `main` (R-063, R-072, R-083 y R-098; la F3, con el merge `5f180f3`). Sigue
+  decidir con el usuario entre el frontend de la historia clínica y la FASE 5 del backend. El detalle, en
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md) §1 y en el [handoff](docs/03-plan-desarrollo/handoff.md).
 * El estado por fase está en [`docs/03-plan-desarrollo/README.md`](docs/03-plan-desarrollo/README.md).

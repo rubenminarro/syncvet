@@ -9,8 +9,8 @@ en [`f0-base.md`](../docs/03-plan-desarrollo/fases/frontend/f0-base.md).
 | Dato | Valor |
 |---|---|
 | Fase | F3 (agenda y turnos), COMPLETADA (R-098) e integrada a `main` (`5f180f3`); diseño en [`f3-agenda.md`](../docs/03-plan-desarrollo/fases/frontend/f3-agenda.md) (R-085). F0, F1 y F2, COMPLETADAS e integradas a `main` (R-063, R-072 y R-083) |
-| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Sigue la FASE 4 del backend (historia clínica) |
-| Tests | Vitest: 1835 tests en 89 archivos, en verde (cierre de la F3, R-098); Playwright: 46 de 46 en una sola corrida (22 archivos) |
+| Entrega | El cierre de la F3 ([resultado](../docs/03-plan-desarrollo/fases/frontend/f3-resultados.md#cierre-de-la-f3)): las deudas 27 y 28 resueltas, el aislamiento de Playwright (`freeStart`) y la regresión completa. Después, en el cierre de la FASE 4 del backend (R-106), los tipos auditables `consultation_amendment` y `consultation_attachment` en la auditoría. Sigue decidir con el usuario entre el frontend de la historia clínica y la FASE 5 del backend |
+| Tests | Vitest: 1835 tests en 89 archivos, en verde (regresión del cierre de la FASE 4, R-106; antes, el cierre de la F3, R-098); Playwright: 46 de 46 en una sola corrida (22 archivos) |
 
 El punto de continuidad, en el [handoff](../docs/03-plan-desarrollo/handoff.md); el estado de cada fase, en el
 [roadmap](../docs/03-plan-desarrollo/README.md#fases-del-frontend); el resultado de cada entrega, en el `fN-resultados.md` de su fase;

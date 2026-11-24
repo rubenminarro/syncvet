@@ -418,3 +418,103 @@ la suite completa del cierre de la fase).
 paciente y el veterinario) y el `UNION ALL` aplica el scope de la clínica. Una corrección en los tests: `RoleAccessTest::list()`
 nombraba los permisos de la ruta como `a|b` (uno u otro); ahora usa los grupos (`a y b` en el historial), solo en los mensajes de
 falla.
+
+## Cierre de la FASE 4
+
+Completada el 2026-11-24 (R-106). La clínica registra la atención de cada paciente:
+- la consulta, abierta desde el turno fichado (que pasa a atendido), desde uno atendido el mismo día o sin turno;
+- editarla mientras está abierta, solo su veterinario o el administrador;
+- el cierre, con el motivo y el diagnóstico, que pasa el peso al paciente;
+- las enmiendas de una consulta cerrada (sin reapertura) y la anulación;
+- los servicios usados, con el precio del catálogo y los totales;
+- las aplicaciones (vacunas, desparasitaciones y medicamentos, con o sin consulta), con su anulación;
+- los adjuntos (imágenes y PDF, en un disco privado);
+- el historial del paciente.
+
+La recepción ve solo lo administrativo (`consultations.show-clinical`). Las ramas se encadenaron (`feature/back-4-diseno` →
+`feature/back-4-1-consulta` → … → `feature/back-4-6-historial`), todas en GitHub, y se integran a `main` con un merge `--no-ff` desde
+`feature/back-4-6-historial`, autorizado por el usuario (R-106). Las ramas de la fase se conservan.
+
+| Entrega | Contenido | Commits | Suite al cerrar (SQLite) |
+|---|---|---|---|
+| Diseño | Análisis, preguntas 1 a 18 y entregas | `7962f97`, `cb49f7e` (R-099), `844a7c0` | — |
+| [4.1](#entrega-41) | La consulta | `f9f95d4`, `36aef4c` (cierre `9e7c478`) | 1590 casos; 15776 aserciones |
+| [4.2](#entrega-42) | Cierre, enmiendas y anulación | `54a161e`, `6c00790` (cierre `c5e0873`) | 1631 casos; 16085 |
+| [4.3](#entrega-43) | Los servicios usados | `15d4346`, `d847243` (cierre `1b7399f`) | 1675 casos; 16460 |
+| [4.4](#entrega-44) | Las aplicaciones | `1e63f46`, `5ae5098` (cierre `2fa780c`) | 1711 casos; 16807 |
+| [4.5](#entrega-45) | Los adjuntos | `36f825a`, `fac086f` (cierre `0b83449`) | 1749 casos; 17154 |
+| [4.6](#entrega-46) | El historial del paciente | `fb45c21`, `7aef80b` (cierre `8c5674b`) | 1767 casos; 17374 |
+
+**Rutas, permisos y migraciones.** Las rutas de la API pasan de 78 a 95: 4 en la 4.1, 3 en la 4.2, 3 en la 4.3, 3 en la 4.4, 3 en
+la 4.5 y 1 en la 4.6. Los permisos, de 135 a 137 (`consultations.show-clinical`, `consultations.amend` en lugar de
+`consultations.reopen` y `patient-applications.cancel`). Las migraciones, de 36 a 39. Los `error_code` nuevos (`CONSULTATION_*`,
+`PATIENT_APPLICATION_*` y los demás de la fase) están en [`consultas.md`](../../../02-requisitos/reglas/consultas.md) y [`pacientes.md`](../../../02-requisitos/reglas/pacientes.md).
+
+**Suite al cerrar la fase** (2026-11-24, código de `7aef80b`; los commits posteriores del backend solo cambian documentación): 1767
+casos con los *data providers*, en verde.
+- SQLite (`composer test`, en la revisión de la 4.6): 17374 aserciones y 18 omitidos (solo de MySQL).
+- MySQL (`composer test:mysql`, `syncvet_test_mysql`, en serie, en el cierre): 1767 de 1767 en verde, 17485 aserciones y sin omitidos.
+
+Frente al cierre de la FASE 3 del backend y la F3 del frontend (R-098: 1511 casos y 15085 aserciones), son 256 casos más. `composer
+audit`: "No security vulnerability advisories found.".
+
+**Newman del cierre** (2026-11-24, `node docs/05-pruebas/newman-todas.mjs`, base de desarrollo, servidor en el puerto 8001): las 16
+colecciones, con 589 pedidos y 1275 aserciones, sin fallas. Cada limpieza borró lo de su corrida.
+
+| Colección | Pedidos | Aserciones |
+|---|---|---|
+| `syncvet-fase-01-clientes` | 24 | 48 |
+| `syncvet-fase-01-especies` | 45 | 99 |
+| `syncvet-fase-01-foto` | 23 | 60 |
+| `syncvet-fase-01-pacientes` | 30 | 63 |
+| `syncvet-fase-02-auditoria` | 16 | 47 |
+| `syncvet-fase-02-configuracion` | 24 | 67 |
+| `syncvet-fase-02-servicios` | 27 | 64 |
+| `syncvet-fase-02-sucursales` | 44 | 123 |
+| `syncvet-fase-02-usuarios` | 54 | 138 |
+| `syncvet-fase-02-veterinarios` | 32 | 75 |
+| `syncvet-fase-03-agendas` | 35 | 68 |
+| `syncvet-fase-03-disponibilidad` | 50 | 81 |
+| `syncvet-fase-03-series` | 26 | 44 |
+| `syncvet-fase-03-turnos` | 61 | 113 |
+| `syncvet-fase-04-aplicaciones` | 32 | 53 |
+| `syncvet-fase-04-consultas` | 66 | 132 |
+
+**Regresión del frontend** (2026-11-24, sobre el código del cierre). La primera corrida de `npm test` tuvo **una falla**:
+`src/features/audit/search.test.ts` compara los tipos auditables del frontend con `AuditLog::AUDITABLE_TYPES` del backend. La 4.2 y la
+4.5 sumaron `consultation_amendment` y `consultation_attachment`, y `frontend/src/features/audit/types.ts` no los tenía, así que el
+filtro de la auditoría no los ofrecía. Se corrigió con los dos tipos, en el orden del backend ("Enmienda de consulta" y "Adjunto de
+consulta"), en un commit aparte. Después, la corrida completa del frontend quedó en verde:
+- `typecheck`, `lint` y `build`: sin errores ni avisos;
+- `npm test`: 1835 tests en 89 archivos;
+- `FictitiousDocumentsTest`: 3 tests y 69 aserciones;
+- Playwright completo: 46 de 46, en una sola corrida.
+
+El desvío salió porque las entregas del backend no corren la suite del frontend. El test que lo detectó es el que estaba pensado para
+eso.
+
+**Criterio de cierre**, punto por punto:
+
+| Criterio | Evidencia |
+|---|---|
+| El flujo turno fichado → consulta (el turno queda atendido) → servicios y aplicaciones → cierre, también sin turno | `ConsultationStoreTest`, `ConsultationItemTest`, `PatientApplicationTest` y `ConsultationCloseTest`; de punta a punta, la colección `syncvet-fase-04-consultas` (66 pedidos) |
+| Una cerrada no se edita (se corrige con enmiendas) y una anulada queda visible | `ConsultationImmutabilityTest` (cada ruta de escritura con una cerrada o anulada, 422), `ConsultationAmendmentTest` y `ConsultationCancelTest`; el historial marca las anuladas (`PatientHistoryTest`) |
+| El administrador y el veterinario ven lo clínico; la recepción, solo lo administrativo | `ConsultationShowTest`, `ConsultationAttachmentTest` y `PatientHistoryTest` (con y sin `consultations.show-clinical`); `RoleAccessTest` (las 95 rutas por rol) |
+| `composer test` y `composer test:mysql` en serie, en verde | La suite del cierre, en las dos bases |
+| `composer audit` sin avisos | 2026-11-24: "No security vulnerability advisories found."; nada que actualizar |
+| Newman con todas las colecciones, sin fallas y sin dejar datos | 16 colecciones, 589 pedidos y 1275 aserciones, con la limpieza de cada corrida |
+| Las reglas en `docs/02-requisitos/reglas/consultas.md` | `consultas.md` (y el historial, en `pacientes.md`) |
+
+**Deudas** ([`deuda-tecnica.md`](../../deuda-tecnica.md)). Ninguna nueva ni resuelta en la fase. La 2 se cumplió en los modelos que
+usó la fase: `Consultation` (4.1), `ConsultationItem` (4.3), `PatientApplication` (4.4) y los modelos nuevos `ConsultationAmendment`
+(4.2) y `ConsultationAttachment` (4.5); sigue abierta para las fases siguientes. Abiertas al cerrar: 2, 3, 5, 6, 15, 17, 19, 20, 21,
+25, 26 y 29.
+
+**Decisiones de la fase.** En el [registro](../../../01-arquitectura/decisiones/registro.md):
+- R-099: el diseño y las 18 preguntas;
+- R-100 (4.1), con el presupuesto por entrega;
+- R-101 (4.2), R-102 (4.3), R-103 (4.4), R-104 (4.5) y R-105 (4.6);
+- R-106: el cierre y el merge.
+
+**Pendiente para lo que sigue.** Decidir con el usuario entre el frontend de la historia clínica (F4, con su análisis y su diseño) y el análisis de la FASE 5 del backend. Los
+productos de la consulta y las recetas, en las fases del roadmap que los tienen (preguntas 9 y 10).
