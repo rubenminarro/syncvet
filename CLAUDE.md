@@ -29,7 +29,7 @@ Si una regla contradice al código, **el código manda**: registrar la discrepan
 ```text
 syncvet/
 ├── CLAUDE.md        Este archivo: proceso y reglas comunes
-├── .claude/skills/  /retomar, /cambiar-pc, /cambiar-rama, /cerrar-entrega y /validar-docs, para todo el repositorio
+├── .claude/skills/  /retomar, /cambiar-pc, /cambiar-rama, /cerrar-entrega, /cerrar-fase y /validar-docs
 ├── .claude/hooks/   El hook que rechaza `cat >` sin entrada (configurado en .claude/settings.json)
 ├── backend/         API Laravel, con su CLAUDE.md y su README.md (instalación)
 ├── frontend/        React 19 + TypeScript + Vite + Tabler, con su CLAUDE.md y su README.md (instalación)
@@ -116,6 +116,9 @@ R-100 (2026-11-20, al cerrar la 4.1 del backend):
   desde la raíz y con el servidor levantado desde `backend/`. Una falla se corrige o se registra como deuda antes de cerrar.
 * También al cerrar la fase (y no en cada entrega; ver [Presupuesto por entrega](#presupuesto-por-entrega)): la suite del backend
   completa en MySQL y en serie, y Playwright completo.
+* La skill `/cerrar-fase` lo hace todo: la regresión de los dos proyectos (también el que no cambió: en el cierre de la FASE 4 del
+  backend, solo la suite del frontend detectó un desvío, R-106), `composer audit`, Newman, el documento del cierre, su commit y su
+  push; el merge `--no-ff` a `main`, solo con autorización.
 
 ### Documentación por cambio
 
