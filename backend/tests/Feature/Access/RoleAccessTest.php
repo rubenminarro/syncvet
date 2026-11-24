@@ -480,6 +480,7 @@ class RoleAccessTest extends TestCase
 
     private function list(array $route): string
     {
-        return implode('|', $route['permissions']);
+        // Los de un grupo son uno u otro (`a|b`); los grupos, todos a la vez (`a y b`, como el historial).
+        return implode(' y ', array_map(fn (array $group) => implode('|', $group), $route['permission_groups']));
     }
 }
