@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ConsultationAttachmentController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\ConsultationItemController;
 use App\Http\Controllers\Api\PatientApplicationController;
+use App\Http\Controllers\Api\PatientHistoryController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\PatientPhotoController;
 use App\Http\Controllers\Api\RoleController;
@@ -143,6 +144,9 @@ Route::middleware(['auth:sanctum', 'clinic'])->scopeBindings()->group(function (
         Route::get('consultations/{consultation}/attachments/{attachment}', [ConsultationAttachmentController::class, 'download'])->name('consultations.consultation-attachments.index');
     });
     Route::delete('consultation-attachments/{attachment}', [ConsultationAttachmentController::class, 'destroy'])->name('consultation-attachments.destroy');
+    // Entrega 4.6: el historial del paciente (sus consultas y sus aplicaciones juntas), con consultations.index y
+    // patient-applications.index (los dos; sin permiso propio).
+    Route::get('patients/{patient}/history', [PatientHistoryController::class, 'index'])->name('patients.history');
 
     // Auditoría (FASE 2, entrega 2.6): solo consulta, del administrador. AuditLog tiene el ClinicScope:
     // un registro de otra clínica o sin clínica responde 404.

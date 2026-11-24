@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "SyncVet — FASE 4: las aplicaciones",
-        "description": "Validación manual de las aplicaciones (FASE 4, entrega 4.4). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la FASE 4 (php artisan migrate) y los permisos al día (php artisan permissions:sync, por el permiso nuevo patient-applications.cancel). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente y en los emails) y las fechas de hoy, mañana y dentro de un año en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), un cliente con su paciente y una consulta sin turno. Prueba: la recepción no carga (403); una vacuna con la consulta, el lote y la próxima dosis (201) y una desparasitación sin consulta (201); la fecha de mañana y la próxima dosis el mismo día (422); el listado de la recepción y el filtro por tipo; la recepción no anula (403); el veterinario anula la que cargó hoy sin consulta (200) y otra vez (422 PATIENT_APPLICATION_NOT_CANCELLABLE); el listado la marca anulada; cerrar la consulta y anular su vacuna (422 CONSULTATION_NOT_EDITABLE); anular la consulta, que anula la vacuna con el mismo motivo; y el paciente fallecido (422 PATIENT_DECEASED). No limpia lo suyo (la API no borra aplicaciones, consultas ni pacientes con historia): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs aplicaciones lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
+        "description": "Validación manual de las aplicaciones y el historial del paciente (FASE 4, entregas 4.4 y 4.6). Correrla entera y en orden con el Collection Runner, sobre una base con el DemoSeeder, las migraciones de la FASE 4 (php artisan migrate) y los permisos al día (php artisan permissions:sync, por el permiso nuevo patient-applications.cancel). Necesita internet: los emails de la corrida son @mailinator.com y la validación consulta su MX. Se puede correr más de una vez sin recrear la base: el primer request genera el número de la corrida (va en el documento del cliente y en los emails) y las fechas de hoy, mañana y dentro de un año en Asunción; cada corrida crea su veterinario (con su usuario y su sucursal actual), un cliente con su paciente y una consulta sin turno. Prueba: la recepción no carga (403); una vacuna con la consulta, el lote y la próxima dosis (201) y una desparasitación sin consulta (201); la fecha de mañana y la próxima dosis el mismo día (422); el listado de la recepción y el filtro por tipo; la recepción no anula (403); el veterinario anula la que cargó hoy sin consulta (200) y otra vez (422 PATIENT_APPLICATION_NOT_CANCELLABLE); el listado la marca anulada; cerrar la consulta y anular su vacuna (422 CONSULTATION_NOT_EDITABLE); anular la consulta, que anula la vacuna con el mismo motivo; el paciente fallecido (422 PATIENT_DECEASED); y la 4.6: el historial del fallecido (la consulta y las dos aplicaciones, de la más reciente a la más vieja, anuladas y marcadas, con el diagnóstico y el peso para el veterinario), el de la recepción sin el diagnóstico ni el peso, y más de 100 por página (422). No limpia lo suyo (la API no borra aplicaciones, consultas ni pacientes con historia): lo borra php artisan postman:cleanup <corrida> (node docs/05-pruebas/newman-todas.mjs aplicaciones lo corre al terminar). La contraseña va en el Environment \"SyncVet local\" (demo_password).",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -1569,8 +1569,10 @@
                     "script": {
                         "type": "text/javascript",
                         "exec": [
-                            "pm.test('HTTP 422', () => pm.response.to.have.status(422));",
-                            "pm.test('error_code PATIENT_DECEASED', () => pm.expect(pm.response.json().error_code).to.eql('PATIENT_DECEASED'));"
+                            "{",
+                            "    pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "    pm.test('error_code PATIENT_DECEASED', () => pm.expect(pm.response.json().error_code).to.eql('PATIENT_DECEASED'));",
+                            "}"
                         ]
                     }
                 }
@@ -1606,6 +1608,180 @@
                             "language": "json"
                         }
                     }
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "29 El historial del fallecido: la consulta y las dos aplicaciones, anuladas y marcadas",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "{",
+                            "    pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "    const data = pm.response.json().data;",
+                            "    pm.test('La consulta y las dos aplicaciones, de a 20', () => {",
+                            "        pm.expect(data).to.have.length(3);",
+                            "        pm.expect(data.map(i => i.type).sort()).to.eql(['application', 'application', 'consultation']);",
+                            "        pm.expect(pm.response.json().meta.pagination.per_page).to.eql(20);",
+                            "    });",
+                            "    pm.test('De la más reciente a la más vieja', () => {",
+                            "        const dates = data.map(i => i.occurred_at);",
+                            "        pm.expect(dates).to.eql([...dates].sort().reverse());",
+                            "    });",
+                            "    pm.test('Las tres anuladas, marcadas', () => pm.expect(data.every(i => i.cancelled === true)).to.eql(true));",
+                            "    const consultation = data.find(i => i.type === 'consultation');",
+                            "    pm.test('El veterinario ve el diagnóstico y el peso', () => {",
+                            "        pm.expect(consultation.consultation.id).to.eql(Number(pm.collectionVariables.get('consultation_id')));",
+                            "        pm.expect(consultation.consultation.diagnosis).to.eql('Sano.');",
+                            "        pm.expect(consultation.consultation).to.have.property('weight_kg');",
+                            "        pm.expect(consultation.application).to.eql(null);",
+                            "    });",
+                            "}"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/history",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "history"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_vet}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "30 La recepción ve el historial sin el diagnóstico ni el peso",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "{",
+                            "    pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                            "    const data = pm.response.json().data;",
+                            "    const consultation = data.find(i => i.type === 'consultation').consultation;",
+                            "    pm.test('El resumen administrativo de la consulta', () => {",
+                            "        pm.expect(consultation).to.not.have.property('diagnosis');",
+                            "        pm.expect(consultation).to.not.have.property('weight_kg');",
+                            "        pm.expect(consultation.code).to.match(/^CON-/);",
+                            "    });",
+                            "    pm.test('Y las aplicaciones', () => pm.expect(data.filter(i => i.type === 'application')).to.have.length(2));",
+                            "}"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/history",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "history"
+                    ]
+                },
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{token_reception}}",
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "31 Más de 100 por página → 422",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "{",
+                            "    pm.test('HTTP 422', () => pm.response.to.have.status(422));",
+                            "    pm.test('VALIDATION_ERROR en per_page', () => {",
+                            "        pm.expect(pm.response.json().error_code).to.eql('VALIDATION_ERROR');",
+                            "        pm.expect(pm.response.json().errors).to.have.property('per_page');",
+                            "    });",
+                            "}"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/patients/{{patient_id}}/history?per_page=101",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "patients",
+                        "{{patient_id}}",
+                        "history"
+                    ],
+                    "query": [
+                        {
+                            "key": "per_page",
+                            "value": "101"
+                        }
+                    ]
                 },
                 "auth": {
                     "type": "bearer",

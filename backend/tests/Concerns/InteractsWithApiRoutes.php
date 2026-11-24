@@ -36,12 +36,14 @@ trait InteractsWithApiRoutes
     protected const PUBLIC_ROUTES = ['POST api/login'];
 
     /**
-     * Rutas cuyo permiso no sigue la regla del nombre (expectedPermission), con el
-     * permiso que exigen y su motivo.
+     * Rutas cuyo permiso no sigue la regla del nombre (expectedPermissions), con el
+     * permiso que exigen y su motivo. Una lista en `permission` son varios permisos
+     * a la vez (un `permission:` por cada uno: hacen falta todos).
      *
-     * @var array<string, array{permission: string, reason: string}> nombre de la ruta => excepción
+     * @var array<string, array{permission: string|list<string>, reason: string}> nombre de la ruta => excepción
      */
     protected const ROUTES_WITH_ANOTHER_PERMISSION = [
+        'patients.history' => ['permission' => ['consultations.index', 'patient-applications.index'], 'reason' => 'FASE 4, entrega 4.6 (R-099): el historial reúne consultas y aplicaciones, sin permiso propio: exige los dos'],
         'species.breeds.index' => ['permission' => 'species.index', 'reason' => 'R-015: las razas usan los permisos de especie'],
         'species.breeds.store' => ['permission' => 'species.store', 'reason' => 'R-015: las razas usan los permisos de especie'],
         'species.breeds.update' => ['permission' => 'species.update', 'reason' => 'R-015: las razas usan los permisos de especie'],
@@ -53,14 +55,16 @@ trait InteractsWithApiRoutes
      * Regla del nombre: el permiso de una ruta es `recurso.acción`, los dos últimos
      * tramos de su nombre (`clients.index` → `clients.index`; la anidada
      * `clients.patients.store` → `patients.store`).
+     *
+     * @return list<string> los permisos que exige, todos a la vez (casi siempre uno)
      */
-    protected function expectedPermission(string $routeName): string
+    protected function expectedPermissions(string $routeName): array
     {
         if (isset(self::ROUTES_WITH_ANOTHER_PERMISSION[$routeName])) {
-            return self::ROUTES_WITH_ANOTHER_PERMISSION[$routeName]['permission'];
+            return (array) self::ROUTES_WITH_ANOTHER_PERMISSION[$routeName]['permission'];
         }
 
-        return implode('.', array_slice(explode('.', $routeName), -2));
+        return [implode('.', array_slice(explode('.', $routeName), -2))];
     }
 
     /**
@@ -84,7 +88,9 @@ trait InteractsWithApiRoutes
                 'methods' => array_values(array_diff($route->methods(), ['HEAD'])),
                 'uri' => $route->uri(),
                 'action' => $route->getActionName(),
-                'permissions' => $this->routePermissions($route->gatherMiddleware()),
+                'permissions' => array_merge([], ...$this->permissionGroups($route->gatherMiddleware())),
+                // Un grupo por `permission:`: hace falta uno de cada grupo (los de un grupo, `a|b`, son uno u otro).
+                'permission_groups' => $this->permissionGroups($route->gatherMiddleware()),
             ];
         }
 
@@ -102,22 +108,38 @@ trait InteractsWithApiRoutes
     }
 
     /**
-     * Los permisos de `permission:a|b` o `permission:a|b,guard`.
+     * Los permisos de cada `permission:a|b` o `permission:a|b,guard`, un grupo por middleware.
      *
      * @param array<int, mixed> $middleware
-     * @return list<string>
+     * @return list<list<string>>
      */
-    private function routePermissions(array $middleware): array
+    private function permissionGroups(array $middleware): array
     {
-        $permissions = [];
+        $groups = [];
 
         foreach ($middleware as $name) {
             if (is_string($name) && str_starts_with($name, 'permission:')) {
-                $list = explode(',', substr($name, strlen('permission:')))[0];
-                array_push($permissions, ...explode('|', $list));
+                $groups[] = explode('|', explode(',', substr($name, strlen('permission:')))[0]);
             }
         }
 
-        return $permissions;
+        return $groups;
+    }
+
+    /**
+     * true si los permisos alcanzan para la ruta: uno de cada grupo.
+     *
+     * @param array{permission_groups: list<list<string>>} $route
+     * @param list<string> $permissions
+     */
+    protected function permissionsReach(array $route, array $permissions): bool
+    {
+        foreach ($route['permission_groups'] as $group) {
+            if (array_intersect($group, $permissions) === []) {
+                return false;
+            }
+        }
+
+        return $route['permission_groups'] !== [];
     }
 }

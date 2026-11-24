@@ -77,3 +77,16 @@ código, manda el código.
     mismo día en Asunción (si no, 403 `PATIENT_APPLICATION_NOT_YOURS`). No se borra: queda visible, marcada.
   * Al anular una consulta, sus aplicaciones se anulan con ella ([`consultas.md`](consultas.md)). La próxima dosis
     (`next_dose_due_at`) la usarán los recordatorios (FASE 7).
+* **Historial del paciente** (FASE 4, entrega 4.6; pregunta 18): `GET patients/{patient}/history`, sin permiso propio: exige
+  `consultations.index` **y** `patient-applications.index` (los dos; con uno solo, 403 `FORBIDDEN`); los tienen los tres roles.
+  * Sus consultas y sus aplicaciones **juntas**, de la más reciente a la más vieja por su fecha (`consulted_at` de la consulta,
+    `applied_at` de la aplicación); en la misma fecha, la consulta antes que la aplicación, y después el id mayor. De toda la clínica
+    (no de la sucursal actual). Paginado de a **20** por defecto (`per_page` de 1 a 100, `page`), con `meta.pagination`; sin otros
+    filtros. Sin N+1.
+  * Cada elemento: `type` (`consultation` o `application`), `occurred_at` (la fecha, en UTC con `Z`), `cancelled` (anulada) y el
+    elemento en `consultation` o en `application` (el otro, `null`). La consulta, con el resumen de su listado (código, fecha, estado,
+    sucursal, paciente, cliente, veterinario, turno y motivo) y, con `consultations.show-clinical` (el administrador y el veterinario),
+    además el **diagnóstico** y el **peso** (`weight_kg`, para ver su evolución); la recepción no los recibe (las claves no están). La
+    aplicación, como en su listado, para todos.
+  * Las anuladas aparecen, marcadas. También el historial de un paciente **fallecido** (pregunta 11). Un paciente de otra clínica o
+    eliminado, 404. Solo lectura: no bloquea nada.

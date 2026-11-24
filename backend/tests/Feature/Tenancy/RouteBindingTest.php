@@ -31,6 +31,8 @@ class RouteBindingTest extends TestCase
     private const PERMISSIONS = [
         'clients.show', 'clients.update', 'clients.destroy',
         'patients.index', 'patients.store', 'patients.show', 'patients.update', 'patients.destroy', 'patients.change-owner',
+        // El historial (FASE 4, entrega 4.6).
+        'consultations.index', 'patient-applications.index',
     ];
 
     public static function clientRoutes(): array
@@ -51,6 +53,7 @@ class RouteBindingTest extends TestCase
             'PATCH patients/{patient}' => ['patch', '/api/patients/%d'],
             'DELETE patients/{patient}' => ['delete', '/api/patients/%d'],
             'POST patients/{patient}/change-owner' => ['post', '/api/patients/%d/change-owner'],
+            'GET patients/{patient}/history' => ['get', '/api/patients/%d/history'],
         ];
     }
 

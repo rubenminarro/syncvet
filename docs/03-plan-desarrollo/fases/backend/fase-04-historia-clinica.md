@@ -359,6 +359,46 @@ desvíos y la validación).
 Nada: la 4.5 quedó cerrada en R-104 ([resultado](fase-04-resultados.md#entrega-45), con los desvíos, la revisión, la validación
 y el aviso del límite de subida de PHP).
 
+### 4.6 — Pendiente para el cierre
+
+Implementada en `feature/back-4-6-historial` (desde `0b83449`, el cierre de la 4.5; commit WIP, 2026-11-24); falta la revisión (con la
+corrida completa, R-100) y el cierre (su decisión va en `registro/R-101-150.md`). Rutas 94 → 95 (`GET patients/{patient}/history`,
+nombre `patients.history`); permisos (137) y migraciones (39), sin cambios. Sin `error_code` nuevos. Las reglas, en
+[`pacientes.md`](../../../02-requisitos/reglas/pacientes.md).
+
+**El límite de subida de PHP (R-104), resuelto:** el usuario confirmó el 2026-11-24 que en las dos PC `upload_max_filesize` es de al
+menos `10M` y `post_max_size` de al menos `11M`. El cierre quita la tarea 2a del handoff.
+
+Desvíos y precisiones (para revisar en el cierre):
+
+1. **Los dos permisos a la vez:** el controlador declara dos middleware (`permission:consultations.index` y
+   `permission:patient-applications.index`), no `permission:a|b` (que sería uno u otro). La infraestructura de los tests de permisos
+   suponía un solo `permission:` por ruta: `InteractsWithApiRoutes` ahora junta un grupo por middleware (`permission_groups`, uno de
+   cada grupo) y `ROUTES_WITH_ANOTHER_PERMISSION` acepta una lista (`patients.history`); `ClinicRolesTest` compara los grupos y
+   `RoleAccessTest` decide el acceso de cada rol con `permissionsReach()`. Con uno solo de los dos, 403 (`PatientHistoryTest`).
+2. **El peso solo con `consultations.show-clinical`:** el diseño dice "sin `consultations.show-clinical`, sin el diagnóstico"; el peso
+   también se oculta a la recepción, porque en el detalle de la consulta es parte del examen clínico (`ShowConsultationResource`) y la
+   tabla de roles le da a la recepción "el resumen administrativo (sin diagnóstico ni textos clínicos)".
+3. **La forma de cada elemento:** `type`, `occurred_at`, `cancelled` y el elemento en `consultation` o en `application` (el otro,
+   `null`). La consulta reusa `ConsultationResource` (el resumen del listado, con el motivo) más `weight_kg`; la aplicación,
+   `PatientApplicationResource`.
+4. **El orden en la misma fecha:** la consulta antes que la aplicación y después el id mayor (en el diseño, solo "de la más reciente a
+   la más vieja").
+5. **La página en la base:** un `UNION ALL` de dos consultas livianas (tipo, id y fecha, cada una con el scope de la clínica, que
+   `toBase()` aplica) y después los modelos de la página con sus relaciones: 4 consultas más el conteo, sin N+1.
+6. **Sin filtros:** solo `per_page` (1 a 100, 20 por defecto) y `page`; el diseño no pide otros.
+7. **MySQL no se corrió:** sin migraciones, concurrencia ni búsqueda de texto. El `UNION ALL` con `ORDER BY` sobre la subconsulta es
+   SQL estándar; la suite completa en MySQL, al cerrar la fase.
+8. **La base local de esta PC** tenía pendientes las 3 migraciones de la FASE 4: se migró y se corrió `permissions:sync` para Newman.
+
+Validación de la implementación (2026-11-24, R-100: sin la suite completa, que va en la revisión): `PatientHistoryTest` (nuevo, 11
+tests, 17 casos) y los relacionados (`RouteBindingTest`, `ClinicRolesTest`, `RoleAccessTest`, `ValidationTranslationsTest`,
+`SnakeCaseKeysTest`, `VoseoTest` y `HttpVerbsTest`), 114 casos y 5634 aserciones, sin fallas. Newman, `syncvet-fase-04-aplicaciones`
+ampliada: 32 pedidos y 53 aserciones, sin fallas (la primera corrida tuvo dos errores del script de la colección, corregidos); la
+limpieza no dejó datos. Mutaciones: quitar `permission:patient-applications.index` (la detectan
+`PatientHistoryTest::test_it_requires_both_permissions` y `ClinicRolesTest`) y dar el peso sin el permiso clínico (la detecta
+`PatientHistoryTest::test_the_diagnosis_and_the_weight_only_with_the_clinical_permission`); las dos, revertidas con el editor.
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

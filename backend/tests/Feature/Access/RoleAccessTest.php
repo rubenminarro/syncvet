@@ -231,7 +231,7 @@ class RoleAccessTest extends TestCase
         $permissions = RolesAndPermissionsSeeder::clinicRoles()[$role]['permissions'];
         $user = $this->userWithRole($this->clinic, $role);
 
-        [$allowed, $forbidden] = $this->assertAccess($user, fn (array $route) => array_intersect($route['permissions'], $permissions) !== []);
+        [$allowed, $forbidden] = $this->assertAccess($user, fn (array $route) => $this->permissionsReach($route, $permissions));
 
         // Que la matriz no sea trivial: el rol tiene rutas permitidas y prohibidas.
         $this->assertGreaterThan(0, $allowed, "{$role} no tiene ninguna ruta permitida.");
