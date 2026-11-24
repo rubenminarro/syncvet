@@ -288,6 +288,42 @@ class ConsultationAttachmentTest extends TestCase
     }
 
     /**
+     * Revisión de la 4.5: quitar un adjunto con una ruta fuera de la carpeta de su consulta borra la fila,
+     * pero nunca ese archivo ajeno.
+     */
+    public function test_remove_never_deletes_a_foreign_file(): void
+    {
+        $id = $this->uploaded('pdf', 'laboratorio.pdf');
+        $foreign = "clinics/{$this->clinic->id}/patients/1/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.pdf";
+        Storage::disk(ConsultationAttachmentService::DISK)->put($foreign, self::PDF);
+        DB::table('consultation_attachments')->where('id', $id)->update(['path' => $foreign]);
+
+        $this->deleteJson("/api/consultation-attachments/{$id}")->assertOk();
+
+        $this->assertSame(0, DB::table('consultation_attachments')->count());
+        Storage::disk(ConsultationAttachmentService::DISK)->assertExists($foreign);
+    }
+
+    public static function finishedStatuses(): array
+    {
+        return ['cerrada' => ['closed'], 'anulada' => ['cancelled']];
+    }
+
+    /**
+     * Revisión de la 4.5 (desvío 7): una consulta cerrada o anulada conserva sus adjuntos y se descargan.
+     */
+    #[DataProvider('finishedStatuses')]
+    public function test_a_finished_consultation_keeps_its_attachments_downloadable(string $status): void
+    {
+        $id = $this->uploaded('pdf', 'laboratorio.pdf');
+        DB::table('consultations')->where('id', $this->consultation)->update(['status' => $status]);
+
+        $response = $this->get($this->downloadUri($id))->assertOk()->assertDownload('laboratorio.pdf');
+        $this->assertSame(self::PDF, $response->streamedContent());
+        $this->getJson("/api/consultations/{$this->consultation}")->assertOk()->assertJsonCount(1, 'data.attachments');
+    }
+
+    /**
      * Quitar (abierta): borra la fila y el archivo y queda auditado, con la ruta como "(archivo)".
      */
     public function test_remove_deletes_the_row_and_the_file_and_audits_without_the_path(): void
@@ -312,6 +348,9 @@ class ConsultationAttachmentTest extends TestCase
             'con carpetas' => ['../../etc/passwd.pdf', 'passwd.pdf'],
             'con barras de Windows' => ['C:\\Users\\ana\\placa.png', 'placa.png'],
             'con caracteres de control y comillas' => ["inf\"orme\r\n<x>.pdf", 'informex.pdf'],
+            // Revisión de la 4.5: las marcas de dirección (RLO, LRI, PDI) y un control C1 no se muestran.
+            'con marcas de dirección' => ["informe\u{202E}fdp.exe", 'informefdp.exe'],
+            'con aislantes y C1' => ["placa\u{2066}\u{0085}\u{2069}.png", 'placa.png'],
             'vacío' => ['...', 'adjunto'],
             'largo' => [str_repeat('a', 300) . '.pdf', str_repeat('a', 251) . '.pdf'],
         ];

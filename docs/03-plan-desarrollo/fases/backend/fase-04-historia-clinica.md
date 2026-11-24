@@ -408,6 +408,22 @@ Mutaciones: validar el tipo por la extensión (la detectan los 5 casos de
 `ConsultationAttachmentTest::test_the_type_comes_from_the_content_not_from_the_name`) y descargar sin el permiso (la detectan
 `ConsultationAttachmentTest::test_download_with_and_without_permission` y 5 de `RoleAccessTest`); las dos, revertidas con el editor.
 
+Revisión (2026-11-24, sobre `36f825a`): sin hallazgos graves; la suite completa antes de los arreglos, 1744 casos (1726 en verde, 18
+omitidos de MySQL), 17131 aserciones. Cuatro hallazgos menores, corregidos:
+
+1. **`sanitizeName` no quitaba los controles C1 ni las marcas de dirección del texto** (U+200E, U+200F, U+202A a U+202E, U+2066 a
+   U+2069): `informe‮fdp.exe` se mostraba como `informeexe.pdf` (la descarga no corría riesgo: su extensión sale del tipo detectado).
+   Ahora los quita (`\p{Cc}` y esos rangos); dos casos más en `names()`.
+2. **Quitar un adjunto con una ruta fuera de su carpeta no tenía test**: `test_remove_never_deletes_a_foreign_file` (la mutación
+   de sacar `owns()` de `remove` la detecta; revertida con el editor).
+3. **La descarga de una consulta cerrada o anulada solo la probaba la colección** (desvío 7):
+   `test_a_finished_consultation_keeps_its_attachments_downloadable`, con las dos.
+4. **`ConsultationImmutabilityTest::pdf()` dejaba temporales sin borrar**: ahora los borra en `tearDown`.
+
+Después de los arreglos, `composer test` en una sola corrida: 1749 casos, 1731 en verde y 18 omitidos (de MySQL), 17154 aserciones.
+**`php.ini`:** en la PC de la revisión (`php-8.3.16`), `upload_max_filesize` y `post_max_size` ya están en `2G` (el usuario los
+cambió): los 10 MB entran. En la otra PC (`php-8.3.30`), verificar que tengan al menos `10M` y `11M`.
+
 ## Preguntas del diseño
 
 Respondidas por el usuario el 2026-11-20 (R-099). Las opciones y las recomendaciones, en la propuesta (`7962f97`).

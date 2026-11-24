@@ -172,8 +172,9 @@ class ConsultationAttachmentService
     }
 
     /**
-     * El nombre original, solo para mostrar: sin carpetas, sin caracteres de control ni los que un
-     * sistema de archivos o un encabezado no aceptan (\ / : * ? " < > |), con los espacios juntos y
+     * El nombre original, solo para mostrar: sin carpetas, sin caracteres de control (C0 y C1) ni marcas
+     * de dirección del texto, ni los que un sistema de archivos o un encabezado no aceptan
+     * (\ / : * ? " < > |), con los espacios juntos y
      * hasta 255 caracteres (conserva la extensión); vacío, "adjunto".
      */
     public static function sanitizeName(?string $name): string
@@ -181,7 +182,9 @@ class ConsultationAttachmentService
         $name = Str::of((string) $name)
             ->replace('\\', '/')
             ->afterLast('/')
-            ->replaceMatches('/[\x00-\x1F\x7F:*?"<>|]/u', '')
+            // Revisión de la 4.5: también los controles C1 (\p{Cc}) y las marcas de dirección (LRM, RLM,
+            // LRE…RLO, LRI…PDI), que harían ver "informe‮fdp.exe" como "informeexe.pdf".
+            ->replaceMatches('/[\p{Cc}:*?"<>|\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '')
             ->squish()
             ->trim(' .')
             ->value();

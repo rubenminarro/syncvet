@@ -27,6 +27,18 @@ class ConsultationImmutabilityTest extends TestCase
 {
     use InteractsWithConsultations;
 
+    /** @var list<string> */
+    private array $temporaryFiles = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->temporaryFiles as $path) {
+            @unlink($path);
+        }
+
+        parent::tearDown();
+    }
+
     public static function writes(): array
     {
         $cases = [];
@@ -95,7 +107,7 @@ class ConsultationImmutabilityTest extends TestCase
 
     private function pdf(): UploadedFile
     {
-        $path = tempnam(sys_get_temp_dir(), 'adj');
+        $path = $this->temporaryFiles[] = tempnam(sys_get_temp_dir(), 'adj');
         file_put_contents($path, "%PDF-1.4\n%%EOF\n");
 
         return new UploadedFile($path, 'estudio.pdf', 'application/pdf', null, true);
